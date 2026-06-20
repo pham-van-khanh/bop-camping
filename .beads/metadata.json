@@ -1,0 +1,7 @@
+{
+  "database": "dolt",
+  "backend": "dolt",
+  "dolt_mode": "embedded",
+  "dolt_database": "bopcamping",
+  "project_id": "d465e6d8-5ee5-4cc4-b4a8-a699a3db135c"
+}
