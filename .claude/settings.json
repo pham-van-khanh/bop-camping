@@ -2,6 +2,121 @@
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
   "alwaysThinkingEnabled": true,
   "cleanupPeriodDays": 90,
+  "enableAllProjectMcpServers": true,
+  "enabledPlugins": {
+    "frontend-design@claude-plugins-official": true
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "hooks": [
+          {
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/post-tool-use-tracker.sh",
+            "timeout": 5,
+            "type": "command"
+          }
+        ],
+        "matcher": "Edit|MultiEdit|Write"
+      }
+    ],
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "command": "bd prime",
+            "type": "command"
+          }
+        ],
+        "matcher": ""
+      }
+    ],
+    "PreToolUse": [
+      {
+        "hooks": [
+          {
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/pre-tool-use-validator.sh",
+            "timeout": 5,
+            "type": "command"
+          }
+        ],
+        "matcher": "Write|Edit|MultiEdit|NotebookEdit"
+      },
+      {
+        "hooks": [
+          {
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/dangerous-command-guard.sh",
+            "timeout": 5,
+            "type": "command"
+          },
+          {
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/pre-commit-verification.sh",
+            "timeout": 5,
+            "type": "command"
+          },
+          {
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/pre-push-main-blocker.sh",
+            "timeout": 5,
+            "type": "command"
+          }
+        ],
+        "matcher": "Bash"
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/session-start-loader.sh",
+            "timeout": 10,
+            "type": "command"
+          }
+        ],
+        "matcher": "startup|resume|compact|clear"
+      },
+      {
+        "hooks": [
+          {
+            "command": "bd prime",
+            "type": "command"
+          }
+        ],
+        "matcher": ""
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/stop-validator.sh",
+            "timeout": 10,
+            "type": "command"
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/subagent-stop-validator.sh",
+            "timeout": 5,
+            "type": "command"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/skill-activation-prompt.sh",
+            "timeout": 5,
+            "type": "command"
+          }
+        ]
+      }
+    ]
+  },
   "permissions": {
     "allow": [
       "// === Core Claude Tools (Read/Navigation) ===",
@@ -9,12 +124,10 @@
       "Glob",
       "Grep",
       "WebSearch",
-
       "// === Core Claude Tools (Write) ===",
       "Edit",
       "Write",
       "NotebookEdit",
-
       "// === File System Read Operations ===",
       "Bash(cat:*)",
       "Bash(ls:*)",
@@ -33,14 +146,12 @@
       "Bash(realpath:*)",
       "Bash(dirname:*)",
       "Bash(basename:*)",
-
       "// === File System Write Operations ===",
       "Bash(cp:*)",
       "Bash(mv:*)",
       "Bash(touch:*)",
       "Bash(mkdir:*)",
       "Bash(chmod:*)",
-
       "// === Text Processing ===",
       "Bash(grep:*)",
       "Bash(sort:*)",
@@ -52,7 +163,6 @@
       "Bash(xargs:*)",
       "Bash(jq:*)",
       "Bash(yq:*)",
-
       "// === System Info ===",
       "Bash(date:*)",
       "Bash(uname:*)",
@@ -69,7 +179,6 @@
       "Bash(curl:*)",
       "Bash(command -v:*)",
       "Bash(command:*)",
-
       "// === Git Read Operations ===",
       "Bash(git status:*)",
       "Bash(git diff:*)",
@@ -91,7 +200,6 @@
       "Bash(git stash list:*)",
       "Bash(git tag -l:*)",
       "Bash(git -C:*)",
-
       "// === Git Write Operations ===",
       "Bash(git add:*)",
       "Bash(git commit:*)",
@@ -110,7 +218,6 @@
       "Bash(git branch -d:*)",
       "Bash(git branch -D:*)",
       "Bash(git clean -n:*)",
-
       "// === GitHub CLI Read Operations ===",
       "Bash(gh issue list:*)",
       "Bash(gh issue view:*)",
@@ -134,14 +241,12 @@
       "Bash(gh variable list:*)",
       "Bash(gh api:*)",
       "Bash(gh auth status:*)",
-
       "// === GitHub CLI Write Operations ===",
       "Bash(gh issue create:*)",
       "Bash(gh pr create:*)",
       "Bash(gh pr edit:*)",
       "Bash(gh pr merge:*)",
       "Bash(gh release create:*)",
-
       "// === Docker Operations ===",
       "Bash(docker ps:*)",
       "Bash(docker logs:*)",
@@ -156,7 +261,6 @@
       "Bash(docker build:*)",
       "Bash(docker run:*)",
       "Bash(docker exec:*)",
-
       "// === Terraform Operations ===",
       "Bash(terraform version:*)",
       "Bash(terraform fmt:*)",
@@ -169,7 +273,6 @@
       "Bash(terraform output:*)",
       "Bash(terraform providers:*)",
       "Bash(terraform graph:*)",
-
       "// === Node.js / Package Managers ===",
       "Bash(node --version:*)",
       "Bash(node -v:*)",
@@ -179,8 +282,7 @@
       "Bash(npm test:*)",
       "Bash(pnpm:*)",
       "Bash(npx:*)",
-
-      "// === Build & Quality Tools ===",
+      "// === Build \u0026 Quality Tools ===",
       "Bash(vitest:*)",
       "Bash(biome:*)",
       "Bash(tsc:*)",
@@ -192,17 +294,13 @@
       "Bash(test:*)",
       "Bash(echo:*)",
       "Bash(#:*)",
-
       "// === Beads Issue Tracker ===",
       "Bash(bd:*)",
-
       "// === Claude CLI ===",
       "Bash(claude:*)",
-
       "// === Scripting ===",
       "Bash(python3:*)",
       "Bash(bash:*)",
-
       "// === MCP Tools ===",
       "mcp__context7__resolve-library-id",
       "mcp__context7__query-docs",
@@ -212,7 +310,6 @@
       "// ide tools are provided by editor extensions (VS Code, JetBrains), not .mcp.json",
       "mcp__ide__getDiagnostics",
       "mcp__ide__executeCode",
-
       "// === WebFetch: Documentation Sites ===",
       "WebFetch(domain:github.com)",
       "WebFetch(domain:raw.githubusercontent.com)",
@@ -229,13 +326,11 @@
       "WebFetch(domain:zod.dev)",
       "WebFetch(domain:npmjs.com)",
       "WebFetch(domain:stackoverflow.com)",
-
       "// === WebFetch: Anthropic/Claude ===",
       "WebFetch(domain:anthropic.com)",
       "WebFetch(domain:docs.anthropic.com)",
       "WebFetch(domain:code.claude.com)",
       "WebFetch(domain:modelcontextprotocol.io)",
-
       "// === WebFetch: Cloud Providers ===",
       "WebFetch(domain:cloudflare.com)",
       "WebFetch(domain:developers.cloudflare.com)",
@@ -246,7 +341,6 @@
       "Bash(rm -rf:*)",
       "Bash(rm -r:*)",
       "Bash(sudo:*)",
-
       "// === Git Destructive Operations ===",
       "Bash(git push --force:*)",
       "Bash(git push -f:*)",
@@ -255,31 +349,26 @@
       "Bash(git reset --hard:*)",
       "Bash(git clean -f:*)",
       "Bash(git clean -fd:*)",
-
       "// === Infrastructure Destructive Operations ===",
       "Bash(terraform destroy:*)",
       "Bash(terraform apply -auto-approve:*)",
       "Bash(docker system prune:*)",
       "Bash(docker rm:*)",
       "Bash(docker rmi:*)",
-
       "// === Dangerous Permission Changes ===",
       "Bash(chmod 777:*)",
-
       "// === Pipe-to-Shell (Remote Code Execution) ===",
       "Bash(curl * | bash*)",
       "Bash(wget * | bash*)",
       "Bash(curl * | sh*)",
       "Bash(wget * | sh*)",
-
       "// === Sensitive Credential Paths (Read) ===",
       "Read(~/.ssh/**)",
       "Read(~/.gnupg/**)",
       "Read(~/.aws/**)",
       "Read(~/.azure/**)",
       "Read(~/.config/gcloud/**)",
-
-      "// === Shell Profile & SSH Key Protection (Edit/Write) ===",
+      "// === Shell Profile \u0026 SSH Key Protection (Edit/Write) ===",
       "Edit(~/.bashrc)",
       "Edit(~/.zshrc)",
       "Edit(~/.bash_profile)",
@@ -289,100 +378,5 @@
       "Edit(~/.ssh/**)",
       "Write(~/.ssh/**)"
     ]
-  },
-  "enableAllProjectMcpServers": true,
-  "hooks": {
-    "UserPromptSubmit": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/skill-activation-prompt.sh",
-            "timeout": 5
-          }
-        ]
-      }
-    ],
-    "SessionStart": [
-      {
-        "matcher": "startup|resume|compact|clear",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/session-start-loader.sh",
-            "timeout": 10
-          }
-        ]
-      }
-    ],
-    "PreToolUse": [
-      {
-        "matcher": "Write|Edit|MultiEdit|NotebookEdit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/pre-tool-use-validator.sh",
-            "timeout": 5
-          }
-        ]
-      },
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/dangerous-command-guard.sh",
-            "timeout": 5
-          },
-          {
-            "type": "command",
-            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/pre-commit-verification.sh",
-            "timeout": 5
-          },
-          {
-            "type": "command",
-            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/pre-push-main-blocker.sh",
-            "timeout": 5
-          }
-        ]
-      }
-    ],
-    "PostToolUse": [
-      {
-        "matcher": "Edit|MultiEdit|Write",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/post-tool-use-tracker.sh",
-            "timeout": 5
-          }
-        ]
-      }
-    ],
-    "Stop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/stop-validator.sh",
-            "timeout": 10
-          }
-        ]
-      }
-    ],
-    "SubagentStop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/subagent-stop-validator.sh",
-            "timeout": 5
-          }
-        ]
-      }
-    ]
-  },
-  "enabledPlugins": {
-    "frontend-design@claude-plugins-official": true
   }
 }
