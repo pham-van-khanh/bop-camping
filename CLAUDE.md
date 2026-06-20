@@ -1,12 +1,64 @@
-# Claude Agentic Framework
+# BopCamping — Website cho thuê đồ Camping
 
-Drop-in framework for optimized Claude Code workflows with specialized commands and reusable skills.
+Web cho thuê thiết bị cắm trại của **một shop duy nhất**. Khách đặt thuê **theo ngày** (có kiểm tra trùng lịch + tồn kho), **có thu tiền cọc**, thanh toán **COD**. Đăng nhập khách bằng **SĐT + tên** (không email/mật khẩu). Giao diện tông **be / màu đất kiểu Naturehike**.
+
+> Kế hoạch chi tiết, mô hình dữ liệu và bảng màu nằm trong [KE_HOACH.md](KE_HOACH.md) — đọc file đó trước khi triển khai tính năng.
+
+**Trạng thái hiện tại:** đã scaffold **Laravel 12.62** (DB=SQLite, migrate xong, trang welcome chạy). Chưa cài Breeze/Inertia/React (issue `bopcamping-iee`). Xem `bd ready` để biết việc tiếp theo.
+
+> **Git/Beads:** repo hiện **chỉ ở local** (chưa cấu hình remote). Các bước "git push" trong phần Session Completion phía dưới CHƯA áp dụng cho tới khi thêm remote — hiện tại chỉ commit local + `bd` lưu local.
+
+## Tech Stack (đã chốt)
+
+Laravel 12 (PHP) · Inertia.js · React + TypeScript · Tailwind CSS · shadcn/ui · Laravel Breeze (auth) · DB = SQLite khi dev (MySQL khi deploy) · Vite.
+
+## Kiến trúc (dự kiến sau khi scaffold)
+
+Monolith Laravel + Inertia — **không có REST API riêng**. Request đi: route → controller → `Inertia::render('Page', $props)` → component React nhận props.
+
+```
+app/Http/Controllers/   # Controller cho cả khách (Shop/) và admin (Admin/)
+app/Models/             # Eloquent: Category, Product, ProductImage, Order, OrderItem
+app/Services/           # Logic nghiệp vụ tách khỏi controller (vd: AvailabilityService)
+database/migrations/    # Schema (xem mô hình dữ liệu ở KE_HOACH.md mục 4)
+database/seeders/       # Dữ liệu mẫu (danh mục, sản phẩm demo)
+resources/js/Pages/     # Trang Inertia (React) — Shop/* và Admin/*
+resources/js/Components/# Component dùng lại + shadcn/ui (resources/js/Components/ui)
+resources/js/Layouts/   # Layout chung (header/footer tông be Naturehike)
+routes/web.php          # Toàn bộ route (web + admin), không dùng routes/api.php
+tests/Feature/          # Test luồng (đặt thuê, kiểm tra trùng lịch...)
+```
+
+**Logic cốt lõi — tính tồn kho theo ngày** (single source of truth, đặt trong 1 service, KHÔNG lặp lại ở nhiều nơi): với mỗi sản phẩm + khoảng `[start_date, end_date]`, số lượng còn cho thuê = `products.quantity − (tổng quantity đã đặt trong các order chồng lịch)`. Hai khoảng chồng nhau khi `start_A <= end_B AND start_B <= end_A`. Mọi chỗ hiển thị "còn hàng / hết hàng" và validate lúc checkout đều gọi cùng hàm này.
+
+## ⚠️ Lưu ý môi trường (QUAN TRỌNG — máy có nhiều bản PHP/Node)
+
+Máy này có nhiều bản PHP cài qua Homebrew (7.1/7.2/7.4/8.1/8.3) và dùng **nvm** cho Node. Đã cấu hình đúng, nhưng nếu thấy sai phiên bản hãy kiểm tra:
+
+- **PHP**: dùng bản brew mặc định `php` = **8.3.8**, link tại `/opt/homebrew/bin/php`. Các dòng PATH cũ trỏ tới `php@7.x` đã được gỡ khỏi `~/.zshrc`. (Laravel 12 cần PHP ≥ 8.2.)
+- **Node**: quản lý bằng **nvm**, mặc định đặt là **Node 20** (`nvm alias default 20`). Bản brew `node` (22) bị nvm "đè" — đây là chủ ý. (React/Vite cần Node ≥ 20.)
+- Verify nhanh trong terminal mới: `php -v` → 8.3.x, `node -v` → v20.x.
 
 ## Quick Reference
 
 ```bash
-# Add your project's key commands here
-# npm run build | pytest | cargo test | go test ./...
+# Chạy app (sau khi đã scaffold) — Laravel 12 có sẵn lệnh gộp:
+composer run dev          # chạy đồng thời: php artisan serve + queue + vite
+
+# Hoặc chạy riêng:
+php artisan serve         # backend tại http://localhost:8000
+npm run dev               # Vite dev server (frontend assets)
+
+# Database (SQLite khi dev)
+php artisan migrate           # chạy migration
+php artisan migrate:fresh --seed   # reset DB + seed lại dữ liệu mẫu
+
+# Test
+php artisan test                       # chạy toàn bộ test
+php artisan test --filter=TenTest      # chạy một test cụ thể
+
+# Build production
+npm run build
 ```
 
 ## Core Principles
@@ -35,10 +87,6 @@ Work on a branch, commit iteratively, and push to remote — work isn't done unt
 Artifacts in `./artifacts/`, track work with Beads (`bd` CLI), document decisions in ADRs, name things clearly.
 
 Full details in `.claude/rules/` (auto-loaded).
-
-## Tech Stack
-
-Defined in `.claude/rules/tech-strategy.md` — auto-loaded for every session.
 
 ## Workflow
 
