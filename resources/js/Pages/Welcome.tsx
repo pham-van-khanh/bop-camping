@@ -1,12 +1,11 @@
 import { Head, Link } from '@inertiajs/react';
 import { motion } from 'framer-motion';
-import { lazy, ReactNode, Suspense } from 'react';
+import { ReactNode } from 'react';
 import SiteLayout from '@/Layouts/SiteLayout';
 import HeroSlideshow from '@/Components/site/HeroSlideshow';
+import BiomeHero from '@/Components/site/BiomeHero';
 import ProductCard from '@/Components/site/ProductCard';
 import { featuredProducts } from '@/lib/catalog';
-
-const CampDiorama = lazy(() => import('@/Components/CampDiorama'));
 
 const EASE: [number, number, number, number] = [0.2, 0.7, 0.2, 1];
 const reveal = {
@@ -99,13 +98,7 @@ export default function Home() {
                 </motion.div>
 
                 <motion.div {...reveal}>
-                    <div className="overflow-hidden rounded-[20px] shadow-hero" style={{ background: 'linear-gradient(180deg,#bfe1f2,#e7f1ec)' }}>
-                        <div className="h-[360px]">
-                            <Suspense fallback={<div className="h-full w-full" />}>
-                                <CampDiorama />
-                            </Suspense>
-                        </div>
-                    </div>
+                    <BiomeHero wind={1.3} />
                     <p className="mt-3.5 text-center font-mono text-[12px] tracking-[0.02em] text-[#8a967a]">
                         Cùng một khu trại · đổi địa điểm theo mùa
                     </p>
