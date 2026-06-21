@@ -1,10 +1,10 @@
-import { PageProps } from '@/types';
 import { Head, Link } from '@inertiajs/react';
 import { motion } from 'framer-motion';
-import { lazy, Suspense } from 'react';
-import Header from '@/Components/site/Header';
-import Footer from '@/Components/site/Footer';
+import { lazy, ReactNode, Suspense } from 'react';
+import SiteLayout from '@/Layouts/SiteLayout';
 import HeroSlideshow from '@/Components/site/HeroSlideshow';
+import ProductCard from '@/Components/site/ProductCard';
+import { featuredProducts } from '@/lib/catalog';
 
 const CampDiorama = lazy(() => import('@/Components/CampDiorama'));
 
@@ -15,15 +15,6 @@ const reveal = {
     viewport: { once: true, amount: 0.2 },
     transition: { duration: 0.6, ease: EASE },
 };
-
-const money = (n: number) => n.toLocaleString('vi-VN') + 'đ';
-
-const featured = [
-    { id: 1, name: 'Lều 2 lớp 4 người', price: 180000, deposit: 500000, stock: 3, cat: 'Lều trại', grad: 'linear-gradient(150deg,#3f6322,#6e9440)' },
-    { id: 2, name: 'Túi ngủ lông vũ -10°C', price: 70000, deposit: 250000, stock: 2, cat: 'Túi ngủ', grad: 'linear-gradient(150deg,#2c5a6e,#6ea7bd)' },
-    { id: 3, name: 'Bếp gas mini + bình', price: 45000, deposit: 150000, stock: 6, cat: 'Bếp & nấu', grad: 'linear-gradient(150deg,#7a5a2a,#c79a52)' },
-    { id: 4, name: 'Đèn lều tích điện', price: 30000, deposit: 100000, stock: 8, cat: 'Đèn & sáng', grad: 'linear-gradient(150deg,#4a4f2a,#9aa05a)' },
-];
 
 const stats = [
     ['120+', 'Bộ thiết bị'],
@@ -40,42 +31,11 @@ const steps = [
     { n: 3, t: 'Nhận đồ và lên đường', d: 'Tụi mình giao tận nơi nội thành. Trả đồ đúng hẹn khi về, hoàn cọc ngay.' },
 ];
 
-function ProductCard({ p }: { p: (typeof featured)[number] }) {
-    const low = p.stock <= 2;
-    return (
-        <Link
-            href={`/thiet-bi/${p.id}`}
-            className="group flex flex-col overflow-hidden rounded-card border border-cardBorder bg-card transition duration-200 hover:-translate-y-1 hover:shadow-cardhover"
-        >
-            <div className="relative h-40" style={{ background: p.grad }}>
-                <div className="absolute inset-0" style={{ background: 'radial-gradient(120px 90px at 78% 22%, rgba(255,255,255,.35), transparent 60%)' }} />
-                <div className="absolute inset-x-0 bottom-0 h-16" style={{ background: 'linear-gradient(180deg, rgba(24,35,15,0), rgba(24,35,15,.5))' }} />
-                <span
-                    className={`absolute left-3 top-3 rounded-pill px-2.5 py-1 font-mono text-[11px] font-bold text-white ${low ? 'bg-campfire' : ''}`}
-                    style={low ? undefined : { background: 'rgba(44,61,34,.72)' }}
-                >
-                    {low ? `Sắp hết · ${p.stock} bộ` : `Còn ${p.stock} bộ`}
-                </span>
-                <span className="absolute bottom-3 left-3 font-mono text-[11px] tracking-[0.05em] text-white/90">{p.cat}</span>
-            </div>
-            <div className="flex flex-1 flex-col px-4 pb-4 pt-3.5">
-                <div className="min-h-[39px] text-[15.5px] font-bold leading-tight text-ink">{p.name}</div>
-                <div className="mt-2.5 flex items-end justify-between">
-                    <div className="font-mono text-[17px] font-bold text-ink">
-                        {money(p.price)}<span className="font-sans text-[12px] font-normal text-[#8a967a]">/ngày</span>
-                    </div>
-                    <div className="font-mono text-[11px] text-campfire">cọc {money(p.deposit)}</div>
-                </div>
-            </div>
-        </Link>
-    );
-}
-
-export default function Home({ auth }: PageProps) {
+export default function Home() {
+    const featured = featuredProducts();
     return (
         <>
             <Head title="Cho thuê thiết bị cắm trại" />
-            <Header cartCount={0} userName={auth?.user?.name} />
 
             {/* Hero ảnh full-bleed (slideshow) */}
             <HeroSlideshow>
@@ -131,11 +91,7 @@ export default function Home({ auth }: PageProps) {
                     </p>
                     <div className="flex flex-wrap gap-2">
                         {biomes.map((b) => (
-                            <span
-                                key={b}
-                                className="rounded-pill px-3.5 py-[7px] font-mono text-[13px]"
-                                style={{ color: '#3a5a1f', background: '#e7eed5', border: '1px solid #d3ddb9' }}
-                            >
+                            <span key={b} className="rounded-pill px-3.5 py-[7px] font-mono text-[13px]" style={{ color: '#3a5a1f', background: '#e7eed5', border: '1px solid #d3ddb9' }}>
                                 {b}
                             </span>
                         ))}
@@ -181,9 +137,9 @@ export default function Home({ auth }: PageProps) {
                     </motion.div>
                     <Link href="/thiet-bi" className="shrink-0 whitespace-nowrap font-bold text-grass hover:text-pine">Xem tất cả →</Link>
                 </div>
-                <motion.div {...reveal} className="grid gap-[18px]" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(248px, 1fr))' }}>
-                    {featured.map((p) => <ProductCard key={p.id} p={p} />)}
-                </motion.div>
+                <div className="grid gap-[18px]" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(248px, 1fr))' }}>
+                    {featured.map((p, i) => <ProductCard key={p.id} p={p} compact index={i} />)}
+                </div>
             </section>
 
             {/* Thuê đồ 3 bước */}
@@ -226,16 +182,13 @@ export default function Home({ auth }: PageProps) {
                     <p className="relative mx-auto mb-[26px] max-w-[480px] text-[17px]" style={{ color: '#d6e4bd' }}>
                         Chọn đồ hôm nay, nhận đồ ngay cuối tuần. Giao nhận nội thành miễn phí cho đơn từ 300.000đ.
                     </p>
-                    <Link
-                        href="/thiet-bi"
-                        className="relative inline-grid h-[54px] place-items-center rounded-[14px] bg-white px-8 text-[17px] font-bold text-pine transition hover:-translate-y-0.5"
-                    >
+                    <Link href="/thiet-bi" className="relative inline-grid h-[54px] place-items-center rounded-[14px] bg-white px-8 text-[17px] font-bold text-pine transition hover:-translate-y-0.5">
                         Bắt đầu chọn đồ
                     </Link>
                 </motion.div>
             </section>
-
-            <Footer />
         </>
     );
 }
+
+Home.layout = (page: ReactNode) => <SiteLayout>{page}</SiteLayout>;

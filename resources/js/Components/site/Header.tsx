@@ -1,4 +1,5 @@
 import { Link, usePage } from '@inertiajs/react';
+import { emit, EVENTS } from '@/lib/bus';
 
 const NAV = [
     { label: 'Trang chủ', href: '/' },
@@ -54,15 +55,15 @@ export default function Header({ cartCount = 0, userName }: { cartCount?: number
 
                 {/* Actions */}
                 <div className="flex shrink-0 items-center gap-2">
-                    <Link
-                        href={route('login')}
+                    <button
+                        onClick={() => emit(EVENTS.openLogin)}
                         className="flex items-center gap-2 rounded-control border border-cardBorder bg-card px-3 py-2 text-sm font-semibold text-pine transition hover:border-grass"
                     >
                         <span className="grid h-6 w-6 place-items-center rounded-full bg-grass/15 text-xs font-bold text-grass">
                             {userName ? userName.trim().charAt(0).toUpperCase() : 'B'}
                         </span>
-                        <span className="hidden sm:inline">{userName ? userName : 'Đăng nhập'}</span>
-                    </Link>
+                        <span className="hidden max-w-[120px] truncate sm:inline">{userName ? userName : 'Đăng nhập'}</span>
+                    </button>
                     <Link
                         href="/gio-thue"
                         className="relative flex items-center gap-2 rounded-control bg-grass px-3.5 py-2 text-sm font-bold text-white transition hover:bg-pine"
