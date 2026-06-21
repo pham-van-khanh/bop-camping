@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\Shop\GuestAuthController;
+use App\Http\Controllers\Shop\OrderController;
 use App\Http\Controllers\Shop\ProductController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -12,6 +13,7 @@ Route::get('/', [ProductController::class, 'home'])->name('home');
 Route::get('/thiet-bi', [ProductController::class, 'index'])->name('products');
 Route::get('/thiet-bi/{product}', [ProductController::class, 'show'])->whereNumber('product')->name('products.show');
 Route::get('/gio-thue', fn () => Inertia::render('Cart'))->name('cart');
+Route::post('/dat-hang', [OrderController::class, 'store'])->name('order.store')->middleware('throttle:20,1');
 Route::get('/tra-cuu', fn () => Inertia::render('OrderLookup'))->name('lookup');
 Route::get('/admin', fn () => Inertia::render('Admin'))->name('admin');
 
