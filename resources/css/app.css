@@ -45,3 +45,15 @@
     0%, 100% { opacity: 0.55; }
     50% { opacity: 1; }
 }
+
+/* Ken Burns cho slideshow hero (RULES mục 9) — zoom nhẹ, đảo chiều */
+@keyframes kenburns {
+    from { transform: scale(1.04); }
+    to   { transform: scale(1.14); }
+}
+.kenburns {
+    animation: kenburns 14s ease-out infinite alternate;
+}
+@media (prefers-reduced-motion: reduce) {
+    .kenburns { animation: none; }
+}
