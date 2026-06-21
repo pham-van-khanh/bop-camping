@@ -1,5 +1,7 @@
 <?php
 
+use App\Http\Controllers\Admin\AuthController as AdminAuthController;
+use App\Http\Controllers\Admin\OrderController as AdminOrderController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\Shop\GuestAuthController;
 use App\Http\Controllers\Shop\OrderController;
@@ -15,7 +17,18 @@ Route::get('/thiet-bi/{product}', [ProductController::class, 'show'])->whereNumb
 Route::get('/gio-thue', fn () => Inertia::render('Cart'))->name('cart');
 Route::post('/dat-hang', [OrderController::class, 'store'])->name('order.store')->middleware('throttle:20,1');
 Route::get('/tra-cuu', fn () => Inertia::render('OrderLookup'))->name('lookup');
-Route::get('/admin', fn () => Inertia::render('Admin'))->name('admin');
+// Admin — auth
+// Không dùng middleware('guest') vì shop user đang login sẽ bị redirect sang /login Breeze
+Route::get('/admin/login', [AdminAuthController::class, 'showLogin'])->name('admin.login');
+Route::post('/admin/login', [AdminAuthController::class, 'login'])->name('admin.login.store')->middleware('throttle:10,1');
+Route::post('/admin/logout', [AdminAuthController::class, 'logout'])->name('admin.logout');
+
+// Admin — panel (bảo vệ bằng middleware 'admin')
+Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(function () {
+    Route::get('/', fn () => redirect()->route('admin.orders'));
+    Route::get('/orders', [AdminOrderController::class, 'index'])->name('orders');
+    Route::patch('/orders/{order}', [AdminOrderController::class, 'updateStatus'])->name('orders.update');
+});
 
 Route::get('/dashboard', function () {
     return Inertia::render('Dashboard');
