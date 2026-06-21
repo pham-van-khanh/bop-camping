@@ -1,0 +1,1120 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{background:#dceef9}
+  ::selection{background:#bfe0f0;color:#16324a}
+  ::-webkit-scrollbar{width:11px;height:11px}
+  ::-webkit-scrollbar-thumb{background:#a9cee2;border-radius:8px;border:3px solid #dcecf6}
+  input,select,button,textarea{font-family:inherit}
+  input:focus-visible,select:focus-visible,button:focus-visible,a:focus-visible,textarea:focus-visible{outline:3px solid #7FA64B;outline-offset:2px}
+  @keyframes bopspin{to{transform:rotate(360deg)}}
+  @keyframes bopskel{0%{opacity:.55}50%{opacity:1}100%{opacity:.55}}
+  @keyframes bopfloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-7px)}}
+</style>
+</helmet>
+
+<div ref="{{ rootRef }}" style="font-family:'Be Vietnam Pro',system-ui,-apple-system,sans-serif;background:linear-gradient(180deg,#a9d8f0 0%,#c6e6f3 14%,#dceff3 34%,#e7f1ec 60%,#eef4e7 100%);background-attachment:fixed;color:#18230F;min-height:100vh;-webkit-font-smoothing:antialiased">
+
+  <!-- ============ NAV ============ -->
+  <header style="position:sticky;top:0;z-index:50;background:rgba(221,239,250,.78);backdrop-filter:blur(14px);border-bottom:1px solid #c2dcec">
+    <nav style="max-width:1200px;margin:0 auto;padding:13px 20px;display:flex;align-items:center;gap:18px">
+      <button onClick="{{ go.home }}" style="display:flex;align-items:center;gap:10px;background:none;border:none;cursor:pointer;padding:0">
+        <span style="width:38px;height:38px;border-radius:11px;background:#557A2B;display:flex;align-items:center;justify-content:center;flex:none">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M12 3 3 20h18L12 3Z" fill="#cfe0a8"/><path d="M12 9l-5 11h10L12 9Z" fill="#557A2B"/><path d="M12 3 3 20" stroke="#fff" stroke-width="1.6" stroke-linecap="round"/></svg>
+        </span>
+        <span style="display:flex;flex-direction:column;align-items:flex-start;line-height:1">
+          <span style="font-weight:800;font-size:17px;letter-spacing:-.01em;color:#2C3D22">BỐP CAMPING</span>
+          <span style="font-family:'Space Mono',monospace;font-size:10px;color:#5C6E47;letter-spacing:.14em;margin-top:3px">THUÊ ĐỒ DÃ NGOẠI</span>
+        </span>
+      </button>
+
+      <div style="flex:1;display:flex;justify-content:center;min-width:0">
+        <div style="display:flex;gap:4px;overflow-x:auto;max-width:100%">
+          <button onClick="{{ go.home }}" style="{{ nav.home }}">Trang chủ</button>
+          <button onClick="{{ go.products }}" style="{{ nav.products }}">Thuê đồ</button>
+          <button onClick="{{ go.lookup }}" style="{{ nav.lookup }}">Tra cứu đơn</button>
+          <button onClick="{{ go.admin }}" style="{{ nav.admin }}">Quản trị</button>
+        </div>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:9px;flex:none">
+        <button onClick="{{ openLogin }}" style="display:flex;align-items:center;gap:8px;height:42px;padding:0 12px;border-radius:12px;border:1px solid #E3E8D6;background:#FBFCF7;cursor:pointer;color:#2C3D22;font-weight:600;font-size:14px">
+          <span style="width:26px;height:26px;border-radius:50%;background:#cfe0a8;color:#3a5a1f;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700">{{ userInitial }}</span>
+          <span style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ userLabel }}</span>
+        </button>
+        <button onClick="{{ go.cart }}" style="position:relative;height:42px;padding:0 16px 0 14px;border-radius:12px;border:none;background:#557A2B;color:#fff;cursor:pointer;font-weight:700;font-size:14px;display:flex;align-items:center;gap:8px">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M3 4h2l2.4 12.3a1.5 1.5 0 0 0 1.5 1.2h8.2a1.5 1.5 0 0 0 1.47-1.18L21 8H6" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="9.5" cy="20" r="1.4" fill="#fff"/><circle cx="18" cy="20" r="1.4" fill="#fff"/></svg>
+          <span>Giỏ thuê</span>
+          <span style="font-family:'Space Mono',monospace;background:#C97B36;color:#fff;border-radius:999px;min-width:22px;height:22px;padding:0 6px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700">{{ cartCountText }}</span>
+        </button>
+      </div>
+    </nav>
+  </header>
+
+  <!-- ============ HOME ============ -->
+  <sc-if value="{{ isHome }}" hint-placeholder-val="{{ true }}">
+  <main>
+    <!-- hero (full-bleed slideshow) -->
+    <section onMouseEnter="{{ albPause }}" onMouseLeave="{{ albResume }}" style="position:relative;width:100%;min-height:clamp(560px,90vh,780px);overflow:hidden;background:#0f1a08">
+      <div style="position:absolute;inset:0;overflow:hidden">
+        <div style="{{ albTrackStyle }}">
+          <sc-for list="{{ albumSlides }}" as="s" hint-placeholder-count="7">
+            <div style="position:relative;flex:none;width:100%;height:100%">
+              <div style="{{ s.imgStyle }}"></div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+      <div style="position:absolute;inset:0;background:linear-gradient(90deg,rgba(8,14,5,.82) 0%,rgba(8,14,5,.52) 40%,rgba(8,14,5,.12) 72%,rgba(8,14,5,.3) 100%)"></div>
+      <div style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(8,14,5,.3) 0%,rgba(8,14,5,0) 26%,rgba(8,14,5,.0) 58%,rgba(8,14,5,.6) 100%)"></div>
+
+      <div style="position:relative;max-width:1200px;margin:0 auto;padding:clamp(44px,9vh,96px) 20px clamp(118px,16vh,150px);min-height:clamp(560px,90vh,780px);box-sizing:border-box;display:flex;flex-direction:column;justify-content:center">
+        <div style="max-width:660px">
+          <div style="display:inline-flex;align-items:center;gap:8px;padding:7px 13px;border-radius:999px;background:rgba(85,122,43,.34);border:1px solid rgba(207,224,168,.4);backdrop-filter:blur(6px);margin-bottom:22px">
+            <span style="width:7px;height:7px;border-radius:50%;background:#9bd34b;box-shadow:0 0 8px #9bd34b"></span>
+            <span style="font-family:'Space Mono',monospace;font-size:12px;color:#eaf3d6;letter-spacing:.04em">CHO THUÊ THEO NGÀY · CỌC LINH HOẠT · COD</span>
+          </div>
+          <h1 style="font-size:clamp(38px,6vw,68px);line-height:1.02;font-weight:800;letter-spacing:-.025em;margin:0 0 20px;color:#fff;text-wrap:balance;text-shadow:0 4px 30px rgba(0,0,0,.45)">Mang cả khu trại<br><span style="color:#bfe06a">đi bất cứ đâu.</span></h1>
+          <p style="font-size:clamp(16px,1.7vw,20px);line-height:1.6;color:rgba(255,255,255,.9);margin:0 0 30px;max-width:520px;text-shadow:0 2px 16px rgba(0,0,0,.4)">Lều, bếp, túi ngủ, đèn trại... thuê đủ bộ cho chuyến đi. Chọn ngày nhận và ngày trả, tụi mình kiểm tra còn hàng và giao tận nơi. Trả tiền khi nhận.</p>
+          <div style="display:flex;flex-wrap:wrap;gap:12px;margin-bottom:6px">
+            <button onClick="{{ go.products }}" style="height:54px;padding:0 28px;border-radius:13px;border:none;background:#557A2B;color:#fff;font-weight:700;font-size:16px;cursor:pointer;box-shadow:0 16px 34px -12px rgba(0,0,0,.6)" style-hover="background:#618a31;transform:translateY(-2px)">Xem thiết bị</button>
+            <button onClick="{{ go.lookup }}" style="height:54px;padding:0 26px;border-radius:13px;border:1px solid rgba(255,255,255,.5);background:rgba(255,255,255,.12);color:#fff;font-weight:600;font-size:16px;cursor:pointer;backdrop-filter:blur(6px)" style-hover="background:rgba(255,255,255,.22)">Tra cứu đơn của tôi</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- controls -->
+      <div style="position:absolute;left:0;right:0;bottom:clamp(20px,3vh,34px);z-index:3">
+        <div style="max-width:1200px;margin:0 auto;padding:0 20px;display:flex;align-items:flex-end;justify-content:space-between;gap:16px">
+          <div style="display:flex;gap:9px;overflow-x:auto;padding-bottom:2px">
+            <sc-for list="{{ albumThumbs }}" as="th" hint-placeholder-count="7">
+              <button onClick="{{ th.onClick }}" aria-label="{{ th.title }}" style="{{ th.style }}"></button>
+            </sc-for>
+          </div>
+          <div style="display:flex;gap:8px;flex:none">
+            <button onClick="{{ albPrev }}" aria-label="Ảnh trước" style="width:46px;height:46px;border-radius:12px;border:1px solid rgba(255,255,255,.45);background:rgba(8,14,5,.4);backdrop-filter:blur(6px);cursor:pointer;color:#fff;font-size:20px;display:flex;align-items:center;justify-content:center" style-hover="background:rgba(8,14,5,.7)">‹</button>
+            <button onClick="{{ albNext }}" aria-label="Ảnh kế" style="width:46px;height:46px;border-radius:12px;border:1px solid rgba(255,255,255,.45);background:rgba(8,14,5,.4);backdrop-filter:blur(6px);cursor:pointer;color:#fff;font-size:20px;display:flex;align-items:center;justify-content:center" style-hover="background:rgba(8,14,5,.7)">›</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- brand story: 3D biome scene -->
+    <section style="max-width:1200px;margin:0 auto;padding:46px 20px 10px;display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:40px;align-items:center">
+      <div data-reveal>
+        <div style="font-family:'Space Mono',monospace;font-size:12px;color:#C97B36;letter-spacing:.1em;margin-bottom:8px">CÙNG MỘT KHU TRẠI</div>
+        <h2 style="font-size:clamp(24px,3vw,34px);font-weight:800;margin:0 0 14px;letter-spacing:-.01em">Một bộ đồ, đi khắp địa hình</h2>
+        <p style="font-size:clamp(15px,1.6vw,18px);line-height:1.65;color:#3f4a32;margin:0 0 18px;max-width:480px">Từ đồng cỏ, rừng thông, lên núi cao rồi ra bờ biển, vẫn là khu trại đó. Tụi mình gói sẵn từng combo theo địa hình để bạn chỉ việc xách đi và tận hưởng.</p>
+        <div style="display:flex;flex-wrap:wrap;gap:8px">
+          <span style="font-family:'Space Mono',monospace;font-size:13px;color:#3a5a1f;background:#e7eed5;border:1px solid #d3ddb9;border-radius:999px;padding:7px 14px">Đồng cỏ</span>
+          <span style="font-family:'Space Mono',monospace;font-size:13px;color:#3a5a1f;background:#e7eed5;border:1px solid #d3ddb9;border-radius:999px;padding:7px 14px">Rừng thông</span>
+          <span style="font-family:'Space Mono',monospace;font-size:13px;color:#3a5a1f;background:#e7eed5;border:1px solid #d3ddb9;border-radius:999px;padding:7px 14px">Núi cao</span>
+          <span style="font-family:'Space Mono',monospace;font-size:13px;color:#3a5a1f;background:#e7eed5;border:1px solid #d3ddb9;border-radius:999px;padding:7px 14px">Bờ biển</span>
+        </div>
+      </div>
+      <div data-reveal>
+        <x-import component="BiomeHero" from="./BiomeHero.jsx" hint-size="100%,360px"></x-import>
+        <p style="text-align:center;font-family:'Space Mono',monospace;font-size:12px;color:#8a967a;margin:14px 0 0;letter-spacing:.02em">Cùng một khu trại &middot; đổi địa điểm theo mùa</p>
+      </div>
+    </section>
+
+    <!-- stats strip -->
+    <section style="max-width:1200px;margin:0 auto;padding:8px 20px">
+      <div data-reveal style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:1px;background:#E3E8D6;border:1px solid #E3E8D6;border-radius:18px;overflow:hidden">
+        <sc-for list="{{ stats }}" as="s" hint-placeholder-count="4">
+          <div style="background:#FBFCF7;padding:22px 18px;text-align:center">
+            <div style="font-family:'Space Mono',monospace;font-size:26px;font-weight:700;color:#557A2B">{{ s.value }}</div>
+            <div style="font-size:13px;color:#5C6E47;margin-top:5px">{{ s.label }}</div>
+          </div>
+        </sc-for>
+      </div>
+    </section>
+
+    <!-- featured -->
+    <section style="max-width:1200px;margin:0 auto;padding:48px 20px 10px">
+      <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:22px">
+        <div data-reveal>
+          <div style="font-family:'Space Mono',monospace;font-size:12px;color:#C97B36;letter-spacing:.1em;margin-bottom:8px">ĐƯỢC THUÊ NHIỀU</div>
+          <h2 style="font-size:clamp(24px,3vw,32px);font-weight:800;margin:0;letter-spacing:-.01em">Thiết bị nổi bật</h2>
+        </div>
+        <button onClick="{{ go.products }}" style="background:none;border:none;color:#557A2B;font-weight:700;font-size:15px;cursor:pointer;white-space:nowrap">Xem tất cả →</button>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(248px,1fr));gap:18px">
+        <sc-for list="{{ featured }}" as="p" hint-placeholder-count="4">
+          <div data-reveal onClick="{{ p.open }}" style="background:#FBFCF7;border:1px solid #E3E8D6;border-radius:16px;overflow:hidden;cursor:pointer;transition:transform .25s,box-shadow .25s" style-hover="transform:translateY(-4px);box-shadow:0 20px 40px -22px rgba(44,61,34,.5)">
+            <div style="{{ p.thumbStyle }}">
+              <div style="{{ p.sunStyle }}"></div>
+              <div style="position:absolute;left:0;right:0;bottom:0;height:64px;background:linear-gradient(180deg,rgba(24,35,15,0),rgba(24,35,15,.5))"></div>
+              <span style="position:absolute;left:12px;bottom:11px;font-family:'Space Mono',monospace;font-size:11px;color:#fff;letter-spacing:.05em;opacity:.92">{{ p.catLabel }}</span>
+              <span style="{{ p.stockStyle }}">{{ p.stockText }}</span>
+            </div>
+            <div style="padding:14px 15px 16px">
+              <div style="font-weight:700;font-size:15.5px;line-height:1.25;margin-bottom:10px;min-height:39px">{{ p.name }}</div>
+              <div style="display:flex;align-items:baseline;justify-content:space-between">
+                <div><span style="font-family:'Space Mono',monospace;font-weight:700;font-size:17px;color:#18230F">{{ p.priceText }}</span><span style="font-size:12px;color:#8a967a">/ngày</span></div>
+                <div style="font-family:'Space Mono',monospace;font-size:11px;color:#C97B36">cọc {{ p.depositText }}</div>
+              </div>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </section>
+
+    <!-- 3 steps -->
+    <section style="max-width:1200px;margin:0 auto;padding:54px 20px 20px">
+      <h2 data-reveal style="text-align:center;font-size:clamp(24px,3vw,32px);font-weight:800;margin:0 0 8px;letter-spacing:-.01em">Thuê đồ trong 3 bước</h2>
+      <p data-reveal style="text-align:center;color:#5C6E47;margin:0 auto 34px;max-width:520px">Không cần tài khoản rườm rà. Chỉ cần số điện thoại và tên là xong.</p>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:18px">
+        <sc-for list="{{ steps }}" as="st" hint-placeholder-count="3">
+          <div data-reveal style="background:#FBFCF7;border:1px solid #E3E8D6;border-radius:16px;padding:26px 22px;position:relative">
+            <span style="font-family:'Space Mono',monospace;font-size:13px;font-weight:700;color:#fff;background:#557A2B;width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;margin-bottom:16px">{{ st.no }}</span>
+            <div style="font-weight:700;font-size:17px;margin-bottom:7px">{{ st.title }}</div>
+            <div style="color:#5C6E47;font-size:14px;line-height:1.55">{{ st.body }}</div>
+          </div>
+        </sc-for>
+      </div>
+    </section>
+
+    <!-- CTA -->
+    <section style="max-width:1200px;margin:46px auto;padding:0 20px">
+      <div data-reveal style="position:relative;overflow:hidden;border-radius:24px;background:linear-gradient(120deg,#2C3D22,#3f5a2a 60%,#557A2B);padding:clamp(34px,5vw,56px);text-align:center">
+        <div style="position:absolute;top:-40px;right:-30px;width:180px;height:180px;border-radius:50%;background:rgba(201,123,54,.28);filter:blur(8px)"></div>
+        <h2 style="position:relative;color:#fff;font-size:clamp(26px,3.4vw,38px);font-weight:800;margin:0 0 12px;letter-spacing:-.01em">Sẵn sàng cho chuyến đi tiếp theo?</h2>
+        <p style="position:relative;color:#d6e4bd;font-size:17px;margin:0 auto 26px;max-width:480px">Chọn đồ hôm nay, nhận đồ ngay cuối tuần. Giao nhận nội thành miễn phí cho đơn từ 300.000đ.</p>
+        <button onClick="{{ go.products }}" style="position:relative;height:54px;padding:0 32px;border-radius:14px;border:none;background:#fff;color:#2C3D22;font-weight:700;font-size:17px;cursor:pointer" style-hover="background:#f0f4e6">Bắt đầu chọn đồ</button>
+      </div>
+    </section>
+  </main>
+  </sc-if>
+
+  <!-- ============ PRODUCTS ============ -->
+  <sc-if value="{{ isProducts }}" hint-placeholder-val="{{ true }}">
+  <main style="max-width:1200px;margin:0 auto;padding:34px 20px 40px">
+    <div style="margin-bottom:24px">
+      <div style="font-family:'Space Mono',monospace;font-size:12px;color:#C97B36;letter-spacing:.1em;margin-bottom:7px">KHO THIẾT BỊ</div>
+      <h1 style="font-size:clamp(26px,3.4vw,36px);font-weight:800;margin:0;letter-spacing:-.01em">Chọn đồ cho chuyến đi</h1>
+    </div>
+
+    <!-- toolbar -->
+    <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-bottom:18px">
+      <div style="display:flex;align-items:center;gap:10px;background:#FBFCF7;border:1px solid #E3E8D6;border-radius:12px;padding:11px 14px;flex:1;min-width:220px">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="#8a967a" stroke-width="1.8"/><path d="m20 20-3.2-3.2" stroke="#8a967a" stroke-width="1.8" stroke-linecap="round"/></svg>
+        <input value="{{ search }}" onInput="{{ setSearch }}" placeholder="Tìm lều, bếp, túi ngủ..." style="border:none;background:none;outline:none;font-size:15px;flex:1;color:#18230F"/>
+      </div>
+      <select value="{{ sort }}" onChange="{{ setSort }}" style="height:44px;padding:0 14px;border-radius:12px;border:1px solid #E3E8D6;background:#FBFCF7;font-size:14px;color:#2C3D22;font-weight:600;cursor:pointer">
+        <option value="pop">Phổ biến nhất</option>
+        <option value="low">Giá: thấp đến cao</option>
+        <option value="high">Giá: cao đến thấp</option>
+      </select>
+      <div style="display:flex;background:#eef2e3;border:1px solid #E3E8D6;border-radius:12px;padding:3px">
+        <button onClick="{{ demo.ok }}" style="{{ demoStyle.ok }}">Bình thường</button>
+        <button onClick="{{ demo.load }}" style="{{ demoStyle.load }}">Đang tải</button>
+        <button onClick="{{ demo.err }}" style="{{ demoStyle.err }}">Lỗi</button>
+      </div>
+    </div>
+
+    <!-- category chips -->
+    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:22px">
+      <sc-for list="{{ cats }}" as="c" hint-placeholder-count="6">
+        <button onClick="{{ c.onClick }}" style="{{ c.style }}">{{ c.label }}</button>
+      </sc-for>
+    </div>
+
+    <!-- loading -->
+    <sc-if value="{{ isLoading }}" hint-placeholder-val="{{ false }}">
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(248px,1fr));gap:18px">
+        <sc-for list="{{ skeletons }}" as="k" hint-placeholder-count="6">
+          <div style="background:#FBFCF7;border:1px solid #E3E8D6;border-radius:16px;overflow:hidden">
+            <div style="height:170px;background:#e7ebdc;animation:bopskel 1.4s ease-in-out infinite"></div>
+            <div style="padding:15px">
+              <div style="height:14px;width:80%;background:#e7ebdc;border-radius:6px;animation:bopskel 1.4s ease-in-out infinite"></div>
+              <div style="height:14px;width:50%;background:#e7ebdc;border-radius:6px;margin-top:10px;animation:bopskel 1.4s ease-in-out infinite"></div>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </sc-if>
+
+    <!-- error -->
+    <sc-if value="{{ isError }}" hint-placeholder-val="{{ false }}">
+      <div style="background:#FBFCF7;border:1px solid #ecd3c4;border-radius:18px;padding:48px 24px;text-align:center">
+        <div style="width:58px;height:58px;border-radius:50%;background:#f7e7da;color:#C97B36;display:flex;align-items:center;justify-content:center;font-size:28px;margin:0 auto 16px">!</div>
+        <div style="font-weight:700;font-size:18px;margin-bottom:6px">Không tải được danh sách</div>
+        <div style="color:#5C6E47;margin-bottom:20px">Kết nối có vẻ trục trặc. Thử lại giúp tụi mình nhé.</div>
+        <button onClick="{{ demo.ok }}" style="height:46px;padding:0 24px;border-radius:12px;border:none;background:#557A2B;color:#fff;font-weight:700;cursor:pointer">Thử lại</button>
+      </div>
+    </sc-if>
+
+    <!-- results -->
+    <sc-if value="{{ showResults }}" hint-placeholder-val="{{ true }}">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+        <span style="font-family:'Space Mono',monospace;font-size:13px;color:#5C6E47">{{ resultCountText }}</span>
+      </div>
+      <sc-if value="{{ isEmpty }}" hint-placeholder-val="{{ false }}">
+        <div style="background:#FBFCF7;border:1px dashed #cdd6b6;border-radius:18px;padding:50px 24px;text-align:center">
+          <div style="font-size:34px;margin-bottom:10px">⛺</div>
+          <div style="font-weight:700;font-size:18px;margin-bottom:6px">Chưa tìm thấy thiết bị phù hợp</div>
+          <div style="color:#5C6E47;margin-bottom:20px">Thử từ khoá khác hoặc bỏ bớt bộ lọc.</div>
+          <button onClick="{{ clearFilters }}" style="height:46px;padding:0 24px;border-radius:12px;border:1px solid #cdd6b6;background:#fff;color:#2C3D22;font-weight:600;cursor:pointer">Xoá bộ lọc</button>
+        </div>
+      </sc-if>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(248px,1fr));gap:18px">
+        <sc-for list="{{ products }}" as="p" hint-placeholder-count="8">
+          <div onClick="{{ p.open }}" style="background:#FBFCF7;border:1px solid #E3E8D6;border-radius:16px;overflow:hidden;cursor:pointer;transition:transform .25s,box-shadow .25s" style-hover="transform:translateY(-4px);box-shadow:0 20px 40px -22px rgba(44,61,34,.5)">
+            <div style="{{ p.thumbStyle }}">
+              <div style="{{ p.sunStyle }}"></div>
+              <div style="position:absolute;left:0;right:0;bottom:0;height:64px;background:linear-gradient(180deg,rgba(24,35,15,0),rgba(24,35,15,.5))"></div>
+              <span style="position:absolute;left:12px;bottom:11px;font-family:'Space Mono',monospace;font-size:11px;color:#fff;letter-spacing:.05em;opacity:.92">{{ p.catLabel }}</span>
+              <span style="{{ p.stockStyle }}">{{ p.stockText }}</span>
+            </div>
+            <div style="padding:14px 15px 16px">
+              <div style="font-weight:700;font-size:15.5px;line-height:1.25;margin-bottom:6px;min-height:39px">{{ p.name }}</div>
+              <div style="color:#8a967a;font-size:12.5px;line-height:1.45;margin-bottom:11px;min-height:36px">{{ p.blurb }}</div>
+              <div style="display:flex;align-items:baseline;justify-content:space-between">
+                <div><span style="font-family:'Space Mono',monospace;font-weight:700;font-size:17px;color:#18230F">{{ p.priceText }}</span><span style="font-size:12px;color:#8a967a">/ngày</span></div>
+                <div style="font-family:'Space Mono',monospace;font-size:11px;color:#C97B36">cọc {{ p.depositText }}</div>
+              </div>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </sc-if>
+  </main>
+  </sc-if>
+
+  <!-- ============ DETAIL ============ -->
+  <sc-if value="{{ isDetail }}" hint-placeholder-val="{{ false }}">
+  <main style="max-width:1120px;margin:0 auto;padding:24px 20px 48px">
+    <button onClick="{{ go.products }}" style="background:none;border:none;color:#5C6E47;font-weight:600;font-size:14px;cursor:pointer;padding:8px 0;margin-bottom:10px">← Quay lại danh sách</button>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:34px;align-items:start">
+      <!-- gallery -->
+      <div>
+        <div style="{{ d.mainStyle }}">
+          <div style="{{ d.mainSun }}"></div>
+          <div style="position:absolute;left:0;right:0;bottom:0;height:90px;background:linear-gradient(180deg,rgba(24,35,15,0),rgba(24,35,15,.4))"></div>
+          <span style="position:absolute;left:18px;bottom:16px;font-family:'Space Mono',monospace;font-size:13px;color:#fff;letter-spacing:.06em">{{ d.catLabel }}</span>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:10px">
+          <sc-for list="{{ d.gallery }}" as="g" hint-placeholder-count="4">
+            <div onClick="{{ g.onClick }}" style="{{ g.style }}"></div>
+          </sc-for>
+        </div>
+      </div>
+      <!-- info -->
+      <div>
+        <h1 style="font-size:clamp(24px,3vw,30px);font-weight:800;margin:0 0 10px;letter-spacing:-.01em;line-height:1.15">{{ d.name }}</h1>
+        <div style="display:flex;align-items:center;gap:14px;margin-bottom:18px;flex-wrap:wrap">
+          <span style="font-family:'Space Mono',monospace;font-size:13px;color:#C97B36">★ {{ d.rating }}</span>
+          <span style="{{ d.stockStyle }}">{{ d.stockText }}</span>
+        </div>
+        <div style="display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap">
+          <div style="flex:1;min-width:140px;background:#eef2e3;border-radius:13px;padding:14px 16px">
+            <div style="font-size:12px;color:#5C6E47;margin-bottom:4px">Giá thuê</div>
+            <div><span style="font-family:'Space Mono',monospace;font-weight:700;font-size:22px;color:#557A2B">{{ d.priceText }}</span><span style="font-size:13px;color:#8a967a">/ngày</span></div>
+          </div>
+          <div style="flex:1;min-width:140px;background:#f7efe5;border-radius:13px;padding:14px 16px">
+            <div style="font-size:12px;color:#9a7a4a;margin-bottom:4px">Tiền cọc (hoàn lại)</div>
+            <div style="font-family:'Space Mono',monospace;font-weight:700;font-size:22px;color:#C97B36">{{ d.depositText }}</div>
+          </div>
+        </div>
+        <p style="color:#3f4a32;font-size:15px;line-height:1.6;margin:0 0 18px">{{ d.blurb }}</p>
+        <div style="border-top:1px solid #E3E8D6;padding-top:16px;margin-bottom:20px">
+          <sc-for list="{{ d.specs }}" as="sp" hint-placeholder-count="4">
+            <div style="display:flex;justify-content:space-between;padding:7px 0;font-size:14px">
+              <span style="color:#8a967a">{{ sp.k }}</span>
+              <span style="font-weight:600;color:#2C3D22">{{ sp.v }}</span>
+            </div>
+          </sc-for>
+        </div>
+
+        <!-- date picker -->
+        <div style="background:#FBFCF7;border:1px solid #E3E8D6;border-radius:16px;padding:18px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+            <div style="font-weight:700;font-size:15px">Chọn ngày nhận và trả</div>
+            <div style="display:flex;gap:6px">
+              <button onClick="{{ cal.prev }}" style="width:30px;height:30px;border-radius:9px;border:1px solid #E3E8D6;background:#fff;cursor:pointer;color:#5C6E47">‹</button>
+              <button onClick="{{ cal.next }}" style="width:30px;height:30px;border-radius:9px;border:1px solid #E3E8D6;background:#fff;cursor:pointer;color:#5C6E47">›</button>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:20px">
+            <sc-for list="{{ calMonths }}" as="mo" hint-placeholder-count="2">
+              <div>
+                <div style="text-align:center;font-weight:700;font-size:13px;color:#2C3D22;margin-bottom:8px">{{ mo.label }}</div>
+                <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin-bottom:4px">
+                  <sc-for list="{{ mo.dows }}" as="dw" hint-placeholder-count="7">
+                    <div style="text-align:center;font-size:10px;color:#a3ad92;font-weight:600;padding:3px 0">{{ dw }}</div>
+                  </sc-for>
+                </div>
+                <sc-for list="{{ mo.weeks }}" as="wk" hint-placeholder-count="5">
+                  <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin-bottom:3px">
+                    <sc-for list="{{ wk }}" as="dd">
+                      <button onClick="{{ dd.onClick }}" style="{{ dd.style }}">{{ dd.label }}</button>
+                    </sc-for>
+                  </div>
+                </sc-for>
+              </div>
+            </sc-for>
+          </div>
+          <div style="display:flex;align-items:center;gap:7px;margin-top:12px;flex-wrap:wrap;font-size:11px;color:#8a967a">
+            <span style="display:inline-flex;align-items:center;gap:5px"><span style="width:11px;height:11px;border-radius:4px;background:#557A2B"></span>Đã chọn</span>
+            <span style="display:inline-flex;align-items:center;gap:5px"><span style="width:11px;height:11px;border-radius:4px;background:#dbe6c4"></span>Trong khoảng</span>
+            <span style="display:inline-flex;align-items:center;gap:5px"><span style="width:11px;height:11px;border-radius:4px;background:#f0d9c4"></span>Hết hàng</span>
+          </div>
+        </div>
+
+        <!-- range + qty + availability -->
+        <div style="margin-top:16px;background:#fff;border:1px solid #E3E8D6;border-radius:14px;padding:16px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+            <div>
+              <div style="font-size:12px;color:#8a967a">Khoảng thuê</div>
+              <div style="font-family:'Space Mono',monospace;font-weight:700;font-size:15px;color:#18230F">{{ d.rangeText }}</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px">
+              <span style="font-size:13px;color:#5C6E47">Số bộ</span>
+              <div style="display:flex;align-items:center;gap:0;border:1px solid #E3E8D6;border-radius:10px;overflow:hidden">
+                <button onClick="{{ qtyDec }}" style="width:34px;height:36px;border:none;background:#f1f4ea;cursor:pointer;font-size:18px;color:#557A2B">−</button>
+                <span style="font-family:'Space Mono',monospace;width:38px;text-align:center;font-weight:700">{{ qty }}</span>
+                <button onClick="{{ qtyInc }}" style="width:34px;height:36px;border:none;background:#f1f4ea;cursor:pointer;font-size:18px;color:#557A2B">+</button>
+              </div>
+            </div>
+          </div>
+          <div style="{{ d.availStyle }}">{{ d.availText }}</div>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-top:14px">
+            <div>
+              <div style="font-size:12px;color:#8a967a">Tạm tính ({{ d.daysText }})</div>
+              <div style="font-family:'Space Mono',monospace;font-weight:700;font-size:20px;color:#557A2B">{{ d.subtotalText }}</div>
+              <div style="font-family:'Space Mono',monospace;font-size:11px;color:#C97B36">+ cọc {{ d.subDepositText }}</div>
+            </div>
+            <button onClick="{{ addToCart }}" style="{{ d.addStyle }}">{{ d.addLabel }}</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+  </sc-if>
+
+  <!-- ============ CART / CHECKOUT ============ -->
+  <sc-if value="{{ isCart }}" hint-placeholder-val="{{ false }}">
+  <main style="max-width:1060px;margin:0 auto;padding:30px 20px 48px">
+    <!-- success -->
+    <sc-if value="{{ hasPlaced }}" hint-placeholder-val="{{ false }}">
+      <div style="background:#FBFCF7;border:1px solid #E3E8D6;border-radius:20px;padding:clamp(28px,4vw,44px);text-align:center;max-width:600px;margin:10px auto">
+        <div style="width:68px;height:68px;border-radius:50%;background:#dcebc4;color:#3a5a1f;display:flex;align-items:center;justify-content:center;margin:0 auto 18px"><svg width="34" height="34" viewBox="0 0 24 24" fill="none"><path d="m5 13 4 4L19 7" stroke="#3a5a1f" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+        <h1 style="font-size:26px;font-weight:800;margin:0 0 8px">Đã đặt giữ chỗ!</h1>
+        <p style="color:#5C6E47;margin:0 0 18px">Tụi mình sẽ gọi xác nhận trong ít phút. Mã đơn của bạn:</p>
+        <div style="display:inline-block;font-family:'Space Mono',monospace;font-size:24px;font-weight:700;letter-spacing:.1em;color:#557A2B;background:#eef2e3;border:1px dashed #b9c79a;border-radius:12px;padding:12px 26px;margin-bottom:22px">{{ placed.code }}</div>
+        <div style="text-align:left;background:#f6f8ef;border-radius:13px;padding:16px 18px;margin-bottom:22px">
+          <div style="display:flex;justify-content:space-between;padding:5px 0;font-size:14px"><span style="color:#8a967a">Khách</span><span style="font-weight:600">{{ placed.name }}</span></div>
+          <div style="display:flex;justify-content:space-between;padding:5px 0;font-size:14px"><span style="color:#8a967a">Số món</span><span style="font-family:'Space Mono',monospace;font-weight:600">{{ placed.itemsText }}</span></div>
+          <div style="display:flex;justify-content:space-between;padding:5px 0;font-size:14px"><span style="color:#8a967a">Trả khi nhận (COD)</span><span style="font-family:'Space Mono',monospace;font-weight:700;color:#557A2B">{{ placed.payText }}</span></div>
+        </div>
+        <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
+          <button onClick="{{ go.lookup }}" style="height:48px;padding:0 22px;border-radius:12px;border:none;background:#557A2B;color:#fff;font-weight:700;cursor:pointer">Tra cứu đơn này</button>
+          <button onClick="{{ go.home }}" style="height:48px;padding:0 22px;border-radius:12px;border:1px solid #cdd6b6;background:#fff;color:#2C3D22;font-weight:600;cursor:pointer">Về trang chủ</button>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ showCart }}" hint-placeholder-val="{{ true }}">
+      <h1 style="font-size:clamp(24px,3vw,32px);font-weight:800;margin:0 0 22px;letter-spacing:-.01em">Giỏ thuê</h1>
+      <!-- empty -->
+      <sc-if value="{{ cartEmpty }}" hint-placeholder-val="{{ true }}">
+        <div style="background:#FBFCF7;border:1px dashed #cdd6b6;border-radius:18px;padding:56px 24px;text-align:center">
+          <div style="font-size:40px;margin-bottom:12px;animation:bopfloat 3s ease-in-out infinite">🎒</div>
+          <div style="font-weight:700;font-size:19px;margin-bottom:6px">Giỏ thuê đang trống</div>
+          <div style="color:#5C6E47;margin-bottom:22px">Thêm vài món thiết bị để bắt đầu chuyến đi của bạn.</div>
+          <button onClick="{{ go.products }}" style="height:48px;padding:0 26px;border-radius:12px;border:none;background:#557A2B;color:#fff;font-weight:700;cursor:pointer">Chọn thiết bị</button>
+        </div>
+      </sc-if>
+      <!-- has items -->
+      <sc-if value="{{ cartHas }}" hint-placeholder-val="{{ false }}">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:24px;align-items:start">
+          <div>
+            <sc-for list="{{ cartItems }}" as="it" hint-placeholder-count="2">
+              <div style="display:flex;gap:14px;background:#FBFCF7;border:1px solid #E3E8D6;border-radius:14px;padding:13px;margin-bottom:12px">
+                <div style="{{ it.thumbStyle }}"></div>
+                <div style="flex:1;min-width:0">
+                  <div style="font-weight:700;font-size:15px;line-height:1.25">{{ it.name }}</div>
+                  <div style="font-family:'Space Mono',monospace;font-size:12px;color:#8a967a;margin:3px 0 8px">{{ it.rangeText }} · {{ it.daysText }}</div>
+                  <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
+                    <div style="display:flex;align-items:center;border:1px solid #E3E8D6;border-radius:9px;overflow:hidden">
+                      <button onClick="{{ it.dec }}" style="width:30px;height:32px;border:none;background:#f1f4ea;cursor:pointer;color:#557A2B;font-size:16px">−</button>
+                      <span style="font-family:'Space Mono',monospace;width:34px;text-align:center;font-weight:700;font-size:13px">{{ it.qty }}</span>
+                      <button onClick="{{ it.inc }}" style="width:30px;height:32px;border:none;background:#f1f4ea;cursor:pointer;color:#557A2B;font-size:16px">+</button>
+                    </div>
+                    <div style="text-align:right">
+                      <div style="font-family:'Space Mono',monospace;font-weight:700;font-size:15px">{{ it.lineRentText }}</div>
+                      <div style="font-family:'Space Mono',monospace;font-size:11px;color:#C97B36">cọc {{ it.lineDepositText }}</div>
+                    </div>
+                  </div>
+                </div>
+                <button onClick="{{ it.remove }}" style="align-self:flex-start;background:none;border:none;cursor:pointer;color:#b3493a;font-size:18px;padding:2px 4px" title="Xoá">×</button>
+              </div>
+            </sc-for>
+            <button onClick="{{ go.products }}" style="background:none;border:none;color:#557A2B;font-weight:700;font-size:14px;cursor:pointer;margin-top:4px">+ Thêm thiết bị khác</button>
+          </div>
+
+          <!-- checkout -->
+          <div style="background:#FBFCF7;border:1px solid #E3E8D6;border-radius:16px;padding:20px;position:sticky;top:84px">
+            <div style="font-weight:700;font-size:16px;margin-bottom:14px">Thông tin nhận đồ</div>
+            <div style="display:flex;flex-direction:column;gap:11px;margin-bottom:16px">
+              <input value="{{ form.name }}" onInput="{{ setName }}" placeholder="Họ và tên" style="height:46px;padding:0 14px;border-radius:11px;border:1px solid #E3E8D6;background:#fff;font-size:15px;color:#18230F"/>
+              <input value="{{ form.phone }}" onInput="{{ setPhone }}" placeholder="Số điện thoại" inputmode="tel" style="height:46px;padding:0 14px;border-radius:11px;border:1px solid #E3E8D6;background:#fff;font-size:15px;color:#18230F"/>
+              <input value="{{ form.address }}" onInput="{{ setAddr }}" placeholder="Địa chỉ giao nhận" style="height:46px;padding:0 14px;border-radius:11px;border:1px solid #E3E8D6;background:#fff;font-size:15px;color:#18230F"/>
+              <textarea value="{{ form.note }}" onInput="{{ setNote }}" placeholder="Ghi chú (tuỳ chọn)" rows="2" style="padding:11px 14px;border-radius:11px;border:1px solid #E3E8D6;background:#fff;font-size:14px;color:#18230F;resize:vertical"></textarea>
+            </div>
+            <div style="border-top:1px solid #E3E8D6;padding-top:14px">
+              <div style="display:flex;justify-content:space-between;padding:5px 0;font-size:14px"><span style="color:#5C6E47">Tổng tiền thuê</span><span style="font-family:'Space Mono',monospace;font-weight:600">{{ totals.rentText }}</span></div>
+              <div style="display:flex;justify-content:space-between;padding:5px 0;font-size:14px"><span style="color:#5C6E47">Tổng cọc (hoàn khi trả)</span><span style="font-family:'Space Mono',monospace;font-weight:600;color:#C97B36">{{ totals.depositText }}</span></div>
+              <div style="display:flex;justify-content:space-between;padding:11px 0 5px;font-size:16px;border-top:1px dashed #d6ddc4;margin-top:6px"><span style="font-weight:700">Trả khi nhận</span><span style="font-family:'Space Mono',monospace;font-weight:700;font-size:18px;color:#557A2B">{{ totals.payText }}</span></div>
+            </div>
+            <div style="display:flex;gap:9px;align-items:center;background:#eef2e3;border-radius:11px;padding:11px 13px;margin:14px 0;font-size:13px;color:#3a5a1f">
+              <span style="width:22px;height:22px;border-radius:6px;background:#557A2B;color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex:none">COD</span>
+              <span>Thanh toán tiền mặt khi nhận đồ. Tiền cọc hoàn lại đầy đủ khi trả đủ và nguyên vẹn.</span>
+            </div>
+            <div style="{{ formErrStyle }}">{{ formErr }}</div>
+            <button onClick="{{ placeOrder }}" style="{{ placeStyle }}">{{ placeLabel }}</button>
+          </div>
+        </div>
+      </sc-if>
+    </sc-if>
+  </main>
+  </sc-if>
+
+  <!-- ============ LOOKUP ============ -->
+  <sc-if value="{{ isLookup }}" hint-placeholder-val="{{ false }}">
+  <main style="max-width:640px;margin:0 auto;padding:38px 20px 48px">
+    <h1 style="font-size:clamp(24px,3vw,32px);font-weight:800;margin:0 0 8px;letter-spacing:-.01em">Tra cứu đơn thuê</h1>
+    <p style="color:#5C6E47;margin:0 0 24px">Nhập mã đơn và số điện thoại đã đặt để xem trạng thái.</p>
+    <div style="background:#FBFCF7;border:1px solid #E3E8D6;border-radius:16px;padding:20px;margin-bottom:22px">
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <div>
+          <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#8a967a;margin-bottom:6px">Mã đơn</label>
+          <input value="{{ look.code }}" onInput="{{ setLookCode }}" placeholder="VD: BOP-2048" style="width:100%;height:48px;padding:0 14px;border-radius:11px;border:1px solid #E3E8D6;background:#fff;font-family:'Space Mono',monospace;font-size:15px;color:#18230F;letter-spacing:.04em"/>
+        </div>
+        <div>
+          <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#8a967a;margin-bottom:6px">Số điện thoại</label>
+          <input value="{{ look.phone }}" onInput="{{ setLookPhone }}" placeholder="Số điện thoại đặt đơn" inputmode="tel" style="width:100%;height:48px;padding:0 14px;border-radius:11px;border:1px solid #E3E8D6;background:#fff;font-size:15px;color:#18230F"/>
+        </div>
+        <button onClick="{{ doLookup }}" style="{{ lookBtnStyle }}">{{ lookBtnLabel }}</button>
+        <div style="font-family:'Space Mono',monospace;font-size:11px;color:#a3ad92;text-align:center">Thử: BOP-2048 &middot; 0905123456</div>
+      </div>
+    </div>
+
+    <sc-if value="{{ lookNotFound }}" hint-placeholder-val="{{ false }}">
+      <div style="background:#fff;border:1px solid #ecd3c4;border-radius:14px;padding:22px;text-align:center;color:#9a5a3a">
+        <div style="font-weight:700;margin-bottom:4px">Không tìm thấy đơn</div>
+        <div style="font-size:14px;color:#8a967a">Kiểm tra lại mã đơn và số điện thoại giúp tụi mình nhé.</div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ lookFound }}" hint-placeholder-val="{{ false }}">
+      <div style="background:#FBFCF7;border:1px solid #E3E8D6;border-radius:16px;padding:22px">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px;margin-bottom:18px">
+          <div>
+            <div style="font-family:'Space Mono',monospace;font-size:20px;font-weight:700;color:#557A2B;letter-spacing:.06em">{{ result.code }}</div>
+            <div style="color:#5C6E47;font-size:14px;margin-top:3px">{{ result.name }} · {{ result.phone }}</div>
+          </div>
+          <span style="{{ result.statusStyle }}">{{ result.status }}</span>
+        </div>
+        <div style="display:flex;gap:14px;font-size:14px;margin-bottom:20px;flex-wrap:wrap">
+          <div style="background:#f1f4ea;border-radius:10px;padding:10px 14px"><div style="font-size:11px;color:#8a967a">Nhận</div><div style="font-family:'Space Mono',monospace;font-weight:700">{{ result.start }}</div></div>
+          <div style="background:#f1f4ea;border-radius:10px;padding:10px 14px"><div style="font-size:11px;color:#8a967a">Trả</div><div style="font-family:'Space Mono',monospace;font-weight:700">{{ result.end }}</div></div>
+          <div style="background:#f1f4ea;border-radius:10px;padding:10px 14px"><div style="font-size:11px;color:#8a967a">Tổng (COD)</div><div style="font-family:'Space Mono',monospace;font-weight:700;color:#557A2B">{{ result.payText }}</div></div>
+        </div>
+        <div style="font-size:13px;color:#8a967a;margin-bottom:10px">Thiết bị: {{ result.items }}</div>
+        <!-- timeline -->
+        <div style="border-top:1px solid #E3E8D6;padding-top:16px">
+          <sc-for list="{{ result.timeline }}" as="tl" hint-placeholder-count="4">
+            <div style="display:flex;gap:12px;align-items:flex-start;padding-bottom:14px">
+              <div style="display:flex;flex-direction:column;align-items:center;flex:none">
+                <span style="{{ tl.dotStyle }}"></span>
+                <span style="{{ tl.lineStyle }}"></span>
+              </div>
+              <div style="padding-top:1px">
+                <div style="{{ tl.titleStyle }}">{{ tl.title }}</div>
+                <div style="font-size:12px;color:#a3ad92">{{ tl.note }}</div>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </sc-if>
+  </main>
+  </sc-if>
+
+  <!-- ============ ADMIN ============ -->
+  <sc-if value="{{ isAdmin }}" hint-placeholder-val="{{ false }}">
+  <main style="max-width:1160px;margin:0 auto;padding:30px 20px 48px">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+      <h1 style="font-size:clamp(22px,3vw,30px);font-weight:800;margin:0;letter-spacing:-.01em">Quản trị</h1>
+      <span style="font-family:'Space Mono',monospace;font-size:11px;color:#fff;background:#C97B36;border-radius:6px;padding:3px 8px">DEMO</span>
+    </div>
+    <p style="color:#5C6E47;margin:0 0 24px">Theo dõi đơn thuê và tồn kho thiết bị.</p>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:26px">
+      <sc-for list="{{ adminStats }}" as="a" hint-placeholder-count="4">
+        <div style="background:#FBFCF7;border:1px solid #E3E8D6;border-radius:14px;padding:16px">
+          <div style="font-family:'Space Mono',monospace;font-size:24px;font-weight:700;color:#557A2B">{{ a.value }}</div>
+          <div style="font-size:13px;color:#5C6E47;margin-top:3px">{{ a.label }}</div>
+        </div>
+      </sc-for>
+    </div>
+
+    <div style="font-weight:700;font-size:17px;margin-bottom:12px">Đơn thuê gần đây</div>
+    <div style="background:#FBFCF7;border:1px solid #E3E8D6;border-radius:16px;overflow:hidden;margin-bottom:30px">
+      <div style="overflow-x:auto">
+        <div style="min-width:680px">
+          <div style="display:grid;grid-template-columns:1.1fr 1.4fr 1.2fr 1fr 1.6fr 1fr;gap:12px;padding:13px 18px;background:#eef2e3;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#8a967a">
+            <span>Mã đơn</span><span>Khách</span><span>SĐT</span><span>Ngày thuê</span><span>Trạng thái</span><span style="text-align:right">Tổng</span>
+          </div>
+          <sc-for list="{{ adminOrders }}" as="o" hint-placeholder-count="4">
+            <div style="display:grid;grid-template-columns:1.1fr 1.4fr 1.2fr 1fr 1.6fr 1fr;gap:12px;padding:13px 18px;border-top:1px solid #eef0e6;align-items:center;font-size:14px">
+              <span style="font-family:'Space Mono',monospace;font-weight:700;color:#557A2B">{{ o.code }}</span>
+              <span style="font-weight:600">{{ o.name }}</span>
+              <span style="font-family:'Space Mono',monospace;font-size:13px;color:#5C6E47">{{ o.phone }}</span>
+              <span style="font-family:'Space Mono',monospace;font-size:12px;color:#5C6E47">{{ o.dates }}</span>
+              <select value="{{ o.status }}" onChange="{{ o.onStatus }}" style="{{ o.selStyle }}">
+                <sc-for list="{{ statusOptions }}" as="so">
+                  <option value="{{ so }}">{{ so }}</option>
+                </sc-for>
+              </select>
+              <span style="font-family:'Space Mono',monospace;font-weight:700;text-align:right">{{ o.totalText }}</span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+
+    <div style="font-weight:700;font-size:17px;margin-bottom:12px">Kho thiết bị</div>
+    <div style="background:#FBFCF7;border:1px solid #E3E8D6;border-radius:16px;overflow:hidden">
+      <div style="overflow-x:auto">
+        <div style="min-width:620px">
+          <div style="display:grid;grid-template-columns:2fr 1.2fr 1fr 1.2fr 1fr;gap:12px;padding:13px 18px;background:#eef2e3;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#8a967a">
+            <span>Thiết bị</span><span>Danh mục</span><span>Giá/ngày</span><span>Tồn kho</span><span style="text-align:right">Trạng thái</span>
+          </div>
+          <sc-for list="{{ adminProducts }}" as="p" hint-placeholder-count="5">
+            <div style="display:grid;grid-template-columns:2fr 1.2fr 1fr 1.2fr 1fr;gap:12px;padding:12px 18px;border-top:1px solid #eef0e6;align-items:center;font-size:14px">
+              <span style="font-weight:600">{{ p.name }}</span>
+              <span style="font-size:13px;color:#5C6E47">{{ p.catLabel }}</span>
+              <span style="font-family:'Space Mono',monospace;font-weight:600">{{ p.priceText }}</span>
+              <div style="display:flex;align-items:center;gap:0;border:1px solid #E3E8D6;border-radius:9px;overflow:hidden;width:max-content">
+                <button onClick="{{ p.dec }}" style="width:28px;height:30px;border:none;background:#f1f4ea;cursor:pointer;color:#557A2B">−</button>
+                <span style="font-family:'Space Mono',monospace;width:34px;text-align:center;font-weight:700;font-size:13px">{{ p.stock }}</span>
+                <button onClick="{{ p.inc }}" style="width:28px;height:30px;border:none;background:#f1f4ea;cursor:pointer;color:#557A2B">+</button>
+              </div>
+              <span style="{{ p.statusStyle }}">{{ p.statusText }}</span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+  </main>
+  </sc-if>
+
+  <!-- ============ FOOTER ============ -->
+  <footer style="border-top:1px solid #c2dcec;background:rgba(214,236,247,.55);margin-top:20px">
+    <div style="max-width:1200px;margin:0 auto;padding:40px 20px 30px;display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:28px">
+      <div>
+        <div style="display:flex;align-items:center;gap:9px;margin-bottom:12px">
+          <span style="width:32px;height:32px;border-radius:9px;background:#557A2B;display:flex;align-items:center;justify-content:center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 4 4 19h16L12 4Z" fill="#cfe0a8"/><path d="M12 10l-4 9h8l-4-9Z" fill="#557A2B"/></svg></span>
+          <span style="font-weight:800;font-size:16px;color:#2C3D22">BỐP CAMPING</span>
+        </div>
+        <p style="color:#8a967a;font-size:13.5px;line-height:1.6;margin:0;max-width:240px">Cho thuê thiết bị cắm trại theo ngày. Giao nhận tận nơi, cọc linh hoạt, trả tiền khi nhận.</p>
+      </div>
+      <div>
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#a3ad92;margin-bottom:12px">Thiết bị</div>
+        <div style="display:flex;flex-direction:column;gap:9px;font-size:14px;color:#5C6E47">
+          <span>Lều trại</span><span>Túi ngủ &amp; nệm</span><span>Bếp &amp; nấu nướng</span><span>Đèn &amp; ánh sáng</span>
+        </div>
+      </div>
+      <div>
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#a3ad92;margin-bottom:12px">Hỗ trợ</div>
+        <div style="display:flex;flex-direction:column;gap:9px;font-size:14px;color:#5C6E47">
+          <span>Hướng dẫn thuê</span><span>Chính sách cọc</span><span>Tra cứu đơn</span><span>Câu hỏi thường gặp</span>
+        </div>
+      </div>
+      <div>
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#a3ad92;margin-bottom:12px">Liên hệ</div>
+        <div style="font-family:'Space Mono',monospace;font-size:15px;font-weight:700;color:#557A2B;margin-bottom:6px">0905 123 456</div>
+        <div style="font-size:13.5px;color:#5C6E47;line-height:1.6">8:00 - 21:00 hằng ngày<br>123 Đường Trại, Đà Nẵng</div>
+      </div>
+    </div>
+    <div style="max-width:1200px;margin:0 auto;padding:14px 20px 30px;border-top:1px solid #eef0e6;font-family:'Space Mono',monospace;font-size:12px;color:#a3ad92">© 2026 BỐP CAMPING · Thuê đồ, đi liền.</div>
+  </footer>
+
+  <!-- ============ TOAST ============ -->
+  <sc-if value="{{ hasToast }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed;left:50%;bottom:26px;transform:translateX(-50%);z-index:80;background:#2C3D22;color:#fff;border-radius:13px;padding:13px 20px;display:flex;align-items:center;gap:11px;box-shadow:0 16px 40px -12px rgba(44,61,34,.6)">
+      <span style="width:24px;height:24px;border-radius:50%;background:#7FA64B;display:flex;align-items:center;justify-content:center;flex:none"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="m5 13 4 4L19 7" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+      <span style="font-size:14px;font-weight:600">{{ toast }}</span>
+      <button onClick="{{ go.cart }}" style="background:#557A2B;border:none;color:#fff;border-radius:9px;padding:7px 13px;font-weight:700;font-size:13px;cursor:pointer">Xem giỏ</button>
+    </div>
+  </sc-if>
+
+  <!-- ============ LOGIN MODAL ============ -->
+  <sc-if value="{{ showLogin }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closeLogin }}" style="position:fixed;inset:0;z-index:90;background:rgba(24,35,15,.5);backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center;padding:20px">
+      <div onClick="{{ stop }}" style="background:#FBFCF7;border-radius:20px;padding:28px;width:100%;max-width:380px;box-shadow:0 30px 70px -20px rgba(24,35,15,.6)">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+          <span style="width:40px;height:40px;border-radius:11px;background:#557A2B;display:flex;align-items:center;justify-content:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M12 4 4 19h16L12 4Z" fill="#cfe0a8"/><path d="M12 10l-4 9h8l-4-9Z" fill="#557A2B"/></svg></span>
+          <div style="font-weight:800;font-size:18px;color:#2C3D22">Đăng nhập nhanh</div>
+        </div>
+        <p style="color:#5C6E47;font-size:14px;margin:0 0 18px">Chỉ cần số điện thoại và tên. Không mật khẩu.</p>
+        <div style="display:flex;flex-direction:column;gap:11px;margin-bottom:18px">
+          <input value="{{ loginName }}" onInput="{{ setLoginName }}" placeholder="Tên của bạn" style="height:48px;padding:0 14px;border-radius:11px;border:1px solid #E3E8D6;background:#fff;font-size:15px;color:#18230F"/>
+          <input value="{{ loginPhone }}" onInput="{{ setLoginPhone }}" placeholder="Số điện thoại" inputmode="tel" style="height:48px;padding:0 14px;border-radius:11px;border:1px solid #E3E8D6;background:#fff;font-size:15px;color:#18230F"/>
+        </div>
+        <button onClick="{{ doLogin }}" style="width:100%;height:50px;border-radius:12px;border:none;background:#557A2B;color:#fff;font-weight:700;font-size:16px;cursor:pointer">Tiếp tục</button>
+      </div>
+    </div>
+  </sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1280,&quot;height&quot;:900}}">
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    this.today = today;
+    const seed = [
+      { id: 1, name: 'Lều Coleman 4 người chống mưa', cat: 'leu', catLabel: 'Lều trại', price: 120000, deposit: 500000, stock: 5, rating: '4.9', blurb: 'Lều 2 lớp, 4 người thoải mái, chống mưa tốt cho mọi chuyến đi.', g: 'linear-gradient(150deg,#3a5a2a,#6f9a3f 60%,#bcd97e)', sun: '#f4e7a8', booked: [[3, 5]], specs: [['Sức chứa', '4 người'], ['Trọng lượng', '4.2 kg'], ['Chống nước', '3000mm'], ['Thời gian dựng', '8 phút']] },
+      { id: 2, name: 'Lều tự bung 2 người', cat: 'leu', catLabel: 'Lều trại', price: 80000, deposit: 300000, stock: 8, rating: '4.8', blurb: 'Bung ra trong 3 giây, gọn nhẹ, lý tưởng cho cặp đôi.', g: 'linear-gradient(150deg,#2C3D22,#557A2B 60%,#9bc35d)', sun: '#eaf3c0', booked: [[0, 1]], specs: [['Sức chứa', '2 người'], ['Trọng lượng', '2.1 kg'], ['Kiểu', 'Tự bung'], ['Lều phụ', 'Có']] },
+      { id: 3, name: 'Tăng (tarp) che mưa nắng 3x3m', cat: 'leu', catLabel: 'Lều trại', price: 50000, deposit: 150000, stock: 12, rating: '4.7', blurb: 'Mái che đa năng cho khu bếp và sinh hoạt chung.', g: 'linear-gradient(150deg,#4a6b7a,#7fa6b0 60%,#cfe0d6)', sun: '#ffffff', booked: [], specs: [['Kích thước', '3 x 3 m'], ['Chất liệu', 'Oxford 210D'], ['Cọc &amp; dây', 'Đầy đủ'], ['Trọng lượng', '1.3 kg']] },
+      { id: 4, name: 'Túi ngủ mùa đông -5°C', cat: 'ngu', catLabel: 'Túi ngủ &amp; nệm', price: 60000, deposit: 200000, stock: 10, rating: '4.8', blurb: 'Giữ ấm tới -5°C, vỏ chống ẩm, có túi nén gọn.', g: 'linear-gradient(150deg,#355a6e,#5b8aa0 60%,#b9d7df)', sun: '#eaf6fb', booked: [[6, 7]], specs: [['Nhiệt độ', '-5°C'], ['Ruột', 'Bông sợi'], ['Trọng lượng', '1.6 kg'], ['Túi nén', 'Có']] },
+      { id: 5, name: 'Nệm hơi đôi tự phồng', cat: 'ngu', catLabel: 'Túi ngủ &amp; nệm', price: 70000, deposit: 250000, stock: 6, rating: '4.6', blurb: 'Tự phồng trong 2 phút, êm lưng cho giấc ngủ ngon.', g: 'linear-gradient(150deg,#4a6b4a,#7fa66b 60%,#cfe0b8)', sun: '#ffffff', booked: [[2, 3]], specs: [['Kích thước', '190 x 130 cm'], ['Độ dày', '6 cm'], ['Bơm', 'Tự phồng'], ['Trọng lượng', '2.4 kg']] },
+      { id: 6, name: 'Bếp gas mini kèm nồi', cat: 'bep', catLabel: 'Bếp &amp; nấu nướng', price: 55000, deposit: 200000, stock: 9, rating: '4.9', blurb: 'Bếp gas gọn, lửa mạnh, kèm nồi nấu cho 4 người.', g: 'linear-gradient(150deg,#6e3a2a,#c97b36 60%,#f0c98a)', sun: '#ffe9c0', booked: [], specs: [['Công suất', '2.1 kW'], ['Nhiên liệu', 'Gas mini'], ['Kèm theo', 'Nồi 1.5L'], ['Hộp đựng', 'Có']] },
+      { id: 7, name: 'Bộ nồi dã ngoại 8 món', cat: 'bep', catLabel: 'Bếp &amp; nấu nướng', price: 45000, deposit: 150000, stock: 7, rating: '4.7', blurb: 'Nồi, chảo, chén, đũa nhôm anod nhẹ, xếp gọn một bộ.', g: 'linear-gradient(150deg,#3a5048,#5c8a78 60%,#bfe0d0)', sun: '#ffffff', booked: [[4, 4]], specs: [['Số món', '8 món'], ['Chất liệu', 'Nhôm anod'], ['Phục vụ', '3-4 người'], ['Túi đựng', 'Có']] },
+      { id: 8, name: 'Đèn lồng LED sạc USB', cat: 'sang', catLabel: 'Đèn &amp; ánh sáng', price: 30000, deposit: 100000, stock: 15, rating: '4.8', blurb: 'Ánh sáng ấm 3 mức, pin 12 giờ, sạc USB tiện lợi.', g: 'linear-gradient(150deg,#3a3a5a,#7a6ea0 60%,#e9c98a)', sun: '#ffe7a8', booked: [], specs: [['Độ sáng', '300 lumen'], ['Pin', '12 giờ'], ['Sạc', 'USB-C'], ['Chống nước', 'IPX4']] },
+      { id: 9, name: 'Dây đèn trại 10m', cat: 'sang', catLabel: 'Đèn &amp; ánh sáng', price: 25000, deposit: 80000, stock: 11, rating: '4.6', blurb: 'Dây đèn ấm trang trí khu trại, chạy pin sạc dự phòng.', g: 'linear-gradient(150deg,#2C3D22,#5C6E47 60%,#c9b06a)', sun: '#ffe7a8', booked: [[1, 2]], specs: [['Chiều dài', '10 m'], ['Số bóng', '40 LED'], ['Nguồn', 'USB / pin'], ['Màu', 'Trắng ấm']] },
+      { id: 10, name: 'Bàn xếp + 2 ghế dã ngoại', cat: 'ghe', catLabel: 'Bàn ghế', price: 65000, deposit: 220000, stock: 5, rating: '4.7', blurb: 'Bàn nhôm gấp gọn kèm 2 ghế, dựng nhanh nơi cắm trại.', g: 'linear-gradient(150deg,#5a4a2a,#9a8a4b 60%,#d8d0a0)', sun: '#ffffff', booked: [[5, 6]], specs: [['Bàn', 'Nhôm gấp'], ['Ghế', '2 ghế'], ['Tải trọng', '30 kg/ghế'], ['Trọng lượng', '4.8 kg']] },
+    ];
+    this.cats = [
+      { id: 'all', label: 'Tất cả' }, { id: 'leu', label: 'Lều trại' }, { id: 'ngu', label: 'Túi ngủ & nệm' },
+      { id: 'bep', label: 'Bếp & nấu' }, { id: 'sang', label: 'Đèn & sáng' }, { id: 'ghe', label: 'Bàn ghế' },
+    ];
+    this.statusOptions = ['Chờ xác nhận', 'Đã xác nhận', 'Đang thuê', 'Đã trả', 'Đã huỷ'];
+    this.state = {
+      screen: 'home', search: '', cat: 'all', sort: 'pop', demoState: 'ok',
+      products: seed,
+      pid: null, gIndex: 0,
+      start: null, end: null, qty: 1,
+      calMonth: new Date(today.getFullYear(), today.getMonth(), 1),
+      cart: [], form: { name: '', phone: '', address: '', note: '' }, placed: null, formErr: '',
+      look: { code: '', phone: '' }, lookState: 'idle', lookResult: null,
+      orders: [
+        { code: 'BOP-2048', name: 'Nguyễn Minh', phone: '0905123456', status: 'Đang thuê', items: 'Lều Coleman 4N · Bếp gas mini', start: '18/06', end: '21/06', total: 525000 },
+        { code: 'BOP-2041', name: 'Trần Lan', phone: '0978222333', status: 'Đã xác nhận', items: 'Túi ngủ -5°C x2 · Nệm hơi đôi', start: '22/06', end: '24/06', total: 380000 },
+        { code: 'BOP-2033', name: 'Lê Hùng', phone: '0912888777', status: 'Chờ xác nhận', items: 'Bàn xếp + 2 ghế · Dây đèn 10m', start: '25/06', end: '27/06', total: 360000 },
+        { code: 'BOP-2027', name: 'Phạm Thu', phone: '0933444555', status: 'Đã trả', items: 'Lều tự bung 2N · Đèn lồng LED', start: '14/06', end: '16/06', total: 220000 },
+      ],
+      user: null, showLogin: false, loginName: '', loginPhone: '',
+      toast: null,
+      albIdx: 0,
+    };
+    this.album = [
+      { src: 'images/album/beach-night-tent.jpg', tag: 'BÃI BIỂN · ĐÊM', title: 'Đêm trại bên bờ cát', sub: 'Lều bừng sáng giữa bãi biển vắng, đèn vàng ấm và tiếng sóng rì rào.' },
+      { src: 'images/album/cloud-sea-sunrise.jpg', tag: 'SĂN MÂY · BÌNH MINH', title: 'Biển mây lúc rạng đông', sub: 'Mặt trời nhô lên sau dãy núi, mây cuộn trắng dưới chân như mặt biển.' },
+      { src: 'images/album/forest-camp-aerial.jpg', tag: 'RỪNG NÚI · SƯƠNG SỚM', title: 'Khu trại giữa rừng mây', sub: 'Dựng trại trên đồi cỏ, sương phủ kín thung lũng và những tán cây xanh.' },
+      { src: 'images/album/bay-overview.jpg', tag: 'VỊNH BIỂN · TRƯA', title: 'Vịnh xanh nhìn từ đỉnh', sub: 'Toàn cảnh làng chài và vịnh biển xanh ngắt nhìn từ trên cao.' },
+      { src: 'images/album/cliff-turquoise.jpg', tag: 'BIỂN NGỌC · NẮNG', title: 'Làn nước trong veo', sub: 'Vách đá ôm lấy bãi cát và mặt nước xanh ngọc bích phẳng lặng.' },
+      { src: 'images/album/beach-sunset-relax.jpg', tag: 'HOÀNG HÔN · THƯ GIÃN', title: 'Chiều buông bên lều', sub: 'Ngồi ngắm trời chiều đổi màu, gió biển mát và đèn trại vừa lên.' },
+      { src: 'images/album/tent-interior-night.jpg', tag: 'TRONG LỀU · ĐÊM', title: 'Góc nghỉ nhìn ra biển đêm', sub: 'Ánh đèn ấm trong lều, bàn ghế gọn gàng và biển đêm lấp lánh phía xa.' },
+    ];
+    this._io = null;
+  }
+
+  // ── utils ──
+  money(n) { return Number(n).toLocaleString('vi-VN') + 'đ'; }
+  ymd(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+  parse(s) { const p = s.split('-'); return new Date(+p[0], +p[1] - 1, +p[2]); }
+  offset(d) { return Math.round((d - this.today) / 86400000); }
+  dm(s) { const d = this.parse(s); return String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0'); }
+  remainingOn(p, off) {
+    if (off < 0) return 0;
+    for (const r of (p.booked || [])) { if (off >= r[0] && off <= r[1]) return 0; }
+    const span = Math.min(4, p.stock);
+    return Math.max(0, p.stock - ((p.id * 7 + off * 3) % span));
+  }
+  minRemaining(p, so, eo) { let m = Infinity; for (let o = so; o <= eo; o++) m = Math.min(m, this.remainingOn(p, o)); return m; }
+
+  // ── reveal on scroll ──
+  componentDidMount() { this._reveal(); this._startAlbum(); }
+  componentWillUnmount() { clearInterval(this._albT); clearTimeout(this._toastT); clearTimeout(this._lookT); }
+  _startAlbum() {
+    clearInterval(this._albT);
+    this._albT = setInterval(() => {
+      if (this._albPaused || this.state.screen !== 'home' || document.hidden) return;
+      this.setState((s) => ({ albIdx: (s.albIdx + 1) % this.album.length }));
+    }, 4800);
+  }
+  componentDidUpdate(prevProps, prevState) { if (prevState && prevState.screen !== this.state.screen) { try { window.scrollTo(0, 0); } catch (e) {} } this._reveal(); }
+  _reveal() {
+    const root = this._root; if (!root) return;
+    if (!this._io) {
+      this._io = new IntersectionObserver((ents) => {
+        ents.forEach((e) => { if (e.isIntersecting) { e.target.setAttribute('data-shown', '1'); e.target.style.opacity = '1'; e.target.style.transform = 'none'; this._io.unobserve(e.target); } });
+      }, { threshold: 0.1 });
+    }
+    requestAnimationFrame(() => {
+      root.querySelectorAll('[data-reveal]:not([data-shown])').forEach((el) => {
+        el.style.opacity = '0'; el.style.transform = 'translateY(18px)';
+        el.style.transition = 'opacity .6s cubic-bezier(.2,.7,.2,1), transform .6s cubic-bezier(.2,.7,.2,1)';
+        this._io.observe(el);
+      });
+    });
+  }
+
+  // ── nav style helper ──
+  _navStyle(name) {
+    const active = this.state.screen === name || (name === 'products' && this.state.screen === 'detail');
+    return { background: active ? '#557A2B' : 'transparent', color: active ? '#fff' : '#3f4a32', border: 'none', borderRadius: 10, padding: '9px 15px', fontWeight: 600, fontSize: 14, cursor: 'pointer', whiteSpace: 'nowrap' };
+  }
+  _chipStyle(active) {
+    return { padding: '9px 16px', borderRadius: 999, border: '1px solid ' + (active ? '#557A2B' : '#d6ddc4'), background: active ? '#557A2B' : '#FBFCF7', color: active ? '#fff' : '#3f4a32', fontWeight: 600, fontSize: 14, cursor: 'pointer' };
+  }
+  _segStyle(active) {
+    return { padding: '8px 13px', borderRadius: 9, border: 'none', background: active ? '#557A2B' : 'transparent', color: active ? '#fff' : '#5C6E47', fontWeight: 600, fontSize: 13, cursor: 'pointer' };
+  }
+  _thumbStyle(p, h) { return { position: 'relative', height: h || 172, borderRadius: '14px 14px 0 0', overflow: 'hidden', background: p.g }; }
+  _sunStyle() { return { position: 'absolute', top: 20, right: 22, width: 50, height: 50, borderRadius: '50%', background: 'rgba(255,255,255,.55)', filter: 'blur(3px)' }; }
+  _stockBadge(stock) {
+    const low = stock <= 2;
+    return { position: 'absolute', top: 12, left: 12, fontFamily: "'Space Mono',monospace", fontSize: 11, fontWeight: 700, color: '#fff', background: low ? '#C97B36' : 'rgba(44,61,34,.72)', borderRadius: 999, padding: '4px 9px' };
+  }
+  _statusColor(s) {
+    const map = { 'Chờ xác nhận': ['#9a7a2a', '#fbf2d8'], 'Đã xác nhận': ['#2a6ea0', '#dceaf6'], 'Đang thuê': ['#3a5a1f', '#dcebc4'], 'Đã trả': ['#5C6E47', '#e7ecdc'], 'Đã huỷ': ['#b3493a', '#f6ddd6'] };
+    return map[s] || ['#5C6E47', '#e7ecdc'];
+  }
+  _statusPill(s) { const c = this._statusColor(s); return { display: 'inline-flex', alignItems: 'center', fontSize: 12, fontWeight: 700, color: c[0], background: c[1], borderRadius: 999, padding: '5px 11px', whiteSpace: 'nowrap' }; }
+
+  // ── calendar ──
+  _buildCalendar(p) {
+    const base = this.state.calMonth;
+    const months = [];
+    for (let mi = 0; mi < 2; mi++) {
+      const first = new Date(base.getFullYear(), base.getMonth() + mi, 1);
+      const y = first.getFullYear(), m = first.getMonth();
+      const startDow = (first.getDay() + 6) % 7;
+      const daysIn = new Date(y, m + 1, 0).getDate();
+      const cells = [];
+      for (let i = 0; i < startDow; i++) cells.push(null);
+      for (let dd = 1; dd <= daysIn; dd++) cells.push(new Date(y, m, dd));
+      while (cells.length % 7) cells.push(null);
+      const weeks = [];
+      for (let i = 0; i < cells.length; i += 7) weeks.push(cells.slice(i, i + 7).map((d) => this._dayVM(d, p)));
+      months.push({ label: 'Tháng ' + (m + 1) + ' · ' + y, dows: ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'], weeks });
+    }
+    return months;
+  }
+  _dayVM(date, p) {
+    if (!date) return { label: '', style: { visibility: 'hidden', height: 34 }, onClick: null };
+    const off = this.offset(date), key = this.ymd(date);
+    const rem = this.remainingOn(p, off);
+    const past = off < 0, avail = !past && rem > 0;
+    const s = this.state.start, e = this.state.end;
+    const isStart = s === key, isEnd = e === key;
+    const inRange = s && e && key > s && key < e;
+    let bg = 'transparent', col = '#2C3D22', fw = 500, br = 9, cursor = 'pointer', op = 1;
+    if (past) { col = '#cdd2c0'; cursor = 'default'; }
+    else if (!avail) { bg = '#f0d9c4'; col = '#b88a5a'; cursor = 'not-allowed'; }
+    if (isStart || isEnd) { bg = '#557A2B'; col = '#fff'; fw = 700; }
+    else if (inRange) { bg = '#dbe6c4'; col = '#3a5a1f'; }
+    const style = { height: 34, border: 'none', background: bg, color: col, fontWeight: fw, borderRadius: br, cursor, fontSize: 13, fontFamily: "'Space Mono',monospace", opacity: op, padding: 0 };
+    return { label: String(date.getDate()), style, onClick: avail ? () => this._pickDay(key) : null };
+  }
+  _pickDay(key) {
+    this.setState((st) => {
+      let { start, end } = st;
+      if (!start || (start && end)) return { start: key, end: null, qty: 1 };
+      if (key < start) return { start: key, end: null, qty: 1 };
+      if (key === start) return { start, end: null };
+      return { start, end: key };
+    });
+  }
+
+  // ── product view-model ──
+  _pvm(p) {
+    return {
+      id: p.id, name: p.name, catLabel: p.catLabel, blurb: p.blurb,
+      priceText: this.money(p.price), depositText: this.money(p.deposit),
+      stockText: p.stock > 0 ? 'Còn ' + p.stock + ' bộ' : 'Hết hàng', stockStyle: this._stockBadge(p.stock),
+      thumbStyle: this._thumbStyle(p), sunStyle: this._sunStyle(),
+      open: () => this.setState({ screen: 'detail', pid: p.id, gIndex: 0, start: null, end: null, qty: 1, calMonth: new Date(this.today.getFullYear(), this.today.getMonth(), 1) }),
+    };
+  }
+
+  renderVals() {
+    const st = this.state;
+    const go = {
+      home: () => this.setState({ screen: 'home' }),
+      products: () => this.setState({ screen: 'products' }),
+      cart: () => this.setState({ screen: 'cart' }),
+      lookup: () => this.setState({ screen: 'lookup' }),
+      admin: () => this.setState({ screen: 'admin' }),
+    };
+
+    // products list
+    const q = st.search.trim().toLowerCase();
+    let list = st.products.filter((p) => (st.cat === 'all' || p.cat === st.cat) && (!q || p.name.toLowerCase().includes(q) || p.catLabel.toLowerCase().includes(q)));
+    if (st.sort === 'low') list = [...list].sort((a, b) => a.price - b.price);
+    else if (st.sort === 'high') list = [...list].sort((a, b) => b.price - a.price);
+    const productsVM = list.map((p) => this._pvm(p));
+    const isLoading = st.demoState === 'load', isError = st.demoState === 'err';
+    const showResults = st.demoState === 'ok';
+    const isEmpty = showResults && productsVM.length === 0;
+
+    // detail
+    const dp = st.products.find((p) => p.id === st.pid);
+    let d = null, calMonths = [], qty = st.qty;
+    if (dp) {
+      calMonths = this._buildCalendar(dp);
+      const galleryGrads = [dp.g,
+        dp.g.replace('150deg', '30deg'),
+        dp.g.replace('150deg', '210deg'),
+        dp.g.replace('150deg', '90deg')];
+      const gallery = galleryGrads.map((g, i) => ({
+        style: { height: 64, borderRadius: 10, background: g, cursor: 'pointer', border: i === st.gIndex ? '2px solid #557A2B' : '2px solid transparent', boxShadow: i === st.gIndex ? '0 0 0 2px #cfe0a8' : 'none' },
+        onClick: () => this.setState({ gIndex: i }),
+      }));
+      let rangeText = 'Chọn ngày trên lịch', availText = 'Hãy chọn ngày nhận và ngày trả để kiểm tra còn hàng.', availStyle = { fontSize: 13, color: '#8a967a', background: '#f1f4ea', borderRadius: 10, padding: '10px 13px' };
+      let days = 0, sub = 0, subDep = 0, canAdd = false, daysText = '—';
+      let maxQty = dp.stock;
+      if (st.start && st.end) {
+        const so = this.offset(this.parse(st.start)), eo = this.offset(this.parse(st.end));
+        days = Math.max(1, eo - so);
+        const rem = this.minRemaining(dp, so, eo);
+        maxQty = Math.max(0, rem);
+        rangeText = this.dm(st.start) + ' → ' + this.dm(st.end);
+        daysText = days + ' ngày';
+        if (rem <= 0) { availText = 'Tiếc quá, khoảng ngày này đã hết hàng. Thử ngày khác nhé.'; availStyle = { fontSize: 13, color: '#b3493a', background: '#f6ddd6', borderRadius: 10, padding: '10px 13px', fontWeight: 600 }; }
+        else {
+          canAdd = true;
+          availText = '✓ Còn ' + rem + ' bộ trống trong khoảng này.';
+          availStyle = { fontSize: 13, color: '#3a5a1f', background: '#dcebc4', borderRadius: 10, padding: '10px 13px', fontWeight: 600 };
+          const useQty = Math.min(qty, maxQty);
+          sub = dp.price * days * useQty; subDep = dp.deposit * useQty;
+        }
+      } else if (st.start) {
+        rangeText = this.dm(st.start) + ' → chọn ngày trả';
+      }
+      d = {
+        name: dp.name, catLabel: dp.catLabel, rating: dp.rating, blurb: dp.blurb,
+        priceText: this.money(dp.price), depositText: this.money(dp.deposit),
+        stockText: dp.stock > 0 ? 'Còn ' + dp.stock + ' bộ trong kho' : 'Tạm hết', stockStyle: this._statusPill(dp.stock > 0 ? 'Đã xác nhận' : 'Đã huỷ'),
+        specs: dp.specs.map((s) => ({ k: s[0], v: s[1] })),
+        mainStyle: { position: 'relative', height: 330, borderRadius: 16, overflow: 'hidden', background: galleryGrads[st.gIndex] },
+        mainSun: { position: 'absolute', top: 30, right: 36, width: 80, height: 80, borderRadius: '50%', background: 'rgba(255,255,255,.5)', filter: 'blur(4px)' },
+        gallery,
+        rangeText, availText, availStyle, daysText,
+        subtotalText: this.money(sub), subDepositText: this.money(subDep),
+        addLabel: canAdd ? 'Thêm vào giỏ' : 'Chọn ngày thuê',
+        addStyle: { height: 50, padding: '0 24px', borderRadius: 12, border: 'none', background: canAdd ? '#557A2B' : '#c4cfae', color: '#fff', fontWeight: 700, fontSize: 15, cursor: canAdd ? 'pointer' : 'not-allowed' },
+      };
+    }
+
+    // cart
+    const cartItems = st.cart.map((it) => {
+      const p = st.products.find((x) => x.id === it.pid);
+      return {
+        id: it.id, name: it.name, qty: it.qty,
+        thumbStyle: { width: 64, height: 64, borderRadius: 11, background: it.g, flex: 'none' },
+        rangeText: this.dm(it.start) + ' → ' + this.dm(it.end), daysText: it.days + ' ngày',
+        lineRentText: this.money(it.price * it.days * it.qty), lineDepositText: this.money(it.deposit * it.qty),
+        inc: () => this._cartQty(it.id, 1), dec: () => this._cartQty(it.id, -1), remove: () => this._cartRemove(it.id),
+      };
+    });
+    const sumRent = st.cart.reduce((a, it) => a + it.price * it.days * it.qty, 0);
+    const sumDep = st.cart.reduce((a, it) => a + it.deposit * it.qty, 0);
+    const totals = { rentText: this.money(sumRent), depositText: this.money(sumDep), payText: this.money(sumRent + sumDep) };
+    const canPlace = st.cart.length > 0 && st.form.name.trim() && st.form.phone.trim() && st.form.address.trim();
+
+    // placed
+    let placed = null;
+    if (st.placed) placed = { code: st.placed.code, name: st.placed.name, itemsText: st.placed.count + ' món · ' + st.placed.days + ' ngày', payText: this.money(st.placed.pay) };
+
+    // lookup
+    let result = null;
+    if (st.lookResult) {
+      const o = st.lookResult;
+      const order = ['Chờ xác nhận', 'Đã xác nhận', 'Đang thuê', 'Đã trả'];
+      const cancelled = o.status === 'Đã huỷ';
+      const curIdx = order.indexOf(o.status);
+      const notes = { 'Chờ xác nhận': 'Tụi mình sẽ gọi xác nhận sớm.', 'Đã xác nhận': 'Đơn đã được xác nhận, chuẩn bị đồ.', 'Đang thuê': 'Bạn đang giữ thiết bị này.', 'Đã trả': 'Đã trả đồ, hoàn cọc đầy đủ.' };
+      const timeline = order.map((s, i) => {
+        const done = !cancelled && i <= curIdx, current = !cancelled && i === curIdx;
+        const last = i === order.length - 1;
+        return {
+          title: s, note: done ? (notes[s] || '') : 'Đang chờ',
+          dotStyle: { width: 16, height: 16, borderRadius: '50%', background: done ? '#557A2B' : '#fff', border: '2px solid ' + (done ? '#557A2B' : '#d6ddc4'), flex: 'none' },
+          lineStyle: { width: 2, height: last ? 0 : 28, background: done ? '#7FA64B' : '#e3e8d6' },
+          titleStyle: { fontWeight: current ? 800 : 600, fontSize: 14, color: done ? '#18230F' : '#a3ad92' },
+        };
+      });
+      result = { code: o.code, name: o.name, phone: o.phone, status: o.status, statusStyle: this._statusPill(o.status), start: o.start, end: o.end, items: o.items, payText: this.money(o.total), timeline: cancelled ? [{ title: 'Đơn đã huỷ', note: 'Đơn này đã được huỷ.', dotStyle: { width: 16, height: 16, borderRadius: '50%', background: '#b3493a', flex: 'none' }, lineStyle: { width: 2, height: 0 }, titleStyle: { fontWeight: 800, fontSize: 14, color: '#b3493a' } }] : timeline };
+    }
+
+    // admin
+    const adminOrders = st.orders.map((o, idx) => ({
+      code: o.code, name: o.name, phone: o.phone, dates: o.start + ' - ' + o.end, status: o.status, totalText: this.money(o.total),
+      selStyle: { ...this._statusPill(o.status), border: '1px solid ' + this._statusColor(o.status)[0] + '44', cursor: 'pointer', appearance: 'none', paddingRight: 24 },
+      onStatus: (e) => { const v = e.target.value; this.setState((s) => ({ orders: s.orders.map((x, i) => i === idx ? { ...x, status: v } : x) })); },
+    }));
+    const adminProducts = st.products.map((p, idx) => ({
+      name: p.name, catLabel: p.catLabel, priceText: this.money(p.price), stock: p.stock,
+      statusText: p.stock > 0 ? 'Sẵn sàng' : 'Hết hàng', statusStyle: { ...this._statusPill(p.stock > 0 ? 'Đang thuê' : 'Đã huỷ'), justifySelf: 'end' },
+      inc: () => this.setState((s) => ({ products: s.products.map((x, i) => i === idx ? { ...x, stock: x.stock + 1 } : x) })),
+      dec: () => this.setState((s) => ({ products: s.products.map((x, i) => i === idx ? { ...x, stock: Math.max(0, x.stock - 1) } : x) })),
+    }));
+    const activeRent = st.orders.filter((o) => o.status === 'Đang thuê' || o.status === 'Đã xác nhận').length;
+    const pending = st.orders.filter((o) => o.status === 'Chờ xác nhận').length;
+    const adminStats = [
+      { value: st.orders.length, label: 'Đơn thuê' },
+      { value: pending, label: 'Chờ xác nhận' },
+      { value: activeRent, label: 'Đang hoạt động' },
+      { value: st.products.reduce((a, p) => a + p.stock, 0), label: 'Bộ trong kho' },
+    ];
+
+    const user = st.user;
+    return {
+      rootRef: (el) => { this._root = el; },
+      isHome: st.screen === 'home', isProducts: st.screen === 'products', isDetail: st.screen === 'detail',
+      isCart: st.screen === 'cart', isLookup: st.screen === 'lookup', isAdmin: st.screen === 'admin',
+      go,
+      nav: { home: this._navStyle('home'), products: this._navStyle('products'), lookup: this._navStyle('lookup'), admin: this._navStyle('admin') },
+      cartCountText: String(st.cart.reduce((a, it) => a + it.qty, 0)),
+      userInitial: user ? user.name.trim().charAt(0).toUpperCase() : '👤', userLabel: user ? user.name : 'Đăng nhập',
+
+      // home
+      stats: [{ value: '120+', label: 'Bộ thiết bị' }, { value: '4.9★', label: 'Đánh giá khách' }, { value: '2.000+', label: 'Chuyến đi' }, { value: 'Nội thành', label: 'Giao nhận tận nơi' }],
+      featured: st.products.slice(0, 4).map((p) => this._pvm(p)),
+      steps: [
+        { no: '1', title: 'Chọn đồ và ngày', body: 'Duyệt thiết bị, chọn ngày nhận và ngày trả. Hệ thống tự kiểm tra còn hàng.' },
+        { no: '2', title: 'Đặt giữ chỗ online', body: 'Để lại tên và số điện thoại. Không cần tài khoản hay thanh toán trước.' },
+        { no: '3', title: 'Nhận đồ và lên đường', body: 'Tụi mình giao tận nơi. Trả tiền thuê và cọc khi nhận (COD). Cọc hoàn khi trả.' },
+      ],
+
+      // products
+      search: st.search, setSearch: (e) => this.setState({ search: e.target.value }),
+      sort: st.sort, setSort: (e) => this.setState({ sort: e.target.value }),
+      cats: this.cats.map((c) => ({ label: c.label, style: this._chipStyle(st.cat === c.id), onClick: () => this.setState({ cat: c.id }) })),
+      demo: { ok: () => this.setState({ demoState: 'ok' }), load: () => this.setState({ demoState: 'load' }), err: () => this.setState({ demoState: 'err' }) },
+      demoStyle: { ok: this._segStyle(st.demoState === 'ok'), load: this._segStyle(st.demoState === 'load'), err: this._segStyle(st.demoState === 'err') },
+      isLoading, isError, showResults, isEmpty,
+      products: productsVM, skeletons: [1, 2, 3, 4, 5, 6],
+      resultCountText: productsVM.length + ' thiết bị',
+      clearFilters: () => this.setState({ search: '', cat: 'all' }),
+
+      // detail
+      d, calMonths, qty,
+      cal: { prev: () => this.setState((s) => ({ calMonth: new Date(s.calMonth.getFullYear(), s.calMonth.getMonth() - 1, 1) })), next: () => this.setState((s) => ({ calMonth: new Date(s.calMonth.getFullYear(), s.calMonth.getMonth() + 1, 1) })) },
+      qtyInc: () => this.setState((s) => ({ qty: s.qty + 1 })),
+      qtyDec: () => this.setState((s) => ({ qty: Math.max(1, s.qty - 1) })),
+      addToCart: () => this._addToCart(),
+
+      // cart
+      hasPlaced: !!st.placed, showCart: !st.placed, cartEmpty: st.cart.length === 0, cartHas: st.cart.length > 0,
+      cartItems, totals, placed,
+      form: st.form,
+      setName: (e) => this.setState((s) => ({ form: { ...s.form, name: e.target.value }, formErr: '' })),
+      setPhone: (e) => this.setState((s) => ({ form: { ...s.form, phone: e.target.value }, formErr: '' })),
+      setAddr: (e) => this.setState((s) => ({ form: { ...s.form, address: e.target.value }, formErr: '' })),
+      setNote: (e) => this.setState((s) => ({ form: { ...s.form, note: e.target.value } })),
+      formErr: st.formErr, formErrStyle: { fontSize: 13, color: '#b3493a', marginBottom: st.formErr ? 10 : 0, height: st.formErr ? 'auto' : 0, overflow: 'hidden' },
+      placeLabel: 'Đặt giữ chỗ (COD)',
+      placeStyle: { width: '100%', height: 52, borderRadius: 13, border: 'none', background: canPlace ? '#557A2B' : '#c4cfae', color: '#fff', fontWeight: 700, fontSize: 16, cursor: canPlace ? 'pointer' : 'not-allowed' },
+      placeOrder: () => this._placeOrder(canPlace),
+
+      // lookup
+      look: st.look,
+      setLookCode: (e) => this.setState((s) => ({ look: { ...s.look, code: e.target.value } })),
+      setLookPhone: (e) => this.setState((s) => ({ look: { ...s.look, phone: e.target.value } })),
+      doLookup: () => this._doLookup(),
+      lookBtnLabel: st.lookState === 'loading' ? 'Đang tra cứu...' : 'Tra cứu đơn',
+      lookBtnStyle: { height: 50, borderRadius: 12, border: 'none', background: '#557A2B', color: '#fff', fontWeight: 700, fontSize: 15, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' },
+      lookNotFound: st.lookState === 'notfound', lookFound: st.lookState === 'found', result,
+
+      // admin
+      adminOrders, adminProducts, statusOptions: this.statusOptions, adminStats,
+
+      // album slideshow
+      albTrackStyle: { display: 'flex', width: '100%', height: '100%', transform: 'translateX(' + (-st.albIdx * 100) + '%)', transition: 'transform .8s cubic-bezier(.22,.7,.2,1)' },
+      albumSlides: this.album.map((a, i) => ({
+        tag: a.tag, title: a.title, sub: a.sub,
+        imgStyle: { position: 'absolute', inset: 0, backgroundImage: 'url("' + a.src + '")', backgroundSize: 'cover', backgroundPosition: 'center', transform: i === st.albIdx ? 'scale(1.06)' : 'scale(1)', transition: 'transform 6s ease-out' },
+      })),
+      albumThumbs: this.album.map((a, i) => ({
+        title: a.title,
+        style: { flex: 'none', width: 92, height: 58, borderRadius: 10, border: i === st.albIdx ? '2px solid #557A2B' : '2px solid transparent', boxShadow: i === st.albIdx ? '0 0 0 2px #cfe0a8' : 'none', backgroundImage: 'url("' + a.src + '")', backgroundSize: 'cover', backgroundPosition: 'center', cursor: 'pointer', opacity: i === st.albIdx ? 1 : 0.62, transition: 'opacity .25s', padding: 0 },
+        onClick: () => this.setState({ albIdx: i }),
+      })),
+      albNext: () => this.setState((s) => ({ albIdx: (s.albIdx + 1) % this.album.length })),
+      albPrev: () => this.setState((s) => ({ albIdx: (s.albIdx - 1 + this.album.length) % this.album.length })),
+      albPause: () => { this._albPaused = true; },
+      albResume: () => { this._albPaused = false; },
+
+      // toast + login
+      hasToast: !!st.toast, toast: st.toast, showLogin: st.showLogin, openLogin: () => this.setState({ showLogin: true, loginName: (st.user && st.user.name) || '', loginPhone: (st.user && st.user.phone) || '' }),
+      closeLogin: () => this.setState({ showLogin: false }), stop: (e) => { e.stopPropagation(); },
+      loginName: st.loginName, loginPhone: st.loginPhone,
+      setLoginName: (e) => this.setState({ loginName: e.target.value }), setLoginPhone: (e) => this.setState({ loginPhone: e.target.value }),
+      doLogin: () => { if (st.loginName.trim() && st.loginPhone.trim()) this.setState((s) => ({ user: { name: s.loginName.trim(), phone: s.loginPhone.trim() }, showLogin: false, form: { ...s.form, name: s.form.name || s.loginName.trim(), phone: s.form.phone || s.loginPhone.trim() } })); },
+    };
+  }
+
+  _addToCart() {
+    const st = this.state; const p = st.products.find((x) => x.id === st.pid);
+    if (!p || !st.start || !st.end) return;
+    const so = this.offset(this.parse(st.start)), eo = this.offset(this.parse(st.end));
+    const rem = this.minRemaining(p, so, eo); if (rem <= 0) return;
+    const days = Math.max(1, eo - so); const qty = Math.min(st.qty, rem);
+    const line = { id: Date.now() + '-' + p.id, pid: p.id, name: p.name, g: p.g, price: p.price, deposit: p.deposit, days, qty, start: st.start, end: st.end };
+    this.setState((s) => ({ cart: [...s.cart, line], toast: 'Đã thêm "' + p.name + '" vào giỏ' }));
+    clearTimeout(this._toastT); this._toastT = setTimeout(() => this.setState({ toast: null }), 3200);
+  }
+  _cartQty(id, delta) { this.setState((s) => ({ cart: s.cart.map((it) => it.id === id ? { ...it, qty: Math.max(1, it.qty + delta) } : it) })); }
+  _cartRemove(id) { this.setState((s) => ({ cart: s.cart.filter((it) => it.id !== id) })); }
+  _placeOrder(canPlace) {
+    if (!canPlace) { this.setState({ formErr: 'Vui lòng nhập đủ tên, số điện thoại và địa chỉ.' }); return; }
+    const st = this.state;
+    const sumRent = st.cart.reduce((a, it) => a + it.price * it.days * it.qty, 0);
+    const sumDep = st.cart.reduce((a, it) => a + it.deposit * it.qty, 0);
+    const count = st.cart.reduce((a, it) => a + it.qty, 0);
+    const days = Math.max(...st.cart.map((it) => it.days));
+    const code = 'BOP-' + Math.floor(2050 + Math.random() * 900);
+    const first = st.cart[0];
+    const order = { code, name: st.form.name, phone: st.form.phone, status: 'Chờ xác nhận', items: st.cart.map((it) => it.name.split(' ').slice(0, 3).join(' ')).join(' · '), start: this.dm(first.start), end: this.dm(first.end), total: sumRent + sumDep };
+    this.setState((s) => ({
+      placed: { code, name: s.form.name, count, days, pay: sumRent + sumDep },
+      orders: [order, ...s.orders], cart: [],
+      user: s.user || { name: s.form.name, phone: s.form.phone },
+    }));
+  }
+  _doLookup() {
+    const st = this.state; const code = st.look.code.trim().toUpperCase(); const phone = st.look.phone.trim();
+    this.setState({ lookState: 'loading', lookResult: null });
+    clearTimeout(this._lookT);
+    this._lookT = setTimeout(() => {
+      const found = this.state.orders.find((o) => o.code.toUpperCase() === code && (!phone || o.phone.replace(/\s/g, '').endsWith(phone.replace(/\s/g, '')) || phone.endsWith(o.phone.slice(-4))));
+      if (found) this.setState({ lookState: 'found', lookResult: found });
+      else this.setState({ lookState: 'notfound', lookResult: null });
+    }, 700);
+  }
+}
+</script>
+</body>
+</html>

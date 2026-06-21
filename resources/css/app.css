@@ -3,7 +3,45 @@
 @tailwind utilities;
 
 @layer base {
+    /* Nền toàn trang: bầu trời → cỏ, cố định theo viewport (RULES mục 1) */
     html {
-        background-color: #f1f4ea; /* ground — tránh viền trắng khi overscroll */
+        background: linear-gradient(180deg, #a9d8f0 0%, #c6e6f3 14%, #dceff3 34%, #e7f1ec 60%, #eef4e7 100%);
+        background-attachment: fixed;
+        background-color: #eef4e7;
     }
+    body {
+        color: #18230f;
+    }
+    ::selection {
+        background: #bfe0f0;
+        color: #16324a;
+    }
+    /* Focus bàn phím trên mọi control (RULES mục 8) */
+    a:focus-visible,
+    button:focus-visible,
+    input:focus-visible,
+    select:focus-visible,
+    textarea:focus-visible,
+    [tabindex]:focus-visible {
+        outline: 3px solid #7fa64b;
+        outline-offset: 2px;
+        border-radius: 6px;
+    }
+}
+
+/* Scrollbar tông xanh trời mát */
+::-webkit-scrollbar {
+    width: 12px;
+    height: 12px;
+}
+::-webkit-scrollbar-thumb {
+    background: #a9cee2;
+    border-radius: 999px;
+    border: 3px solid transparent;
+    background-clip: content-box;
+}
+
+@keyframes skeleton {
+    0%, 100% { opacity: 0.55; }
+    50% { opacity: 1; }
 }

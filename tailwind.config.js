@@ -13,19 +13,31 @@ export default {
     theme: {
         extend: {
             fontFamily: {
-                sans: ['Figtree', ...defaultTheme.fontFamily.sans],
-                mono: ['ui-monospace', 'SFMono-Regular', ...defaultTheme.fontFamily.mono],
+                sans: ['"Be Vietnam Pro"', ...defaultTheme.fontFamily.sans],
+                mono: ['"Space Mono"', ...defaultTheme.fontFamily.mono],
             },
-            // Bảng màu xanh cỏ — vibe thiên nhiên (xem KE_HOACH.md)
+            // Design tokens — handoff BỐP CAMPING (RULES.md mục 1, 10)
             colors: {
-                ground: '#F1F4EA',
-                surface: '#FBFCF7',
-                ink: '#18230F',
-                forest: { DEFAULT: '#2C3D22', deep: '#22341A' },
-                grass: { DEFAULT: '#557A2B', soft: '#7FA64B' },
+                grass: { DEFAULT: '#557A2B', light: '#7FA64B' },
+                pine: '#2C3D22',
                 moss: '#5C6E47',
-                sand: '#E6D6A8',
-                ember: '#C97B36',
+                ink: '#18230F',
+                campfire: '#C97B36',
+                card: '#FBFCF7',
+                cardBorder: '#E3E8D6',
+                skyTop: '#a9d8f0',
+                skyMid: '#dceff3',
+            },
+            borderRadius: {
+                card: '16px',
+                control: '12px',
+                pill: '999px',
+            },
+            boxShadow: {
+                cardhover: '0 20px 40px -22px rgba(44,61,34,.5)',
+                btn: '0 12px 24px -10px rgba(85,122,43,.6)',
+                hero: '0 30px 60px -24px rgba(44,61,34,.5)',
+                toast: '0 16px 40px -12px rgba(44,61,34,.6)',
             },
         },
     },
