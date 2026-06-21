@@ -1,11 +1,26 @@
 import { Link } from '@inertiajs/react';
 import { motion } from 'framer-motion';
 import { money } from '@/lib/format';
-import { catLabel, type Product } from '@/lib/catalog';
+import type { ProductResource } from '@/types/product';
+
+const GRAD: Record<string, string> = {
+    'leu-cam-trai':      'linear-gradient(150deg,#3a5a40,#588157)',
+    'tui-ngu':           'linear-gradient(150deg,#4a4e69,#9a8c98)',
+    'bep-nau-an':        'linear-gradient(150deg,#7f4f24,#b6873a)',
+    'ban-ghe-da-ngoai':  'linear-gradient(150deg,#4a6741,#7a9b6b)',
+    'den-chieu-sang':    'linear-gradient(150deg,#3d405b,#6e7db0)',
+    'ba-lo-tui':         'linear-gradient(150deg,#5c4033,#8b6355)',
+};
+const gradFor = (slug: string) => GRAD[slug] ?? 'linear-gradient(150deg,#4a6741,#7a9b6b)';
+
+const truncate = (s: string | null, max = 80) =>
+    s && s.length > max ? s.slice(0, max).trimEnd() + '…' : (s ?? '');
 
 /** Thẻ sản phẩm dùng chung cho Trang chủ + Danh sách (RULES mục 7). */
-export default function ProductCard({ p, compact = false, index = 0 }: { p: Product; compact?: boolean; index?: number }) {
-    const low = p.stock <= 2;
+export default function ProductCard({ p, compact = false, index = 0 }: { p: ProductResource; compact?: boolean; index?: number }) {
+    const low = p.quantity <= 2;
+    const bg  = gradFor(p.category.slug);
+
     return (
         <motion.div
             initial={{ opacity: 0, y: 18 }}
@@ -17,23 +32,26 @@ export default function ProductCard({ p, compact = false, index = 0 }: { p: Prod
                 href={`/thiet-bi/${p.id}`}
                 className="group flex h-full flex-col overflow-hidden rounded-card border border-cardBorder bg-card transition duration-200 hover:-translate-y-1 hover:shadow-cardhover"
             >
-                <div className="relative h-[170px]" style={{ background: p.grad }}>
+                <div className="relative h-[170px]" style={{ background: bg }}>
+                    {p.thumbnail && (
+                        <img src={p.thumbnail} alt={p.name} className="absolute inset-0 h-full w-full object-cover" />
+                    )}
                     <div className="absolute inset-0" style={{ background: 'radial-gradient(120px 90px at 78% 22%, rgba(255,255,255,.35), transparent 60%)' }} />
                     <div className="absolute inset-x-0 bottom-0 h-16" style={{ background: 'linear-gradient(180deg, rgba(24,35,15,0), rgba(24,35,15,.5))' }} />
                     <span
                         className={`absolute left-3 top-3 rounded-pill px-2.5 py-1 font-mono text-[11px] font-bold text-white ${low ? 'bg-campfire' : ''}`}
                         style={low ? undefined : { background: 'rgba(44,61,34,.72)' }}
                     >
-                        {low ? `Sắp hết · ${p.stock} bộ` : `Còn ${p.stock} bộ`}
+                        {low ? `Sắp hết · ${p.quantity} bộ` : `Còn ${p.quantity} bộ`}
                     </span>
-                    <span className="absolute bottom-3 left-3 font-mono text-[11px] tracking-[0.05em] text-white/90">{catLabel(p.cat)}</span>
+                    <span className="absolute bottom-3 left-3 font-mono text-[11px] tracking-[0.05em] text-white/90">{p.category.name}</span>
                 </div>
                 <div className="flex flex-1 flex-col px-4 pb-4 pt-3.5">
                     <div className="min-h-[39px] text-[15.5px] font-bold leading-[1.25] text-ink">{p.name}</div>
-                    {!compact && <p className="mb-2.5 mt-1.5 min-h-[36px] text-[12.5px] leading-[1.45] text-[#8a967a]">{p.blurb}</p>}
+                    {!compact && <p className="mb-2.5 mt-1.5 min-h-[36px] text-[12.5px] leading-[1.45] text-[#8a967a]">{truncate(p.description)}</p>}
                     <div className={`flex items-end justify-between ${compact ? 'mt-2.5' : 'mt-auto'}`}>
                         <div className="font-mono text-[17px] font-bold text-ink">
-                            {money(p.price)}<span className="font-sans text-[12px] font-normal text-[#8a967a]">/ngày</span>
+                            {money(p.price_per_day)}<span className="font-sans text-[12px] font-normal text-[#8a967a]">/ngày</span>
                         </div>
                         <div className="font-mono text-[11px] text-campfire">cọc {money(p.deposit)}</div>
                     </div>

@@ -17,8 +17,8 @@ return new class extends Migration
             $table->string('customer_address')->nullable();
             $table->date('start_date');
             $table->date('end_date');
-            $table->unsignedDecimal('total_price', 14, 0)->default(0);
-            $table->unsignedDecimal('deposit_total', 14, 0)->default(0);
+            $table->decimal('total_price', 14, 0)->default(0)->unsigned();
+            $table->decimal('deposit_total', 14, 0)->default(0)->unsigned();
             $table->enum('status', ['pending', 'confirmed', 'renting', 'returned', 'cancelled'])->default('pending');
             $table->string('payment_method')->default('cod');
             $table->text('note')->nullable();

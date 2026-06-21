@@ -5,7 +5,7 @@ import SiteLayout from '@/Layouts/SiteLayout';
 import HeroSlideshow from '@/Components/site/HeroSlideshow';
 import BiomeHero from '@/Components/site/BiomeHero';
 import ProductCard from '@/Components/site/ProductCard';
-import { featuredProducts } from '@/lib/catalog';
+import type { ProductResource } from '@/types/product';
 
 const EASE: [number, number, number, number] = [0.2, 0.7, 0.2, 1];
 const reveal = {
@@ -30,8 +30,11 @@ const steps = [
     { n: 3, t: 'Nhận đồ và lên đường', d: 'Tụi mình giao tận nơi nội thành. Trả đồ đúng hẹn khi về, hoàn cọc ngay.' },
 ];
 
-export default function Home() {
-    const featured = featuredProducts();
+interface Props {
+    featured: ProductResource[];
+}
+
+export default function Home({ featured }: Props) {
     return (
         <>
             <Head title="Cho thuê thiết bị cắm trại" />

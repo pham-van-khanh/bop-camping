@@ -13,9 +13,9 @@ return new class extends Migration
             $table->foreignId('order_id')->constrained()->cascadeOnDelete();
             $table->foreignId('product_id')->constrained()->restrictOnDelete();
             $table->unsignedInteger('quantity');
-            $table->unsignedDecimal('price_per_day', 12, 0);
+            $table->decimal('price_per_day', 12, 0)->unsigned();
             $table->unsignedInteger('days');
-            $table->unsignedDecimal('subtotal', 14, 0);
+            $table->decimal('subtotal', 14, 0)->unsigned();
             $table->timestamps();
         });
     }

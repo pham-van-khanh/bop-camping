@@ -14,9 +14,9 @@ return new class extends Migration
             $table->string('name');
             $table->string('slug')->unique();
             $table->text('description')->nullable();
-            $table->unsignedDecimal('price_per_day', 12, 0);
+            $table->decimal('price_per_day', 12, 0)->unsigned();
             $table->unsignedInteger('quantity')->default(1);
-            $table->unsignedDecimal('deposit', 12, 0)->nullable();
+            $table->decimal('deposit', 12, 0)->nullable()->unsigned();
             $table->string('thumbnail')->nullable();
             $table->enum('status', ['active', 'hidden'])->default('active');
             $table->timestamps();

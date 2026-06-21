@@ -1,11 +1,17 @@
 import { Head } from '@inertiajs/react';
-import { ReactNode, useMemo, useState } from 'react';
+import { router } from '@inertiajs/react';
+import { ReactNode, useState } from 'react';
 import SiteLayout from '@/Layouts/SiteLayout';
 import ProductCard from '@/Components/site/ProductCard';
-import { CATEGORIES, PRODUCTS, type CatKey } from '@/lib/catalog';
+import type { ProductResource } from '@/types/product';
 
-type DemoState = 'ok' | 'load' | 'err';
 type Sort = 'pop' | 'low' | 'high';
+
+interface Props {
+    products: ProductResource[];
+    categories: { id: number; name: string; slug: string }[];
+    filters: { cat: string; q: string; sort: string };
+}
 
 const segBtn = (active: boolean) =>
     `rounded-[9px] px-3 py-1.5 text-[13px] font-semibold transition ${active ? 'bg-grass text-white' : 'text-moss hover:text-pine'}`;
@@ -15,27 +21,30 @@ const chipBtn = (active: boolean) =>
         active ? 'border-grass bg-grass text-white' : 'border-[#d6ddc4] bg-card text-pine hover:border-grass'
     }`;
 
-export default function Products() {
-    const [search, setSearch] = useState('');
-    const [sort, setSort] = useState<Sort>('pop');
-    const [cat, setCat] = useState<CatKey | 'all'>('all');
-    const [demo, setDemo] = useState<DemoState>('ok');
+export default function Products({ products, categories, filters }: Props) {
+    const [search, setSearch] = useState(filters.q ?? '');
 
-    const products = useMemo(() => {
-        const q = search.trim().toLowerCase();
-        let list = PRODUCTS.filter((p) => (cat === 'all' || p.cat === cat) && (!q || p.name.toLowerCase().includes(q) || p.blurb.toLowerCase().includes(q)));
-        if (sort === 'low') list = [...list].sort((a, b) => a.price - b.price);
-        else if (sort === 'high') list = [...list].sort((a, b) => b.price - a.price);
-        return list;
-    }, [search, sort, cat]);
+    const applyFilters = (patch: Partial<{ cat: string; q: string; sort: string }>) => {
+        router.get(
+            '/thiet-bi',
+            { cat: filters.cat, q: filters.q, sort: filters.sort, ...patch },
+            { preserveState: true, replace: true },
+        );
+    };
 
     const clearFilters = () => {
         setSearch('');
-        setCat('all');
-        setSort('pop');
+        applyFilters({ cat: '', q: '', sort: 'pop' });
+    };
+
+    const handleSearch = (value: string) => {
+        setSearch(value);
+        applyFilters({ q: value });
     };
 
     const isEmpty = products.length === 0;
+    const sort = (filters.sort as Sort) || 'pop';
+    const cat  = filters.cat ?? '';
 
     return (
         <>
@@ -52,7 +61,7 @@ export default function Products() {
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="#8a967a" strokeWidth="1.8" /><path d="m20 20-3.2-3.2" stroke="#8a967a" strokeWidth="1.8" strokeLinecap="round" /></svg>
                         <input
                             value={search}
-                            onChange={(e) => setSearch(e.target.value)}
+                            onChange={(e) => handleSearch(e.target.value)}
                             placeholder="Tìm lều, bếp, túi ngủ..."
                             aria-label="Tìm thiết bị"
                             className="flex-1 border-none bg-transparent text-[15px] text-ink outline-none"
@@ -60,7 +69,7 @@ export default function Products() {
                     </div>
                     <select
                         value={sort}
-                        onChange={(e) => setSort(e.target.value as Sort)}
+                        onChange={(e) => applyFilters({ sort: e.target.value })}
                         aria-label="Sắp xếp"
                         className="h-11 cursor-pointer rounded-control border border-cardBorder bg-card px-3.5 text-[14px] font-semibold text-pine"
                     >
@@ -68,65 +77,31 @@ export default function Products() {
                         <option value="low">Giá: thấp đến cao</option>
                         <option value="high">Giá: cao đến thấp</option>
                     </select>
-                    <div className="flex rounded-control border border-cardBorder p-[3px]" style={{ background: '#eef2e3' }}>
-                        <button onClick={() => setDemo('ok')} className={segBtn(demo === 'ok')}>Bình thường</button>
-                        <button onClick={() => setDemo('load')} className={segBtn(demo === 'load')}>Đang tải</button>
-                        <button onClick={() => setDemo('err')} className={segBtn(demo === 'err')}>Lỗi</button>
-                    </div>
                 </div>
 
                 {/* category chips */}
                 <div className="mb-[22px] flex flex-wrap gap-2">
-                    <button onClick={() => setCat('all')} className={chipBtn(cat === 'all')}>Tất cả</button>
-                    {CATEGORIES.map((c) => (
-                        <button key={c.key} onClick={() => setCat(c.key)} className={chipBtn(cat === c.key)}>{c.label}</button>
+                    <button onClick={() => applyFilters({ cat: '' })} className={chipBtn(cat === '')}>Tất cả</button>
+                    {categories.map((c) => (
+                        <button key={c.id} onClick={() => applyFilters({ cat: c.slug })} className={chipBtn(cat === c.slug)}>{c.name}</button>
                     ))}
                 </div>
 
-                {/* loading */}
-                {demo === 'load' && (
-                    <div className="grid gap-[18px]" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(248px, 1fr))' }}>
-                        {Array.from({ length: 6 }).map((_, i) => (
-                            <div key={i} className="overflow-hidden rounded-card border border-cardBorder bg-card">
-                                <div className="h-[170px]" style={{ background: '#e7ebdc', animation: 'skeleton 1.4s ease-in-out infinite' }} />
-                                <div className="p-[15px]">
-                                    <div className="h-3.5 w-4/5 rounded-md" style={{ background: '#e7ebdc', animation: 'skeleton 1.4s ease-in-out infinite' }} />
-                                    <div className="mt-2.5 h-3.5 w-1/2 rounded-md" style={{ background: '#e7ebdc', animation: 'skeleton 1.4s ease-in-out infinite' }} />
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                )}
-
-                {/* error */}
-                {demo === 'err' && (
-                    <div className="rounded-[18px] border bg-card px-6 py-12 text-center" style={{ borderColor: '#ecd3c4' }}>
-                        <div className="mx-auto mb-4 grid h-[58px] w-[58px] place-items-center rounded-full text-[28px]" style={{ background: '#f7e7da', color: '#C97B36' }}>!</div>
-                        <div className="mb-1.5 text-[18px] font-bold text-ink">Không tải được danh sách</div>
-                        <div className="mb-5 text-moss">Kết nối có vẻ trục trặc. Thử lại giúp tụi mình nhé.</div>
-                        <button onClick={() => setDemo('ok')} className="h-[46px] rounded-control bg-grass px-6 font-bold text-white">Thử lại</button>
-                    </div>
-                )}
-
                 {/* results */}
-                {demo === 'ok' && (
-                    <>
-                        <div className="mb-3.5 flex items-center justify-between">
-                            <span className="font-mono text-[13px] text-moss">{products.length} thiết bị</span>
-                        </div>
-                        {isEmpty ? (
-                            <div className="rounded-[18px] border border-dashed px-6 py-[50px] text-center" style={{ borderColor: '#cdd6b6', background: '#FBFCF7' }}>
-                                <div className="mb-2.5 text-[34px]">⛺</div>
-                                <div className="mb-1.5 text-[18px] font-bold text-ink">Chưa tìm thấy thiết bị phù hợp</div>
-                                <div className="mb-5 text-moss">Thử từ khoá khác hoặc bỏ bớt bộ lọc.</div>
-                                <button onClick={clearFilters} className="h-[46px] rounded-control border border-[#cdd6b6] bg-white px-6 font-semibold text-pine">Xoá bộ lọc</button>
-                            </div>
-                        ) : (
-                            <div className="grid gap-[18px]" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(248px, 1fr))' }}>
-                                {products.map((p, i) => <ProductCard key={p.id} p={p} index={i} />)}
-                            </div>
-                        )}
-                    </>
+                <div className="mb-3.5 flex items-center justify-between">
+                    <span className="font-mono text-[13px] text-moss">{products.length} thiết bị</span>
+                </div>
+                {isEmpty ? (
+                    <div className="rounded-[18px] border border-dashed px-6 py-[50px] text-center" style={{ borderColor: '#cdd6b6', background: '#FBFCF7' }}>
+                        <div className="mb-2.5 text-[34px]">⛺</div>
+                        <div className="mb-1.5 text-[18px] font-bold text-ink">Chưa tìm thấy thiết bị phù hợp</div>
+                        <div className="mb-5 text-moss">Thử từ khoá khác hoặc bỏ bớt bộ lọc.</div>
+                        <button onClick={clearFilters} className="h-[46px] rounded-control border border-[#cdd6b6] bg-white px-6 font-semibold text-pine">Xoá bộ lọc</button>
+                    </div>
+                ) : (
+                    <div className="grid gap-[18px]" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(248px, 1fr))' }}>
+                        {products.map((p, i) => <ProductCard key={p.id} p={p} index={i} />)}
+                    </div>
                 )}
             </main>
         </>

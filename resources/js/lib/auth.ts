@@ -1,26 +1,20 @@
-// Đăng nhập nhanh bằng SĐT + tên, lưu localStorage (chưa nối backend — issue bopcamping-r1b).
+// Auth helper — đã chuyển sang Inertia session (backend).
+// localStorage không còn dùng để lưu user; các hàm giữ lại để không break imports cũ.
 import { emit, EVENTS } from './bus';
 
 export type LocalUser = { name: string; phone: string };
 
-const KEY = 'bop_user_v1';
-
+/** @deprecated Không còn dùng localStorage. Dùng usePage().props.auth.user thay thế. */
 export function getUser(): LocalUser | null {
-    if (typeof window === 'undefined') return null;
-    try {
-        const raw = window.localStorage.getItem(KEY);
-        return raw ? (JSON.parse(raw) as LocalUser) : null;
-    } catch {
-        return null;
-    }
+    return null;
 }
 
-export function setUser(u: LocalUser) {
-    window.localStorage.setItem(KEY, JSON.stringify(u));
-    emit(EVENTS.userChange, u);
+/** @deprecated Login nay qua POST /dang-nhap (GuestAuthController). */
+export function setUser(_u: LocalUser) {
+    emit(EVENTS.userChange, null);
 }
 
+/** @deprecated Logout nay qua POST /dang-xuat (GuestAuthController). */
 export function clearUser() {
-    window.localStorage.removeItem(KEY);
     emit(EVENTS.userChange, null);
 }

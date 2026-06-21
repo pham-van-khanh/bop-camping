@@ -1,13 +1,16 @@
 import { AnimatePresence, motion } from 'framer-motion';
 import { useEffect, useState } from 'react';
+import { useForm } from '@inertiajs/react';
 import { on, emit, EVENTS } from '@/lib/bus';
-import { setUser } from '@/lib/auth';
 
-/** Modal đăng nhập nhanh SĐT + tên (RULES mục 7). Mở qua EVENTS.openLogin. */
+/** Modal đăng nhập nhanh SĐT + tên — POST /dang-nhap (GuestAuthController). */
 export default function LoginModal() {
     const [open, setOpen] = useState(false);
-    const [name, setName] = useState('');
-    const [phone, setPhone] = useState('');
+
+    const { data, setData, post, processing, errors, reset, clearErrors } = useForm({
+        name: '',
+        phone: '',
+    });
 
     useEffect(() => on(EVENTS.openLogin, () => setOpen(true)), []);
 
@@ -18,16 +21,22 @@ export default function LoginModal() {
         return () => window.removeEventListener('keydown', onKey);
     }, [open]);
 
-    const submit = () => {
-        if (name.trim().length < 2 || phone.trim().length < 8) return;
-        setUser({ name: name.trim(), phone: phone.trim() });
+    const handleClose = () => {
         setOpen(false);
-        emit(EVENTS.toast, `Xin chào, ${name.trim()}!`);
-        setName('');
-        setPhone('');
+        reset();
+        clearErrors();
     };
 
-    const valid = name.trim().length >= 2 && phone.trim().length >= 8;
+    const submit = () => {
+        post(route('guest.login'), {
+            onSuccess: () => {
+                handleClose();
+                emit(EVENTS.userChange, null);
+            },
+        });
+    };
+
+    const valid = data.name.trim().length >= 2 && data.phone.trim().length >= 8;
 
     return (
         <AnimatePresence>
@@ -37,7 +46,7 @@ export default function LoginModal() {
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
                     transition={{ duration: 0.2 }}
-                    onClick={() => setOpen(false)}
+                    onClick={handleClose}
                     className="fixed inset-0 z-[90] flex items-center justify-center p-5"
                     style={{ background: 'rgba(24,35,15,.5)', backdropFilter: 'blur(3px)' }}
                 >
@@ -61,30 +70,40 @@ export default function LoginModal() {
                         </div>
                         <p className="mb-[18px] text-[14px] text-moss">Chỉ cần số điện thoại và tên. Không mật khẩu.</p>
                         <div className="mb-[18px] flex flex-col gap-[11px]">
-                            <input
-                                autoFocus
-                                value={name}
-                                onChange={(e) => setName(e.target.value)}
-                                onKeyDown={(e) => e.key === 'Enter' && submit()}
-                                placeholder="Tên của bạn"
-                                className="h-12 rounded-[11px] border border-cardBorder bg-white px-3.5 text-[15px] text-ink outline-none focus:border-grass"
-                            />
-                            <input
-                                value={phone}
-                                onChange={(e) => setPhone(e.target.value)}
-                                onKeyDown={(e) => e.key === 'Enter' && submit()}
-                                placeholder="Số điện thoại"
-                                inputMode="tel"
-                                className="h-12 rounded-[11px] border border-cardBorder bg-white px-3.5 text-[15px] text-ink outline-none focus:border-grass"
-                            />
+                            <div>
+                                <input
+                                    autoFocus
+                                    value={data.name}
+                                    onChange={(e) => setData('name', e.target.value)}
+                                    onKeyDown={(e) => e.key === 'Enter' && valid && !processing && submit()}
+                                    placeholder="Tên của bạn"
+                                    className={`h-12 w-full rounded-[11px] border bg-white px-3.5 text-[15px] text-ink outline-none focus:border-grass ${errors.name ? 'border-red-400' : 'border-cardBorder'}`}
+                                />
+                                {errors.name && (
+                                    <p className="mt-1 text-[13px] text-red-500">{errors.name}</p>
+                                )}
+                            </div>
+                            <div>
+                                <input
+                                    value={data.phone}
+                                    onChange={(e) => setData('phone', e.target.value)}
+                                    onKeyDown={(e) => e.key === 'Enter' && valid && !processing && submit()}
+                                    placeholder="Số điện thoại"
+                                    inputMode="tel"
+                                    className={`h-12 w-full rounded-[11px] border bg-white px-3.5 text-[15px] text-ink outline-none focus:border-grass ${errors.phone ? 'border-red-400' : 'border-cardBorder'}`}
+                                />
+                                {errors.phone && (
+                                    <p className="mt-1 text-[13px] text-red-500">{errors.phone}</p>
+                                )}
+                            </div>
                         </div>
                         <button
                             onClick={submit}
-                            disabled={!valid}
+                            disabled={!valid || processing}
                             className="h-[50px] w-full rounded-control text-[16px] font-bold text-white transition disabled:cursor-not-allowed"
-                            style={{ background: valid ? '#557A2B' : '#c4cfae' }}
+                            style={{ background: valid && !processing ? '#557A2B' : '#c4cfae' }}
                         >
-                            Tiếp tục
+                            {processing ? 'Đang xử lý…' : 'Tiếp tục'}
                         </button>
                     </motion.div>
                 </motion.div>

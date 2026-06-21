@@ -1,4 +1,4 @@
-import { Link, usePage } from '@inertiajs/react';
+import { Link, useForm, usePage } from '@inertiajs/react';
 import { emit, EVENTS } from '@/lib/bus';
 
 const NAV = [
@@ -15,6 +15,17 @@ function isActive(current: string, href: string) {
 
 export default function Header({ cartCount = 0, userName }: { cartCount?: number; userName?: string }) {
     const url = usePage().url;
+    const { post, processing } = useForm({});
+
+    const handleUserClick = () => {
+        if (userName) {
+            // Đăng xuất nếu đang đăng nhập
+            post(route('guest.logout'));
+        } else {
+            emit(EVENTS.openLogin);
+        }
+    };
+
     return (
         <header
             className="sticky top-0 z-50 border-b border-[#c2dcec]"
@@ -56,13 +67,20 @@ export default function Header({ cartCount = 0, userName }: { cartCount?: number
                 {/* Actions */}
                 <div className="flex shrink-0 items-center gap-2">
                     <button
-                        onClick={() => emit(EVENTS.openLogin)}
-                        className="flex items-center gap-2 rounded-control border border-cardBorder bg-card px-3 py-2 text-sm font-semibold text-pine transition hover:border-grass"
+                        onClick={handleUserClick}
+                        disabled={processing}
+                        title={userName ? `Đăng xuất (${userName})` : 'Đăng nhập'}
+                        className="flex items-center gap-2 rounded-control border border-cardBorder bg-card px-3 py-2 text-sm font-semibold text-pine transition hover:border-grass disabled:opacity-60"
                     >
                         <span className="grid h-6 w-6 place-items-center rounded-full bg-grass/15 text-xs font-bold text-grass">
                             {userName ? userName.trim().charAt(0).toUpperCase() : 'B'}
                         </span>
-                        <span className="hidden max-w-[120px] truncate sm:inline">{userName ? userName : 'Đăng nhập'}</span>
+                        <span className="hidden max-w-[120px] truncate sm:inline">
+                            {userName ? userName : 'Đăng nhập'}
+                        </span>
+                        {userName && (
+                            <span className="hidden text-[11px] text-moss sm:inline">↩</span>
+                        )}
                     </button>
                     <Link
                         href="/gio-thue"
