@@ -1,9 +1,16 @@
 # BỐP CAMPING — Quy tắc thiết kế (cho Claude Code)
 
+> ⚠️ **PHIÊN BẢN MỚI NHẤT — cập nhật 21/06/2026.** Giao diện hiện tại: trang chủ có **hero ảnh
+> full-bleed dạng slideshow** (KHÔNG còn hero 2 cột cũ), cảnh 3D "đổi địa điểm" nằm ở section
+> "Một bộ đồ, đi khắp địa hình" ngay dưới hero, có tweak **Sức gió (windStrength)**.
+> Nếu bạn từng đọc bản cũ (hero 2 cột chữ + 3D bên phải) thì **bỏ bản đó đi** và bám file này.
+> Ảnh chụp thực tế 6 màn hình ở thư mục `screenshots/` (01 trang chủ … 06 quản trị).
+>
 > Đọc file này TRƯỚC KHI dựng bất kỳ màn hình nào. Đây là "bản hợp đồng thiết kế": mọi màn hình mới
 > phải tuân theo đúng các token và pattern dưới đây để đồng bộ với các màn đã có.
-> File tham chiếu giao diện đầy đủ: `reference/BopCamping.dc.html` (markup + logic 6 màn hình).
-> Cảnh hero động: `reference/BiomeHero.jsx`. (`support.js` chỉ là runtime của prototype — KHÔNG dùng trong production.)
+> **Nguồn chân lý về code** = `reference/BopCamping.dc.html` (markup + logic 6 màn hình, đã đồng bộ với
+> bản đang chạy). Cảnh hero động: `reference/BiomeHero.jsx`.
+> (`support.js` chỉ là runtime của prototype — KHÔNG dùng trong production.)
 
 ---
 

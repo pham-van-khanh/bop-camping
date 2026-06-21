@@ -56,10 +56,10 @@ const layer = (op, z, extra) => ({
 
 // ─────────────────────────────────────────────────────────────────────────────
 // BIOME 1 — ĐỒNG CỎ (rolling meadow, big warm sky)
-function Meadow({ t }) {
+function Meadow({ t, wind = 1 }) {
   // gentle global breeze (eases back and forth)
-  const breeze = Math.sin(t * 0.7) * 0.5 + Math.sin(t * 1.9 + 1) * 0.25;
-  const treeSway = Math.sin(t * 0.6) * 1.4 + Math.sin(t * 1.7) * 0.5;
+  const breeze = (Math.sin(t * 0.7) * 0.5 + Math.sin(t * 1.9 + 1) * 0.25) * wind;
+  const treeSway = (Math.sin(t * 0.6) * 1.4 + Math.sin(t * 1.7) * 0.5) * wind;
 
   // wildflowers on bending stems
   const flowers = [];
@@ -88,7 +88,7 @@ function Meadow({ t }) {
     const baseY = 902;
     const h = 70 + ((i * 37) % 90);
     const ph = i * 0.7;
-    const lean = breeze * (h * 0.5) + Math.sin(t * 1.5 + ph) * (8 + h * 0.08);
+    const lean = breeze * (h * 0.5) + Math.sin(t * 1.5 + ph) * (8 + h * 0.08) * wind;
     const tipX = x + lean, tipY = baseY - h;
     const midX = x + lean * 0.4, midY = baseY - h * 0.55;
     const col = ['#5d8235', '#6f9540', '#4f7a2c', '#7fa64b'][i % 4];
@@ -289,9 +289,10 @@ function Sea({ t }) {
 }
 
 // ── shared sky elements (clouds + birds), always present ─────────────────────
-function Clouds({ t }) {
+function Clouds({ t, wind = 1 }) {
   const puff = (dx, dy, w, h) => <div style={{ position: 'absolute', left: dx, top: dy, width: w, height: h, borderRadius: '50%', background: 'rgba(255,255,255,.9)' }} />;
   const cloud = (base, sp, y, sc, op) => {
+    sp = sp * (0.5 + 0.7 * wind);
     const x = ((base + t * sp) % (SW + 500)) - 250;
     return <div style={{ position: 'absolute', left: x, top: y, transform: `scale(${sc})`, opacity: op, filter: 'blur(1.4px)' }}>{puff(0, 26, 110, 64)}{puff(64, 6, 120, 88)}{puff(138, 24, 108, 70)}</div>;
   };
@@ -308,19 +309,19 @@ function Birds({ t }) {
 }
 
 // ── constant foreground camp: dirt patch + tent + campfire + smoke ───────────
-function Camp({ t }) {
+function Camp({ t, wind = 1 }) {
   const fx = 980, fy = 812;
   const flick = 0.85 + 0.15 * Math.sin(t * 9) + 0.06 * Math.sin(t * 17 + 1);
   const flame = (w, h, col, ph, sp) => {
     const fl = 1 + 0.16 * Math.sin(t * sp + ph);
-    const sway = Math.sin(t * sp * 0.6 + ph) * 4;
+    const sway = Math.sin(t * sp * 0.6 + ph) * (3 + 5 * wind);
     return <div style={{ position: 'absolute', left: fx - w / 2 + sway, top: fy - h * fl, width: w, height: h * fl, background: `linear-gradient(180deg,rgba(255,150,40,0) 0%,${col} 100%)`, borderRadius: '50% 50% 46% 46% / 72% 72% 30% 30%', filter: 'blur(0.6px)' }} />;
   };
   const smoke = [];
   for (let i = 0; i < 6; i++) {
     const cyc = (t * 0.3 + i / 6) % 1;
     const sc = 0.4 + cyc * 1.7;
-    smoke.push(<div key={i} style={{ position: 'absolute', left: fx + Math.sin(cyc * 3.2 + i) * 30 - 38 * sc, top: fy - 30 - cyc * 250 - 38 * sc, width: 76 * sc, height: 76 * sc, borderRadius: '50%', background: `rgba(210,210,212,${Math.sin(cyc * Math.PI) * 0.3})`, filter: 'blur(10px)' }} />);
+    smoke.push(<div key={i} style={{ position: 'absolute', left: fx + Math.sin(cyc * 3.2 + i) * (16 + 34 * wind) + cyc * 80 * wind - 38 * sc, top: fy - 30 - cyc * 250 - 38 * sc, width: 76 * sc, height: 76 * sc, borderRadius: '50%', background: `rgba(210,210,212,${Math.sin(cyc * Math.PI) * 0.3})`, filter: 'blur(10px)' }} />);
   }
   const tx = 560, ty = 858;
   return (
@@ -378,22 +379,23 @@ function Camp({ t }) {
 }
 
 // ── main ─────────────────────────────────────────────────────────────────────
-function BiomeHero() {
+function BiomeHero(props) {
   const wrapRef = React.useRef(null);
   const t = useLoopTime();
+  const wind = (props && props.wind != null && !isNaN(+props.wind)) ? +props.wind : 1;
   const p = scenePos(t);
   const ops = [0, 1, 2, 3].map((i) => biomeOpacity(p, i));
 
   return (
     <div ref={wrapRef} style={{ position: 'relative', width: '100%', aspectRatio: '16 / 9', overflow: 'hidden', borderRadius: 20, background: '#bcd97e', containerType: 'inline-size', boxShadow: '0 30px 60px -24px rgba(44,61,34,.5), inset 0 0 0 1px rgba(255,255,255,.25)' }}>
       <div style={{ position: 'absolute', top: 0, left: 0, width: SW, height: SH, transformOrigin: 'top left', transform: 'scale(calc(100cqw / 1600px))' }}>
-        <div style={layer(ops[0], 1)}><Meadow t={t} /></div>
-        <div style={layer(ops[1], 1)}><Forest t={t} /></div>
+        <div style={layer(ops[0], 1)}><Meadow t={t} wind={wind} /></div>
+        <div style={layer(ops[1], 1)}><Forest t={t} wind={wind} /></div>
         <div style={layer(ops[2], 1)}><Mountain t={t} /></div>
         <div style={layer(ops[3], 1)}><Sea t={t} /></div>
-        <Clouds t={t} />
+        <Clouds t={t} wind={wind} />
         <Birds t={t} />
-        <Camp t={t} />
+        <Camp t={t} wind={wind} />
         {/* light vignette only */}
         <div style={layer(1, 10, { boxShadow: 'inset 0 0 150px 30px rgba(20,30,14,.16)' })} />
       </div>
