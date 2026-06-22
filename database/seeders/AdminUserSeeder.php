@@ -13,8 +13,8 @@ class AdminUserSeeder extends Seeder
         User::updateOrCreate(
             ['phone' => '0976544370'],
             [
-                'name'     => 'Admin',
-                'phone'    => '0976544370',
+                'name' => 'Admin',
+                'phone' => '0976544370',
                 'password' => Hash::make('admin'),
                 'is_admin' => true,
             ]

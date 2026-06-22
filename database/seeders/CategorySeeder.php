@@ -21,8 +21,8 @@ class CategorySeeder extends Seeder
 
         foreach ($categories as $data) {
             Category::create([
-                'name'        => $data['name'],
-                'slug'        => Str::slug($data['name']),
+                'name' => $data['name'],
+                'slug' => Str::slug($data['name']),
                 'description' => $data['description'],
             ]);
         }

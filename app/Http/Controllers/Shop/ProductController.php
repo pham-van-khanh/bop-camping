@@ -39,7 +39,7 @@ class ProductController extends Controller
         if ($q = $request->query('q')) {
             $query->where(function ($sq) use ($q) {
                 $sq->where('name', 'like', "%{$q}%")
-                   ->orWhere('description', 'like', "%{$q}%");
+                    ->orWhere('description', 'like', "%{$q}%");
             });
         }
 
@@ -59,11 +59,11 @@ class ProductController extends Controller
             ->map(fn ($c) => ['id' => $c->id, 'name' => $c->name, 'slug' => $c->slug]);
 
         return Inertia::render('Products', [
-            'products'   => $products,
+            'products' => $products,
             'categories' => $categories,
-            'filters'    => [
-                'cat'  => $request->query('cat', ''),
-                'q'    => $request->query('q', ''),
+            'filters' => [
+                'cat' => $request->query('cat', ''),
+                'q' => $request->query('q', ''),
                 'sort' => $sort,
             ],
         ]);
@@ -75,12 +75,12 @@ class ProductController extends Controller
         $p = Product::active()->with('category', 'images')->findOrFail($product);
 
         $from = Carbon::today();
-        $to   = Carbon::today()->addDays(90);
+        $to = Carbon::today()->addDays(90);
 
         $unavailableDates = $this->availability->unavailableDates($p, $from, $to);
 
         return Inertia::render('ProductDetail', [
-            'product'           => $this->shape($p),
+            'product' => $this->shape($p),
             'unavailable_dates' => $unavailableDates,
         ]);
     }
@@ -89,25 +89,25 @@ class ProductController extends Controller
     private function shape(Product $p): array
     {
         return [
-            'id'            => $p->id,
-            'name'          => $p->name,
-            'slug'          => $p->slug,
-            'description'   => $p->description,
+            'id' => $p->id,
+            'name' => $p->name,
+            'slug' => $p->slug,
+            'description' => $p->description,
             'price_per_day' => $p->price_per_day,
-            'quantity'      => $p->quantity,
-            'deposit'       => $p->deposit ?? 0,
-            'thumbnail'     => $p->thumbnail,
-            'status'        => $p->status,
-            'category'      => [
-                'id'   => $p->category->id,
+            'quantity' => $p->quantity,
+            'deposit' => $p->deposit ?? 0,
+            'thumbnail' => $p->thumbnail,
+            'status' => $p->status,
+            'category' => [
+                'id' => $p->category->id,
                 'name' => $p->category->name,
                 'slug' => $p->category->slug,
             ],
-            'images'        => $p->images->map(fn ($i) => [
-                'path'       => $i->path,
+            'images' => $p->images->map(fn ($i) => [
+                'path' => $i->path,
                 'sort_order' => $i->sort_order,
             ])->values()->all(),
-            'featured'      => false,
+            'featured' => false,
         ];
     }
 }

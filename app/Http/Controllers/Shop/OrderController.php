@@ -28,22 +28,22 @@ class OrderController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $validated = $request->validate([
-            'name'               => ['required', 'string', 'min:2', 'max:100'],
-            'phone'              => ['required', 'string', 'regex:/^0[0-9]{8,10}$/'],
-            'address'            => ['nullable', 'string', 'max:255'],
-            'note'               => ['nullable', 'string', 'max:500'],
-            'items'              => ['required', 'array', 'min:1'],
+            'name' => ['required', 'string', 'min:2', 'max:100'],
+            'phone' => ['required', 'string', 'regex:/^0[0-9]{8,10}$/'],
+            'address' => ['nullable', 'string', 'max:255'],
+            'note' => ['nullable', 'string', 'max:500'],
+            'items' => ['required', 'array', 'min:1'],
             'items.*.product_id' => ['required', 'integer', 'exists:products,id'],
-            'items.*.quantity'   => ['required', 'integer', 'min:1', 'max:99'],
-            'items.*.start'      => ['required', 'date_format:Y-m-d', 'after_or_equal:today'],
-            'items.*.end'        => ['required', 'date_format:Y-m-d', 'after_or_equal:items.*.start'],
-            'voucher_code'       => ['nullable', 'string', 'max:32'],
+            'items.*.quantity' => ['required', 'integer', 'min:1', 'max:99'],
+            'items.*.start' => ['required', 'date_format:Y-m-d', 'after_or_equal:today'],
+            'items.*.end' => ['required', 'date_format:Y-m-d', 'after_or_equal:items.*.start'],
+            'voucher_code' => ['nullable', 'string', 'max:32'],
         ], [
-            'name.required'   => 'Vui lòng nhập họ tên.',
-            'phone.required'  => 'Vui lòng nhập số điện thoại.',
-            'phone.regex'     => 'Số điện thoại không hợp lệ.',
-            'items.required'  => 'Giỏ thuê đang trống.',
-            'items.min'       => 'Giỏ thuê đang trống.',
+            'name.required' => 'Vui lòng nhập họ tên.',
+            'phone.required' => 'Vui lòng nhập số điện thoại.',
+            'phone.regex' => 'Số điện thoại không hợp lệ.',
+            'items.required' => 'Giỏ thuê đang trống.',
+            'items.min' => 'Giỏ thuê đang trống.',
         ]);
 
         // Kiểm tra tồn kho từng món
@@ -56,11 +56,12 @@ class OrderController extends Controller
             $product = $products->get($item['product_id']);
             if (! $product) {
                 $errors[] = "Sản phẩm #$item[product_id] không tồn tại.";
+
                 continue;
             }
 
-            $start     = Carbon::parse($item['start']);
-            $end       = Carbon::parse($item['end']);
+            $start = Carbon::parse($item['start']);
+            $end = Carbon::parse($item['end']);
             $available = $this->availability->availableQuantity($product, $start, $end);
 
             if ($available < $item['quantity']) {
@@ -74,45 +75,45 @@ class OrderController extends Controller
 
         // Tạo đơn trong transaction
         $order = DB::transaction(function () use ($validated, $products) {
-            $starts    = array_column($validated['items'], 'start');
-            $ends      = array_column($validated['items'], 'end');
+            $starts = array_column($validated['items'], 'start');
+            $ends = array_column($validated['items'], 'end');
             $startDate = Carbon::parse(min($starts));
-            $endDate   = Carbon::parse(max($ends));
+            $endDate = Carbon::parse(max($ends));
 
             $order = Order::create([
-                'user_id'          => Auth::id(),
-                'customer_name'    => $validated['name'],
-                'customer_phone'   => $validated['phone'],
+                'user_id' => Auth::id(),
+                'customer_name' => $validated['name'],
+                'customer_phone' => $validated['phone'],
                 'customer_address' => $validated['address'] ?? null,
-                'note'             => $validated['note'] ?? null,
-                'start_date'       => $startDate,
-                'end_date'         => $endDate,
-                'status'           => 'pending',
-                'payment_method'   => 'cod',
+                'note' => $validated['note'] ?? null,
+                'start_date' => $startDate,
+                'end_date' => $endDate,
+                'status' => 'pending',
+                'payment_method' => 'cod',
             ]);
 
-            $totalPrice   = 0;
+            $totalPrice = 0;
             $depositTotal = 0;
 
             foreach ($validated['items'] as $item) {
-                $product  = $products->get($item['product_id']);
-                $days     = Carbon::parse($item['start'])->diffInDays(Carbon::parse($item['end'])) + 1;
+                $product = $products->get($item['product_id']);
+                $days = Carbon::parse($item['start'])->diffInDays(Carbon::parse($item['end'])) + 1;
                 $subtotal = $product->price_per_day * $item['quantity'] * $days;
 
                 $order->items()->create([
-                    'product_id'    => $product->id,
-                    'quantity'      => $item['quantity'],
+                    'product_id' => $product->id,
+                    'quantity' => $item['quantity'],
                     'price_per_day' => $product->price_per_day,
-                    'days'          => $days,
-                    'subtotal'      => $subtotal,
+                    'days' => $days,
+                    'subtotal' => $subtotal,
                 ]);
 
-                $totalPrice   += $subtotal;
+                $totalPrice += $subtotal;
                 $depositTotal += ($product->deposit ?? 0) * $item['quantity'];
             }
 
             $order->update([
-                'total_price'   => $totalPrice,
+                'total_price' => $totalPrice,
                 'deposit_total' => $depositTotal,
             ]);
 
@@ -127,10 +128,10 @@ class OrderController extends Controller
         }
 
         return back()->with([
-            'order_code'    => $order->code,
-            'order_name'    => $validated['name'],
-            'order_pay'     => $order->total_price + $order->deposit_total - $order->discount_total,
-            'order_items'   => count($validated['items']),
+            'order_code' => $order->code,
+            'order_name' => $validated['name'],
+            'order_pay' => $order->total_price + $order->deposit_total - $order->discount_total,
+            'order_items' => count($validated['items']),
         ]);
     }
 }

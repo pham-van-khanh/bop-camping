@@ -21,8 +21,8 @@ class AvailabilityService
         $booked = OrderItem::query()
             ->whereHas('order', function ($q) use ($start, $end) {
                 $q->whereIn('status', Order::activeStatuses())
-                  ->where('start_date', '<=', $end)
-                  ->where('end_date', '>=', $start);
+                    ->where('start_date', '<=', $end)
+                    ->where('end_date', '>=', $start);
             })
             ->where('product_id', $product->id)
             ->sum('quantity');
@@ -42,7 +42,7 @@ class AvailabilityService
      * Kiểm tra nhiều sản phẩm cùng lúc (dùng khi validate giỏ hàng).
      *
      * @param  array<int, int>  $items  [ product_id => quantity ]
-     * @return array<int, int>          [ product_id => available_qty ]  (chỉ trả các sp thiếu hàng)
+     * @return array<int, int> [ product_id => available_qty ]  (chỉ trả các sp thiếu hàng)
      */
     public function checkCart(array $items, Carbon $start, Carbon $end): array
     {
@@ -57,6 +57,7 @@ class AvailabilityService
             $product = $products->get($productId);
             if (! $product) {
                 $insufficient[$productId] = 0;
+
                 continue;
             }
             $available = $this->availableQuantity($product, $start, $end);

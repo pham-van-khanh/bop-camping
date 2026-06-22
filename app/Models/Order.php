@@ -28,10 +28,10 @@ class Order extends Model
     ];
 
     protected $casts = [
-        'start_date'    => 'date',
-        'end_date'      => 'date',
-        'total_price'    => 'integer',
-        'deposit_total'  => 'integer',
+        'start_date' => 'date',
+        'end_date' => 'date',
+        'total_price' => 'integer',
+        'deposit_total' => 'integer',
         'discount_total' => 'integer',
     ];
 
@@ -40,7 +40,7 @@ class Order extends Model
     {
         static::creating(function (Order $order) {
             if (empty($order->code)) {
-                $order->code = 'BOP-' . strtoupper(substr(uniqid(), -6));
+                $order->code = 'BOP-'.strtoupper(substr(uniqid(), -6));
             }
         });
     }

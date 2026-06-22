@@ -115,4 +115,36 @@ class AdminProductTest extends TestCase
 
         $this->assertSame('Lều 2 người', $product->fresh()->name);
     }
+
+    /**
+     * 76f — IDOR: không xoá được ảnh qua URL sản phẩm khác (CWE-639).
+     *
+     * @test
+     */
+    public function cannot_delete_image_through_wrong_product(): void
+    {
+        Storage::fake('public');
+        $productA = $this->makeProduct();
+        $category = Category::create(['name' => 'Bếp', 'slug' => 'bep']);
+        $productB = Product::create([
+            'category_id' => $category->id,
+            'name' => 'Bếp gas',
+            'slug' => 'bep-gas',
+            'price_per_day' => 30000,
+            'quantity' => 2,
+        ]);
+        $image = $productA->images()->create(['path' => 'products/a.jpg', 'sort_order' => 1]);
+
+        // Xoá ảnh của A nhưng qua URL của B → 404, ảnh còn nguyên.
+        $this->actingAs($this->admin())
+            ->delete(route('admin.products.images.destroy', [$productB->id, $image->id]))
+            ->assertNotFound();
+        $this->assertDatabaseHas('product_images', ['id' => $image->id]);
+
+        // Đúng sản phẩm → xoá được.
+        $this->actingAs($this->admin())
+            ->delete(route('admin.products.images.destroy', [$productA->id, $image->id]))
+            ->assertRedirect();
+        $this->assertDatabaseMissing('product_images', ['id' => $image->id]);
+    }
 }

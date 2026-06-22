@@ -32,11 +32,20 @@ type ProductFormData = {
     thumbnail: File | null;
 };
 
+type Paginator<T> = {
+    data: T[];
+    current_page: number;
+    last_page: number;
+    from: number | null;
+    to: number | null;
+    total: number;
+};
+
 export default function AdminProducts({
     products,
     categories,
 }: {
-    products: Product[];
+    products: Paginator<Product>;
     categories: CategoryOption[];
 }) {
     const { flash } = usePage<PageProps>().props;
@@ -162,8 +171,8 @@ export default function AdminProducts({
         });
     };
 
-    const deleteImage = (imageId: number) => {
-        router.delete(route('admin.products.images.destroy', imageId), { preserveScroll: true });
+    const deleteImage = (productId: number, imageId: number) => {
+        router.delete(route('admin.products.images.destroy', [productId, imageId]), { preserveScroll: true });
     };
 
     return (
@@ -193,7 +202,7 @@ export default function AdminProducts({
                     <div>
                         <h1 className="text-[22px] font-extrabold text-pine">Sản phẩm</h1>
                         <p className="mt-0.5 text-[13px] text-moss">
-                            <span className="font-mono">{products.length}</span> sản phẩm · click vào hàng để quản lý ảnh
+                            <span className="font-mono">{products.total}</span> sản phẩm · click vào hàng để quản lý ảnh
                         </p>
                     </div>
                     <button
@@ -209,7 +218,7 @@ export default function AdminProducts({
 
                 {/* Table */}
                 <div className="overflow-hidden rounded-[16px] border border-cardBorder bg-white">
-                    {products.length === 0 ? (
+                    {products.data.length === 0 ? (
                         <div className="py-16 text-center text-moss">
                             <div className="mb-2 text-[32px]">⛺️</div>
                             <div className="text-[14px]">Chưa có sản phẩm nào</div>
@@ -238,7 +247,7 @@ export default function AdminProducts({
                                 </tr>
                             </thead>
                             <tbody>
-                                {products.map((p) => {
+                                {products.data.map((p) => {
                                     const expanded = expandedId === p.id;
                                     return (
                                         <Fragment key={p.id}>
@@ -356,7 +365,7 @@ export default function AdminProducts({
                                                                             className="h-20 w-20 rounded-[10px] object-cover border border-cardBorder"
                                                                         />
                                                                         <button
-                                                                            onClick={() => deleteImage(img.id)}
+                                                                            onClick={() => deleteImage(p.id, img.id)}
                                                                             className="absolute -right-1.5 -top-1.5 hidden h-5 w-5 items-center justify-center rounded-full bg-[#b3493a] text-[10px] font-bold text-white shadow group-hover:flex"
                                                                             title="Xoá ảnh"
                                                                         >
@@ -376,6 +385,29 @@ export default function AdminProducts({
                         </table>
                     )}
                 </div>
+
+                {/* Pagination */}
+                {products.last_page > 1 && (
+                    <div className="mt-4 flex items-center justify-between text-[12.5px] text-moss">
+                        <span className="font-mono">{products.from}–{products.to} / {products.total}</span>
+                        <div className="flex gap-2">
+                            <button
+                                disabled={products.current_page <= 1}
+                                onClick={() => router.get(route('admin.products'), { page: products.current_page - 1 }, { preserveScroll: true })}
+                                className="rounded-[8px] border border-cardBorder px-3 py-1.5 font-semibold text-pine transition hover:border-grass disabled:opacity-40"
+                            >
+                                Trước
+                            </button>
+                            <button
+                                disabled={products.current_page >= products.last_page}
+                                onClick={() => router.get(route('admin.products'), { page: products.current_page + 1 }, { preserveScroll: true })}
+                                className="rounded-[8px] border border-cardBorder px-3 py-1.5 font-semibold text-pine transition hover:border-grass disabled:opacity-40"
+                            >
+                                Sau
+                            </button>
+                        </div>
+                    </div>
+                )}
             </div>
 
             {/* Create / Edit Modal */}

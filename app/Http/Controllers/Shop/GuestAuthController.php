@@ -16,13 +16,13 @@ class GuestAuthController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $validated = $request->validate([
-            'name'  => ['required', 'string', 'min:2', 'max:100'],
+            'name' => ['required', 'string', 'min:2', 'max:100'],
             'phone' => ['required', 'string', 'regex:/^0[0-9]{8,10}$/'],
         ], [
-            'name.required'  => 'Vui lòng nhập tên.',
-            'name.min'       => 'Tên phải có ít nhất 2 ký tự.',
+            'name.required' => 'Vui lòng nhập tên.',
+            'name.min' => 'Tên phải có ít nhất 2 ký tự.',
             'phone.required' => 'Vui lòng nhập số điện thoại.',
-            'phone.regex'    => 'Số điện thoại không hợp lệ (VD: 0912345678).',
+            'phone.regex' => 'Số điện thoại không hợp lệ (VD: 0912345678).',
         ]);
 
         $user = User::where('phone', $validated['phone'])->first();
@@ -35,8 +35,8 @@ class GuestAuthController extends Controller
             }
         } else {
             $user = User::create([
-                'name'        => $validated['name'],
-                'phone'       => $validated['phone'],
+                'name' => $validated['name'],
+                'phone' => $validated['phone'],
                 'referred_by' => $this->resolveReferrerId($request->input('ref')),
             ]);
         }
