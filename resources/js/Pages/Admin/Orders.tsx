@@ -8,7 +8,7 @@ import { STATUS_LABEL, STATUS_STYLE } from '@/lib/orderStatus';
 type OrderItem = { name: string; quantity: number; days: number; subtotal: number };
 type Order = {
     id: number; code: string; customer_name: string; customer_phone: string;
-    start_date: string; end_date: string; total_price: number; deposit_total: number;
+    start_date: string; end_date: string; total_price: number; deposit_total: number; discount_total: number;
     status: string; note: string | null; created_at: string; items: OrderItem[];
 };
 type Stats = { total: number; pending: number; confirmed: number; renting: number; returned: number; cancelled: number };
@@ -144,6 +144,9 @@ export default function AdminOrders({
                                                         <td className="px-4 py-3 text-right">
                                                             <div className="font-mono font-bold text-ink">{money(order.total_price)}</div>
                                                             <div className="font-mono text-[11px] text-campfire">cọc {money(order.deposit_total)}</div>
+                                                            {order.discount_total > 0 && (
+                                                                <div className="font-mono text-[11px] text-grass">voucher −{money(order.discount_total)}</div>
+                                                            )}
                                                         </td>
                                                         <td className="px-4 py-3">
                                                             <span className="rounded-pill px-2.5 py-1 text-[11.5px] font-bold"

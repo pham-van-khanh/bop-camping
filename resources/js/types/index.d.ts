@@ -10,6 +10,7 @@ export interface Flash {
     order_code?: string;
     order_name?: string;
     order_pay?: number;
+    order_discount?: number;
     order_items?: number;
     success?: string;
 }

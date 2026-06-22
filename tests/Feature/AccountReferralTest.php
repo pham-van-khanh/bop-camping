@@ -82,6 +82,23 @@ class AccountReferralTest extends TestCase
     }
 
     /** @test */
+    public function referral_code_from_link_is_captured_via_session(): void
+    {
+        $referrer = User::create(['name' => 'Người mời', 'phone' => '0900000004']);
+
+        // Khách vào site qua link giới thiệu ?ref=CODE (middleware lưu vào session)
+        $this->get('/?ref='.$referrer->referral_code);
+
+        // Sau đó đăng nhập KHÔNG kèm ref trong form → vẫn bắt được từ session
+        $this->post(route('guest.login'), [
+            'name' => 'Khách Link',
+            'phone' => '0911111113',
+        ]);
+
+        $this->assertSame($referrer->id, User::where('phone', '0911111113')->value('referred_by'));
+    }
+
+    /** @test */
     public function invalid_referral_code_is_ignored_at_signup(): void
     {
         $this->post(route('guest.login'), [

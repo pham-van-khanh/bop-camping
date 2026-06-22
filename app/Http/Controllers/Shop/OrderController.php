@@ -131,6 +131,7 @@ class OrderController extends Controller
             'order_code' => $order->code,
             'order_name' => $validated['name'],
             'order_pay' => $order->total_price + $order->deposit_total - $order->discount_total,
+            'order_discount' => $order->discount_total,
             'order_items' => count($validated['items']),
         ]);
     }

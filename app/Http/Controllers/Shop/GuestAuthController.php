@@ -37,7 +37,9 @@ class GuestAuthController extends Controller
             $user = User::create([
                 'name' => $validated['name'],
                 'phone' => $validated['phone'],
-                'referred_by' => $this->resolveReferrerId($request->input('ref')),
+                'referred_by' => $this->resolveReferrerId(
+                    $request->input('ref') ?: $request->session()->pull('referral_ref')
+                ),
             ]);
         }
 

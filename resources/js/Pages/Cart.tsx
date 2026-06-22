@@ -21,12 +21,14 @@ export default function Cart() {
         phone: string;
         address: string;
         note: string;
+        voucher_code: string;
         items: CheckoutItem[];
     }>({
         name: user?.name ?? '',
         phone: user?.phone ?? '',
         address: '',
         note: '',
+        voucher_code: '',
         items: [],
     });
 
@@ -78,6 +80,9 @@ export default function Cart() {
                         <div className="mb-[22px] rounded-[13px] px-[18px] py-4 text-left" style={{ background: '#f6f8ef' }}>
                             <Row k="Khách" v={flash.order_name ?? ''} />
                             <Row k="Số loại thiết bị" v={`${flash.order_items} loại`} mono />
+                            {(flash.order_discount ?? 0) > 0 && (
+                                <Row k="Giảm từ voucher" v={`−${money(flash.order_discount ?? 0)}`} mono accentWarm />
+                            )}
                             <Row k="Trả khi nhận (COD)" v={money(flash.order_pay ?? 0)} mono accent />
                         </div>
                         <div className="flex flex-wrap justify-center gap-2.5">
@@ -169,6 +174,19 @@ export default function Cart() {
                             </div>
                             <textarea value={data.note} onChange={set('note')} placeholder="Ghi chú (tuỳ chọn)" rows={2}
                                 className="resize-y rounded-[11px] border border-cardBorder bg-white px-3.5 py-[11px] text-[14px] text-ink outline-none focus:border-grass" />
+                            {user && (
+                                <div>
+                                    <input
+                                        value={data.voucher_code}
+                                        onChange={(e) => setData('voucher_code', e.target.value.toUpperCase())}
+                                        placeholder="Mã voucher (nếu có)"
+                                        className={`h-[46px] w-full rounded-[11px] border bg-white px-3.5 font-mono text-[15px] uppercase tracking-[0.04em] text-ink outline-none focus:border-grass ${errors.voucher_code ? 'border-red-400' : 'border-cardBorder'}`}
+                                    />
+                                    {errors.voucher_code
+                                        ? <p className="mt-1 text-[12px] text-red-500">{errors.voucher_code}</p>
+                                        : <p className="mt-1 text-[12px] text-[#8a967a]">Xem mã trong trang Tài khoản. Giảm giá áp dụng khi xác nhận đơn.</p>}
+                                </div>
+                            )}
                         </div>
                         <div className="border-t border-cardBorder pt-3.5">
                             <Row k="Tổng tiền thuê" v={money(totals.rent)} mono />
