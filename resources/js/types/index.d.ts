@@ -11,6 +11,7 @@ export interface Flash {
     order_name?: string;
     order_pay?: number;
     order_items?: number;
+    success?: string;
 }
 
 export type PageProps<

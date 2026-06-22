@@ -8,11 +8,10 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 use Inertia\Response;
-use Symfony\Component\HttpFoundation\Response as SymfonyResponse;
 
 class AuthController extends Controller
 {
-    public function showLogin(): SymfonyResponse
+    public function showLogin(): Response|RedirectResponse
     {
         // Nếu đã đăng nhập với quyền admin → thẳng vào panel
         if (Auth::check() && Auth::user()->is_admin) {
@@ -25,10 +24,10 @@ class AuthController extends Controller
     public function login(Request $request): RedirectResponse
     {
         $credentials = $request->validate([
-            'phone'    => ['required', 'string'],
+            'phone' => ['required', 'string'],
             'password' => ['required', 'string'],
         ], [
-            'phone.required'    => 'Vui lòng nhập số điện thoại.',
+            'phone.required' => 'Vui lòng nhập số điện thoại.',
             'password.required' => 'Vui lòng nhập mật khẩu.',
         ]);
 
@@ -36,10 +35,12 @@ class AuthController extends Controller
         if (Auth::attempt(['phone' => $credentials['phone'], 'password' => $credentials['password']], true)) {
             if (! Auth::user()->is_admin) {
                 Auth::logout();
+
                 return back()->withErrors(['phone' => 'Tài khoản không có quyền admin.']);
             }
 
             $request->session()->regenerate();
+
             return redirect()->route('admin.orders');
         }
 

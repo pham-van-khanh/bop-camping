@@ -1,6 +1,7 @@
 import { Head, router, usePage } from '@inertiajs/react';
 import { ReactNode, useState } from 'react';
 import AdminLayout from '@/Layouts/AdminLayout';
+import ProductStatusPill from '@/Components/ProductStatusPill';
 import { money } from '@/lib/format';
 
 type OrderItem = { name: string; quantity: number; days: number; subtotal: number };
@@ -59,7 +60,7 @@ export default function AdminOrders({
 
     return (
         <>
-            <Head title="Quản trị — Đơn thuê" />
+            <Head title="Quản trị · Đơn thuê" />
             <div className="p-6">
                 {/* Header */}
                 <div className="mb-6 flex items-center justify-between">
@@ -79,7 +80,7 @@ export default function AdminOrders({
                         { label: 'Đã trả', value: stats.returned, color: '#5C6E47' },
                         { label: 'Đã huỷ', value: stats.cancelled, color: '#b3493a' },
                     ].map((s) => (
-                        <div key={s.label} className="rounded-[14px] border border-[#dde4cc] bg-white p-4">
+                        <div key={s.label} className="rounded-[14px] border border-cardBorder bg-white p-4">
                             <div className="font-mono text-[24px] font-bold" style={{ color: s.color }}>{s.value}</div>
                             <div className="mt-0.5 text-[12px] text-moss">{s.label}</div>
                         </div>
@@ -87,7 +88,7 @@ export default function AdminOrders({
                 </div>
 
                 {/* Tab switcher */}
-                <div className="mb-4 flex gap-1 rounded-[12px] border border-[#dde4cc] bg-white p-1 w-fit">
+                <div className="mb-4 flex gap-1 rounded-[12px] border border-cardBorder bg-white p-1 w-fit">
                     <button onClick={() => setTab('orders')}
                         className={`rounded-[9px] px-4 py-2 text-[13px] font-semibold transition ${tab === 'orders' ? 'bg-grass text-white' : 'text-pine hover:bg-[#f1f4ea]'}`}>
                         Đơn thuê
@@ -107,7 +108,7 @@ export default function AdminOrders({
                                     className={`rounded-pill border px-3.5 py-1.5 text-[12.5px] font-semibold transition ${
                                         filters.status === t.key
                                             ? 'border-grass bg-grass text-white'
-                                            : 'border-[#dde4cc] bg-white text-pine hover:border-grass'
+                                            : 'border-cardBorder bg-white text-pine hover:border-grass'
                                     }`}>
                                     {t.label}
                                 </button>
@@ -116,11 +117,11 @@ export default function AdminOrders({
 
                         {/* Orders table */}
                         {orders.length === 0 ? (
-                            <div className="rounded-[16px] border border-[#dde4cc] bg-white py-14 text-center text-moss">
+                            <div className="rounded-[16px] border border-cardBorder bg-white py-14 text-center text-moss">
                                 Không có đơn nào
                             </div>
                         ) : (
-                            <div className="overflow-hidden rounded-[16px] border border-[#dde4cc] bg-white">
+                            <div className="overflow-hidden rounded-[16px] border border-cardBorder bg-white">
                                 <table className="w-full text-[13px]">
                                     <thead>
                                         <tr className="border-b border-[#eef2e3]" style={{ background: '#f8faf4' }}>
@@ -165,12 +166,12 @@ export default function AdminOrders({
                                                                 {nexts.map((s) => (
                                                                     <button key={s}
                                                                         onClick={(e) => { e.stopPropagation(); changeStatus(order, s); }}
-                                                                        className="rounded-[8px] border border-[#dde4cc] px-2.5 py-1 text-[11px] font-semibold text-pine transition hover:border-grass hover:text-grass">
+                                                                        className="rounded-[8px] border border-cardBorder px-2.5 py-1 text-[11px] font-semibold text-pine transition hover:border-grass hover:text-grass">
                                                                         → {STATUS_LABEL[s]}
                                                                     </button>
                                                                 ))}
                                                                 {nexts.length === 0 && (
-                                                                    <span className="text-[11px] text-[#b0ba98]">—</span>
+                                                                    <span className="text-[11px] text-[#b0ba98]">-</span>
                                                                 )}
                                                             </div>
                                                         </td>
@@ -221,7 +222,7 @@ export default function AdminOrders({
                 )}
 
                 {tab === 'inventory' && (
-                    <div className="overflow-hidden rounded-[16px] border border-[#dde4cc] bg-white">
+                    <div className="overflow-hidden rounded-[16px] border border-cardBorder bg-white">
                         <table className="w-full text-[13px]">
                             <thead>
                                 <tr className="border-b border-[#eef2e3]" style={{ background: '#f8faf4' }}>
@@ -238,13 +239,10 @@ export default function AdminOrders({
                                         <td className="px-4 py-3 text-moss">{item.category}</td>
                                         <td className="px-4 py-3 text-center font-mono font-bold text-pine">{item.quantity}</td>
                                         <td className="px-4 py-3 text-center">
-                                            <span className={`rounded-pill px-2.5 py-1 text-[11.5px] font-bold ${
-                                                item.status === 'active'
-                                                    ? 'bg-[#dcebc4] text-[#3a5a1f]'
-                                                    : 'bg-[#f6ddd6] text-[#b3493a]'
-                                            }`}>
-                                                {item.status === 'active' ? 'Đang cho thuê' : 'Đã ẩn'}
-                                            </span>
+                                            <ProductStatusPill
+                                                status={item.status}
+                                                label={item.status === 'active' ? 'Đang cho thuê' : 'Đã ẩn'}
+                                            />
                                         </td>
                                     </tr>
                                 ))}

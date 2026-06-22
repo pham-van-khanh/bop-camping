@@ -32,7 +32,7 @@ export default function AdminLogin() {
                     </div>
 
                     {/* Form */}
-                    <div className="rounded-[20px] border border-[#dde4cc] bg-white p-7 shadow-sm">
+                    <div className="rounded-[20px] border border-cardBorder bg-white p-7 shadow-sm">
                         <form onSubmit={submit} className="flex flex-col gap-4">
                             <div>
                                 <label className="mb-1.5 block text-[13px] font-semibold text-pine">
@@ -45,7 +45,7 @@ export default function AdminLogin() {
                                     value={data.phone}
                                     onChange={(e) => setData('phone', e.target.value)}
                                     placeholder="0976544370"
-                                    className={`h-12 w-full rounded-[11px] border bg-[#fafbf7] px-3.5 text-[15px] text-ink outline-none focus:border-grass ${errors.phone ? 'border-red-400' : 'border-[#dde4cc]'}`}
+                                    className={`h-12 w-full rounded-[11px] border bg-[#fafbf7] px-3.5 text-[15px] text-ink outline-none focus:border-grass ${errors.phone ? 'border-red-400' : 'border-cardBorder'}`}
                                 />
                                 {errors.phone && (
                                     <p className="mt-1.5 text-[12px] text-red-500">{errors.phone}</p>
@@ -61,7 +61,7 @@ export default function AdminLogin() {
                                     value={data.password}
                                     onChange={(e) => setData('password', e.target.value)}
                                     placeholder="••••••••"
-                                    className={`h-12 w-full rounded-[11px] border bg-[#fafbf7] px-3.5 text-[15px] text-ink outline-none focus:border-grass ${errors.password ? 'border-red-400' : 'border-[#dde4cc]'}`}
+                                    className={`h-12 w-full rounded-[11px] border bg-[#fafbf7] px-3.5 text-[15px] text-ink outline-none focus:border-grass ${errors.password ? 'border-red-400' : 'border-cardBorder'}`}
                                 />
                                 {errors.password && (
                                     <p className="mt-1.5 text-[12px] text-red-500">{errors.password}</p>
