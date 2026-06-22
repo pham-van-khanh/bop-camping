@@ -4,7 +4,9 @@ namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Database\Factories\UserFactory;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
@@ -45,8 +47,28 @@ class User extends Authenticatable
     {
         return [
             'email_verified_at' => 'datetime',
-            'password'          => 'hashed',
-            'is_admin'          => 'boolean',
+            'password' => 'hashed',
+            'is_admin' => 'boolean',
         ];
+    }
+
+    /** Đơn đã liên kết tài khoản (user_id) — dùng cho thống kê list. */
+    public function orders(): HasMany
+    {
+        return $this->hasMany(Order::class);
+    }
+
+    /**
+     * Đơn đối soát đầy đủ cho 1 khách: liên kết qua user_id HOẶC trùng SĐT
+     * (bắt cả đơn vãng lai đặt trước khi khách đăng nhập — xem system_design D2).
+     */
+    public function relatedOrders(): Builder
+    {
+        return Order::where(function (Builder $q) {
+            $q->where('user_id', $this->id);
+            if ($this->phone) {
+                $q->orWhere('customer_phone', $this->phone);
+            }
+        });
     }
 }

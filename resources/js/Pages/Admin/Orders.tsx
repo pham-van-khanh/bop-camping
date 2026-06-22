@@ -3,6 +3,7 @@ import { ReactNode, useState } from 'react';
 import AdminLayout from '@/Layouts/AdminLayout';
 import ProductStatusPill from '@/Components/ProductStatusPill';
 import { money } from '@/lib/format';
+import { STATUS_LABEL, STATUS_STYLE } from '@/lib/orderStatus';
 
 type OrderItem = { name: string; quantity: number; days: number; subtotal: number };
 type Order = {
@@ -13,17 +14,6 @@ type Order = {
 type Stats = { total: number; pending: number; confirmed: number; renting: number; returned: number; cancelled: number };
 type InventoryItem = { id: number; name: string; category: string; quantity: number; status: string };
 
-const STATUS_LABEL: Record<string, string> = {
-    pending: 'Chờ xác nhận', confirmed: 'Đã xác nhận',
-    renting: 'Đang thuê', returned: 'Đã trả', cancelled: 'Đã huỷ',
-};
-const STATUS_STYLE: Record<string, { color: string; bg: string }> = {
-    pending:   { color: '#9a7a2a', bg: '#fbf2d8' },
-    confirmed: { color: '#2a6ea0', bg: '#dceaf6' },
-    renting:   { color: '#3a5a1f', bg: '#dcebc4' },
-    returned:  { color: '#5C6E47', bg: '#e7ecdc' },
-    cancelled: { color: '#b3493a', bg: '#f6ddd6' },
-};
 const NEXT_STATUSES: Record<string, string[]> = {
     pending:   ['confirmed', 'cancelled'],
     confirmed: ['renting', 'cancelled'],

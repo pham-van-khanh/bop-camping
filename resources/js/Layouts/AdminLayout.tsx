@@ -35,6 +35,18 @@ const NAV = [
             </svg>
         ),
     },
+    {
+        href: '/admin/users',
+        name: 'admin.users',
+        label: 'Người dùng',
+        icon: (
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                <path d="M16 19v-1a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v1" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                <circle cx="9" cy="7" r="3" stroke="currentColor" strokeWidth="1.8" />
+                <path d="M21 19v-1a4 4 0 0 0-3-3.87M16 4.13A4 4 0 0 1 16 11.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+            </svg>
+        ),
+    },
 ];
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
