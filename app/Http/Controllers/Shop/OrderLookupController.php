@@ -13,11 +13,11 @@ class OrderLookupController extends Controller
 {
     public function index(Request $request): Response
     {
-        $order    = null;
+        $order = null;
         $notFound = false;
 
         if ($request->filled('code') && $request->filled('phone')) {
-            $code  = strtoupper(trim((string) $request->input('code')));
+            $code = strtoupper(trim((string) $request->input('code')));
             $phone = trim((string) $request->input('phone'));
 
             $o = Order::with(['items.product'])
@@ -25,16 +25,16 @@ class OrderLookupController extends Controller
                 ->where('customer_phone', $phone)
                 ->first();
 
-            $order    = $o ? $this->shape($o) : null;
+            $order = $o ? $this->shape($o) : null;
             $notFound = $o === null;
         }
 
         return Inertia::render('OrderLookup', [
-            'order'     => $order,
+            'order' => $order,
             'not_found' => $notFound,
             // Trả lại giá trị form để giữ lại sau redirect
-            'query'     => [
-                'code'  => $request->input('code', ''),
+            'query' => [
+                'code' => $request->input('code', ''),
                 'phone' => $request->input('phone', ''),
             ],
         ]);
@@ -45,36 +45,36 @@ class OrderLookupController extends Controller
     private function shape(Order $o): array
     {
         return [
-            'code'           => $o->code,
-            'customer_name'  => $o->customer_name,
+            'code' => $o->code,
+            'customer_name' => $o->customer_name,
             'customer_phone' => $o->customer_phone,
-            'start_date'     => $o->start_date->format('d/m/Y'),
-            'end_date'       => $o->end_date->format('d/m/Y'),
-            'total_price'    => $o->total_price,
-            'deposit_total'  => $o->deposit_total,
-            'status'         => $o->status,
-            'status_label'   => $this->statusLabel($o->status),
-            'note'           => $o->note,
-            'created_at'     => $o->created_at->format('d/m · H:i'),
-            'items'          => $o->items->map(fn (OrderItem $item) => [
-                'name'     => $item->product?->name ?? '(sản phẩm đã xoá)',
+            'start_date' => $o->start_date->format('d/m/Y'),
+            'end_date' => $o->end_date->format('d/m/Y'),
+            'total_price' => $o->total_price,
+            'deposit_total' => $o->deposit_total,
+            'status' => $o->status,
+            'status_label' => $this->statusLabel($o->status),
+            'note' => $o->note,
+            'created_at' => $o->created_at->format('d/m · H:i'),
+            'items' => $o->items->map(fn (OrderItem $item) => [
+                'name' => $item->product?->name ?? '(sản phẩm đã xoá)',
                 'quantity' => $item->quantity,
-                'days'     => $item->days,
+                'days' => $item->days,
                 'subtotal' => $item->subtotal,
             ])->values()->all(),
-            'timeline'       => $this->buildTimeline($o),
+            'timeline' => $this->buildTimeline($o),
         ];
     }
 
     private function statusLabel(string $status): string
     {
         return match ($status) {
-            'pending'   => 'Chờ xác nhận',
+            'pending' => 'Chờ xác nhận',
             'confirmed' => 'Đã xác nhận',
-            'renting'   => 'Đang thuê',
-            'returned'  => 'Đã trả',
+            'renting' => 'Đang thuê',
+            'returned' => 'Đã trả',
             'cancelled' => 'Đã huỷ',
-            default     => $status,
+            default => $status,
         };
     }
 
@@ -92,16 +92,16 @@ class OrderLookupController extends Controller
         }
 
         $state = fn (int $i): string => match (true) {
-            $i < $current  => 'done',
+            $i < $current => 'done',
             $i === $current => 'current',
-            default         => 'todo',
+            default => 'todo',
         };
 
         return [
             ['title' => 'Đã đặt giữ chỗ',    'note' => $o->created_at->format('d/m · H:i'),         'state' => $state(0)],
             ['title' => 'Đã xác nhận',        'note' => 'Shop đã liên hệ xác nhận đơn',               'state' => $state(1)],
             ['title' => 'Đang thuê',           'note' => 'Đã giao đồ · chúc chuyến đi vui 🏕',         'state' => $state(2)],
-            ['title' => 'Đã trả · hoàn cọc',  'note' => 'Dự kiến ' . $o->end_date->format('d/m/Y'),  'state' => $state(3)],
+            ['title' => 'Đã trả · hoàn cọc',  'note' => 'Dự kiến '.$o->end_date->format('d/m/Y'),  'state' => $state(3)],
         ];
     }
 }

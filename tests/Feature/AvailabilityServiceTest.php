@@ -16,20 +16,21 @@ class AvailabilityServiceTest extends TestCase
     use RefreshDatabase;
 
     private AvailabilityService $service;
+
     private Product $product;
 
     protected function setUp(): void
     {
         parent::setUp();
-        $this->service = new AvailabilityService();
+        $this->service = new AvailabilityService;
 
         $category = Category::create(['name' => 'Test', 'slug' => 'test']);
         $this->product = Product::create([
-            'category_id'   => $category->id,
-            'name'          => 'Lều Test',
-            'slug'          => 'leu-test',
+            'category_id' => $category->id,
+            'name' => 'Lều Test',
+            'slug' => 'leu-test',
             'price_per_day' => 100000,
-            'quantity'      => 3,
+            'quantity' => 3,
         ]);
     }
 
@@ -156,22 +157,22 @@ class AvailabilityServiceTest extends TestCase
         string $status = 'confirmed',
     ): Order {
         $order = Order::create([
-            'code'           => 'BOP-' . uniqid(),
-            'customer_name'  => 'Khách Test',
+            'code' => 'BOP-'.uniqid(),
+            'customer_name' => 'Khách Test',
             'customer_phone' => '0900000000',
-            'start_date'     => $start,
-            'end_date'       => $end,
-            'status'         => $status,
+            'start_date' => $start,
+            'end_date' => $end,
+            'status' => $status,
             'payment_method' => 'cod',
         ]);
 
         OrderItem::create([
-            'order_id'     => $order->id,
-            'product_id'   => $this->product->id,
-            'quantity'     => $quantity,
+            'order_id' => $order->id,
+            'product_id' => $this->product->id,
+            'quantity' => $quantity,
             'price_per_day' => $this->product->price_per_day,
-            'days'         => Carbon::parse($start)->diffInDays(Carbon::parse($end)) + 1,
-            'subtotal'     => $quantity * $this->product->price_per_day,
+            'days' => Carbon::parse($start)->diffInDays(Carbon::parse($end)) + 1,
+            'subtotal' => $quantity * $this->product->price_per_day,
         ]);
 
         return $order;

@@ -22,8 +22,8 @@ class Product extends Model
 
     protected $casts = [
         'price_per_day' => 'integer',
-        'quantity'      => 'integer',
-        'deposit'       => 'integer',
+        'quantity' => 'integer',
+        'deposit' => 'integer',
     ];
 
     public function category(): BelongsTo

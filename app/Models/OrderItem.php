@@ -17,10 +17,10 @@ class OrderItem extends Model
     ];
 
     protected $casts = [
-        'quantity'    => 'integer',
+        'quantity' => 'integer',
         'price_per_day' => 'integer',
-        'days'        => 'integer',
-        'subtotal'    => 'integer',
+        'days' => 'integer',
+        'subtotal' => 'integer',
     ];
 
     public function order(): BelongsTo
