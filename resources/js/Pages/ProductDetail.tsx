@@ -32,7 +32,7 @@ export default function ProductDetail({ product, unavailable_dates }: Props) {
 
     const baseGrad = gradFor(product.category.slug);
     // Build gallery: real images first, then fallback gradient variants
-    const gallery: { type: 'img'; src: string } | { type: 'grad'; bg: string }[] = useMemo(() => {
+    const gallery: ({ type: 'img'; src: string } | { type: 'grad'; bg: string })[] = useMemo(() => {
         if (product.images.length > 0) {
             return product.images.map((img) => ({ type: 'img' as const, src: img.path }));
         }

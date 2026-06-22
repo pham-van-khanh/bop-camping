@@ -5,7 +5,6 @@ const NAV = [
     { label: 'Trang chủ', href: '/' },
     { label: 'Thuê đồ', href: '/thiet-bi' },
     { label: 'Tra cứu đơn', href: '/tra-cuu' },
-    { label: 'Quản trị', href: '/admin' },
 ];
 
 function isActive(current: string, href: string) {
