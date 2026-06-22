@@ -8,6 +8,7 @@ use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\Shop\GuestAuthController;
 use App\Http\Controllers\Shop\OrderController;
+use App\Http\Controllers\Shop\OrderLookupController;
 use App\Http\Controllers\Shop\ProductController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -19,7 +20,7 @@ Route::get('/thiet-bi', [ProductController::class, 'index'])->name('products');
 Route::get('/thiet-bi/{product}', [ProductController::class, 'show'])->whereNumber('product')->name('products.show');
 Route::get('/gio-thue', fn () => Inertia::render('Cart'))->name('cart');
 Route::post('/dat-hang', [OrderController::class, 'store'])->name('order.store')->middleware('throttle:20,1');
-Route::get('/tra-cuu', fn () => Inertia::render('OrderLookup'))->name('lookup');
+Route::get('/tra-cuu', [OrderLookupController::class, 'index'])->name('lookup');
 // Admin — auth
 // Không dùng middleware('guest') vì shop user đang login sẽ bị redirect sang /login Breeze
 Route::get('/admin/login', [AdminAuthController::class, 'showLogin'])->name('admin.login');

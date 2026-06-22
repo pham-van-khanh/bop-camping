@@ -1,98 +1,228 @@
-import { Head } from '@inertiajs/react';
+import { Head, router, usePage } from '@inertiajs/react';
 import { ReactNode, useState } from 'react';
 import SiteLayout from '@/Layouts/SiteLayout';
+import { money } from '@/lib/format';
+import type { PageProps } from '@/types';
 
-type Step = { title: string; note: string; state: 'done' | 'current' | 'todo' };
+type TimelineStep = { title: string; note: string; state: 'done' | 'current' | 'todo' };
+type OrderItem    = { name: string; quantity: number; days: number; subtotal: number };
 
-const DEMO = {
-    code: 'BOP-2048',
-    phone: '0905123456',
-    name: 'Nguyễn Minh',
-    status: 'Đang thuê',
-    start: '18/06',
-    end: '21/06',
-    payText: '525.000đ',
-    items: 'Lều Coleman 4 người ×1, Đèn lều tích điện ×2',
-    timeline: [
-        { title: 'Đã đặt giữ chỗ', note: '18/06 · 09:12', state: 'done' },
-        { title: 'Đã xác nhận', note: 'Tụi mình đã gọi xác nhận', state: 'done' },
-        { title: 'Đang thuê', note: 'Đã giao đồ, chúc chuyến đi vui', state: 'current' },
-        { title: 'Đã trả · hoàn cọc', note: 'Dự kiến 21/06', state: 'todo' },
-    ] as Step[],
+type OrderData = {
+    code: string;
+    customer_name: string;
+    customer_phone: string;
+    start_date: string;
+    end_date: string;
+    total_price: number;
+    deposit_total: number;
+    status: string;
+    status_label: string;
+    note: string | null;
+    created_at: string;
+    items: OrderItem[];
+    timeline: TimelineStep[];
 };
 
-const inputCls = 'h-12 w-full rounded-[11px] border border-cardBorder bg-white px-3.5 text-[15px] text-ink outline-none focus:border-grass';
+type Props = PageProps<{
+    order: OrderData | null;
+    not_found: boolean;
+    query: { code: string; phone: string };
+}>;
+
+const STATUS_STYLE: Record<string, { color: string; bg: string }> = {
+    pending:   { color: '#9a7a2a', bg: '#fbf2d8' },
+    confirmed: { color: '#2a6ea0', bg: '#dceaf6' },
+    renting:   { color: '#3a5a1f', bg: '#dcebc4' },
+    returned:  { color: '#5C6E47', bg: '#e7ecdc' },
+    cancelled: { color: '#b3493a', bg: '#f6ddd6' },
+};
+
+const inputCls = 'h-12 w-full rounded-[11px] border border-cardBorder bg-white px-3.5 text-[15px] text-ink outline-none focus:border-grass transition';
 const labelCls = 'mb-1.5 block text-[11px] font-bold uppercase tracking-[0.05em] text-[#8a967a]';
 
 export default function OrderLookup() {
-    const [code, setCode] = useState('');
-    const [phone, setPhone] = useState('');
-    const [state, setState] = useState<'idle' | 'notfound' | 'found'>('idle');
+    const { order, not_found, query } = usePage<Props>().props;
+
+    const [code, setCode]   = useState(query.code ?? '');
+    const [phone, setPhone] = useState(query.phone ?? '');
+    const [loading, setLoading] = useState(false);
+
+    const valid = code.trim().length >= 3 && phone.trim().length >= 8;
 
     const doLookup = () => {
-        if (code.trim().toUpperCase() === DEMO.code && phone.trim() === DEMO.phone) setState('found');
-        else setState('notfound');
+        if (!valid) return;
+        setLoading(true);
+        router.get(
+            route('lookup'),
+            { code: code.trim().toUpperCase(), phone: phone.trim() },
+            {
+                preserveScroll: false,
+                onFinish: () => setLoading(false),
+            },
+        );
     };
-    const valid = code.trim().length >= 3 && phone.trim().length >= 8;
 
     return (
         <>
             <Head title="Tra cứu đơn thuê" />
             <main className="mx-auto max-w-[640px] px-5 pb-12 pt-[38px]">
-                <h1 className="mb-2 font-extrabold tracking-tight text-ink" style={{ fontSize: 'clamp(24px,3vw,32px)' }}>Tra cứu đơn thuê</h1>
+                <h1
+                    className="mb-2 font-extrabold tracking-tight text-ink"
+                    style={{ fontSize: 'clamp(24px,3vw,32px)' }}
+                >
+                    Tra cứu đơn thuê
+                </h1>
                 <p className="mb-6 text-moss">Nhập mã đơn và số điện thoại đã đặt để xem trạng thái.</p>
 
+                {/* Search form */}
                 <div className="mb-[22px] rounded-card border border-cardBorder bg-card p-5">
                     <div className="flex flex-col gap-3">
                         <div>
                             <label className={labelCls}>Mã đơn</label>
-                            <input value={code} onChange={(e) => setCode(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && doLookup()} placeholder="VD: BOP-2048" className={`${inputCls} font-mono tracking-[0.04em]`} />
+                            <input
+                                value={code}
+                                onChange={(e) => setCode(e.target.value.toUpperCase())}
+                                onKeyDown={(e) => e.key === 'Enter' && doLookup()}
+                                placeholder="VD: BOP-A1B2C3"
+                                className={`${inputCls} font-mono tracking-[0.04em]`}
+                            />
                         </div>
                         <div>
                             <label className={labelCls}>Số điện thoại</label>
-                            <input value={phone} onChange={(e) => setPhone(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && doLookup()} placeholder="Số điện thoại đặt đơn" inputMode="tel" className={inputCls} />
+                            <input
+                                value={phone}
+                                onChange={(e) => setPhone(e.target.value)}
+                                onKeyDown={(e) => e.key === 'Enter' && doLookup()}
+                                placeholder="Số điện thoại đặt đơn"
+                                inputMode="tel"
+                                className={inputCls}
+                            />
                         </div>
-                        <button onClick={doLookup} disabled={!valid} className="h-12 rounded-control text-[15px] font-bold text-white transition disabled:cursor-not-allowed" style={{ background: valid ? '#557A2B' : '#c4cfae' }}>
-                            Tra cứu đơn
+                        <button
+                            onClick={doLookup}
+                            disabled={!valid || loading}
+                            className="h-12 rounded-control text-[15px] font-bold text-white transition disabled:cursor-not-allowed disabled:opacity-60"
+                            style={{ background: valid && !loading ? '#557A2B' : '#c4cfae' }}
+                        >
+                            {loading ? 'Đang tra cứu…' : 'Tra cứu đơn'}
                         </button>
-                        <div className="text-center font-mono text-[11px] text-[#a3ad92]">Thử: BOP-2048 · 0905123456</div>
                     </div>
                 </div>
 
-                {state === 'notfound' && (
-                    <div className="rounded-[14px] border bg-white p-[22px] text-center" style={{ borderColor: '#ecd3c4', color: '#9a5a3a' }}>
+                {/* Not found */}
+                {not_found && (
+                    <div
+                        className="rounded-[14px] border bg-white p-[22px] text-center"
+                        style={{ borderColor: '#ecd3c4', color: '#9a5a3a' }}
+                    >
+                        <div className="mb-1 text-[28px]">🔍</div>
                         <div className="mb-1 font-bold">Không tìm thấy đơn</div>
-                        <div className="text-[14px] text-[#8a967a]">Kiểm tra lại mã đơn và số điện thoại giúp tụi mình nhé.</div>
+                        <div className="text-[14px] text-[#8a967a]">
+                            Kiểm tra lại mã đơn (<span className="font-mono">BOP-XXXXXX</span>) và số điện thoại giúp tụi mình nhé.
+                        </div>
                     </div>
                 )}
 
-                {state === 'found' && (
+                {/* Found */}
+                {order && (
                     <div className="rounded-card border border-cardBorder bg-card p-[22px]">
+                        {/* Header */}
                         <div className="mb-[18px] flex flex-wrap items-start justify-between gap-2.5">
                             <div>
-                                <div className="font-mono text-[20px] font-bold tracking-[0.06em] text-grass">{DEMO.code}</div>
-                                <div className="mt-[3px] text-[14px] text-moss">{DEMO.name} · {DEMO.phone}</div>
+                                <div className="font-mono text-[22px] font-bold tracking-[0.06em] text-grass">
+                                    {order.code}
+                                </div>
+                                <div className="mt-[3px] text-[14px] text-moss">
+                                    {order.customer_name} · {order.customer_phone}
+                                </div>
                             </div>
-                            <span className="rounded-pill px-3 py-1.5 text-[12px] font-bold" style={{ background: '#dcebc4', color: '#3a5a1f' }}>{DEMO.status}</span>
+                            <span
+                                className="rounded-pill px-3 py-1.5 text-[12px] font-bold"
+                                style={STATUS_STYLE[order.status] ?? STATUS_STYLE.pending}
+                            >
+                                {order.status_label}
+                            </span>
                         </div>
+
+                        {/* Summary boxes */}
                         <div className="mb-5 flex flex-wrap gap-3.5 text-[14px]">
-                            <Box k="Nhận" v={DEMO.start} />
-                            <Box k="Trả" v={DEMO.end} />
-                            <Box k="Tổng (COD)" v={DEMO.payText} accent />
+                            <Box k="Nhận đồ" v={order.start_date} />
+                            <Box k="Trả đồ" v={order.end_date} />
+                            <Box k="Tổng COD" v={money(order.total_price)} accent />
+                            {order.deposit_total > 0 && (
+                                <Box k="Tiền cọc" v={money(order.deposit_total)} />
+                            )}
                         </div>
-                        <div className="mb-2.5 text-[13px] text-[#8a967a]">Thiết bị: {DEMO.items}</div>
+
+                        {/* Items */}
+                        <div className="mb-4 overflow-hidden rounded-[10px] border border-[#eef2e3]">
+                            <table className="w-full text-[13px]">
+                                <thead>
+                                    <tr style={{ background: '#f8faf4' }} className="border-b border-[#eef2e3]">
+                                        <th className="px-3 py-2 text-left font-semibold text-moss">Thiết bị</th>
+                                        <th className="px-3 py-2 text-center font-semibold text-moss">SL</th>
+                                        <th className="px-3 py-2 text-center font-semibold text-moss">Ngày</th>
+                                        <th className="px-3 py-2 text-right font-semibold text-moss">Thành tiền</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {order.items.map((item, i) => (
+                                        <tr key={i} className="border-t border-[#eef2e3]">
+                                            <td className="px-3 py-2 text-ink">{item.name}</td>
+                                            <td className="px-3 py-2 text-center text-moss">{item.quantity}</td>
+                                            <td className="px-3 py-2 text-center text-moss">{item.days}</td>
+                                            <td className="px-3 py-2 text-right font-mono font-bold text-ink">
+                                                {money(item.subtotal)}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        {/* Note */}
+                        {order.note && (
+                            <p className="mb-4 text-[13px] text-moss">
+                                <span className="font-semibold">Ghi chú:</span> {order.note}
+                            </p>
+                        )}
+
+                        {/* Timeline */}
                         <div className="border-t border-cardBorder pt-4">
-                            {DEMO.timeline.map((tl, i) => {
-                                const last = i === DEMO.timeline.length - 1;
-                                const dotBg = tl.state === 'todo' ? '#d6ddc4' : '#557A2B';
+                            <div className="mb-2.5 text-[11px] font-bold uppercase tracking-[0.05em] text-[#8a967a]">
+                                Tiến trình đơn hàng
+                            </div>
+                            {order.timeline.map((tl, i) => {
+                                const last   = i === order.timeline.length - 1;
+                                const dotBg  = tl.state === 'todo' ? '#d6ddc4' : '#557A2B';
+                                const glow   = tl.state === 'current' ? '0 0 0 4px rgba(85,122,43,.18)' : 'none';
                                 return (
                                     <div key={i} className="flex items-start gap-3 pb-3.5">
                                         <div className="flex flex-none flex-col items-center">
-                                            <span className="h-3 w-3 rounded-full" style={{ background: dotBg, boxShadow: tl.state === 'current' ? '0 0 0 4px rgba(85,122,43,.18)' : 'none' }} />
-                                            {!last && <span className="mt-1 w-[2px] flex-1" style={{ minHeight: 22, background: tl.state === 'done' ? '#557A2B' : '#e3e8d6' }} />}
+                                            <span
+                                                className="h-3 w-3 rounded-full"
+                                                style={{ background: dotBg, boxShadow: glow }}
+                                            />
+                                            {!last && (
+                                                <span
+                                                    className="mt-1 w-[2px] flex-1"
+                                                    style={{
+                                                        minHeight: 22,
+                                                        background: tl.state === 'done' ? '#557A2B' : '#e3e8d6',
+                                                    }}
+                                                />
+                                            )}
                                         </div>
                                         <div className="pt-px">
-                                            <div className="text-[14px]" style={{ fontWeight: tl.state === 'current' ? 700 : 600, color: tl.state === 'todo' ? '#a3ad92' : '#18230F' }}>{tl.title}</div>
+                                            <div
+                                                className="text-[14px]"
+                                                style={{
+                                                    fontWeight: tl.state === 'current' ? 700 : 600,
+                                                    color: tl.state === 'todo' ? '#a3ad92' : '#18230F',
+                                                }}
+                                            >
+                                                {tl.title}
+                                            </div>
                                             <div className="text-[12px] text-[#a3ad92]">{tl.note}</div>
                                         </div>
                                     </div>
@@ -110,7 +240,9 @@ function Box({ k, v, accent }: { k: string; v: string; accent?: boolean }) {
     return (
         <div className="rounded-[10px] px-3.5 py-2.5" style={{ background: '#f1f4ea' }}>
             <div className="text-[11px] text-[#8a967a]">{k}</div>
-            <div className="font-mono font-bold" style={{ color: accent ? '#557A2B' : '#18230F' }}>{v}</div>
+            <div className="font-mono font-bold" style={{ color: accent ? '#557A2B' : '#18230F' }}>
+                {v}
+            </div>
         </div>
     );
 }
