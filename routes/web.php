@@ -7,6 +7,7 @@ use App\Http\Controllers\Admin\OrderController as AdminOrderController;
 use App\Http\Controllers\Admin\ProductController as AdminProductController;
 use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\Shop\CartController;
 use App\Http\Controllers\Shop\GuestAuthController;
 use App\Http\Controllers\Shop\OrderController;
 use App\Http\Controllers\Shop\OrderLookupController;
@@ -19,7 +20,7 @@ Route::get('/', [ProductController::class, 'home'])->name('home');
 // Mặt tiền khách
 Route::get('/thiet-bi', [ProductController::class, 'index'])->name('products');
 Route::get('/thiet-bi/{product}', [ProductController::class, 'show'])->whereNumber('product')->name('products.show');
-Route::get('/gio-thue', fn () => Inertia::render('Cart'))->name('cart');
+Route::get('/gio-thue', [CartController::class, 'index'])->name('cart');
 Route::post('/dat-hang', [OrderController::class, 'store'])->name('order.store')->middleware('throttle:20,1');
 Route::get('/tra-cuu', [OrderLookupController::class, 'index'])->name('lookup');
 // Admin — auth

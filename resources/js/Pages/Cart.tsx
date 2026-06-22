@@ -1,38 +1,50 @@
 import { Head, Link, useForm, usePage } from '@inertiajs/react';
-import { ChangeEvent, ReactNode, useEffect, useState } from 'react';
+import { ChangeEvent, ReactNode, useEffect, useMemo, useState } from 'react';
 import SiteLayout from '@/Layouts/SiteLayout';
 import {
     cartTotals, clearCart, getCart, lineDays, lineDeposit, lineRent, removeLine, setQty, type CartLine,
 } from '@/lib/cart';
 import { money, rangeText } from '@/lib/format';
 import { on, EVENTS } from '@/lib/bus';
+import { estimateDiscount, voucherValueText, type AvailableVoucher, type PromoInfo } from '@/lib/voucher';
 import type { PageProps } from '@/types';
 
 type CheckoutItem = { product_id: number; quantity: number; start: string; end: string };
 
+type Props = PageProps<{
+    availableVouchers: AvailableVoucher[];
+    referralRef: string;
+    firstOrderEligible: boolean;
+    promo: PromoInfo;
+}>;
+
 export default function Cart() {
-    const { auth, flash } = usePage<PageProps>().props;
+    const { auth, flash, availableVouchers, referralRef, firstOrderEligible, promo } = usePage<Props>().props;
     const user = auth.user;
+    const promoOn = !!user && promo.enabled;
 
     const [lines, setLines] = useState<CartLine[]>([]);
+    const [selectedCodes, setSelectedCodes] = useState<string[]>([]);
+    const [manualCode, setManualCode] = useState('');
 
     const { data, setData, post, processing, errors } = useForm<{
         name: string;
         phone: string;
         address: string;
         note: string;
-        voucher_code: string;
+        referral_code: string;
+        voucher_codes: string[];
         items: CheckoutItem[];
     }>({
         name: user?.name ?? '',
         phone: user?.phone ?? '',
         address: '',
         note: '',
-        voucher_code: '',
+        referral_code: firstOrderEligible ? (referralRef ?? '') : '',
+        voucher_codes: [],
         items: [],
     });
 
-    // Sync cart từ localStorage
     useEffect(() => {
         const current = getCart();
         setLines(current);
@@ -44,12 +56,50 @@ export default function Cart() {
         });
     }, []);
 
-    // Xoá cart sau khi đặt thành công
     useEffect(() => {
         if (flash.order_code) clearCart();
     }, [flash.order_code]);
 
+    // Giữ voucher_codes của form đồng bộ với lựa chọn.
+    useEffect(() => setData('voucher_codes', selectedCodes), [selectedCodes]);
+
     const totals = cartTotals(lines);
+
+    const toggleVoucher = (code: string) => {
+        setSelectedCodes((prev) => {
+            if (prev.includes(code)) return prev.filter((c) => c !== code);
+            if (prev.length >= promo.maxStack) return prev; // chặn vượt trần stack
+            return [...prev, code];
+        });
+    };
+
+    const addManual = () => {
+        const code = manualCode.trim().toUpperCase();
+        if (code && !selectedCodes.includes(code) && selectedCodes.length < promo.maxStack) {
+            setSelectedCodes((prev) => [...prev, code]);
+        }
+        setManualCode('');
+    };
+
+    const refereeValue = useMemo(() => {
+        if (!promoOn || !firstOrderEligible || !data.referral_code.trim()) return null;
+        return promo.refereeDiscountType === 'percent'
+            ? Math.floor((totals.rent * promo.refereeDiscountValue) / 100)
+            : Math.round(promo.refereeDiscountValue);
+    }, [promoOn, firstOrderEligible, data.referral_code, promo, totals.rent]);
+
+    const selectedVouchers = useMemo(
+        () => availableVouchers.filter((v) => selectedCodes.includes(v.code)),
+        [availableVouchers, selectedCodes],
+    );
+
+    const estimate = useMemo(
+        () => estimateDiscount({ rentalTotal: totals.rent, promo, refereeValue, selectedVouchers }),
+        [totals.rent, promo, refereeValue, selectedVouchers],
+    );
+
+    const payable = Math.max(0, totals.rent - estimate.total) + totals.deposit;
+
     const canSubmit = data.name.trim().length >= 2
         && data.phone.trim().length >= 8
         && data.address.trim().length >= 4
@@ -57,8 +107,7 @@ export default function Cart() {
         && !processing;
 
     const set = (k: 'name' | 'phone' | 'address' | 'note') =>
-        (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
-            setData(k, e.target.value);
+        (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setData(k, e.target.value);
 
     const submit = () => post(route('order.store'));
 
@@ -81,7 +130,7 @@ export default function Cart() {
                             <Row k="Khách" v={flash.order_name ?? ''} />
                             <Row k="Số loại thiết bị" v={`${flash.order_items} loại`} mono />
                             {(flash.order_discount ?? 0) > 0 && (
-                                <Row k="Giảm từ voucher" v={`−${money(flash.order_discount ?? 0)}`} mono accentWarm />
+                                <Row k="Đã giảm" v={`−${money(flash.order_discount ?? 0)}`} mono accentWarm />
                             )}
                             <Row k="Trả khi nhận (COD)" v={money(flash.order_pay ?? 0)} mono accent />
                         </div>
@@ -114,6 +163,8 @@ export default function Cart() {
     }
 
     // ----- Giỏ có hàng -----
+    const inputCls = 'h-[46px] w-full rounded-[11px] border bg-white px-3.5 text-[15px] text-ink outline-none focus:border-grass';
+
     return (
         <>
             <Head title="Giỏ thuê" />
@@ -121,9 +172,7 @@ export default function Cart() {
                 <h1 className="mb-[22px] font-extrabold tracking-tight text-ink" style={{ fontSize: 'clamp(24px,3vw,32px)' }}>Giỏ thuê</h1>
 
                 {errors.items && (
-                    <div className="mb-4 rounded-[12px] border border-red-200 bg-red-50 px-4 py-3 text-[14px] text-red-700">
-                        {errors.items}
-                    </div>
+                    <div className="mb-4 rounded-[12px] border border-red-200 bg-red-50 px-4 py-3 text-[14px] text-red-700">{errors.items}</div>
                 )}
 
                 <div className="grid items-start gap-6" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))' }}>
@@ -159,43 +208,90 @@ export default function Cart() {
                         <div className="mb-4 flex flex-col gap-[11px]">
                             <div>
                                 <input value={data.name} onChange={set('name')} placeholder="Họ và tên"
-                                    className={`h-[46px] w-full rounded-[11px] border bg-white px-3.5 text-[15px] text-ink outline-none focus:border-grass ${errors.name ? 'border-red-400' : 'border-cardBorder'}`} />
+                                    className={`${inputCls} ${errors.name ? 'border-red-400' : 'border-cardBorder'}`} />
                                 {errors.name && <p className="mt-1 text-[12px] text-red-500">{errors.name}</p>}
                             </div>
                             <div>
                                 <input value={data.phone} onChange={set('phone')} placeholder="Số điện thoại" inputMode="tel"
-                                    className={`h-[46px] w-full rounded-[11px] border bg-white px-3.5 text-[15px] text-ink outline-none focus:border-grass ${errors.phone ? 'border-red-400' : 'border-cardBorder'}`} />
+                                    className={`${inputCls} ${errors.phone ? 'border-red-400' : 'border-cardBorder'}`} />
                                 {errors.phone && <p className="mt-1 text-[12px] text-red-500">{errors.phone}</p>}
                             </div>
                             <div>
                                 <input value={data.address} onChange={set('address')} placeholder="Địa chỉ giao nhận"
-                                    className={`h-[46px] w-full rounded-[11px] border bg-white px-3.5 text-[15px] text-ink outline-none focus:border-grass ${errors.address ? 'border-red-400' : 'border-cardBorder'}`} />
+                                    className={`${inputCls} ${errors.address ? 'border-red-400' : 'border-cardBorder'}`} />
                                 {errors.address && <p className="mt-1 text-[12px] text-red-500">{errors.address}</p>}
                             </div>
                             <textarea value={data.note} onChange={set('note')} placeholder="Ghi chú (tuỳ chọn)" rows={2}
                                 className="resize-y rounded-[11px] border border-cardBorder bg-white px-3.5 py-[11px] text-[14px] text-ink outline-none focus:border-grass" />
-                            {user && (
-                                <div>
-                                    <input
-                                        value={data.voucher_code}
-                                        onChange={(e) => setData('voucher_code', e.target.value.toUpperCase())}
-                                        placeholder="Mã voucher (nếu có)"
-                                        className={`h-[46px] w-full rounded-[11px] border bg-white px-3.5 font-mono text-[15px] uppercase tracking-[0.04em] text-ink outline-none focus:border-grass ${errors.voucher_code ? 'border-red-400' : 'border-cardBorder'}`}
-                                    />
-                                    {errors.voucher_code
-                                        ? <p className="mt-1 text-[12px] text-red-500">{errors.voucher_code}</p>
-                                        : <p className="mt-1 text-[12px] text-[#8a967a]">Xem mã trong trang Tài khoản. Giảm giá áp dụng khi xác nhận đơn.</p>}
-                                </div>
-                            )}
                         </div>
+
+                        {/* Khuyến mãi */}
+                        {!user && (
+                            <p className="mb-3.5 text-[13px] text-moss">Đăng nhập để dùng mã giới thiệu và voucher của bạn.</p>
+                        )}
+                        {promoOn && firstOrderEligible && (
+                            <div className="mb-3">
+                                <label className="mb-1 block text-[11px] font-bold uppercase tracking-[0.05em] text-[#8a967a]">Mã giới thiệu (đơn đầu)</label>
+                                <input value={data.referral_code} onChange={(e) => setData('referral_code', e.target.value.toUpperCase())}
+                                    placeholder="VD: TOM7K3X"
+                                    className={`${inputCls} font-mono uppercase tracking-[0.04em] ${errors.referral_code ? 'border-red-400' : 'border-cardBorder'}`} />
+                                {errors.referral_code && <p className="mt-1 text-[12px] text-red-500">{errors.referral_code}</p>}
+                            </div>
+                        )}
+                        {promoOn && availableVouchers.length > 0 && (
+                            <div className="mb-3">
+                                <div className="mb-1.5 text-[11px] font-bold uppercase tracking-[0.05em] text-[#8a967a]">
+                                    Voucher của bạn (tối đa {promo.maxStack})
+                                </div>
+                                <div className="flex flex-col gap-1.5">
+                                    {availableVouchers.map((v) => {
+                                        const checked = selectedCodes.includes(v.code);
+                                        const disabled = !checked && selectedCodes.length >= promo.maxStack;
+                                        return (
+                                            <label key={v.code}
+                                                className={`flex items-center justify-between gap-2 rounded-[10px] border px-3 py-2 text-[13px] ${checked ? 'border-grass bg-[#eef2e3]' : 'border-cardBorder'} ${disabled ? 'opacity-50' : 'cursor-pointer'}`}>
+                                                <span className="flex items-center gap-2">
+                                                    <input type="checkbox" checked={checked} disabled={disabled} onChange={() => toggleVoucher(v.code)} className="accent-grass" />
+                                                    <span className="font-mono font-bold text-pine">{v.code}</span>
+                                                </span>
+                                                <span className="font-semibold text-grass">{voucherValueText(v.type, v.value)}</span>
+                                            </label>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
+                        {promoOn && (
+                            <div className="mb-4 flex gap-2">
+                                <input value={manualCode} onChange={(e) => setManualCode(e.target.value.toUpperCase())}
+                                    onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addManual())}
+                                    placeholder="Nhập mã voucher khác"
+                                    className={`${inputCls} font-mono uppercase tracking-[0.04em] border-cardBorder`} />
+                                <button type="button" onClick={addManual}
+                                    className="h-[46px] shrink-0 rounded-[11px] border border-grass px-3 text-[14px] font-bold text-grass">Áp dụng</button>
+                            </div>
+                        )}
+
+                        {/* Tóm tắt đơn */}
                         <div className="border-t border-cardBorder pt-3.5">
-                            <Row k="Tổng tiền thuê" v={money(totals.rent)} mono />
+                            <Row k="Phí thuê" v={money(totals.rent)} mono />
+                            {estimate.lines.map((l, i) => (
+                                <Row key={i} k={l.label} v={`−${money(l.amount)}`} mono accentWarm />
+                            ))}
+                            {estimate.capped && (
+                                <p className="py-1 text-right text-[11px] text-[#a3ad92]">Đã áp mức giảm tối đa cho đơn này</p>
+                            )}
+                            <Row k="Tạm tính (sau giảm)" v={money(Math.max(0, totals.rent - estimate.total))} mono />
                             <Row k="Tổng cọc (hoàn khi trả)" v={money(totals.deposit)} mono accentWarm />
                             <div className="mt-1.5 flex justify-between border-t border-dashed pt-2.5 text-[16px]" style={{ borderColor: '#d6ddc4' }}>
                                 <span className="font-bold text-ink">Trả khi nhận</span>
-                                <span className="font-mono text-[18px] font-bold text-grass">{money(totals.pay)}</span>
+                                <span className="font-mono text-[18px] font-bold text-grass">{money(payable)}</span>
                             </div>
+                            {estimate.total > 0 && (
+                                <p className="mt-1 text-right text-[11px] text-[#a3ad92]">Giảm là tạm tính — xác nhận khi đặt đơn.</p>
+                            )}
                         </div>
+
                         <div className="my-3.5 flex items-center gap-2.5 rounded-[11px] px-3.5 py-[11px] text-[13px]" style={{ background: '#eef2e3', color: '#3a5a1f' }}>
                             <span className="grid h-[22px] w-[22px] flex-none place-items-center rounded-[6px] bg-grass text-[11px] font-bold text-white">COD</span>
                             <span>Thanh toán tiền mặt khi nhận đồ. Tiền cọc hoàn lại đầy đủ khi trả đủ và nguyên vẹn.</span>
