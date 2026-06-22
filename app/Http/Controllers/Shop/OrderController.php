@@ -5,8 +5,10 @@ namespace App\Http\Controllers\Shop;
 use App\Http\Controllers\Controller;
 use App\Models\Order;
 use App\Models\Product;
+use App\Models\PromotionSetting;
 use App\Services\AvailabilityService;
-use App\Services\ReferralService;
+use App\Services\Promotion\VoucherService;
+use App\Services\Referral\ReferralService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -18,6 +20,7 @@ class OrderController extends Controller
     public function __construct(
         private AvailabilityService $availability,
         private ReferralService $referrals,
+        private VoucherService $vouchers,
     ) {}
 
     /**
@@ -37,7 +40,9 @@ class OrderController extends Controller
             'items.*.quantity' => ['required', 'integer', 'min:1', 'max:99'],
             'items.*.start' => ['required', 'date_format:Y-m-d', 'after_or_equal:today'],
             'items.*.end' => ['required', 'date_format:Y-m-d', 'after_or_equal:items.*.start'],
-            'voucher_code' => ['nullable', 'string', 'max:32'],
+            'referral_code' => ['nullable', 'string', 'max:20'],
+            'voucher_codes' => ['nullable', 'array', 'max:10'],
+            'voucher_codes.*' => ['string', 'max:30'],
         ], [
             'name.required' => 'Vui lòng nhập họ tên.',
             'phone.required' => 'Vui lòng nhập số điện thoại.',
@@ -120,11 +125,28 @@ class OrderController extends Controller
             return $order;
         });
 
-        // Áp voucher (nếu có & hợp lệ) — chỉ cho khách đã đăng nhập, voucher thuộc về họ.
-        $voucher = $this->referrals->findUsableVoucher(Auth::user(), $validated['voucher_code'] ?? null);
-        if ($voucher) {
-            $this->referrals->redeem($voucher, $order);
+        // Khuyến mãi (chỉ cho khách đã đăng nhập) — referee giảm đơn đầu + voucher.
+        if ($order->user_id) {
+            $settings = PromotionSetting::current();
+
+            // (1) Mã giới thiệu cho đơn đầu của referee.
+            $this->referrals->applyRefereeFirstOrderDiscount(
+                $order,
+                $validated['referral_code'] ?? null,
+                $settings,
+            );
             $order->refresh();
+
+            // (2) Voucher (stacking + trần) áp lên phần còn lại.
+            $this->vouchers->apply($order, $validated['voucher_codes'] ?? [], $settings);
+            $order->refresh();
+
+            // (3) VAN AN TOÀN tổng thể: tổng giảm không vượt trần % giá trị đơn.
+            $cap = (int) floor((int) $order->total_price * (float) $settings->max_discount_percent_per_order / 100);
+            $clamped = min((int) $order->discount_total, $cap, (int) $order->total_price);
+            if ($clamped !== (int) $order->discount_total) {
+                $order->update(['discount_total' => $clamped]);
+            }
         }
 
         return back()->with([

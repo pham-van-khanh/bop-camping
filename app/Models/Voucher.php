@@ -11,19 +11,27 @@ class Voucher extends Model
     protected $fillable = [
         'user_id',
         'code',
-        'amount',
+        'type',
+        'value',
         'source',
-        'referred_user_id',
-        'trigger_order_id',
-        'order_id',
-        'redeemed_at',
+        'referral_id',
+        'status',
+        'min_order_amount',
+        'applies_to',
+        'max_uses',
+        'used_count',
         'expires_at',
+        'used_at',
+        'order_id',
     ];
 
     protected $casts = [
-        'amount' => 'integer',
-        'redeemed_at' => 'datetime',
+        'value' => 'decimal:2',
+        'min_order_amount' => 'decimal:2',
+        'max_uses' => 'integer',
+        'used_count' => 'integer',
         'expires_at' => 'datetime',
+        'used_at' => 'datetime',
     ];
 
     public function user(): BelongsTo
@@ -31,15 +39,21 @@ class Voucher extends Model
         return $this->belongsTo(User::class);
     }
 
-    public function referredUser(): BelongsTo
+    public function referral(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'referred_user_id');
+        return $this->belongsTo(Referral::class);
     }
 
-    /** Còn dùng được: chưa redeem và chưa hết hạn. */
+    public function order(): BelongsTo
+    {
+        return $this->belongsTo(Order::class);
+    }
+
+    /** Còn dùng được: active, chưa hết lượt, chưa hết hạn. */
     public function scopeUsable(Builder $query): Builder
     {
-        return $query->whereNull('redeemed_at')
+        return $query->where('status', 'active')
+            ->whereColumn('used_count', '<', 'max_uses')
             ->where(function (Builder $q) {
                 $q->whereNull('expires_at')->orWhere('expires_at', '>', now());
             });
@@ -47,7 +61,13 @@ class Voucher extends Model
 
     public function isUsable(): bool
     {
-        return $this->redeemed_at === null
+        return $this->status === 'active'
+            && $this->used_count < $this->max_uses
             && ($this->expires_at === null || $this->expires_at->isFuture());
+    }
+
+    public function isExpired(): bool
+    {
+        return $this->expires_at !== null && $this->expires_at->isPast();
     }
 }
