@@ -37,6 +37,9 @@ class GuestAuthController extends Controller
             $user = User::create([
                 'name' => $validated['name'],
                 'phone' => $validated['phone'],
+                'referred_by' => $this->resolveReferrerId(
+                    $request->input('ref') ?: $request->session()->pull('referral_ref')
+                ),
             ]);
         }
 
@@ -44,6 +47,19 @@ class GuestAuthController extends Controller
         $request->session()->regenerate();
 
         return back();
+    }
+
+    /**
+     * Tra người giới thiệu từ mã (case-insensitive). null nếu không có / không hợp lệ.
+     */
+    private function resolveReferrerId(?string $code): ?int
+    {
+        if (! $code) {
+            return null;
+        }
+
+        return User::whereRaw('UPPER(referral_code) = ?', [strtoupper(trim($code))])
+            ->value('id');
     }
 
     /**

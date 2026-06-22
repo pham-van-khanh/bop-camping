@@ -33,6 +33,7 @@ class OrderController extends Controller
             'end_date' => $o->end_date->format('d/m/Y'),
             'total_price' => $o->total_price,
             'deposit_total' => $o->deposit_total,
+            'discount_total' => $o->discount_total,
             'status' => $o->status,
             'note' => $o->note,
             'created_at' => $o->created_at->format('d/m/Y H:i'),

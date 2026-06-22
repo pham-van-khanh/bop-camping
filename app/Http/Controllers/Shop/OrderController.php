@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Order;
 use App\Models\Product;
 use App\Services\AvailabilityService;
+use App\Services\ReferralService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -14,7 +15,10 @@ use Illuminate\Support\Facades\DB;
 
 class OrderController extends Controller
 {
-    public function __construct(private AvailabilityService $availability) {}
+    public function __construct(
+        private AvailabilityService $availability,
+        private ReferralService $referrals,
+    ) {}
 
     /**
      * POST /dat-hang — tạo đơn thuê từ giỏ hàng.
@@ -33,6 +37,7 @@ class OrderController extends Controller
             'items.*.quantity' => ['required', 'integer', 'min:1', 'max:99'],
             'items.*.start' => ['required', 'date_format:Y-m-d', 'after_or_equal:today'],
             'items.*.end' => ['required', 'date_format:Y-m-d', 'after_or_equal:items.*.start'],
+            'voucher_code' => ['nullable', 'string', 'max:32'],
         ], [
             'name.required' => 'Vui lòng nhập họ tên.',
             'phone.required' => 'Vui lòng nhập số điện thoại.',
@@ -115,10 +120,18 @@ class OrderController extends Controller
             return $order;
         });
 
+        // Áp voucher (nếu có & hợp lệ) — chỉ cho khách đã đăng nhập, voucher thuộc về họ.
+        $voucher = $this->referrals->findUsableVoucher(Auth::user(), $validated['voucher_code'] ?? null);
+        if ($voucher) {
+            $this->referrals->redeem($voucher, $order);
+            $order->refresh();
+        }
+
         return back()->with([
             'order_code' => $order->code,
             'order_name' => $validated['name'],
-            'order_pay' => $order->total_price + $order->deposit_total,
+            'order_pay' => $order->total_price + $order->deposit_total - $order->discount_total,
+            'order_discount' => $order->discount_total,
             'order_items' => count($validated['items']),
         ]);
     }
