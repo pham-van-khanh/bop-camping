@@ -19,8 +19,8 @@ class ProductController extends Controller
     {
         $products = Product::with(['category', 'images' => fn ($q) => $q->orderBy('sort_order')])
             ->orderBy('name')
-            ->get()
-            ->map(fn (Product $p) => [
+            ->paginate(50)
+            ->through(fn (Product $p) => [
                 'id' => $p->id,
                 'name' => $p->name,
                 'slug' => $p->slug,
@@ -173,8 +173,11 @@ class ProductController extends Controller
         return back()->with('success', 'Đã tải lên ảnh.');
     }
 
-    public function destroyImage(ProductImage $image): RedirectResponse
+    public function destroyImage(Product $product, ProductImage $image): RedirectResponse
     {
+        // Chặn IDOR: ảnh phải thuộc đúng sản phẩm trên URL (CWE-639).
+        abort_unless($image->product_id === $product->id, 404);
+
         Storage::disk('public')->delete($image->path);
         $image->delete();
 
