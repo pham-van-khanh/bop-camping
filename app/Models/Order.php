@@ -2,10 +2,13 @@
 
 namespace App\Models;
 
+use App\Observers\OrderObserver;
+use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
+#[ObservedBy([OrderObserver::class])]
 class Order extends Model
 {
     protected $fillable = [
@@ -18,6 +21,7 @@ class Order extends Model
         'end_date',
         'total_price',
         'deposit_total',
+        'discount_total',
         'status',
         'payment_method',
         'note',
@@ -26,8 +30,9 @@ class Order extends Model
     protected $casts = [
         'start_date'    => 'date',
         'end_date'      => 'date',
-        'total_price'   => 'integer',
-        'deposit_total' => 'integer',
+        'total_price'    => 'integer',
+        'deposit_total'  => 'integer',
+        'discount_total' => 'integer',
     ];
 
     /** Tự sinh mã đơn khi tạo */

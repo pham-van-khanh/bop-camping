@@ -16,6 +16,9 @@ export default function Header({ cartCount = 0, userName }: { cartCount?: number
     const url = usePage().url;
     const { post, processing } = useForm({});
 
+    // Thêm mục "Tài khoản" khi đã đăng nhập
+    const nav = userName ? [...NAV, { label: 'Tài khoản', href: '/tai-khoan' }] : NAV;
+
     const handleUserClick = () => {
         if (userName) {
             // Đăng xuất nếu đang đăng nhập
@@ -47,7 +50,7 @@ export default function Header({ cartCount = 0, userName }: { cartCount?: number
 
                 {/* Menu */}
                 <nav className="ml-2 flex flex-1 items-center gap-1 overflow-x-auto">
-                    {NAV.map((n) => {
+                    {nav.map((n) => {
                         const active = isActive(url, n.href);
                         return (
                             <Link
