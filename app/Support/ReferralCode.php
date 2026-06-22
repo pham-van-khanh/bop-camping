@@ -2,25 +2,24 @@
 
 namespace App\Support;
 
-use App\Models\User;
+use App\Models\ReferralCode as ReferralCodeModel;
 use App\Models\Voucher;
 use Illuminate\Support\Str;
 
 /**
- * Sinh mã giới thiệu duy nhất cho User (single source of truth — RULES DRY).
+ * Sinh mã giới thiệu / mã voucher duy nhất (single source of truth — RULES DRY).
  * Alphabet loại bỏ ký tự dễ nhầm (0/O, 1/I/L) để khách đọc/gõ lại dễ.
  */
 class ReferralCode
 {
     private const ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 
-    public static function generate(int $length = 6): string
+    /** Mã giới thiệu cá nhân (vd TOM7K3X) — duy nhất trong referral_codes. */
+    public static function generate(int $length = 7): string
     {
         do {
-            $code = collect(range(1, $length))
-                ->map(fn () => self::ALPHABET[random_int(0, strlen(self::ALPHABET) - 1)])
-                ->implode('');
-        } while (User::where('referral_code', $code)->exists());
+            $code = self::random($length);
+        } while (ReferralCodeModel::where('code', $code)->exists());
 
         return $code;
     }
@@ -33,5 +32,15 @@ class ReferralCode
         } while (Voucher::where('code', $code)->exists());
 
         return $code;
+    }
+
+    private static function random(int $length): string
+    {
+        $out = '';
+        for ($i = 0; $i < $length; $i++) {
+            $out .= self::ALPHABET[random_int(0, strlen(self::ALPHABET) - 1)];
+        }
+
+        return $out;
     }
 }

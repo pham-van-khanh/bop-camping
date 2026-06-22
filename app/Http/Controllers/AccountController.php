@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Order;
 use App\Models\OrderItem;
+use App\Models\Voucher;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
@@ -47,22 +48,39 @@ class AccountController extends Controller
                 ]),
             ]);
 
-        // (3) Mã giới thiệu + voucher còn hiệu lực.
-        $vouchers = $user->vouchers()->usable()->latest()->get()->map(fn ($v) => [
+        // (3) Voucher của khách — phân nhóm active / used / expired.
+        $vouchers = $user->vouchers()->latest()->get()->map(fn (Voucher $v) => [
             'code' => $v->code,
-            'amount' => $v->amount,
+            'type' => $v->type,
+            'value' => (float) $v->value,
             'source' => $v->source,
+            'bucket' => $this->voucherBucket($v),
+            'expires_at' => $v->expires_at?->toDateString(),
         ]);
 
         return Inertia::render('Account', [
             'stats' => [
                 'completedProductCount' => $completedProductCount,
                 'activeOrderCount' => $activeOrders->count(),
-                'referralCount' => $user->referrals()->count(),
+                'referralCount' => $user->referralsMade()->where('status', 'converted')->count(),
             ],
             'activeOrders' => $activeOrders,
-            'referralCode' => $user->ensureReferralCode(),
+            'referralCode' => $user->getReferralCode(),
             'vouchers' => $vouchers,
         ]);
+    }
+
+    /** active = còn dùng được, used = đã dùng, expired = hết hạn/thu hồi. */
+    private function voucherBucket(Voucher $voucher): string
+    {
+        if ($voucher->isUsable()) {
+            return 'active';
+        }
+
+        if ($voucher->status === 'used') {
+            return 'used';
+        }
+
+        return 'expired'; // expired | revoked | hết lượt
     }
 }
