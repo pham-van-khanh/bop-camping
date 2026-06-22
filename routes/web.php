@@ -5,7 +5,10 @@ use App\Http\Controllers\Admin\AuthController as AdminAuthController;
 use App\Http\Controllers\Admin\CategoryController as AdminCategoryController;
 use App\Http\Controllers\Admin\OrderController as AdminOrderController;
 use App\Http\Controllers\Admin\ProductController as AdminProductController;
+use App\Http\Controllers\Admin\PromotionController as AdminPromotionController;
+use App\Http\Controllers\Admin\ReferralController as AdminReferralController;
 use App\Http\Controllers\Admin\UserController as AdminUserController;
+use App\Http\Controllers\Admin\VoucherController as AdminVoucherController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\Shop\CartController;
 use App\Http\Controllers\Shop\GuestAuthController;
@@ -53,6 +56,16 @@ Route::middleware(['admin'])->prefix('admin')->name('admin.')->group(function ()
     Route::put('/users/{user}', [AdminUserController::class, 'update'])->name('users.update')->middleware('throttle:30,1');
     Route::patch('/users/{user}/role', [AdminUserController::class, 'updateRole'])->name('users.role')->middleware('throttle:30,1');
     Route::delete('/users/{user}', [AdminUserController::class, 'destroy'])->name('users.destroy')->middleware('throttle:30,1');
+
+    // Khuyến mãi: cấu hình + voucher + giới thiệu
+    Route::get('/promotion', [AdminPromotionController::class, 'index'])->name('promotion');
+    Route::put('/promotion', [AdminPromotionController::class, 'update'])->name('promotion.update');
+
+    Route::get('/vouchers', [AdminVoucherController::class, 'index'])->name('vouchers');
+    Route::post('/vouchers', [AdminVoucherController::class, 'store'])->name('vouchers.store')->middleware('throttle:30,1');
+    Route::patch('/vouchers/{voucher}/revoke', [AdminVoucherController::class, 'revoke'])->name('vouchers.revoke');
+
+    Route::get('/referrals', [AdminReferralController::class, 'index'])->name('referrals');
 });
 
 Route::get('/dashboard', function () {

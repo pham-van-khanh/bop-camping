@@ -47,6 +47,41 @@ const NAV = [
             </svg>
         ),
     },
+    {
+        href: '/admin/vouchers',
+        name: 'admin.vouchers',
+        label: 'Voucher',
+        icon: (
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                <path d="M3 9V6a1 1 0 0 1 1-1h16a1 1 0 0 1 1 1v3a2 2 0 0 0 0 4v3a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-3a2 2 0 0 0 0-4Z" stroke="currentColor" strokeWidth="1.8" />
+                <path d="M14 5v14" stroke="currentColor" strokeWidth="1.8" strokeDasharray="2 2" />
+            </svg>
+        ),
+    },
+    {
+        href: '/admin/referrals',
+        name: 'admin.referrals',
+        label: 'Giới thiệu',
+        icon: (
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                <circle cx="6" cy="12" r="2.4" stroke="currentColor" strokeWidth="1.8" />
+                <circle cx="18" cy="6" r="2.4" stroke="currentColor" strokeWidth="1.8" />
+                <circle cx="18" cy="18" r="2.4" stroke="currentColor" strokeWidth="1.8" />
+                <path d="M8.2 11 16 6.6M8.2 13 16 17.4" stroke="currentColor" strokeWidth="1.8" />
+            </svg>
+        ),
+    },
+    {
+        href: '/admin/promotion',
+        name: 'admin.promotion',
+        label: 'Khuyến mãi',
+        icon: (
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.8" />
+                <path d="M9 15 15 9M9.5 9.5h.01M14.5 14.5h.01" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+            </svg>
+        ),
+    },
 ];
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
