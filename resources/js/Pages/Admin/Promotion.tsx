@@ -1,6 +1,7 @@
 import { Head, useForm, usePage } from '@inertiajs/react';
 import { ReactNode, useEffect, useState } from 'react';
 import AdminLayout from '@/Layouts/AdminLayout';
+import SelectInput from '@/Components/admin/SelectInput';
 import { money } from '@/lib/format';
 import type { PageProps } from '@/types';
 
@@ -150,12 +151,10 @@ function Num({ label, value, onChange, error }: { label: string; value: number |
 
 function Select({ label, value, onChange, options }: { label: string; value: string; onChange: (v: string) => void; options: { value: string; label: string }[] }) {
     return (
-        <label className="block">
+        <div className="block">
             <span className="mb-1 block text-[13px] font-semibold text-ink">{label}</span>
-            <select value={value} onChange={(e) => onChange(e.target.value)} className={fieldCls}>
-                {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-            </select>
-        </label>
+            <SelectInput value={value} onChange={onChange} options={options} ariaLabel={label} />
+        </div>
     );
 }
 

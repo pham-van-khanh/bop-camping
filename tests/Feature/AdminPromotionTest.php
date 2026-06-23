@@ -79,4 +79,19 @@ class AdminPromotionTest extends TestCase
         $this->actingAs($admin)->patch(route('admin.vouchers.revoke', $voucher))->assertRedirect();
         $this->assertSame('revoked', $voucher->fresh()->status);
     }
+
+    /** @test Regression: validity_days gửi dạng string (như form thật) không làm vỡ addDays(). */
+    public function admin_can_create_voucher_with_validity_days_from_form(): void
+    {
+        $admin = $this->admin();
+        $customer = User::create(['name' => 'Khách', 'phone' => '0933333333']);
+
+        $this->actingAs($admin)->post(route('admin.vouchers.store'), [
+            'phone' => '0933333333', 'type' => 'fixed', 'value' => '30000', 'validity_days' => '45',
+        ])->assertRedirect()->assertSessionHas('success')->assertSessionHasNoErrors();
+
+        $voucher = Voucher::where('user_id', $customer->id)->firstOrFail();
+        $this->assertNotNull($voucher->expires_at);
+        $this->assertSame(45, (int) round(now()->diffInDays($voucher->expires_at, false)));
+    }
 }
