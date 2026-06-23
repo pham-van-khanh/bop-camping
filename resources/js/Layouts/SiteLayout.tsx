@@ -4,7 +4,6 @@ import Header from '@/Components/site/Header';
 import Footer from '@/Components/site/Footer';
 import Toast from '@/Components/site/Toast';
 import LoginModal from '@/Components/site/LoginModal';
-import ReferralPopup from '@/Components/site/ReferralPopup';
 import { on, EVENTS } from '@/lib/bus';
 import { cartCount, getCart } from '@/lib/cart';
 import type { PageProps } from '@/types';
@@ -30,7 +29,6 @@ export default function SiteLayout({ children }: { children: ReactNode }) {
             <Footer />
             <Toast />
             <LoginModal />
-            <ReferralPopup />
         </>
     );
 }

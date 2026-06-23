@@ -6,7 +6,7 @@ import type { PageProps } from '@/types';
 
 /** Modal đăng nhập nhanh SĐT + tên — POST /dang-nhap (GuestAuthController). */
 export default function LoginModal() {
-    const { referral } = usePage<PageProps>().props;
+    const { referral, auth } = usePage<PageProps>().props;
     const [open, setOpen] = useState(false);
 
     const { data, setData, post, processing, errors, reset, clearErrors } = useForm({
@@ -21,6 +21,15 @@ export default function LoginModal() {
     useEffect(() => {
         if (referral?.code) setData('ref', referral.code);
     }, [referral?.code]);
+
+    // Khách vào qua link giới thiệu & chưa đăng nhập → tự mở modal đăng ký (1 lần/phiên).
+    useEffect(() => {
+        if (!referral?.code || auth.user) return;
+        const key = `bop:ref-autologin:${referral.code}`;
+        if (sessionStorage.getItem(key)) return;
+        sessionStorage.setItem(key, '1');
+        setOpen(true);
+    }, [referral?.code, auth.user]);
 
     useEffect(() => {
         if (!open) return;

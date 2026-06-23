@@ -68,6 +68,15 @@ export default function AdminPromotion() {
                     <div className="mb-4 rounded-[10px] border border-grass/40 bg-[#eef2e3] px-4 py-2.5 text-[14px] font-semibold text-pine">{toast}</div>
                 )}
 
+                {Object.keys(errors).length > 0 && (
+                    <div className="mb-4 rounded-[10px] border border-red-300 bg-red-50 px-4 py-3 text-[14px] text-red-700">
+                        <div className="mb-1 font-bold">Chưa lưu được — vui lòng kiểm tra:</div>
+                        <ul className="list-disc pl-5">
+                            {Object.values(errors).map((e, i) => <li key={i}>{e}</li>)}
+                        </ul>
+                    </div>
+                )}
+
                 {/* Widget thống kê */}
                 <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
                     <Metric label="Giới thiệu tháng này" value={String(stats.referrals_this_month)} />

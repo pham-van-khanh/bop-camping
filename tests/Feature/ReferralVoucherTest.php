@@ -189,6 +189,17 @@ class ReferralVoucherTest extends TestCase
 
     // ---- HTTP: checkout + trang tài khoản ------------------------------------
 
+    /** @test Regression: referral prop phải có ngay ở request ĐẦU khi vào link (?ref=). */
+    public function referral_prop_is_available_on_first_visit_via_link(): void
+    {
+        $referrer = User::create(['name' => 'Quỳnh Hoa', 'phone' => '0900000300']);
+        $code = $referrer->getReferralCode();
+
+        $this->get('/?ref='.$code)->assertInertia(fn (Assert $page) => $page
+            ->where('referral.code', $code)
+            ->where('referral.referrer_name', 'Quỳnh Hoa'));
+    }
+
     /** @test */
     public function login_with_ref_stores_code_in_session_for_checkout(): void
     {

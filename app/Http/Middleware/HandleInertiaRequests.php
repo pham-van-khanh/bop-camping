@@ -52,7 +52,8 @@ class HandleInertiaRequests extends Middleware
                 'success' => session('success'),
             ],
             // Mã giới thiệu đang chờ (từ link ?ref= hoặc nhập tay) — để hiện popup + prefill.
-            'referral' => $this->sharedReferral($request),
+            // Lazy: resolve khi render (SAU khi CaptureReferralCode lưu session) — nếu eager sẽ rỗng ở request đầu.
+            'referral' => fn () => $this->sharedReferral($request),
         ];
     }
 

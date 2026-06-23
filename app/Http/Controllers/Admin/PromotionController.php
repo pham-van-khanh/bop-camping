@@ -44,6 +44,25 @@ class PromotionController extends Controller
             'conversion_trigger_status' => ['required', 'in:pending,confirmed,renting,returned'],
             'max_referrals_per_user_per_month' => ['required', 'integer', 'min:0'],
             'reward_clawback_enabled' => ['required', 'boolean'],
+        ], [
+            'required' => 'Vui lòng nhập :attribute.',
+            'numeric' => ':attribute phải là số.',
+            'integer' => ':attribute phải là số nguyên.',
+            'min' => ':attribute không được nhỏ hơn :min.',
+            'max' => ':attribute không được lớn hơn :max.',
+            'in' => ':attribute không hợp lệ.',
+        ], [
+            'referee_discount_value' => 'Giá trị giảm đơn đầu',
+            'referrer_reward_value' => 'Giá trị voucher thưởng',
+            'max_discount_percent_per_order' => 'Trần giảm tối đa mỗi đơn (%)',
+            'max_vouchers_stack_per_order' => 'Số voucher tối đa mỗi đơn',
+            'voucher_validity_days' => 'Hạn dùng voucher (ngày)',
+            'min_order_amount' => 'Đơn tối thiểu',
+            'max_referrals_per_user_per_month' => 'Giới hạn lượt thưởng mỗi tháng',
+            'referee_discount_type' => 'Kiểu giảm referee',
+            'referrer_reward_type' => 'Kiểu thưởng referrer',
+            'discount_applies_to' => 'Khuyến mãi áp lên',
+            'conversion_trigger_status' => 'Trạng thái tính giới thiệu',
         ]);
 
         PromotionSetting::current()->update($data);
