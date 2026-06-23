@@ -1,6 +1,7 @@
 import { Head, router, useForm, usePage } from '@inertiajs/react';
 import { ReactNode, useEffect, useState } from 'react';
 import AdminLayout from '@/Layouts/AdminLayout';
+import SelectInput from '@/Components/admin/SelectInput';
 import { voucherValueText, VOUCHER_SOURCE_LABEL, VOUCHER_SOURCE_FALLBACK, type VoucherType } from '@/lib/voucher';
 import type { PageProps } from '@/types';
 
@@ -67,11 +68,9 @@ export default function AdminVouchers() {
                     <input value={create.data.phone} onChange={(e) => create.setData('phone', e.target.value)} placeholder="09..." className={inputCls} />
                     {create.errors.phone && <span className="text-[12px] text-red-500">{create.errors.phone}</span>}
                 </Field>
-                <Field label="Kiểu">
-                    <select value={create.data.type} onChange={(e) => create.setData('type', e.target.value)} className={inputCls}>
-                        <option value="fixed">Số tiền</option>
-                        <option value="percent">Phần trăm</option>
-                    </select>
+                <Field label="Kiểu giảm">
+                    <SelectInput value={create.data.type} onChange={(v) => create.setData('type', v)} ariaLabel="Kiểu voucher" className="min-w-[150px]"
+                        options={[{ value: 'fixed', label: 'Số tiền (đ)' }, { value: 'percent', label: 'Phần trăm (%)' }]} />
                 </Field>
                 <Field label="Giá trị">
                     <input type="number" step="any" value={create.data.value} onChange={(e) => create.setData('value', e.target.value)} className={inputCls} />
@@ -84,15 +83,12 @@ export default function AdminVouchers() {
             </form>
 
             {/* Bộ lọc */}
-            <div className="mb-3 flex flex-wrap gap-2">
-                <select value={filters.status ?? ''} onChange={(e) => filter({ status: e.target.value })} className={`${inputCls} w-auto`}>
-                    <option value="">Mọi trạng thái</option>
-                    {Object.entries(STATUS_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-                </select>
-                <select value={filters.source ?? ''} onChange={(e) => filter({ source: e.target.value })} className={`${inputCls} w-auto`}>
-                    <option value="">Mọi nguồn</option>
-                    {Object.entries(VOUCHER_SOURCE_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-                </select>
+            <div className="mb-3 flex flex-wrap items-center gap-2">
+                <span className="text-[13px] font-semibold text-moss">Lọc:</span>
+                <SelectInput value={filters.status ?? ''} onChange={(v) => filter({ status: v })} placeholder="Mọi trạng thái" ariaLabel="Lọc theo trạng thái" className="w-[170px]"
+                    options={Object.entries(STATUS_LABEL).map(([value, label]) => ({ value, label }))} />
+                <SelectInput value={filters.source ?? ''} onChange={(v) => filter({ source: v })} placeholder="Mọi nguồn" ariaLabel="Lọc theo nguồn" className="w-[190px]"
+                    options={Object.entries(VOUCHER_SOURCE_LABEL).map(([value, label]) => ({ value, label }))} />
             </div>
 
             <div className="overflow-x-auto rounded-card border border-cardBorder bg-card">

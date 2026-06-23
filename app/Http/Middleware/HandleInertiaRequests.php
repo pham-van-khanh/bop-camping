@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\ReferralCode;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -50,6 +51,26 @@ class HandleInertiaRequests extends Middleware
                 'order_items' => session('order_items'),
                 'success' => session('success'),
             ],
+            // Mã giới thiệu đang chờ (từ link ?ref= hoặc nhập tay) — để hiện popup + prefill.
+            'referral' => $this->sharedReferral($request),
+        ];
+    }
+
+    /** @return array{code: string, referrer_name: string|null}|null */
+    private function sharedReferral(Request $request): ?array
+    {
+        $ref = $request->session()->get('referral_ref');
+        if (! $ref) {
+            return null;
+        }
+
+        $rc = ReferralCode::with('user:id,name')
+            ->whereRaw('UPPER(code) = ?', [strtoupper($ref)])
+            ->first();
+
+        return [
+            'code' => $rc?->code ?? strtoupper($ref),
+            'referrer_name' => $rc?->user?->name,
         ];
     }
 }

@@ -18,6 +18,7 @@ class GuestAuthController extends Controller
         $validated = $request->validate([
             'name' => ['required', 'string', 'min:2', 'max:100'],
             'phone' => ['required', 'string', 'regex:/^0[0-9]{8,10}$/'],
+            'ref' => ['nullable', 'string', 'max:20'],
         ], [
             'name.required' => 'Vui lòng nhập tên.',
             'name.min' => 'Tên phải có ít nhất 2 ký tự.',
@@ -40,8 +41,12 @@ class GuestAuthController extends Controller
             ]);
         }
 
-        // Mã giới thiệu (?ref=) được CaptureReferralCode lưu ở session và áp lúc đặt đơn đầu,
-        // không gắn ở bước đăng nhập (xem ReferralService::applyRefereeFirstOrderDiscount).
+        // Mã giới thiệu nhập tay ở form đăng nhập → lưu session để áp lúc đặt đơn đầu
+        // (cùng cơ chế với link ?ref= do CaptureReferralCode lưu; convert khi trả đơn đầu).
+        if ($ref = $request->input('ref')) {
+            $request->session()->put('referral_ref', (string) $ref);
+        }
+
         Auth::login($user, remember: true);
         $request->session()->regenerate();
 

@@ -47,6 +47,9 @@ export default function Account() {
     const [copied, setCopied] = useState(false);
     const [tab, setTab] = useState<Voucher['bucket']>('active');
 
+    const [copiedLink, setCopiedLink] = useState(false);
+    const shareLink = typeof window !== 'undefined' ? `${window.location.origin}/?ref=${referralCode}` : `/?ref=${referralCode}`;
+
     const copyCode = async () => {
         try {
             await navigator.clipboard.writeText(referralCode);
@@ -54,6 +57,16 @@ export default function Account() {
             setTimeout(() => setCopied(false), 1800);
         } catch {
             // Trình duyệt chặn clipboard — khách vẫn đọc/gõ tay được mã.
+        }
+    };
+
+    const copyLink = async () => {
+        try {
+            await navigator.clipboard.writeText(shareLink);
+            setCopiedLink(true);
+            setTimeout(() => setCopiedLink(false), 1800);
+        } catch {
+            // Bỏ qua nếu trình duyệt chặn clipboard.
         }
     };
 
@@ -94,9 +107,29 @@ export default function Account() {
                             {copied ? 'Đã copy ✓' : 'Copy mã'}
                         </button>
                     </div>
+
+                    {/* Link chia sẻ */}
+                    <div className="mt-3">
+                        <div className="mb-1.5 text-[11px] font-bold uppercase tracking-[0.05em] text-[#8a967a]">Link chia sẻ</div>
+                        <div className="flex flex-wrap items-center gap-2">
+                            <input
+                                readOnly
+                                value={shareLink}
+                                onFocus={(e) => e.currentTarget.select()}
+                                className="h-11 min-w-0 flex-1 rounded-[11px] border border-cardBorder bg-[#f8faf4] px-3 text-[13px] text-moss outline-none"
+                            />
+                            <button
+                                onClick={copyLink}
+                                className="h-11 rounded-control border border-grass px-4 text-[14px] font-bold text-grass transition hover:bg-[#eef2e3]"
+                            >
+                                {copiedLink ? 'Đã copy ✓' : 'Copy link'}
+                            </button>
+                        </div>
+                    </div>
+
                     <p className="mt-3 text-[13px] text-moss">
-                        Chia sẻ mã cho bạn bè. Khi bạn ấy nhập mã ở <strong>đơn thuê đầu tiên</strong> và hoàn tất đơn,
-                        bạn nhận voucher thưởng — còn bạn ấy được giảm giá ngay đơn đầu.
+                        Gửi <strong>link</strong> hoặc <strong>mã</strong> cho bạn bè. Bạn ấy mở link sẽ thấy lời mời và được điền sẵn mã; khi
+                        nhập mã ở <strong>đơn thuê đầu tiên</strong> và hoàn tất đơn, bạn nhận voucher thưởng — còn bạn ấy được giảm giá ngay đơn đầu.
                     </p>
                 </section>
 

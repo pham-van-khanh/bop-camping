@@ -1,18 +1,26 @@
 import { AnimatePresence, motion } from 'framer-motion';
 import { useEffect, useState } from 'react';
-import { useForm } from '@inertiajs/react';
+import { useForm, usePage } from '@inertiajs/react';
 import { on, emit, EVENTS } from '@/lib/bus';
+import type { PageProps } from '@/types';
 
 /** Modal đăng nhập nhanh SĐT + tên — POST /dang-nhap (GuestAuthController). */
 export default function LoginModal() {
+    const { referral } = usePage<PageProps>().props;
     const [open, setOpen] = useState(false);
 
     const { data, setData, post, processing, errors, reset, clearErrors } = useForm({
         name: '',
         phone: '',
+        ref: '',
     });
 
     useEffect(() => on(EVENTS.openLogin, () => setOpen(true)), []);
+
+    // Prefill mã giới thiệu từ link (?ref=) khi có.
+    useEffect(() => {
+        if (referral?.code) setData('ref', referral.code);
+    }, [referral?.code]);
 
     useEffect(() => {
         if (!open) return;
@@ -68,7 +76,13 @@ export default function LoginModal() {
                             </span>
                             <div className="text-[18px] font-extrabold text-pine">Đăng nhập nhanh</div>
                         </div>
-                        <p className="mb-[18px] text-[14px] text-moss">Chỉ cần số điện thoại và tên. Không mật khẩu.</p>
+                        <p className="mb-[14px] text-[14px] text-moss">Chỉ cần số điện thoại và tên. Không mật khẩu.</p>
+                        {referral?.referrer_name && (
+                            <div className="mb-[14px] flex items-center gap-2 rounded-[11px] px-3.5 py-2.5 text-[13px]" style={{ background: '#eef2e3', color: '#3a5a1f' }}>
+                                <span>🎁</span>
+                                <span>Bạn được <strong>{referral.referrer_name}</strong> giới thiệu — đặt đơn đầu để nhận ưu đãi.</span>
+                            </div>
+                        )}
                         <div className="mb-[18px] flex flex-col gap-[11px]">
                             <div>
                                 <input
@@ -94,6 +108,17 @@ export default function LoginModal() {
                                 />
                                 {errors.phone && (
                                     <p className="mt-1 text-[13px] text-red-500">{errors.phone}</p>
+                                )}
+                            </div>
+                            <div>
+                                <input
+                                    value={data.ref}
+                                    onChange={(e) => setData('ref', e.target.value.toUpperCase())}
+                                    placeholder="Mã giới thiệu (nếu có)"
+                                    className={`h-12 w-full rounded-[11px] border bg-white px-3.5 font-mono text-[15px] uppercase tracking-[0.04em] text-ink outline-none focus:border-grass ${errors.ref ? 'border-red-400' : 'border-cardBorder'}`}
+                                />
+                                {errors.ref && (
+                                    <p className="mt-1 text-[13px] text-red-500">{errors.ref}</p>
                                 )}
                             </div>
                         </div>

@@ -57,7 +57,8 @@ class VoucherController extends Controller
         ]);
 
         $user = User::where('phone', $data['phone'])->firstOrFail();
-        $days = $data['validity_days'] ?? PromotionSetting::current()->voucher_validity_days;
+        // validity_days từ form là string → ép int (Carbon::addDays cần int).
+        $days = (int) ($data['validity_days'] ?? PromotionSetting::current()->voucher_validity_days);
 
         Voucher::create([
             'user_id' => $user->id,

@@ -1,6 +1,7 @@
 import { Head, router, usePage } from '@inertiajs/react';
 import { ReactNode } from 'react';
 import AdminLayout from '@/Layouts/AdminLayout';
+import SelectInput from '@/Components/admin/SelectInput';
 import { Pagination } from '@/Pages/Admin/Vouchers';
 import type { PageProps } from '@/types';
 
@@ -44,12 +45,10 @@ export default function AdminReferrals() {
             <Head title="Admin · Giới thiệu" />
             <h1 className="mb-4 text-[22px] font-extrabold text-ink">Lượt giới thiệu</h1>
 
-            <div className="mb-3 flex flex-wrap gap-2">
-                <select value={filters.status ?? ''} onChange={(e) => filter(e.target.value)}
-                    className="h-11 rounded-[10px] border border-cardBorder bg-white px-3 text-[14px] text-ink outline-none focus:border-grass">
-                    <option value="">Mọi trạng thái</option>
-                    {Object.entries(STATUS_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-                </select>
+            <div className="mb-3 flex flex-wrap items-center gap-2">
+                <span className="text-[13px] font-semibold text-moss">Lọc:</span>
+                <SelectInput value={filters.status ?? ''} onChange={(v) => filter(v)} placeholder="Mọi trạng thái" ariaLabel="Lọc theo trạng thái" className="w-[180px]"
+                    options={Object.entries(STATUS_LABEL).map(([value, label]) => ({ value, label }))} />
             </div>
 
             <div className="overflow-x-auto rounded-card border border-cardBorder bg-card">
