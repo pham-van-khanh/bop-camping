@@ -190,6 +190,19 @@ class ReferralVoucherTest extends TestCase
     // ---- HTTP: checkout + trang tài khoản ------------------------------------
 
     /** @test */
+    public function login_with_ref_stores_code_in_session_for_checkout(): void
+    {
+        $referrer = User::create(['name' => 'Người mời', 'phone' => '0900000200']);
+        $code = $referrer->getReferralCode();
+
+        $this->post(route('guest.login'), [
+            'name' => 'Khách Mới', 'phone' => '0911112222', 'ref' => $code,
+        ])->assertRedirect();
+
+        $this->assertSame($code, session('referral_ref'));
+    }
+
+    /** @test */
     public function checkout_applies_referral_code_for_first_order(): void
     {
         [$referrer, $referee] = $this->pair();

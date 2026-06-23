@@ -15,6 +15,11 @@ export interface Flash {
     success?: string;
 }
 
+export interface Referral {
+    code: string;
+    referrer_name: string | null;
+}
+
 export type PageProps<
     T extends Record<string, unknown> = Record<string, unknown>,
 > = T & {
@@ -22,4 +27,5 @@ export type PageProps<
         user: User | null;
     };
     flash: Flash;
+    referral: Referral | null;
 };
