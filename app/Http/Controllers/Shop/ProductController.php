@@ -5,9 +5,11 @@ namespace App\Http\Controllers\Shop;
 use App\Http\Controllers\Controller;
 use App\Models\Category;
 use App\Models\Product;
+use App\Models\Review;
 use App\Services\AvailabilityService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -67,7 +69,7 @@ class ProductController extends Controller
     }
 
     /** GET /thiet-bi/{product} — chi tiết sản phẩm */
-    public function show(int $product): Response
+    public function show(Request $request, int $product): Response
     {
         $p = Product::active()->with('category', 'images')->findOrFail($product);
 
@@ -76,10 +78,32 @@ class ProductController extends Controller
 
         $unavailableDates = $this->availability->unavailableDates($p, $from, $to);
 
+        $user = $request->user();
+
         return Inertia::render('ProductDetail', [
             'product' => $this->shape($p),
             'unavailable_dates' => $unavailableDates,
+            'reviews' => $this->reviews($p),
+            'review_summary' => ['count' => $p->reviews()->where('status', 'approved')->count(), 'avg' => $p->averageRating()],
+            'can_review' => $user !== null && $user->reviewableOrderItemId($p->id) !== null,
         ]);
+    }
+
+    /** Đánh giá đã duyệt cho carousel (kèm ảnh/video + meta). */
+    private function reviews(Product $p): array
+    {
+        return $p->approvedReviews()->with(['images', 'orderItem'])->limit(20)->get()
+            ->map(fn (Review $r) => [
+                'id' => $r->id,
+                'reviewer_name' => $r->reviewer_name,
+                'rating' => $r->rating,
+                'content' => $r->content,
+                'meta' => trim(($r->orderItem ? $r->orderItem->days.' ngày · ' : '').'Tháng '.$r->created_at->format('n, Y')),
+                'media' => $r->images->map(fn ($m) => [
+                    'type' => $m->type,
+                    'url' => Storage::url($m->path),
+                ])->values(),
+            ])->values()->all();
     }
 
     /** Biến đổi Product Eloquent -> array trả về Inertia */

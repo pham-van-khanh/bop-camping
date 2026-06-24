@@ -1,10 +1,12 @@
-import { Head, Link } from '@inertiajs/react';
+import { Head, Link, usePage } from '@inertiajs/react';
 import { ReactNode, useMemo, useState } from 'react';
 import SiteLayout from '@/Layouts/SiteLayout';
 import DateRangeCalendar from '@/Components/site/DateRangeCalendar';
+import ProductReviews, { type ReviewItem, type ReviewSummary } from '@/Components/site/ProductReviews';
 import { dayCount, fromISO, money, rangeText, toISO } from '@/lib/format';
 import { addLine } from '@/lib/cart';
 import { emit, EVENTS } from '@/lib/bus';
+import type { PageProps } from '@/types';
 import type { ProductResource } from '@/types/product';
 
 const GRAD: Record<string, string> = {
@@ -20,9 +22,13 @@ const gradFor = (slug: string) => GRAD[slug] ?? 'linear-gradient(150deg,#4a6741,
 interface Props {
     product: ProductResource;
     unavailable_dates: string[];
+    reviews: ReviewItem[];
+    review_summary: ReviewSummary;
+    can_review: boolean;
 }
 
-export default function ProductDetail({ product, unavailable_dates }: Props) {
+export default function ProductDetail({ product, unavailable_dates, reviews, review_summary, can_review }: Props) {
+    const { auth } = usePage<PageProps>().props;
     const [activeImg, setActiveImg] = useState(0);
     const [start, setStart] = useState<string | null>(null);
     const [end, setEnd] = useState<string | null>(null);
@@ -112,6 +118,16 @@ export default function ProductDetail({ product, unavailable_dates }: Props) {
                                 </button>
                             ))}
                         </div>
+
+                        {/* đánh giá sản phẩm (carousel + form + modal) */}
+                        <ProductReviews
+                            productId={product.id}
+                            productName={product.name}
+                            reviews={reviews}
+                            summary={review_summary}
+                            canReview={can_review}
+                            isLoggedIn={!!auth.user}
+                        />
                     </div>
 
                     {/* info */}
