@@ -15,7 +15,7 @@ This is the **SINGLE SOURCE OF TRUTH** for technology choices on BopCamping
 |-------|--------|-------|
 | Language (backend) | **PHP 8.3** | Laravel 12 cần ≥ 8.2. Bản brew `php` ở `/opt/homebrew/bin`. |
 | Framework | **Laravel 12** | Monolith, không tách API riêng. |
-| Auth scaffold | **Laravel Breeze** (Inertia + React + TypeScript) | Khách login bằng **SĐT + tên** (tùy biến khỏi email/password). |
+| Auth scaffold | **Laravel Breeze** (Inertia + React + TypeScript) | Admin login Breeze (SĐT+mật khẩu). Khách login **SĐT + tên + email**, xác thực **OTP 6 số qua email** (OtpService + bảng `email_otps`; OTP chỉ lần đầu/khi email chưa verify). Khách không dùng mật khẩu. |
 | FE ↔ BE bridge | **Inertia.js** | SPA mượt, không dựng REST API thủ công. |
 | UI | **React 18 + TypeScript** | Component, strict typing — tránh `any`. |
 | Styling | **Tailwind CSS** | Theme tông **be / màu đất Naturehike** (xem KE_HOACH.md). |
@@ -31,6 +31,7 @@ This is the **SINGLE SOURCE OF TRUTH** for technology choices on BopCamping
 | Database (prod) | **MySQL 8** | Chuyển khi deploy. Giữ migration tương thích cả hai. |
 | ORM / Query | **Eloquent + Query Builder** | Luôn dùng prepared statements (mặc định của Eloquent). |
 | File/Ảnh sản phẩm | **Laravel Storage (local disk)** | `storage/app/public` + `php artisan storage:link`. |
+| Email (OTP đăng nhập) | **Laravel Mail (SMTP)** | Cấu hình `MAIL_*` trong `.env` (KHÔNG commit secret). Dev có thể dùng `MAIL_MAILER=log`. Prod: SMTP thật (vd Gmail app-password). |
 
 ## Tooling & Quality Gates
 
