@@ -58,6 +58,8 @@ class UserController extends Controller
                 'id' => $u->id,
                 'name' => $u->name,
                 'phone' => $u->phone,
+                // Ẩn email tạm <phone>@bopcamping.local — coi như chưa đặt.
+                'email' => str_ends_with((string) $u->email, '@bopcamping.local') ? null : $u->email,
                 'created_at' => $u->created_at->format('d/m/Y'),
             ]);
 
@@ -113,12 +115,15 @@ class UserController extends Controller
         $data = $request->validate([
             'name' => 'required|string|min:2|max:100',
             'phone' => ['required', 'string', 'regex:/^0[0-9]{8,10}$/', 'unique:users,phone'],
+            'email' => ['nullable', 'email', 'max:255', Rule::unique('users', 'email')],
             'password' => 'required|string|min:6',
         ], [
             'name.required' => 'Vui lòng nhập tên.',
             'phone.required' => 'Vui lòng nhập số điện thoại.',
             'phone.regex' => 'Số điện thoại không hợp lệ (VD: 0912345678).',
             'phone.unique' => 'Số điện thoại đã được dùng.',
+            'email.email' => 'Email không hợp lệ.',
+            'email.unique' => 'Email đã được dùng.',
             'password.required' => 'Vui lòng nhập mật khẩu.',
             'password.min' => 'Mật khẩu tối thiểu 6 ký tự.',
         ]);
@@ -126,6 +131,7 @@ class UserController extends Controller
         User::create([
             'name' => $data['name'],
             'phone' => $data['phone'],
+            'email' => $data['email'] ?? null,   // trống → model tự điền email tạm
             'password' => $data['password'],   // cast 'hashed' tự hash
             'is_admin' => true,
         ]);
@@ -141,15 +147,21 @@ class UserController extends Controller
         $data = $request->validate([
             'name' => 'required|string|min:2|max:100',
             'phone' => ['required', 'string', 'regex:/^0[0-9]{8,10}$/', Rule::unique('users', 'phone')->ignore($user->id)],
+            'email' => ['nullable', 'email', 'max:255', Rule::unique('users', 'email')->ignore($user->id)],
             'password' => 'nullable|string|min:6',
         ], [
             'phone.regex' => 'Số điện thoại không hợp lệ (VD: 0912345678).',
             'phone.unique' => 'Số điện thoại đã được dùng.',
+            'email.email' => 'Email không hợp lệ.',
+            'email.unique' => 'Email đã được dùng.',
             'password.min' => 'Mật khẩu tối thiểu 6 ký tự.',
         ]);
 
         $user->name = $data['name'];
         $user->phone = $data['phone'];
+        if (! empty($data['email'])) {
+            $user->email = $data['email'];   // chỉ đổi khi có nhập email mới
+        }
         if (! empty($data['password'])) {
             $user->password = $data['password'];   // chỉ reset khi có nhập
         }

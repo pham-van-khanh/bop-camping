@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Mail\NewOrderAdminMail;
 use App\Mail\OrderPlacedMail;
 use App\Models\Category;
 use App\Models\Order;
@@ -60,6 +61,31 @@ class OrderMailTest extends TestCase
 
         $this->assertNull($user->orders()->first()->customer_email);
         Mail::assertNothingSent();
+    }
+
+    /** @test */
+    public function new_order_emails_admins_who_set_a_real_email(): void
+    {
+        Mail::fake();
+        User::factory()->create(['is_admin' => true, 'phone' => '0900000010', 'email' => 'qtv@shop.vn']);
+        // Admin chỉ có email tạm .local → không nhận.
+        User::create(['name' => 'Admin Cũ', 'phone' => '0900000011', 'is_admin' => true]);
+
+        $this->post(route('order.store'), $this->payload('0911112222'))->assertSessionHas('order_code');
+
+        Mail::assertSent(NewOrderAdminMail::class, fn (NewOrderAdminMail $m) => $m->hasTo('qtv@shop.vn'));
+        Mail::assertNotSent(NewOrderAdminMail::class, fn (NewOrderAdminMail $m) => $m->hasTo('0900000011@bopcamping.local'));
+    }
+
+    /** @test */
+    public function no_admin_with_real_email_means_no_admin_mail(): void
+    {
+        Mail::fake();
+        User::create(['name' => 'Admin Cũ', 'phone' => '0900000011', 'is_admin' => true]); // email .local
+
+        $this->post(route('order.store'), $this->payload('0911112222'))->assertSessionHas('order_code');
+
+        Mail::assertNotSent(NewOrderAdminMail::class);
     }
 
     private function payload(string $phone): array

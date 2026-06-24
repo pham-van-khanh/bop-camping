@@ -81,6 +81,24 @@ class AdminUserTest extends TestCase
     }
 
     /** @test */
+    public function admin_email_is_saved_and_used_for_notifications(): void
+    {
+        $admin = $this->makeUser(true, '0900000001');
+
+        $this->actingAs($admin)->post(route('admin.users.store'), [
+            'name' => 'QTV Mail',
+            'phone' => '0912345678',
+            'email' => 'qtv@shop.vn',
+            'password' => 'matkhau',
+        ])->assertRedirect()->assertSessionHas('success');
+
+        $this->assertSame('qtv@shop.vn', User::where('phone', '0912345678')->first()->email);
+        $this->assertContains('qtv@shop.vn', User::adminNotifyEmails());
+        // Admin tạo lúc setup (makeUser) chỉ có email .local → không nằm trong danh sách nhận.
+        $this->assertNotContains('0900000001@bopcamping.local', User::adminNotifyEmails());
+    }
+
+    /** @test */
     public function create_admin_validates_unique_phone_and_password(): void
     {
         $admin = $this->makeUser(true, '0900000001');
