@@ -57,3 +57,4 @@
 {"id":"int-bfdb427f","kind":"field_change","created_at":"2026-06-24T11:01:11.391725Z","actor":"Kanhpahm","issue_id":"bopcamping-8zy","extra":{"field":"status","new_value":"closed","old_value":"in_progress","reason":"Hoàn tất (đóng lại sau revert .beads do merge)."}}
 {"id":"int-9523d3be","kind":"field_change","created_at":"2026-06-24T11:01:32.867708Z","actor":"Kanhpahm","issue_id":"bopcamping-0u5","extra":{"field":"status","new_value":"closed","old_value":"open","reason":"Epic hoàn tất (mọi task con đã đóng)."}}
 {"id":"int-445cf5ab","kind":"field_change","created_at":"2026-06-24T11:01:33.060438Z","actor":"Kanhpahm","issue_id":"bopcamping-5b9","extra":{"field":"status","new_value":"closed","old_value":"open","reason":"Epic hoàn tất (mọi task con đã đóng)."}}
+{"id":"int-c309dfc3","kind":"field_change","created_at":"2026-06-24T15:09:34.317003Z","actor":"Kanhpahm","issue_id":"bopcamping-bxi","extra":{"field":"status","new_value":"in_progress","old_value":"open"}}

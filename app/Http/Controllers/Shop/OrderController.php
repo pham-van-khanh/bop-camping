@@ -3,10 +3,12 @@
 namespace App\Http\Controllers\Shop;
 
 use App\Http\Controllers\Controller;
+use App\Mail\NewOrderAdminMail;
 use App\Mail\OrderPlacedMail;
 use App\Models\Order;
 use App\Models\Product;
 use App\Models\PromotionSetting;
+use App\Models\User;
 use App\Services\AvailabilityService;
 use App\Services\Promotion\VoucherService;
 use App\Services\Referral\ReferralService;
@@ -159,6 +161,11 @@ class OrderController extends Controller
         // Mail xác nhận đặt đơn (chỉ khi có email thật — khách đăng nhập đã verify).
         if ($email = $order->notifiableEmail()) {
             Mail::to($email)->send(new OrderPlacedMail($order));
+        }
+
+        // Báo QTV có đơn mới (tới email các tài khoản admin đã đặt email thật).
+        if ($admins = User::adminNotifyEmails()) {
+            Mail::to($admins)->send(new NewOrderAdminMail($order));
         }
 
         return back()->with([

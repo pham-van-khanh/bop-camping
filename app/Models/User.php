@@ -100,6 +100,19 @@ class User extends Authenticatable
         return $this->hasMany(Voucher::class);
     }
 
+    /**
+     * Email các tài khoản admin để gửi thông báo (đơn mới…).
+     * Bỏ email tạm <phone>@bopcamping.local — chỉ gửi tới email thật admin đã đặt.
+     *
+     * @return array<int, string>
+     */
+    public static function adminNotifyEmails(): array
+    {
+        return static::query()->where('is_admin', true)
+            ->where('email', 'not like', '%@bopcamping.local')
+            ->pluck('email')->all();
+    }
+
     /** Lấy mã giới thiệu (tạo nếu chưa có) — single source. */
     public function getReferralCode(): string
     {

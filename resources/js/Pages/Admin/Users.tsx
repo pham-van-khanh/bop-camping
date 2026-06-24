@@ -15,7 +15,7 @@ type Customer = {
     last_order_at: string | null;
     created_at: string;
 };
-type AdminUser = { id: number; name: string; phone: string | null; created_at: string };
+type AdminUser = { id: number; name: string; phone: string | null; email: string | null; created_at: string };
 type OrderRow = {
     id: number;
     code: string;
@@ -34,7 +34,7 @@ type Paginator<T> = {
     to: number | null;
     total: number;
 };
-type AdminFormData = { name: string; phone: string; password: string };
+type AdminFormData = { name: string; phone: string; email: string; password: string };
 
 export default function AdminUsers({
     tab,
@@ -65,7 +65,7 @@ export default function AdminUsers({
     const [modalMode, setModalMode] = useState<'create' | 'edit' | null>(null);
     const [editingAdmin, setEditingAdmin] = useState<AdminUser | null>(null);
 
-    const form = useForm<AdminFormData>({ name: '', phone: '', password: '' });
+    const form = useForm<AdminFormData>({ name: '', phone: '', email: '', password: '' });
 
     useEffect(() => {
         if (flash.success) {
@@ -109,13 +109,13 @@ export default function AdminUsers({
 
     /* --- admin modal --- */
     const openCreate = () => {
-        form.setData({ name: '', phone: '', password: '' });
+        form.setData({ name: '', phone: '', email: '', password: '' });
         form.clearErrors();
         setEditingAdmin(null);
         setModalMode('create');
     };
     const openEdit = (a: AdminUser) => {
-        form.setData({ name: a.name, phone: a.phone ?? '', password: '' });
+        form.setData({ name: a.name, phone: a.phone ?? '', email: a.email ?? '', password: '' });
         form.clearErrors();
         setEditingAdmin(a);
         setModalMode('edit');
@@ -380,6 +380,7 @@ export default function AdminUsers({
                                     <tr className="border-b border-[#eef2e3]" style={{ background: '#f8faf4' }}>
                                         <th className="px-4 py-3 text-left font-semibold text-moss">Tên</th>
                                         <th className="px-4 py-3 text-left font-semibold text-moss">SĐT</th>
+                                        <th className="px-4 py-3 text-left font-semibold text-moss">Email nhận thông báo</th>
                                         <th className="hidden px-4 py-3 text-left font-semibold text-moss sm:table-cell">Tạo lúc</th>
                                         <th className="px-4 py-3 text-right font-semibold text-moss">Thao tác</th>
                                     </tr>
@@ -396,6 +397,7 @@ export default function AdminUsers({
                                                     )}
                                                 </td>
                                                 <td className="px-4 py-3 font-mono text-moss">{a.phone ?? '-'}</td>
+                                                <td className="px-4 py-3 text-moss">{a.email ?? <span className="text-[#c4cca8]">chưa đặt</span>}</td>
                                                 <td className="hidden px-4 py-3 font-mono text-moss sm:table-cell">{a.created_at}</td>
                                                 <td className="px-4 py-3 text-right">
                                                     <div className="flex items-center justify-end gap-2">
@@ -467,6 +469,20 @@ export default function AdminUsers({
                                     className="w-full rounded-[10px] border border-cardBorder px-3.5 py-2.5 text-[13.5px] outline-none transition focus:border-grass"
                                 />
                                 {form.errors.phone && <p className="mt-1 text-[12px] text-[#b3493a]">{form.errors.phone}</p>}
+                            </div>
+                            <div>
+                                <label className="mb-1.5 block text-[13px] font-semibold text-pine">
+                                    Email nhận thông báo <span className="font-normal text-moss">(tuỳ chọn — nhận mail khi có đơn mới)</span>
+                                </label>
+                                <input
+                                    type="email"
+                                    inputMode="email"
+                                    value={form.data.email}
+                                    onChange={(e) => form.setData('email', e.target.value)}
+                                    placeholder="admin@bopcamping.vn"
+                                    className="w-full rounded-[10px] border border-cardBorder px-3.5 py-2.5 text-[13.5px] outline-none transition focus:border-grass"
+                                />
+                                {form.errors.email && <p className="mt-1 text-[12px] text-[#b3493a]">{form.errors.email}</p>}
                             </div>
                             <div>
                                 <label className="mb-1.5 block text-[13px] font-semibold text-pine">
