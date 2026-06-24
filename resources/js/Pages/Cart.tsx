@@ -135,7 +135,12 @@ export default function Cart() {
                             <Row k="Trả khi nhận (COD)" v={money(flash.order_pay ?? 0)} mono accent />
                         </div>
                         <div className="flex flex-wrap justify-center gap-2.5">
-                            <Link href="/tra-cuu" className="grid h-12 place-items-center rounded-control bg-grass px-[22px] font-bold text-white">Tra cứu đơn này</Link>
+                            <Link
+                                href={`/tra-cuu?code=${encodeURIComponent(flash.order_code ?? '')}&phone=${encodeURIComponent(flash.order_phone ?? '')}`}
+                                className="grid h-12 place-items-center rounded-control bg-grass px-[22px] font-bold text-white"
+                            >
+                                Theo dõi đơn này
+                            </Link>
                             <Link href="/" className="grid h-12 place-items-center rounded-control border border-[#cdd6b6] bg-white px-[22px] font-semibold text-pine">Về trang chủ</Link>
                         </div>
                     </div>

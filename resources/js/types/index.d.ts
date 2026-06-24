@@ -9,6 +9,7 @@ export interface User {
 export interface Flash {
     order_code?: string;
     order_name?: string;
+    order_phone?: string;
     order_pay?: number;
     order_discount?: number;
     order_items?: number;
