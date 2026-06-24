@@ -207,9 +207,10 @@ class ReferralVoucherTest extends TestCase
         $code = $referrer->getReferralCode();
 
         $this->post(route('guest.login'), [
-            'name' => 'Khách Mới', 'phone' => '0911112222', 'ref' => $code,
+            'name' => 'Khách Mới', 'phone' => '0911112222', 'email' => 'moi@example.com', 'ref' => $code,
         ])->assertRedirect();
 
+        // Ref được lưu session ngay ở bước 1 (trước cả khi xác thực OTP).
         $this->assertSame($code, session('referral_ref'));
     }
 

@@ -13,6 +13,8 @@ export interface Flash {
     order_discount?: number;
     order_items?: number;
     success?: string;
+    otp_sent?: boolean;
+    otp_email?: string;
 }
 
 export interface Referral {

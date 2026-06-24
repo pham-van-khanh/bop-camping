@@ -15,6 +15,8 @@ class AdminUserSeeder extends Seeder
             [
                 'name' => 'Admin',
                 'phone' => '0976544370',
+                'email' => 'admin@bopcamping.local',
+                'email_verified_at' => now(),
                 'password' => Hash::make('admin'),
                 'is_admin' => true,
             ]

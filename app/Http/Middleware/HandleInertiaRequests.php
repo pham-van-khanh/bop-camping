@@ -50,6 +50,9 @@ class HandleInertiaRequests extends Middleware
                 'order_pay' => session('order_pay'),
                 'order_items' => session('order_items'),
                 'success' => session('success'),
+                // Đăng nhập OTP: tín hiệu cho LoginModal chuyển sang bước nhập mã.
+                'otp_sent' => session('otp_sent'),
+                'otp_email' => session('otp_email'),
             ],
             // Mã giới thiệu đang chờ (từ link ?ref= hoặc nhập tay) — để hiện popup + prefill.
             // Lazy: resolve khi render (SAU khi CaptureReferralCode lưu session) — nếu eager sẽ rỗng ở request đầu.

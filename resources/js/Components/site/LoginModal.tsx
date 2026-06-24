@@ -1,18 +1,28 @@
 import { AnimatePresence, motion } from 'framer-motion';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useForm, usePage } from '@inertiajs/react';
 import { on, emit, EVENTS } from '@/lib/bus';
 import type { PageProps } from '@/types';
 
-/** Modal đăng nhập nhanh SĐT + tên — POST /dang-nhap (GuestAuthController). */
+/**
+ * Modal đăng nhập khách: SĐT + tên + email, xác thực OTP qua email (chỉ lần đầu).
+ * - Bước 1: nhập SĐT/tên/email → POST /dang-nhap. Nếu email đã verify → vào thẳng;
+ *   nếu chưa → server gửi OTP và trả flash.otp_sent → chuyển bước 2.
+ * - Bước 2: nhập OTP 6 số → POST /dang-nhap/xac-thuc.
+ */
 export default function LoginModal() {
-    const { referral, auth } = usePage<PageProps>().props;
+    const { referral, auth, flash } = usePage<PageProps>().props;
     const [open, setOpen] = useState(false);
+    const [step, setStep] = useState<'form' | 'otp'>('form');
+    const [resendIn, setResendIn] = useState(0);
+    const timer = useRef<ReturnType<typeof setInterval> | null>(null);
 
     const { data, setData, post, processing, errors, reset, clearErrors } = useForm({
         name: '',
         phone: '',
+        email: '',
         ref: '',
+        code: '',
     });
 
     useEffect(() => on(EVENTS.openLogin, () => setOpen(true)), []);
@@ -22,7 +32,7 @@ export default function LoginModal() {
         if (referral?.code) setData('ref', referral.code);
     }, [referral?.code]);
 
-    // Khách vào qua link giới thiệu & chưa đăng nhập → tự mở modal đăng ký (1 lần/phiên).
+    // Khách vào qua link giới thiệu & chưa đăng nhập → tự mở modal (1 lần/phiên).
     useEffect(() => {
         if (!referral?.code || auth.user) return;
         const key = `bop:ref-autologin:${referral.code}`;
@@ -31,29 +41,59 @@ export default function LoginModal() {
         setOpen(true);
     }, [referral?.code, auth.user]);
 
+    // Server đã gửi OTP → chuyển sang bước nhập mã + bật đếm ngược gửi lại.
+    useEffect(() => {
+        if (flash?.otp_sent) {
+            setStep('otp');
+            startCooldown();
+        }
+    }, [flash?.otp_sent]);
+
+    // Đăng nhập xong (prop auth.user xuất hiện) → đóng modal.
+    useEffect(() => {
+        if (auth.user && open) {
+            emit(EVENTS.userChange, null);
+            handleClose();
+        }
+    }, [auth.user]);
+
     useEffect(() => {
         if (!open) return;
-        const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false);
+        const onKey = (e: KeyboardEvent) => e.key === 'Escape' && handleClose();
         window.addEventListener('keydown', onKey);
         return () => window.removeEventListener('keydown', onKey);
     }, [open]);
 
+    useEffect(() => () => { if (timer.current) clearInterval(timer.current); }, []);
+
+    const startCooldown = () => {
+        setResendIn(30);
+        if (timer.current) clearInterval(timer.current);
+        timer.current = setInterval(() => {
+            setResendIn((s) => {
+                if (s <= 1 && timer.current) clearInterval(timer.current);
+                return s > 0 ? s - 1 : 0;
+            });
+        }, 1000);
+    };
+
     const handleClose = () => {
         setOpen(false);
+        setStep('form');
+        setResendIn(0);
         reset();
         clearErrors();
+        if (referral?.code) setData('ref', referral.code);
     };
 
-    const submit = () => {
-        post(route('guest.login'), {
-            onSuccess: () => {
-                handleClose();
-                emit(EVENTS.userChange, null);
-            },
-        });
-    };
+    // Bước 1: gửi yêu cầu (gửi OTP hoặc đăng nhập thẳng nếu đã verify).
+    const requestOtp = () => post(route('guest.login'), { preserveScroll: true });
 
-    const valid = data.name.trim().length >= 2 && data.phone.trim().length >= 8;
+    // Bước 2: xác thực OTP.
+    const verifyOtp = () => post(route('guest.login.verify'), { preserveScroll: true });
+
+    const formValid = data.name.trim().length >= 2 && data.phone.trim().length >= 8 && /\S+@\S+\.\S+/.test(data.email);
+    const codeValid = /^[0-9]{6}$/.test(data.code);
 
     return (
         <AnimatePresence>
@@ -85,63 +125,122 @@ export default function LoginModal() {
                             </span>
                             <div className="text-[18px] font-extrabold text-pine">Đăng nhập nhanh</div>
                         </div>
-                        <p className="mb-[14px] text-[14px] text-moss">Chỉ cần số điện thoại và tên. Không mật khẩu.</p>
-                        {referral?.referrer_name && (
-                            <div className="mb-[14px] flex items-center gap-2 rounded-[11px] px-3.5 py-2.5 text-[13px]" style={{ background: '#eef2e3', color: '#3a5a1f' }}>
-                                <span>🎁</span>
-                                <span>Bạn được <strong>{referral.referrer_name}</strong> giới thiệu — đặt đơn đầu để nhận ưu đãi.</span>
-                            </div>
+
+                        {step === 'form' ? (
+                            <>
+                                <p className="mb-[14px] text-[14px] text-moss">Nhập SĐT, tên và email. Lần đầu sẽ có mã xác thực gửi qua email.</p>
+                                {referral?.referrer_name && (
+                                    <div className="mb-[14px] flex items-center gap-2 rounded-[11px] px-3.5 py-2.5 text-[13px]" style={{ background: '#eef2e3', color: '#3a5a1f' }}>
+                                        <span>🎁</span>
+                                        <span>Bạn được <strong>{referral.referrer_name}</strong> giới thiệu — đặt đơn đầu để nhận ưu đãi.</span>
+                                    </div>
+                                )}
+                                <div className="mb-[18px] flex flex-col gap-[11px]">
+                                    <Field
+                                        value={data.name}
+                                        onChange={(v) => setData('name', v)}
+                                        onEnter={() => formValid && !processing && requestOtp()}
+                                        placeholder="Tên của bạn"
+                                        error={errors.name}
+                                        autoFocus
+                                    />
+                                    <Field
+                                        value={data.phone}
+                                        onChange={(v) => setData('phone', v)}
+                                        onEnter={() => formValid && !processing && requestOtp()}
+                                        placeholder="Số điện thoại"
+                                        inputMode="tel"
+                                        error={errors.phone}
+                                    />
+                                    <Field
+                                        value={data.email}
+                                        onChange={(v) => setData('email', v)}
+                                        onEnter={() => formValid && !processing && requestOtp()}
+                                        placeholder="Email"
+                                        inputMode="email"
+                                        error={errors.email}
+                                    />
+                                    <input
+                                        value={data.ref}
+                                        onChange={(e) => setData('ref', e.target.value.toUpperCase())}
+                                        placeholder="Mã giới thiệu (nếu có)"
+                                        className="h-12 w-full rounded-[11px] border border-cardBorder bg-white px-3.5 font-mono text-[15px] uppercase tracking-[0.04em] text-ink outline-none focus:border-grass"
+                                    />
+                                </div>
+                                <button
+                                    onClick={requestOtp}
+                                    disabled={!formValid || processing}
+                                    className="h-[50px] w-full rounded-control text-[16px] font-bold text-white transition disabled:cursor-not-allowed"
+                                    style={{ background: formValid && !processing ? '#557A2B' : '#c4cfae' }}
+                                >
+                                    {processing ? 'Đang xử lý…' : 'Tiếp tục'}
+                                </button>
+                            </>
+                        ) : (
+                            <>
+                                <p className="mb-[14px] text-[14px] text-moss">
+                                    Đã gửi mã 6 số tới <strong className="text-ink">{flash?.otp_email || data.email}</strong>. Nhập mã để hoàn tất.
+                                </p>
+                                <div className="mb-[18px]">
+                                    <input
+                                        autoFocus
+                                        value={data.code}
+                                        onChange={(e) => setData('code', e.target.value.replace(/\D/g, '').slice(0, 6))}
+                                        onKeyDown={(e) => e.key === 'Enter' && codeValid && !processing && verifyOtp()}
+                                        placeholder="••••••"
+                                        inputMode="numeric"
+                                        className={`h-14 w-full rounded-[11px] border bg-white text-center font-mono text-[28px] tracking-[12px] text-ink outline-none focus:border-grass ${errors.code ? 'border-red-400' : 'border-cardBorder'}`}
+                                    />
+                                    {errors.code && <p className="mt-1 text-[13px] text-red-500">{errors.code}</p>}
+                                </div>
+                                <button
+                                    onClick={verifyOtp}
+                                    disabled={!codeValid || processing}
+                                    className="h-[50px] w-full rounded-control text-[16px] font-bold text-white transition disabled:cursor-not-allowed"
+                                    style={{ background: codeValid && !processing ? '#557A2B' : '#c4cfae' }}
+                                >
+                                    {processing ? 'Đang xác thực…' : 'Xác nhận'}
+                                </button>
+                                <div className="mt-3 flex items-center justify-between text-[13px]">
+                                    <button onClick={() => { setStep('form'); clearErrors(); }} className="text-moss hover:text-ink">← Sửa thông tin</button>
+                                    <button
+                                        onClick={requestOtp}
+                                        disabled={resendIn > 0 || processing}
+                                        className="font-semibold text-grass disabled:text-moss/60"
+                                    >
+                                        {resendIn > 0 ? `Gửi lại sau ${resendIn}s` : 'Gửi lại mã'}
+                                    </button>
+                                </div>
+                            </>
                         )}
-                        <div className="mb-[18px] flex flex-col gap-[11px]">
-                            <div>
-                                <input
-                                    autoFocus
-                                    value={data.name}
-                                    onChange={(e) => setData('name', e.target.value)}
-                                    onKeyDown={(e) => e.key === 'Enter' && valid && !processing && submit()}
-                                    placeholder="Tên của bạn"
-                                    className={`h-12 w-full rounded-[11px] border bg-white px-3.5 text-[15px] text-ink outline-none focus:border-grass ${errors.name ? 'border-red-400' : 'border-cardBorder'}`}
-                                />
-                                {errors.name && (
-                                    <p className="mt-1 text-[13px] text-red-500">{errors.name}</p>
-                                )}
-                            </div>
-                            <div>
-                                <input
-                                    value={data.phone}
-                                    onChange={(e) => setData('phone', e.target.value)}
-                                    onKeyDown={(e) => e.key === 'Enter' && valid && !processing && submit()}
-                                    placeholder="Số điện thoại"
-                                    inputMode="tel"
-                                    className={`h-12 w-full rounded-[11px] border bg-white px-3.5 text-[15px] text-ink outline-none focus:border-grass ${errors.phone ? 'border-red-400' : 'border-cardBorder'}`}
-                                />
-                                {errors.phone && (
-                                    <p className="mt-1 text-[13px] text-red-500">{errors.phone}</p>
-                                )}
-                            </div>
-                            <div>
-                                <input
-                                    value={data.ref}
-                                    onChange={(e) => setData('ref', e.target.value.toUpperCase())}
-                                    placeholder="Mã giới thiệu (nếu có)"
-                                    className={`h-12 w-full rounded-[11px] border bg-white px-3.5 font-mono text-[15px] uppercase tracking-[0.04em] text-ink outline-none focus:border-grass ${errors.ref ? 'border-red-400' : 'border-cardBorder'}`}
-                                />
-                                {errors.ref && (
-                                    <p className="mt-1 text-[13px] text-red-500">{errors.ref}</p>
-                                )}
-                            </div>
-                        </div>
-                        <button
-                            onClick={submit}
-                            disabled={!valid || processing}
-                            className="h-[50px] w-full rounded-control text-[16px] font-bold text-white transition disabled:cursor-not-allowed"
-                            style={{ background: valid && !processing ? '#557A2B' : '#c4cfae' }}
-                        >
-                            {processing ? 'Đang xử lý…' : 'Tiếp tục'}
-                        </button>
                     </motion.div>
                 </motion.div>
             )}
         </AnimatePresence>
+    );
+}
+
+function Field({ value, onChange, onEnter, placeholder, error, inputMode, autoFocus }: {
+    value: string;
+    onChange: (v: string) => void;
+    onEnter: () => void;
+    placeholder: string;
+    error?: string;
+    inputMode?: 'tel' | 'email' | 'text';
+    autoFocus?: boolean;
+}) {
+    return (
+        <div>
+            <input
+                autoFocus={autoFocus}
+                value={value}
+                onChange={(e) => onChange(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && onEnter()}
+                placeholder={placeholder}
+                inputMode={inputMode}
+                className={`h-12 w-full rounded-[11px] border bg-white px-3.5 text-[15px] text-ink outline-none focus:border-grass ${error ? 'border-red-400' : 'border-cardBorder'}`}
+            />
+            {error && <p className="mt-1 text-[13px] text-red-500">{error}</p>}
+        </div>
     );
 }
