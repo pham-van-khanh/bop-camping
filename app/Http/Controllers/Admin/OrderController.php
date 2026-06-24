@@ -18,7 +18,7 @@ class OrderController extends Controller
     {
         $status = $request->query('status', 'all');
 
-        $query = Order::with(['items.product'])->latest();
+        $query = Order::with(['items.product', 'vouchers', 'referralUse.referrer'])->latest();
 
         if ($status !== 'all') {
             $query->where('status', $status);
@@ -29,20 +29,35 @@ class OrderController extends Controller
             'code' => $o->code,
             'customer_name' => $o->customer_name,
             'customer_phone' => $o->customer_phone,
+            'customer_email' => $o->customer_email,
+            'customer_address' => $o->customer_address,
             'start_date' => $o->start_date->format('d/m/Y'),
             'end_date' => $o->end_date->format('d/m/Y'),
+            'days' => $o->days,
             'total_price' => $o->total_price,
             'deposit_total' => $o->deposit_total,
             'discount_total' => $o->discount_total,
+            'amount_due' => $o->amount_due,
             'status' => $o->status,
             'note' => $o->note,
             'created_at' => $o->created_at->format('d/m/Y H:i'),
             'items' => $o->items->map(fn ($i) => [
                 'name' => $i->product?->name ?? '(đã xoá)',
                 'quantity' => $i->quantity,
+                'price_per_day' => (int) $i->price_per_day,
                 'days' => $i->days,
                 'subtotal' => $i->subtotal,
             ]),
+            'vouchers' => $o->vouchers->map(fn ($v) => [
+                'code' => $v->code,
+                'type' => $v->type,
+                'value' => (int) $v->value,
+                'source' => $v->source,
+            ]),
+            'referral' => $o->referralUse ? [
+                'referrer_name' => $o->referralUse->referrer?->name,
+                'status' => $o->referralUse->status,
+            ] : null,
         ]);
 
         // Thống kê

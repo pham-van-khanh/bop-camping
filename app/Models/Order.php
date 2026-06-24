@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 #[ObservedBy([OrderObserver::class])]
 class Order extends Model
@@ -54,6 +55,18 @@ class Order extends Model
     public function items(): HasMany
     {
         return $this->hasMany(OrderItem::class);
+    }
+
+    /** Voucher đã áp cho đơn này (đã dùng). */
+    public function vouchers(): HasMany
+    {
+        return $this->hasMany(Voucher::class);
+    }
+
+    /** Lượt giới thiệu mà đơn này là đơn đầu (referee) — nếu có. */
+    public function referralUse(): HasOne
+    {
+        return $this->hasOne(Referral::class, 'first_order_id');
     }
 
     /** Số ngày thuê */

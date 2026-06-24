@@ -4,12 +4,17 @@ import AdminLayout from '@/Layouts/AdminLayout';
 import ProductStatusPill from '@/Components/ProductStatusPill';
 import { money } from '@/lib/format';
 import { STATUS_LABEL, STATUS_STYLE } from '@/lib/orderStatus';
+import { voucherValueText, VOUCHER_SOURCE_LABEL, VOUCHER_SOURCE_FALLBACK, type VoucherType } from '@/lib/voucher';
 
-type OrderItem = { name: string; quantity: number; days: number; subtotal: number };
+type OrderItem = { name: string; quantity: number; price_per_day: number; days: number; subtotal: number };
+type UsedVoucher = { code: string; type: VoucherType; value: number; source: string };
 type Order = {
     id: number; code: string; customer_name: string; customer_phone: string;
-    start_date: string; end_date: string; total_price: number; deposit_total: number; discount_total: number;
+    customer_email: string | null; customer_address: string | null;
+    start_date: string; end_date: string; days: number;
+    total_price: number; deposit_total: number; discount_total: number; amount_due: number;
     status: string; note: string | null; created_at: string; items: OrderItem[];
+    vouchers: UsedVoucher[]; referral: { referrer_name: string | null; status: string } | null;
 };
 type Stats = { total: number; pending: number; confirmed: number; renting: number; returned: number; cancelled: number };
 type InventoryItem = { id: number; name: string; category: string; quantity: number; status: string };
@@ -171,36 +176,82 @@ export default function AdminOrders({
                                                     </tr>
                                                     {isExpanded && (
                                                         <tr key={`${order.id}-detail`} className="border-b border-[#f1f4ea]">
-                                                            <td colSpan={6} className="px-6 pb-4 pt-2" style={{ background: '#fafcf7' }}>
-                                                                <div className="text-[12px] font-semibold text-moss mb-2">Chi tiết đơn hàng</div>
-                                                                <div className="rounded-[10px] border border-[#eef2e3] overflow-hidden">
-                                                                    <table className="w-full text-[12px]">
-                                                                        <thead>
-                                                                            <tr style={{ background: '#f1f4ea' }}>
-                                                                                <th className="px-3 py-2 text-left font-semibold text-moss">Thiết bị</th>
-                                                                                <th className="px-3 py-2 text-center font-semibold text-moss">SL</th>
-                                                                                <th className="px-3 py-2 text-center font-semibold text-moss">Ngày</th>
-                                                                                <th className="px-3 py-2 text-right font-semibold text-moss">Thành tiền</th>
-                                                                            </tr>
-                                                                        </thead>
-                                                                        <tbody>
-                                                                            {order.items.map((item, i) => (
-                                                                                <tr key={i} className="border-t border-[#eef2e3]">
-                                                                                    <td className="px-3 py-2 text-ink">{item.name}</td>
-                                                                                    <td className="px-3 py-2 text-center text-moss">{item.quantity}</td>
-                                                                                    <td className="px-3 py-2 text-center text-moss">{item.days}</td>
-                                                                                    <td className="px-3 py-2 text-right font-mono font-bold text-ink">{money(item.subtotal)}</td>
-                                                                                </tr>
+                                                            <td colSpan={6} className="px-6 pb-5 pt-2" style={{ background: '#fafcf7' }}>
+                                                                <div className="grid gap-4 lg:grid-cols-2">
+                                                                    {/* Cột trái: khách + thiết bị */}
+                                                                    <div>
+                                                                        <div className="mb-2 text-[12px] font-bold uppercase tracking-[0.04em] text-grass">Khách hàng</div>
+                                                                        <div className="rounded-[10px] border border-[#eef2e3] bg-white p-3 text-[12.5px]">
+                                                                            <DetailRow label="Họ tên" value={order.customer_name} />
+                                                                            <DetailRow label="SĐT" value={order.customer_phone} mono />
+                                                                            <DetailRow label="Email" value={order.customer_email ?? '—'} mono />
+                                                                            <DetailRow label="Địa chỉ" value={order.customer_address ?? '—'} />
+                                                                            <DetailRow label="Khoảng thuê" value={`${order.start_date} → ${order.end_date} (${order.days} ngày)`} />
+                                                                            <DetailRow label="Đặt lúc" value={order.created_at} />
+                                                                        </div>
+
+                                                                        <div className="mb-2 mt-3 text-[12px] font-bold uppercase tracking-[0.04em] text-grass">Thiết bị</div>
+                                                                        <div className="overflow-hidden rounded-[10px] border border-[#eef2e3]">
+                                                                            <table className="w-full text-[12px]">
+                                                                                <thead>
+                                                                                    <tr style={{ background: '#f1f4ea' }}>
+                                                                                        <th className="px-3 py-2 text-left font-semibold text-moss">Thiết bị</th>
+                                                                                        <th className="px-3 py-2 text-center font-semibold text-moss">SL × ngày</th>
+                                                                                        <th className="px-3 py-2 text-right font-semibold text-moss">Thành tiền</th>
+                                                                                    </tr>
+                                                                                </thead>
+                                                                                <tbody>
+                                                                                    {order.items.map((item, i) => (
+                                                                                        <tr key={i} className="border-t border-[#eef2e3]">
+                                                                                            <td className="px-3 py-2 text-ink">{item.name}<div className="text-[11px] text-moss">{money(item.price_per_day)}/ngày</div></td>
+                                                                                            <td className="px-3 py-2 text-center text-moss">{item.quantity} × {item.days}</td>
+                                                                                            <td className="px-3 py-2 text-right font-mono font-bold text-ink">{money(item.subtotal)}</td>
+                                                                                        </tr>
+                                                                                    ))}
+                                                                                </tbody>
+                                                                            </table>
+                                                                        </div>
+                                                                    </div>
+
+                                                                    {/* Cột phải: tiền + ưu đãi + ghi chú */}
+                                                                    <div>
+                                                                        <div className="mb-2 text-[12px] font-bold uppercase tracking-[0.04em] text-grass">Thanh toán</div>
+                                                                        <div className="rounded-[10px] border border-[#eef2e3] bg-white p-3 text-[12.5px]">
+                                                                            <DetailRow label="Tiền thuê" value={money(order.total_price)} mono />
+                                                                            {order.discount_total > 0 && <DetailRow label="Giảm giá" value={`−${money(order.discount_total)}`} mono accent="#3a5a1f" />}
+                                                                            <DetailRow label="Tiền cọc" value={money(order.deposit_total)} mono />
+                                                                            <div className="mt-1 flex items-center justify-between border-t border-[#eef2e3] pt-2">
+                                                                                <span className="font-bold text-ink">Trả khi nhận</span>
+                                                                                <span className="font-mono text-[14px] font-extrabold text-pine">{money(order.amount_due)}</span>
+                                                                            </div>
+                                                                        </div>
+
+                                                                        <div className="mb-2 mt-3 text-[12px] font-bold uppercase tracking-[0.04em] text-grass">Ưu đãi đã dùng</div>
+                                                                        <div className="rounded-[10px] border border-[#eef2e3] bg-white p-3 text-[12.5px]">
+                                                                            {order.vouchers.length === 0 && !order.referral && (
+                                                                                <span className="text-moss">Không có</span>
+                                                                            )}
+                                                                            {order.vouchers.map((v) => (
+                                                                                <div key={v.code} className="flex items-center justify-between py-0.5">
+                                                                                    <span className="font-mono font-semibold text-ink">{v.code}</span>
+                                                                                    <span className="text-moss">{VOUCHER_SOURCE_LABEL[v.source] ?? VOUCHER_SOURCE_FALLBACK} · <strong className="text-grass">{voucherValueText(v.type, v.value)}</strong></span>
+                                                                                </div>
                                                                             ))}
-                                                                        </tbody>
-                                                                    </table>
+                                                                            {order.referral && (
+                                                                                <div className="flex items-center justify-between py-0.5">
+                                                                                    <span className="text-ink">🎁 Mã giới thiệu</span>
+                                                                                    <span className="text-moss">từ <strong>{order.referral.referrer_name ?? '—'}</strong></span>
+                                                                                </div>
+                                                                            )}
+                                                                        </div>
+
+                                                                        {order.note && (
+                                                                            <p className="mt-3 rounded-[10px] border border-[#eef2e3] bg-white p-3 text-[12.5px] text-moss">
+                                                                                <span className="font-semibold text-ink">Ghi chú:</span> {order.note}
+                                                                            </p>
+                                                                        )}
+                                                                    </div>
                                                                 </div>
-                                                                {order.note && (
-                                                                    <p className="mt-2 text-[12px] text-moss">
-                                                                        <span className="font-semibold">Ghi chú:</span> {order.note}
-                                                                    </p>
-                                                                )}
-                                                                <p className="mt-1 text-[11px] text-[#b0ba98]">Đặt lúc {order.created_at}</p>
                                                             </td>
                                                         </tr>
                                                     )}
@@ -245,6 +296,15 @@ export default function AdminOrders({
                 )}
             </div>
         </>
+    );
+}
+
+function DetailRow({ label, value, mono, accent }: { label: string; value: string; mono?: boolean; accent?: string }) {
+    return (
+        <div className="flex items-start justify-between gap-3 py-0.5">
+            <span className="shrink-0 text-moss">{label}</span>
+            <span className={`text-right text-ink ${mono ? 'font-mono' : ''}`} style={accent ? { color: accent } : undefined}>{value}</span>
+        </div>
     );
 }
 
