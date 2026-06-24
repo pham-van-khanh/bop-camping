@@ -47,7 +47,9 @@ class HandleInertiaRequests extends Middleware
             'flash' => [
                 'order_code' => session('order_code'),
                 'order_name' => session('order_name'),
+                'order_phone' => session('order_phone'),
                 'order_pay' => session('order_pay'),
+                'order_discount' => session('order_discount'),
                 'order_items' => session('order_items'),
                 'success' => session('success'),
                 // Đăng nhập OTP: tín hiệu cho LoginModal chuyển sang bước nhập mã.

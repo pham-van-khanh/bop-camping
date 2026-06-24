@@ -33,9 +33,10 @@ class OrderLookupController extends Controller
             'order' => $order,
             'not_found' => $notFound,
             // Trả lại giá trị form để giữ lại sau redirect
+            // SĐT mặc định lấy từ tài khoản đang đăng nhập (auto-fill — KE_HOACH 8.3).
             'query' => [
                 'code' => $request->input('code', ''),
-                'phone' => $request->input('phone', ''),
+                'phone' => $request->input('phone', $request->user()?->phone ?? ''),
             ],
         ]);
     }
