@@ -72,6 +72,23 @@ class Product extends Model
         return $this->hasMany(OrderItem::class);
     }
 
+    public function reviews(): HasMany
+    {
+        return $this->hasMany(Review::class);
+    }
+
+    /** Đánh giá đã duyệt (mới nhất trước) kèm ảnh. */
+    public function approvedReviews(): HasMany
+    {
+        return $this->reviews()->where('status', 'approved')->with('images')->latest();
+    }
+
+    /** Điểm trung bình của đánh giá đã duyệt (1 chữ số thập phân), 0 nếu chưa có. */
+    public function averageRating(): float
+    {
+        return round((float) $this->reviews()->where('status', 'approved')->avg('rating'), 1);
+    }
+
     public function scopeActive($query)
     {
         return $query->where('status', 'active');
