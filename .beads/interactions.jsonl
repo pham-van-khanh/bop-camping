@@ -38,3 +38,4 @@
 {"id":"int-f6ceb219","kind":"field_change","created_at":"2026-06-24T10:35:01.460911Z","actor":"Kanhpahm","issue_id":"bopcamping-0u5","extra":{"field":"status","new_value":"closed","old_value":"open","reason":"Epic OTP hoàn tất."}}
 {"id":"int-810996fd","kind":"field_change","created_at":"2026-06-24T10:38:10.843807Z","actor":"Kanhpahm","issue_id":"bopcamping-tac","extra":{"field":"status","new_value":"in_progress","old_value":"open"}}
 {"id":"int-697ce680","kind":"field_change","created_at":"2026-06-24T10:44:02.879818Z","actor":"Kanhpahm","issue_id":"bopcamping-tac","extra":{"field":"status","new_value":"closed","old_value":"in_progress","reason":"Admin Dashboard — verify live (redirect + số liệu + đơn mới) + 3 test. Merged."}}
+{"id":"int-e0951eac","kind":"field_change","created_at":"2026-06-24T10:45:39.798256Z","actor":"Kanhpahm","issue_id":"bopcamping-8zy","extra":{"field":"status","new_value":"in_progress","old_value":"open"}}
