@@ -2,8 +2,10 @@
 
 namespace Tests\Feature;
 
+use App\Mail\OtpMail;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Mail;
 use Tests\TestCase;
 
 /**
@@ -44,28 +46,31 @@ class AdminAccessTest extends TestCase
     }
 
     /** @test */
-    public function guest_login_creates_account_and_authenticates(): void
+    public function guest_login_new_account_sends_otp_and_does_not_authenticate_yet(): void
     {
-        $this->post(route('guest.login'), ['name' => 'Khách Mới', 'phone' => '0912345678'])
-            ->assertRedirect();
+        Mail::fake();
 
-        $this->assertAuthenticated();
-        $this->assertDatabaseHas('users', [
-            'phone' => '0912345678',
-            'name' => 'Khách Mới',
-            'is_admin' => false,
-        ]);
+        $this->post(route('guest.login'), [
+            'name' => 'Khách Mới', 'phone' => '0912345678', 'email' => 'moi@example.com',
+        ])->assertRedirect()->assertSessionHas('otp_sent', true);
+
+        $this->assertGuest(); // chưa đăng nhập — phải xác thực OTP trước
+        Mail::assertSent(OtpMail::class);
     }
 
     /** @test */
-    public function guest_login_matches_existing_phone_with_same_name(): void
+    public function verified_user_logs_in_without_otp(): void
     {
-        User::factory()->create(['name' => 'Khách Cũ', 'phone' => '0912345678', 'is_admin' => false]);
+        $user = User::factory()->create([
+            'name' => 'Khách Cũ', 'phone' => '0912345678',
+            'email' => 'cu@example.com', 'email_verified_at' => now(), 'is_admin' => false,
+        ]);
 
-        $this->post(route('guest.login'), ['name' => 'Khách Cũ', 'phone' => '0912345678'])
-            ->assertRedirect();
+        $this->post(route('guest.login'), [
+            'name' => 'Khách Cũ', 'phone' => '0912345678', 'email' => 'cu@example.com',
+        ])->assertRedirect();
 
-        $this->assertAuthenticated();
+        $this->assertAuthenticatedAs($user);
         $this->assertSame(1, User::where('phone', '0912345678')->count());
     }
 
@@ -74,7 +79,7 @@ class AdminAccessTest extends TestCase
     {
         User::factory()->create(['name' => 'Tên A', 'phone' => '0912345678', 'is_admin' => false]);
 
-        $this->post(route('guest.login'), ['name' => 'Tên B', 'phone' => '0912345678'])
+        $this->post(route('guest.login'), ['name' => 'Tên B', 'phone' => '0912345678', 'email' => 'b@example.com'])
             ->assertSessionHasErrors('phone');
 
         $this->assertGuest();

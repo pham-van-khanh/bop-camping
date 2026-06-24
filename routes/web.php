@@ -81,9 +81,12 @@ Route::middleware('auth')->group(function () {
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 });
 
-// Auth khách: SĐT + tên (passwordless)
+// Auth khách: SĐT + tên + email, xác thực OTP qua email (chỉ lần đầu)
 Route::post('/dang-nhap', [GuestAuthController::class, 'store'])
     ->name('guest.login')
+    ->middleware('throttle:10,1');
+Route::post('/dang-nhap/xac-thuc', [GuestAuthController::class, 'verifyOtp'])
+    ->name('guest.login.verify')
     ->middleware('throttle:10,1');
 Route::post('/dang-xuat', [GuestAuthController::class, 'destroy'])
     ->name('guest.logout')

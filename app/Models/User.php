@@ -11,11 +11,27 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Str;
 
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable;
+
+    /**
+     * Email là BẮT BUỘC (đăng nhập OTP, KE_HOACH 8.1). Nếu tạo user mà chưa có
+     * email (vd tạo nhanh bằng SĐT) → điền email tạm; khách sẽ bổ sung email
+     * thật khi xác thực OTP. Cùng quy ước với migration backfill.
+     */
+    protected static function booted(): void
+    {
+        static::creating(function (self $user) {
+            if (blank($user->email)) {
+                $local = $user->phone ?: ('user'.Str::random(8));
+                $user->email = $local.'@bopcamping.local';
+            }
+        });
+    }
 
     /**
      * The attributes that are mass assignable.
