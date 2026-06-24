@@ -101,6 +101,25 @@ class User extends Authenticatable
     }
 
     /**
+     * Khách đủ điều kiện đánh giá sản phẩm: có đơn ĐÃ TRẢ (returned) chứa sản phẩm này.
+     * Trả về order_item_id gần nhất làm "vé" đánh giá, hoặc null nếu chưa đủ điều kiện.
+     */
+    public function reviewableOrderItemId(int $productId): ?int
+    {
+        return OrderItem::query()
+            ->where('product_id', $productId)
+            ->whereHas('order', fn (Builder $q) => $q->where('status', 'returned')
+                ->where(function (Builder $w) {
+                    $w->where('user_id', $this->id);
+                    if ($this->phone) {
+                        $w->orWhere('customer_phone', $this->phone);
+                    }
+                }))
+            ->latest('id')
+            ->value('id');
+    }
+
+    /**
      * Email các tài khoản admin để gửi thông báo (đơn mới…).
      * Bỏ email tạm <phone>@bopcamping.local — chỉ gửi tới email thật admin đã đặt.
      *
