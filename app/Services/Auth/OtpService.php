@@ -34,6 +34,7 @@ class OtpService
             'expires_at' => Carbon::now()->addMinutes(self::TTL_MINUTES),
         ]);
 
+        // OtpMail là ShouldQueue → đẩy vào queue (worker gửi nền), request không treo vì SMTP.
         Mail::to($email)->send(new OtpMail($code));
 
         return $code;

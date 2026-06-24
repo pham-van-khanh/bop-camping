@@ -55,7 +55,7 @@ class AdminAccessTest extends TestCase
         ])->assertRedirect()->assertSessionHas('otp_sent', true);
 
         $this->assertGuest(); // chưa đăng nhập — phải xác thực OTP trước
-        Mail::assertSent(OtpMail::class);
+        Mail::assertQueued(OtpMail::class);
     }
 
     /** @test */

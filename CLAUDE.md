@@ -43,11 +43,13 @@ Máy này có nhiều bản PHP cài qua Homebrew (7.1/7.2/7.4/8.1/8.3) và dùn
 
 ```bash
 # Chạy app (sau khi đã scaffold) — Laravel 12 có sẵn lệnh gộp:
-composer run dev          # chạy đồng thời: php artisan serve + queue + vite
+composer run dev          # chạy đồng thời: serve + QUEUE WORKER + vite + logs
 
 # Hoặc chạy riêng:
 php artisan serve         # backend tại http://localhost:8000
 npm run dev               # Vite dev server (frontend assets)
+php artisan queue:work    # BẮT BUỘC để gửi mail (OTP, xác nhận đơn...) — mail là ShouldQueue,
+                          # chạy nền qua queue. KHÔNG có worker = mail nằm chờ, KHÔNG gửi.
 
 # Database (SQLite khi dev)
 php artisan migrate           # chạy migration

@@ -33,7 +33,7 @@ class OrderMailTest extends TestCase
 
         $order = $user->orders()->first();
         $this->assertSame('khach@example.com', $order->customer_email);
-        Mail::assertSent(OrderPlacedMail::class, fn (OrderPlacedMail $m) => $m->hasTo('khach@example.com') && $m->order->is($order));
+        Mail::assertQueued(OrderPlacedMail::class, fn (OrderPlacedMail $m) => $m->hasTo('khach@example.com') && $m->order->is($order));
     }
 
     /** @test */
@@ -45,7 +45,7 @@ class OrderMailTest extends TestCase
             ->assertSessionHas('order_code');
 
         $this->assertNull(Order::first()->customer_email);
-        Mail::assertNothingSent();
+        Mail::assertNothingOutgoing();
     }
 
     /** @test */
@@ -60,7 +60,7 @@ class OrderMailTest extends TestCase
             ->assertSessionHas('order_code');
 
         $this->assertNull($user->orders()->first()->customer_email);
-        Mail::assertNothingSent();
+        Mail::assertNothingOutgoing();
     }
 
     /** @test */
@@ -73,8 +73,8 @@ class OrderMailTest extends TestCase
 
         $this->post(route('order.store'), $this->payload('0911112222'))->assertSessionHas('order_code');
 
-        Mail::assertSent(NewOrderAdminMail::class, fn (NewOrderAdminMail $m) => $m->hasTo('qtv@shop.vn'));
-        Mail::assertNotSent(NewOrderAdminMail::class, fn (NewOrderAdminMail $m) => $m->hasTo('0900000011@bopcamping.local'));
+        Mail::assertQueued(NewOrderAdminMail::class, fn (NewOrderAdminMail $m) => $m->hasTo('qtv@shop.vn'));
+        Mail::assertNotQueued(NewOrderAdminMail::class, fn (NewOrderAdminMail $m) => $m->hasTo('0900000011@bopcamping.local'));
     }
 
     /** @test */
@@ -85,7 +85,7 @@ class OrderMailTest extends TestCase
 
         $this->post(route('order.store'), $this->payload('0911112222'))->assertSessionHas('order_code');
 
-        Mail::assertNotSent(NewOrderAdminMail::class);
+        Mail::assertNotQueued(NewOrderAdminMail::class);
     }
 
     private function payload(string $phone): array

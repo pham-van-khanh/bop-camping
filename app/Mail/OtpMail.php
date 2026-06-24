@@ -4,13 +4,14 @@ namespace App\Mail;
 
 use App\Services\Auth\OtpService;
 use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
 
-/** Email chứa mã OTP đăng nhập. */
-class OtpMail extends Mailable
+/** Email chứa mã OTP đăng nhập. Gửi qua queue (worker) để không treo request. */
+class OtpMail extends Mailable implements ShouldQueue
 {
     use Queueable, SerializesModels;
 

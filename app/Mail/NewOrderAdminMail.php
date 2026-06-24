@@ -4,13 +4,14 @@ namespace App\Mail;
 
 use App\Models\Order;
 use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
 
-/** Email báo QTV có đơn thuê mới. */
-class NewOrderAdminMail extends Mailable
+/** Email báo QTV có đơn thuê mới. Gửi qua queue. */
+class NewOrderAdminMail extends Mailable implements ShouldQueue
 {
     use Queueable, SerializesModels;
 

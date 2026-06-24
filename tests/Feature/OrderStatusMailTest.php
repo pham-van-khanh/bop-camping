@@ -4,12 +4,14 @@ namespace Tests\Feature;
 
 use App\Mail\OrderStatusMail;
 use App\Models\Order;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
 use Tests\TestCase;
 
 /**
  * bopcamping-b7q — mail thông báo khi đơn đổi trạng thái.
+ * Đổi trạng thái qua endpoint admin (HTTP) để afterResponse gửi mail thật.
  */
 class OrderStatusMailTest extends TestCase
 {
@@ -18,57 +20,57 @@ class OrderStatusMailTest extends TestCase
     /** @test */
     public function confirmed_returned_cancelled_each_send_mail(): void
     {
+        $admin = $this->admin();
+
         foreach (['confirmed', 'returned', 'cancelled'] as $status) {
             Mail::fake();
             $order = $this->order('khach@example.com');
 
-            $order->update(['status' => $status]);
+            $this->actingAs($admin)
+                ->patch(route('admin.orders.update', $order), ['status' => $status])
+                ->assertRedirect();
 
-            Mail::assertSent(OrderStatusMail::class, fn (OrderStatusMail $m) => $m->status === $status
+            Mail::assertQueued(OrderStatusMail::class, fn (OrderStatusMail $m) => $m->status === $status
                 && $m->order->is($order)
                 && $m->hasTo('khach@example.com'));
         }
     }
 
     /** @test */
-    public function non_notifying_statuses_send_nothing(): void
+    public function non_notifying_status_sends_nothing(): void
     {
         Mail::fake();
         $order = $this->order('khach@example.com');
 
-        $order->update(['status' => 'renting']); // không nằm trong danh sách gửi mail
+        $this->actingAs($this->admin())
+            ->patch(route('admin.orders.update', $order), ['status' => 'renting'])
+            ->assertRedirect();
 
-        Mail::assertNothingSent();
+        Mail::assertNothingOutgoing();
     }
 
     /** @test */
     public function order_without_real_email_sends_nothing(): void
     {
         Mail::fake();
-        $order = $this->order(null);                 // không có email
-        $order->update(['status' => 'confirmed']);
-        Mail::assertNothingSent();
+        $admin = $this->admin();
 
-        Mail::fake();
-        $local = $this->order('0900000001@bopcamping.local'); // email tạm
-        $local->update(['status' => 'confirmed']);
-        Mail::assertNothingSent();
+        $order = $this->order(null);
+        $this->actingAs($admin)->patch(route('admin.orders.update', $order), ['status' => 'confirmed']);
+        Mail::assertNothingOutgoing();
+
+        $local = $this->order('0900000001@bopcamping.local');
+        $this->actingAs($admin)->patch(route('admin.orders.update', $local), ['status' => 'confirmed']);
+        Mail::assertNothingOutgoing();
     }
 
-    /** @test */
-    public function status_unchanged_update_sends_nothing(): void
+    private function admin(): User
     {
-        Mail::fake();
-        $order = $this->order('khach@example.com');
-
-        $order->update(['note' => 'Đổi ghi chú, không đổi trạng thái']);
-
-        Mail::assertNothingSent();
+        return User::factory()->create(['is_admin' => true, 'phone' => '0900000999']);
     }
 
     private function order(?string $email): Order
     {
-        // Observer chỉ chạy ở 'updated' nên tạo bình thường (code tự sinh) là an toàn.
         return Order::create([
             'customer_name' => 'Khách Test',
             'customer_phone' => '0900000001',

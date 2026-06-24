@@ -4,13 +4,14 @@ namespace App\Mail;
 
 use App\Models\Order;
 use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
 
-/** Email thông báo khi đơn đổi trạng thái (confirmed / returned / cancelled) — KE_HOACH 8.1. */
-class OrderStatusMail extends Mailable
+/** Email thông báo khi đơn đổi trạng thái (confirmed / returned / cancelled) — KE_HOACH 8.1. Gửi qua queue. */
+class OrderStatusMail extends Mailable implements ShouldQueue
 {
     use Queueable, SerializesModels;
 
