@@ -21,16 +21,15 @@ class OtpFlowTest extends TestCase
     // ── Service ──────────────────────────────────────────────────────────────
 
     /** @test */
-    public function service_send_stores_hashed_otp_and_mails_it(): void
+    public function service_send_stores_hashed_otp(): void
     {
-        Mail::fake();
+        // GỬI mail (afterResponse) được phủ ở full_flow qua HTTP; ở đây chỉ kiểm tra lưu trữ.
         $code = app(OtpService::class)->send('a@x.com');
 
         $this->assertMatchesRegularExpression('/^\d{6}$/', $code);
         $otp = EmailOtp::where('email', 'a@x.com')->first();
         $this->assertNotNull($otp);
         $this->assertNotSame($code, $otp->code); // đã hash, không lưu thô
-        Mail::assertSent(OtpMail::class, fn (OtpMail $m) => $m->code === $code && $m->hasTo('a@x.com'));
     }
 
     /** @test */
@@ -85,7 +84,7 @@ class OtpFlowTest extends TestCase
 
         // Lấy mã thật từ mail đã gửi.
         $code = null;
-        Mail::assertSent(OtpMail::class, function (OtpMail $m) use (&$code) {
+        Mail::assertQueued(OtpMail::class, function (OtpMail $m) use (&$code) {
             $code = $m->code;
 
             return true;
@@ -126,7 +125,7 @@ class OtpFlowTest extends TestCase
         ])->assertSessionHas('otp_sent', true);
 
         $code = null;
-        Mail::assertSent(OtpMail::class, function (OtpMail $m) use (&$code) {
+        Mail::assertQueued(OtpMail::class, function (OtpMail $m) use (&$code) {
             $code = $m->code;
 
             return true;

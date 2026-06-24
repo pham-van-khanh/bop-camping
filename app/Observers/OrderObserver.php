@@ -32,7 +32,7 @@ class OrderObserver
             $this->referrals->clawback($order, $settings);
         }
 
-        // Mail thông báo đổi trạng thái (KE_HOACH 8.1) — chỉ khi có email thật.
+        // Mail đổi trạng thái (ShouldQueue → gửi nền), chỉ khi có email thật.
         if (OrderStatusMail::notifies($order->status) && ($email = $order->notifiableEmail())) {
             Mail::to($email)->send(new OrderStatusMail($order, $order->status));
         }

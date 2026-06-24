@@ -158,6 +158,7 @@ class OrderController extends Controller
             }
         }
 
+        // Mail đều là ShouldQueue → đẩy vào queue (worker gửi nền), checkout không treo vì SMTP.
         // Mail xác nhận đặt đơn (chỉ khi có email thật — khách đăng nhập đã verify).
         if ($email = $order->notifiableEmail()) {
             Mail::to($email)->send(new OrderPlacedMail($order));
