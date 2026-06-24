@@ -1,6 +1,6 @@
 # BopCamping — Website cho thuê đồ Camping
 
-Web cho thuê thiết bị cắm trại của **một shop duy nhất**. Khách đặt thuê **theo ngày** (có kiểm tra trùng lịch + tồn kho), **có thu tiền cọc**, thanh toán **COD**. Đăng nhập khách bằng **SĐT + tên** (không email/mật khẩu). Giao diện tông **be / màu đất kiểu Naturehike**.
+Web cho thuê thiết bị cắm trại của **một shop duy nhất**. Khách đặt thuê **theo ngày** (có kiểm tra trùng lịch + tồn kho), **có thu tiền cọc**, thanh toán **COD**. Đăng nhập khách bằng **SĐT + tên + email**, xác thực **OTP 6 số gửi qua email** (chỉ cần OTP lần đầu / khi email chưa verify; verify rồi thì SĐT+tên vào thẳng). Không dùng mật khẩu cho khách. Giao diện tông **be / màu đất kiểu Naturehike**.
 
 > Kế hoạch chi tiết, mô hình dữ liệu và bảng màu nằm trong [KE_HOACH.md](KE_HOACH.md) — đọc file đó trước khi triển khai tính năng.
 
