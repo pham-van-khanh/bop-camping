@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class ReviewImage extends Model
 {
-    protected $fillable = ['review_id', 'path', 'sort_order'];
+    protected $fillable = ['review_id', 'type', 'path', 'sort_order'];
 
     public function review(): BelongsTo
     {
