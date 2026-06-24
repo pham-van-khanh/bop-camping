@@ -3,6 +3,7 @@
 use App\Http\Controllers\AccountController;
 use App\Http\Controllers\Admin\AuthController as AdminAuthController;
 use App\Http\Controllers\Admin\CategoryController as AdminCategoryController;
+use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\Admin\OrderController as AdminOrderController;
 use App\Http\Controllers\Admin\ProductController as AdminProductController;
 use App\Http\Controllers\Admin\PromotionController as AdminPromotionController;
@@ -35,7 +36,8 @@ Route::post('/admin/logout', [AdminAuthController::class, 'logout'])->name('admi
 // Admin — panel (bảo vệ bằng middleware 'admin')
 // Chỉ dùng 'admin' (EnsureAdmin đã check auth bên trong, redirect về /admin/login)
 Route::middleware(['admin'])->prefix('admin')->name('admin.')->group(function () {
-    Route::get('/', fn () => redirect()->route('admin.orders'));
+    Route::get('/', fn () => redirect()->route('admin.dashboard'));
+    Route::get('/dashboard', [AdminDashboardController::class, 'index'])->name('dashboard');
     Route::get('/orders', [AdminOrderController::class, 'index'])->name('orders');
     Route::patch('/orders/{order}', [AdminOrderController::class, 'updateStatus'])->name('orders.update');
 

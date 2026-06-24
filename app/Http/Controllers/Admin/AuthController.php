@@ -15,7 +15,7 @@ class AuthController extends Controller
     {
         // Nếu đã đăng nhập với quyền admin → thẳng vào panel
         if (Auth::check() && Auth::user()->is_admin) {
-            return redirect()->route('admin.orders');
+            return redirect()->route('admin.dashboard');
         }
 
         return Inertia::render('Admin/Login');
@@ -41,7 +41,7 @@ class AuthController extends Controller
 
             $request->session()->regenerate();
 
-            return redirect()->route('admin.orders');
+            return redirect()->route('admin.dashboard');
         }
 
         return back()->withErrors(['phone' => 'Số điện thoại hoặc mật khẩu không đúng.']);
