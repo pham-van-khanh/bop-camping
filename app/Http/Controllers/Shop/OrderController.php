@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Shop;
 
 use App\Http\Controllers\Controller;
+use App\Mail\OrderPlacedMail;
 use App\Models\Order;
 use App\Models\Product;
 use App\Models\PromotionSetting;
@@ -14,6 +15,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 
 class OrderController extends Controller
 {
@@ -85,10 +87,15 @@ class OrderController extends Controller
             $startDate = Carbon::parse(min($starts));
             $endDate = Carbon::parse(max($ends));
 
+            // Email gửi xác nhận: lấy từ tài khoản đã đăng nhập (bỏ email tạm .local).
+            $user = Auth::user();
+            $customerEmail = ($user && ! str_ends_with($user->email, '@bopcamping.local')) ? $user->email : null;
+
             $order = Order::create([
                 'user_id' => Auth::id(),
                 'customer_name' => $validated['name'],
                 'customer_phone' => $validated['phone'],
+                'customer_email' => $customerEmail,
                 'customer_address' => $validated['address'] ?? null,
                 'note' => $validated['note'] ?? null,
                 'start_date' => $startDate,
@@ -147,6 +154,11 @@ class OrderController extends Controller
             if ($clamped !== (int) $order->discount_total) {
                 $order->update(['discount_total' => $clamped]);
             }
+        }
+
+        // Mail xác nhận đặt đơn (chỉ khi có email thật — khách đăng nhập đã verify).
+        if ($email = $order->notifiableEmail()) {
+            Mail::to($email)->send(new OrderPlacedMail($order));
         }
 
         return back()->with([

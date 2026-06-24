@@ -16,6 +16,7 @@ class Order extends Model
         'code',
         'customer_name',
         'customer_phone',
+        'customer_email',
         'customer_address',
         'start_date',
         'end_date',
@@ -59,6 +60,24 @@ class Order extends Model
     public function getDaysAttribute(): int
     {
         return $this->start_date->diffInDays($this->end_date) + 1;
+    }
+
+    /** Số tiền phải trả khi nhận (thuê + cọc − giảm giá). */
+    public function getAmountDueAttribute(): int
+    {
+        return (int) $this->total_price + (int) $this->deposit_total - (int) $this->discount_total;
+    }
+
+    /** Email gửi thông báo được (bỏ email tạm <phone>@bopcamping.local). Null nếu không gửi được. */
+    public function notifiableEmail(): ?string
+    {
+        $email = $this->customer_email;
+
+        if (! $email || str_ends_with($email, '@bopcamping.local')) {
+            return null;
+        }
+
+        return $email;
     }
 
     /** Các trạng thái hợp lệ để tính tồn kho (đơn chưa huỷ) */
