@@ -37,10 +37,7 @@ class ProductController extends Controller
         }
 
         if ($q = $request->query('q')) {
-            $query->where(function ($sq) use ($q) {
-                $sq->where('name', 'like', "%{$q}%")
-                    ->orWhere('description', 'like', "%{$q}%");
-            });
+            $query->search($q); // tìm có dấu + không dấu (xem Product::scopeSearch)
         }
 
         $sort = $request->query('sort', 'pop');

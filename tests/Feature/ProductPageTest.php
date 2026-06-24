@@ -7,6 +7,7 @@ use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Product;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Tests\TestCase;
 
 /**
@@ -26,14 +27,14 @@ class ProductPageTest extends TestCase
     private function product(Category $cat, array $overrides = []): Product
     {
         return Product::create(array_merge([
-            'category_id'  => $cat->id,
-            'name'         => 'Lều Test',
-            'slug'         => 'leu-test-' . uniqid(),
-            'description'  => 'Mô tả lều',
-            'price_per_day'=> 120000,
-            'quantity'     => 3,
-            'deposit'      => 300000,
-            'status'       => 'active',
+            'category_id' => $cat->id,
+            'name' => 'Lều Test',
+            'slug' => 'leu-test-'.uniqid(),
+            'description' => 'Mô tả lều',
+            'price_per_day' => 120000,
+            'quantity' => 3,
+            'deposit' => 300000,
+            'status' => 'active',
         ], $overrides));
     }
 
@@ -48,10 +49,9 @@ class ProductPageTest extends TestCase
         $response = $this->get('/');
 
         $response->assertStatus(200);
-        $response->assertInertia(fn ($page) =>
-            $page->component('Welcome')
-                 ->has('featured', 1)
-                 ->where('featured.0.name', 'Lều Nổi Bật')
+        $response->assertInertia(fn ($page) => $page->component('Welcome')
+            ->has('featured', 1)
+            ->where('featured.0.name', 'Lều Nổi Bật')
         );
     }
 
@@ -65,8 +65,7 @@ class ProductPageTest extends TestCase
 
         $response = $this->get('/');
 
-        $response->assertInertia(fn ($page) =>
-            $page->has('featured', 4)
+        $response->assertInertia(fn ($page) => $page->has('featured', 4)
         );
     }
 
@@ -79,9 +78,8 @@ class ProductPageTest extends TestCase
 
         $response = $this->get('/');
 
-        $response->assertInertia(fn ($page) =>
-            $page->has('featured', 1)
-                 ->where('featured.0.name', 'Lều hiện')
+        $response->assertInertia(fn ($page) => $page->has('featured', 1)
+            ->where('featured.0.name', 'Lều hiện')
         );
     }
 
@@ -98,28 +96,26 @@ class ProductPageTest extends TestCase
         $response = $this->get('/thiet-bi');
 
         $response->assertStatus(200);
-        $response->assertInertia(fn ($page) =>
-            $page->component('Products')
-                 ->has('products', 2)
-                 ->has('categories', 1)
-                 ->has('filters')
+        $response->assertInertia(fn ($page) => $page->component('Products')
+            ->has('products', 2)
+            ->has('categories', 1)
+            ->has('filters')
         );
     }
 
     /** @test */
     public function products_page_filters_by_category_slug(): void
     {
-        $leu  = $this->category('Lều cắm trại', 'leu-cam-trai');
-        $bep  = $this->category('Bếp & Nấu ăn', 'bep-nau-an');
+        $leu = $this->category('Lều cắm trại', 'leu-cam-trai');
+        $bep = $this->category('Bếp & Nấu ăn', 'bep-nau-an');
         $this->product($leu, ['name' => 'Lều A']);
         $this->product($bep, ['name' => 'Bếp A']);
 
         $response = $this->get('/thiet-bi?cat=leu-cam-trai');
 
-        $response->assertInertia(fn ($page) =>
-            $page->has('products', 1)
-                 ->where('products.0.name', 'Lều A')
-                 ->where('filters.cat', 'leu-cam-trai')
+        $response->assertInertia(fn ($page) => $page->has('products', 1)
+            ->where('products.0.name', 'Lều A')
+            ->where('filters.cat', 'leu-cam-trai')
         );
     }
 
@@ -132,9 +128,8 @@ class ProductPageTest extends TestCase
 
         $response = $this->get('/thiet-bi?q=leu');
 
-        $response->assertInertia(fn ($page) =>
-            $page->has('products', 1)
-                 ->where('products.0.name', 'Lều siêu nhẹ')
+        $response->assertInertia(fn ($page) => $page->has('products', 1)
+            ->where('products.0.name', 'Lều siêu nhẹ')
         );
     }
 
@@ -143,14 +138,13 @@ class ProductPageTest extends TestCase
     {
         $cat = $this->category();
         $this->product($cat, ['name' => 'Đắt', 'price_per_day' => 200000]);
-        $this->product($cat, ['name' => 'Rẻ',  'price_per_day' =>  80000]);
+        $this->product($cat, ['name' => 'Rẻ',  'price_per_day' => 80000]);
 
         $response = $this->get('/thiet-bi?sort=low');
 
-        $response->assertInertia(fn ($page) =>
-            $page->where('products.0.name', 'Rẻ')
-                 ->where('products.1.name', 'Đắt')
-                 ->where('filters.sort', 'low')
+        $response->assertInertia(fn ($page) => $page->where('products.0.name', 'Rẻ')
+            ->where('products.1.name', 'Đắt')
+            ->where('filters.sort', 'low')
         );
     }
 
@@ -159,13 +153,12 @@ class ProductPageTest extends TestCase
     {
         $cat = $this->category();
         $this->product($cat, ['name' => 'Đắt', 'price_per_day' => 200000]);
-        $this->product($cat, ['name' => 'Rẻ',  'price_per_day' =>  80000]);
+        $this->product($cat, ['name' => 'Rẻ',  'price_per_day' => 80000]);
 
         $response = $this->get('/thiet-bi?sort=high');
 
-        $response->assertInertia(fn ($page) =>
-            $page->where('products.0.name', 'Đắt')
-                 ->where('products.1.name', 'Rẻ')
+        $response->assertInertia(fn ($page) => $page->where('products.0.name', 'Đắt')
+            ->where('products.1.name', 'Rẻ')
         );
     }
 
@@ -175,17 +168,16 @@ class ProductPageTest extends TestCase
     public function product_detail_page_renders_with_correct_props(): void
     {
         $cat = $this->category();
-        $p   = $this->product($cat, ['name' => 'Lều Chi Tiết', 'quantity' => 2]);
+        $p = $this->product($cat, ['name' => 'Lều Chi Tiết', 'quantity' => 2]);
 
         $response = $this->get("/thiet-bi/{$p->id}");
 
         $response->assertStatus(200);
-        $response->assertInertia(fn ($page) =>
-            $page->component('ProductDetail')
-                 ->where('product.id', $p->id)
-                 ->where('product.name', 'Lều Chi Tiết')
-                 ->where('product.quantity', 2)
-                 ->has('unavailable_dates')
+        $response->assertInertia(fn ($page) => $page->component('ProductDetail')
+            ->where('product.id', $p->id)
+            ->where('product.name', 'Lều Chi Tiết')
+            ->where('product.quantity', 2)
+            ->has('unavailable_dates')
         );
     }
 
@@ -193,7 +185,7 @@ class ProductPageTest extends TestCase
     public function product_detail_returns_404_for_hidden_product(): void
     {
         $cat = $this->category();
-        $p   = $this->product($cat, ['status' => 'hidden']);
+        $p = $this->product($cat, ['status' => 'hidden']);
 
         $response = $this->get("/thiet-bi/{$p->id}");
 
@@ -212,35 +204,35 @@ class ProductPageTest extends TestCase
     public function product_detail_unavailable_dates_reflect_fully_booked_days(): void
     {
         $cat = $this->category();
-        $p   = $this->product($cat, ['quantity' => 1]);
+        $p = $this->product($cat, ['quantity' => 1]);
 
-        // Đặt hết 1 bộ duy nhất trong ngày 2030-08-01 → 2030-08-03
+        // Đặt hết 1 bộ duy nhất — ngày phải nằm trong cửa sổ 90 ngày mà show() tính.
+        $start = Carbon::today()->addDays(10);
+        $end = Carbon::today()->addDays(12);
         $order = Order::create([
-            'code'           => 'BOP-TEST01',
-            'customer_name'  => 'Khách Test',
+            'code' => 'BOP-TEST01',
+            'customer_name' => 'Khách Test',
             'customer_phone' => '0900000001',
-            'start_date'     => '2030-08-01',
-            'end_date'       => '2030-08-03',
-            'status'         => 'confirmed',
-            'total_price'    => 360000,
-            'deposit_total'  => 300000,
+            'start_date' => $start->toDateString(),
+            'end_date' => $end->toDateString(),
+            'status' => 'confirmed',
+            'total_price' => 360000,
+            'deposit_total' => 300000,
         ]);
         OrderItem::create([
-            'order_id'    => $order->id,
-            'product_id'  => $p->id,
-            'quantity'    => 1,
+            'order_id' => $order->id,
+            'product_id' => $p->id,
+            'quantity' => 1,
             'price_per_day' => 120000,
-            'days'        => 3,
-            'subtotal'    => 360000,
+            'days' => 3,
+            'subtotal' => 360000,
         ]);
 
         $response = $this->get("/thiet-bi/{$p->id}");
 
-        $response->assertInertia(fn ($page) =>
-            $page->where(fn ($props) =>
-                in_array('2030-08-01', $props['unavailable_dates'])
-                && in_array('2030-08-03', $props['unavailable_dates'])
-            )
+        $response->assertInertia(fn ($page) => $page->where('unavailable_dates', fn ($dates) => collect($dates)->contains($start->toDateString())
+                && collect($dates)->contains($end->toDateString())
+        )
         );
     }
 
@@ -248,13 +240,12 @@ class ProductPageTest extends TestCase
     public function product_detail_includes_category_and_images_in_props(): void
     {
         $cat = $this->category('Túi ngủ', 'tui-ngu');
-        $p   = $this->product($cat);
+        $p = $this->product($cat);
 
         $response = $this->get("/thiet-bi/{$p->id}");
 
-        $response->assertInertia(fn ($page) =>
-            $page->where('product.category.slug', 'tui-ngu')
-                 ->has('product.images')
+        $response->assertInertia(fn ($page) => $page->where('product.category.slug', 'tui-ngu')
+            ->has('product.images')
         );
     }
 }
