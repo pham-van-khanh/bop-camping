@@ -29,3 +29,4 @@
 {"id":"int-af50ce88","kind":"field_change","created_at":"2026-06-24T10:26:48.541599Z","actor":"Kanhpahm","issue_id":"bopcamping-tb3","extra":{"field":"status","new_value":"closed","old_value":"open","reason":"Test OTP trong OtpFlowTest (merged)."}}
 {"id":"int-f2f45edd","kind":"field_change","created_at":"2026-06-24T10:26:49.07559Z","actor":"Kanhpahm","issue_id":"bopcamping-2qb","extra":{"field":"status","new_value":"closed","old_value":"in_progress","reason":"Docs auth OTP (merged)."}}
 {"id":"int-2061a188","kind":"field_change","created_at":"2026-06-24T10:26:49.633521Z","actor":"Kanhpahm","issue_id":"bopcamping-0u5","extra":{"field":"status","new_value":"closed","old_value":"open","reason":"Epic OTP hoàn tất."}}
+{"id":"int-99de8e3c","kind":"field_change","created_at":"2026-06-24T10:29:03.982383Z","actor":"Kanhpahm","issue_id":"bopcamping-b7q","extra":{"field":"status","new_value":"in_progress","old_value":"open"}}

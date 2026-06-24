@@ -2,9 +2,11 @@
 
 namespace App\Observers;
 
+use App\Mail\OrderStatusMail;
 use App\Models\Order;
 use App\Models\PromotionSetting;
 use App\Services\Referral\ReferralService;
+use Illuminate\Support\Facades\Mail;
 
 class OrderObserver
 {
@@ -14,6 +16,7 @@ class OrderObserver
      * Đổi trạng thái đơn:
      * - sang trạng thái conversion (mặc định 'returned') → tính referral thành công + thưởng referrer.
      * - sang 'cancelled' sau khi đã convert → clawback (thu hồi voucher chưa dùng).
+     * - confirmed / returned / cancelled → gửi mail thông báo cho khách (nếu có email thật).
      */
     public function updated(Order $order): void
     {
@@ -27,6 +30,11 @@ class OrderObserver
             $this->referrals->handleConversion($order, $settings);
         } elseif ($order->status === 'cancelled') {
             $this->referrals->clawback($order, $settings);
+        }
+
+        // Mail thông báo đổi trạng thái (KE_HOACH 8.1) — chỉ khi có email thật.
+        if (OrderStatusMail::notifies($order->status) && ($email = $order->notifiableEmail())) {
+            Mail::to($email)->send(new OrderStatusMail($order, $order->status));
         }
     }
 }
