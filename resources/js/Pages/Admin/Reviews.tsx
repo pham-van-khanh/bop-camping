@@ -43,6 +43,7 @@ export default function AdminReviews() {
     const [toast, setToast] = useState('');
     const [rejectId, setRejectId] = useState<number | null>(null);
     const [note, setNote] = useState('');
+    const [lightbox, setLightbox] = useState<{ media: Media[]; index: number } | null>(null);
 
     useEffect(() => {
         if (flash.success) { setToast(flash.success); const t = setTimeout(() => setToast(''), 2500); return () => clearTimeout(t); }
@@ -104,11 +105,12 @@ export default function AdminReviews() {
                                 {r.media.length > 0 && (
                                     <div className="mt-2.5 flex flex-wrap gap-2">
                                         {r.media.map((m, i) => (
-                                            <a key={i} href={m.url} target="_blank" rel="noreferrer" className="block h-16 w-16 overflow-hidden rounded-[10px] border border-cardBorder">
+                                            <button key={i} onClick={() => setLightbox({ media: r.media, index: i })}
+                                                className="relative block h-16 w-16 overflow-hidden rounded-[10px] border border-cardBorder">
                                                 {m.type === 'video'
-                                                    ? <video src={m.url} className="h-full w-full object-cover" muted />
+                                                    ? <><video src={m.url} className="h-full w-full object-cover" muted /><span className="absolute inset-0 grid place-items-center bg-black/25 text-white">▶</span></>
                                                     : <img src={m.url} alt="" className="h-full w-full object-cover" />}
-                                            </a>
+                                            </button>
                                         ))}
                                     </div>
                                 )}
@@ -150,7 +152,44 @@ export default function AdminReviews() {
                     </div>
                 )}
             </div>
+
+            {lightbox && <Lightbox state={lightbox} onClose={() => setLightbox(null)} onNav={(i) => setLightbox({ ...lightbox, index: i })} />}
         </>
+    );
+}
+
+function Lightbox({ state, onClose, onNav }: { state: { media: Media[]; index: number }; onClose: () => void; onNav: (i: number) => void }) {
+    const { media, index } = state;
+    const m = media[index];
+    const prev = () => onNav((index - 1 + media.length) % media.length);
+    const next = () => onNav((index + 1) % media.length);
+
+    useEffect(() => {
+        const onKey = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') onClose();
+            if (e.key === 'ArrowLeft') prev();
+            if (e.key === 'ArrowRight') next();
+        };
+        window.addEventListener('keydown', onKey);
+        return () => window.removeEventListener('keydown', onKey);
+    }, [index]);
+
+    return (
+        <div onClick={onClose} className="fixed inset-0 z-[95] flex items-center justify-center p-6" style={{ background: 'rgba(12,16,8,.82)' }}>
+            <button onClick={onClose} aria-label="Đóng" className="absolute right-4 top-4 grid h-10 w-10 place-items-center rounded-full bg-white/15 text-[20px] text-white">×</button>
+            {media.length > 1 && (
+                <>
+                    <button onClick={(e) => { e.stopPropagation(); prev(); }} className="absolute left-4 grid h-11 w-11 place-items-center rounded-full bg-white/15 text-[22px] text-white">‹</button>
+                    <button onClick={(e) => { e.stopPropagation(); next(); }} className="absolute right-4 grid h-11 w-11 place-items-center rounded-full bg-white/15 text-[22px] text-white" style={{ top: '50%' }}>›</button>
+                </>
+            )}
+            <div onClick={(e) => e.stopPropagation()} className="max-h-[86vh] max-w-[90vw]">
+                {m.type === 'video'
+                    ? <video src={m.url} controls autoPlay className="max-h-[86vh] max-w-[90vw] rounded-[12px]" />
+                    : <img src={m.url} alt="" className="max-h-[86vh] max-w-[90vw] rounded-[12px] object-contain" />}
+                {media.length > 1 && <div className="mt-2 text-center font-mono text-[12px] text-white/70">{index + 1} / {media.length}</div>}
+            </div>
+        </div>
     );
 }
 
