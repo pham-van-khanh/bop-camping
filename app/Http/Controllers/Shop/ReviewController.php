@@ -15,37 +15,38 @@ class ReviewController extends Controller
 
     /**
      * POST /thiet-bi/{product}/danh-gia — gửi đánh giá sản phẩm.
-     * Chỉ khách đã thuê & trả món này (có đơn 'returned'); đánh giá vào trạng thái pending chờ duyệt.
+     * Ai cũng gửi được (khách vãng lai nhập tên); mọi đánh giá vào trạng thái pending chờ admin duyệt.
+     * Nếu là khách đã thuê & trả món này thì gắn luôn order_item để hiện "X ngày" trong meta.
      */
     public function store(Request $request, int $product): RedirectResponse
     {
         $p = Product::active()->findOrFail($product);
         $user = $request->user();
-        abort_unless($user !== null, 403);
 
-        $orderItemId = $user->reviewableOrderItemId($p->id);
-        if (! $orderItemId) {
-            return back()->withErrors(['review' => 'Bạn cần thuê và trả món này trước khi đánh giá.']);
-        }
-
-        $data = $request->validate([
+        $rules = [
             'rating' => ['required', 'integer', 'min:1', 'max:5'],
             'content' => ['nullable', 'string', 'max:1500'],
             'media' => ['nullable', 'array', 'max:4'],
             'media.*' => ['file', self::MEDIA_MIMES, 'max:30720'], // ≤30MB (ảnh thực tế nhỏ hơn nhiều)
-        ], [
+        ];
+        if (! $user) {
+            $rules['reviewer_name'] = ['required', 'string', 'max:60'];
+        }
+
+        $data = $request->validate($rules, [
             'rating.required' => 'Vui lòng chấm sao.',
             'rating.min' => 'Vui lòng chấm sao.',
+            'reviewer_name.required' => 'Vui lòng nhập tên của bạn.',
             'media.max' => 'Tối đa 4 ảnh/video.',
             'media.*.mimetypes' => 'Chỉ nhận ảnh (jpg, png, webp) hoặc video (mp4, webm, mov).',
             'media.*.max' => 'Mỗi tệp tối đa 30MB.',
         ]);
 
         $review = Review::create([
-            'order_item_id' => $orderItemId,
+            'order_item_id' => $user?->reviewableOrderItemId($p->id),
             'product_id' => $p->id,
-            'user_id' => $user->id,
-            'reviewer_name' => $user->name,
+            'user_id' => $user?->id,
+            'reviewer_name' => $user?->name ?? $data['reviewer_name'],
             'rating' => $data['rating'],
             'content' => $data['content'] ?? null,
             'category' => 'product',

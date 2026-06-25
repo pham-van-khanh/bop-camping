@@ -68,7 +68,7 @@ function MediaThumb({ m, size, onClick }: { m: ReviewMedia; size: number; onClic
     );
 }
 
-export default function ProductReviews({ productId, productName, reviews, summary, canReview, isLoggedIn }: Props) {
+export default function ProductReviews({ productId, productName, reviews, summary, isLoggedIn }: Props) {
     const [idx, setIdx] = useState(0);
     const [modal, setModal] = useState<ReviewItem | null>(null);
     const [paused, setPaused] = useState(false);
@@ -152,27 +152,20 @@ export default function ProductReviews({ productId, productName, reviews, summar
                 )}
             </div>
 
-            {/* ===== Form viết / gợi ý ===== */}
-            {canReview ? (
-                <ReviewForm productId={productId} />
-            ) : (
-                <div className="rounded-card bg-card p-5 text-[14px] text-moss" style={{ border: '1px solid #E3E8D6' }}>
-                    {isLoggedIn
-                        ? 'Thuê và trải nghiệm sản phẩm này, sau khi trả đồ bạn có thể chia sẻ đánh giá ở đây.'
-                        : 'Đăng nhập và thuê sản phẩm để chia sẻ đánh giá sau chuyến đi.'}
-                </div>
-            )}
+            {/* ===== Form viết (ai cũng gửi được, đánh giá vào pending chờ duyệt) ===== */}
+            <ReviewForm productId={productId} isLoggedIn={isLoggedIn} />
 
             {modal && <ReviewModalView review={modal} productName={productName} onClose={() => setModal(null)} />}
         </div>
     );
 }
 
-/** Form viết đánh giá: sao + tên + nội dung + upload ≤4 ảnh/video. */
-function ReviewForm({ productId }: { productId: number }) {
+/** Form viết đánh giá: (tên nếu khách vãng lai) + sao + nội dung + upload ≤4 ảnh/video. */
+function ReviewForm({ productId, isLoggedIn }: { productId: number; isLoggedIn: boolean }) {
     const fileRef = useRef<HTMLInputElement>(null);
     const [done, setDone] = useState(false);
-    const { data, setData, post, processing, errors, reset } = useForm<{ rating: number; content: string; media: File[] }>({
+    const { data, setData, post, processing, errors, reset } = useForm<{ reviewer_name: string; rating: number; content: string; media: File[] }>({
+        reviewer_name: '',
         rating: 0,
         content: '',
         media: [],
@@ -217,6 +210,15 @@ function ReviewForm({ productId }: { productId: number }) {
             </div>
 
             <div className="flex flex-col gap-3">
+                {!isLoggedIn && (
+                    <input
+                        value={data.reviewer_name}
+                        onChange={(e) => setData('reviewer_name', e.target.value)}
+                        placeholder="Tên của bạn"
+                        maxLength={60}
+                        className="w-full rounded-[11px] border border-cardBorder bg-white px-3.5 py-2.5 text-[14px] text-ink outline-none focus:border-grass"
+                    />
+                )}
                 <textarea
                     value={data.content}
                     onChange={(e) => setData('content', e.target.value)}
@@ -248,17 +250,17 @@ function ReviewForm({ productId }: { productId: number }) {
                     <input ref={fileRef} type="file" accept="image/*,video/*" multiple hidden onChange={(e) => addFiles(e.target.files)} />
                 </div>
 
-                {(errors.rating || errors.content || errors['media.0' as keyof typeof errors] || (errors as Record<string, string>).review) && (
-                    <p className="text-[13px] text-red-500">{errors.rating || (errors as Record<string, string>).review || errors.content || 'Có tệp không hợp lệ.'}</p>
+                {(errors.reviewer_name || errors.rating || errors.content || errors['media.0' as keyof typeof errors] || (errors as Record<string, string>).review) && (
+                    <p className="text-[13px] text-red-500">{errors.reviewer_name || errors.rating || (errors as Record<string, string>).review || errors.content || 'Có tệp không hợp lệ.'}</p>
                 )}
 
                 <div className="flex items-center justify-between">
                     <span className="font-mono text-[12px] text-moss">{data.rating ? `${data.rating} sao` : 'Chạm để chấm sao'}</span>
                     <button
                         onClick={submit}
-                        disabled={processing || data.rating === 0}
+                        disabled={processing || data.rating === 0 || (!isLoggedIn && data.reviewer_name.trim() === '')}
                         className="h-11 rounded-control px-6 text-[15px] font-bold text-white transition disabled:cursor-not-allowed"
-                        style={{ background: !processing && data.rating ? '#557A2B' : '#c4cfae' }}
+                        style={{ background: !processing && data.rating && (isLoggedIn || data.reviewer_name.trim()) ? '#557A2B' : '#c4cfae' }}
                     >
                         {processing ? 'Đang gửi…' : 'Gửi đánh giá'}
                     </button>

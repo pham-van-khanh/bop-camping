@@ -51,22 +51,44 @@ class ReviewSubmitTest extends TestCase
     }
 
     /** @test */
-    public function customer_without_returned_order_cannot_review(): void
+    public function logged_in_customer_without_returned_order_can_still_review(): void
     {
         $user = User::create(['name' => 'Khách Lạ', 'phone' => '0900000099']);
         $product = $this->product();
 
-        $this->actingAs($user)->post(route('reviews.store', $product), ['rating' => 5])
-            ->assertSessionHasErrors('review');
+        $this->actingAs($user)->post(route('reviews.store', $product), ['rating' => 5, 'content' => 'Nhìn xịn'])
+            ->assertRedirect()->assertSessionHas('success');
 
-        $this->assertSame(0, Review::count());
+        $review = Review::first();
+        $this->assertSame('pending', $review->status);
+        $this->assertSame('Khách Lạ', $review->reviewer_name);
+        $this->assertSame($user->id, $review->user_id);
+        $this->assertNull($review->order_item_id); // chưa thuê -> không gắn order_item
     }
 
     /** @test */
-    public function guest_cannot_review(): void
+    public function guest_can_review_with_name(): void
     {
         $product = $this->product();
-        $this->post(route('reviews.store', $product), ['rating' => 5])->assertRedirect();
+
+        $this->post(route('reviews.store', $product), ['reviewer_name' => 'Vãng Lai', 'rating' => 4, 'content' => 'Tốt'])
+            ->assertRedirect()->assertSessionHas('success');
+
+        $review = Review::first();
+        $this->assertSame('pending', $review->status);
+        $this->assertSame('Vãng Lai', $review->reviewer_name);
+        $this->assertNull($review->user_id);
+        $this->assertNull($review->order_item_id);
+    }
+
+    /** @test */
+    public function guest_must_provide_name(): void
+    {
+        $product = $this->product();
+
+        $this->post(route('reviews.store', $product), ['rating' => 4])
+            ->assertSessionHasErrors('reviewer_name');
+
         $this->assertSame(0, Review::count());
     }
 
