@@ -19,6 +19,9 @@ class Order extends Model
         'customer_phone',
         'customer_email',
         'customer_address',
+        'review_token',
+        'review_invited_at',
+        'review_submitted_at',
         'start_date',
         'end_date',
         'total_price',
@@ -35,6 +38,8 @@ class Order extends Model
         'total_price' => 'integer',
         'deposit_total' => 'integer',
         'discount_total' => 'integer',
+        'review_invited_at' => 'datetime',
+        'review_submitted_at' => 'datetime',
     ];
 
     /** Tự sinh mã đơn khi tạo */
