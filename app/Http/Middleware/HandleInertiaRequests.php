@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Models\ReferralCode;
+use App\Models\Review;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -59,6 +60,10 @@ class HandleInertiaRequests extends Middleware
             // Mã giới thiệu đang chờ (từ link ?ref= hoặc nhập tay) — để hiện popup + prefill.
             // Lazy: resolve khi render (SAU khi CaptureReferralCode lưu session) — nếu eager sẽ rỗng ở request đầu.
             'referral' => fn () => $this->sharedReferral($request),
+            // Số đánh giá chờ duyệt — badge sidebar admin (chỉ tính cho admin).
+            'pending_reviews' => fn () => $request->user()?->is_admin
+                ? Review::where('status', 'pending')->count()
+                : null,
         ];
     }
 

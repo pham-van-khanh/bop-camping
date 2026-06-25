@@ -31,4 +31,5 @@ export type PageProps<
     };
     flash: Flash;
     referral: Referral | null;
+    pending_reviews?: number | null;
 };
