@@ -3,10 +3,12 @@
 namespace App\Observers;
 
 use App\Mail\OrderStatusMail;
+use App\Mail\ReviewInviteMail;
 use App\Models\Order;
 use App\Models\PromotionSetting;
 use App\Services\Referral\ReferralService;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Str;
 
 class OrderObserver
 {
@@ -35,6 +37,15 @@ class OrderObserver
         // Mail đổi trạng thái (ShouldQueue → gửi nền), chỉ khi có email thật.
         if (OrderStatusMail::notifies($order->status) && ($email = $order->notifiableEmail())) {
             Mail::to($email)->send(new OrderStatusMail($order, $order->status));
+        }
+
+        // Đã trả đồ → mời đánh giá (1 lần / đơn, cần email thật).
+        if ($order->status === 'returned' && ! $order->review_token && ($email = $order->notifiableEmail())) {
+            $order->forceFill([
+                'review_token' => Str::random(40),
+                'review_invited_at' => now(),
+            ])->saveQuietly(); // saveQuietly: không kích lại observer
+            Mail::to($email)->send(new ReviewInviteMail($order));
         }
     }
 }

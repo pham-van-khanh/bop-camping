@@ -18,6 +18,7 @@ use App\Http\Controllers\Shop\OrderController;
 use App\Http\Controllers\Shop\OrderLookupController;
 use App\Http\Controllers\Shop\ProductController;
 use App\Http\Controllers\Shop\ReviewController;
+use App\Http\Controllers\Shop\ReviewInviteController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -31,6 +32,9 @@ Route::post('/thiet-bi/{product}/danh-gia', [ReviewController::class, 'store'])-
 Route::get('/gio-thue', [CartController::class, 'index'])->name('cart');
 Route::post('/dat-hang', [OrderController::class, 'store'])->name('order.store')->middleware('throttle:20,1');
 Route::get('/tra-cuu', [OrderLookupController::class, 'index'])->name('lookup');
+// Đánh giá sau chuyến đi qua link token (không cần đăng nhập)
+Route::get('/danh-gia/{token}', [ReviewInviteController::class, 'show'])->name('review.invite');
+Route::post('/danh-gia/{token}', [ReviewInviteController::class, 'store'])->name('review.invite.store')->middleware('throttle:10,1');
 // Admin — auth
 // Không dùng middleware('guest') vì shop user đang login sẽ bị redirect sang /login Breeze
 Route::get('/admin/login', [AdminAuthController::class, 'showLogin'])->name('admin.login');
