@@ -63,3 +63,4 @@
 {"id":"int-52c0855a","kind":"field_change","created_at":"2026-06-24T16:38:49.484205Z","actor":"Kanhpahm","issue_id":"bopcamping-a63","extra":{"field":"status","new_value":"closed","old_value":"in_progress","reason":"Mail qua queue (ShouldQueue) — đo POST đăng nhập 4.96s→0.29s; worker gửi nền OK. Merged."}}
 {"id":"int-85cde60c","kind":"field_change","created_at":"2026-06-24T16:55:28.135757Z","actor":"Kanhpahm","issue_id":"bopcamping-0hb","extra":{"field":"status","new_value":"in_progress","old_value":"open"}}
 {"id":"int-7b0a902f","kind":"field_change","created_at":"2026-06-24T17:02:44.203836Z","actor":"Kanhpahm","issue_id":"bopcamping-1ly","extra":{"field":"status","new_value":"in_progress","old_value":"open"}}
+{"id":"int-f8debecf","kind":"field_change","created_at":"2026-06-25T09:57:15.591933Z","actor":"Kanhpahm","issue_id":"bopcamping-599","extra":{"field":"status","new_value":"in_progress","old_value":"open"}}

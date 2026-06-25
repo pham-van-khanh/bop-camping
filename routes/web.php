@@ -8,6 +8,7 @@ use App\Http\Controllers\Admin\OrderController as AdminOrderController;
 use App\Http\Controllers\Admin\ProductController as AdminProductController;
 use App\Http\Controllers\Admin\PromotionController as AdminPromotionController;
 use App\Http\Controllers\Admin\ReferralController as AdminReferralController;
+use App\Http\Controllers\Admin\ReviewController as AdminReviewController;
 use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\Admin\VoucherController as AdminVoucherController;
 use App\Http\Controllers\ProfileController;
@@ -71,6 +72,10 @@ Route::middleware(['admin'])->prefix('admin')->name('admin.')->group(function ()
     Route::patch('/vouchers/{voucher}/revoke', [AdminVoucherController::class, 'revoke'])->name('vouchers.revoke');
 
     Route::get('/referrals', [AdminReferralController::class, 'index'])->name('referrals');
+
+    // Duyệt đánh giá
+    Route::get('/reviews', [AdminReviewController::class, 'index'])->name('reviews');
+    Route::patch('/reviews/{review}', [AdminReviewController::class, 'update'])->name('reviews.update')->middleware('throttle:60,1');
 });
 
 Route::get('/dashboard', function () {

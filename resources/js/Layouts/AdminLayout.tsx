@@ -95,10 +95,20 @@ const NAV = [
             </svg>
         ),
     },
+    {
+        href: '/admin/reviews',
+        name: 'admin.reviews',
+        label: 'Đánh giá',
+        icon: (
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                <path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 17l-5.2 2.6 1-5.8L3.5 9.7l5.9-.9L12 3.5z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
+            </svg>
+        ),
+    },
 ];
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
-    const { auth } = usePage<PageProps>().props;
+    const { auth, pending_reviews } = usePage<PageProps>().props;
     const currentRoute = usePage().url;
 
     const logout = () => {
@@ -140,7 +150,12 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                                 }`}
                             >
                                 {item.icon}
-                                {item.label}
+                                <span className="flex-1">{item.label}</span>
+                                {item.name === 'admin.reviews' && !!pending_reviews && (
+                                    <span className={`grid h-5 min-w-5 place-items-center rounded-full px-1.5 font-mono text-[11px] font-bold ${active ? 'bg-white text-grass' : 'bg-campfire text-white'}`}>
+                                        {pending_reviews}
+                                    </span>
+                                )}
                             </Link>
                         );
                     })}
