@@ -10,14 +10,28 @@ class AdminUserSeeder extends Seeder
 {
     public function run(): void
     {
+        $phone = env('ADMIN_PHONE', '0976544370');
+        $email = env('ADMIN_EMAIL', 'admin@bopcamping.local');
+        $password = env('ADMIN_PASSWORD');
+
+        // Production BẮT BUỘC đặt ADMIN_PASSWORD trong .env — không cho dùng mật khẩu mặc định.
+        if (! $password) {
+            if (app()->environment('production')) {
+                throw new \RuntimeException(
+                    'ADMIN_PASSWORD chưa được đặt trong .env — bắt buộc khi seed admin ở production.'
+                );
+            }
+            $password = 'admin'; // chỉ dùng cho dev/local
+        }
+
         User::updateOrCreate(
-            ['phone' => '0976544370'],
+            ['phone' => $phone],
             [
                 'name' => 'Admin',
-                'phone' => '0976544370',
-                'email' => 'admin@bopcamping.local',
+                'phone' => $phone,
+                'email' => $email,
                 'email_verified_at' => now(),
-                'password' => Hash::make('admin'),
+                'password' => Hash::make($password),
                 'is_admin' => true,
             ]
         );
