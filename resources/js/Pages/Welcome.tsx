@@ -5,6 +5,7 @@ import SiteLayout from '@/Layouts/SiteLayout';
 import HeroSlideshow from '@/Components/site/HeroSlideshow';
 import BiomeHero from '@/Components/site/BiomeHero';
 import ProductCard from '@/Components/site/ProductCard';
+import SystemReviews, { type SystemReview } from '@/Components/site/SystemReviews';
 import type { ProductResource } from '@/types/product';
 
 const EASE: [number, number, number, number] = [0.2, 0.7, 0.2, 1];
@@ -15,12 +16,6 @@ const reveal = {
     transition: { duration: 0.6, ease: EASE },
 };
 
-const stats = [
-    ['120+', 'Bộ thiết bị'],
-    ['4.9★', 'Đánh giá khách'],
-    ['2.000+', 'Chuyến đi'],
-    ['Nội thành', 'Giao nhận tận nơi'],
-];
 
 const biomes = ['Đồng cỏ', 'Rừng thông', 'Núi cao', 'Bờ biển'];
 
@@ -32,9 +27,17 @@ const steps = [
 
 interface Props {
     featured: ProductResource[];
+    system_reviews: SystemReview[];
+    review_stat: { avg: number; count: number };
 }
 
-export default function Home({ featured }: Props) {
+export default function Home({ featured, system_reviews, review_stat }: Props) {
+    const stats: [string, string][] = [
+        ['120+', 'Bộ thiết bị'],
+        review_stat.count > 0 ? [`${review_stat.avg}★`, `${review_stat.count} đánh giá`] : ['Mới', 'Đánh giá khách'],
+        ['2.000+', 'Chuyến đi'],
+        ['Nội thành', 'Giao nhận tận nơi'],
+    ];
     return (
         <>
             <Head title="Cho thuê thiết bị cắm trại" />
@@ -123,6 +126,19 @@ export default function Home({ featured }: Props) {
                     ))}
                 </motion.div>
             </section>
+
+            {/* Khách nói gì (đánh giá hệ thống) */}
+            {system_reviews.length > 0 && (
+                <section className="mx-auto max-w-[1200px] px-5 pb-2 pt-12">
+                    <motion.div {...reveal} className="mb-6 text-center">
+                        <div className="mb-2 font-mono text-[12px] tracking-[0.1em] text-campfire">KHÁCH NÓI GÌ</div>
+                        <h2 className="font-extrabold tracking-tight text-ink" style={{ fontSize: 'clamp(24px,3vw,32px)' }}>Trải nghiệm thật từ những chuyến đi</h2>
+                    </motion.div>
+                    <motion.div {...reveal}>
+                        <SystemReviews reviews={system_reviews} />
+                    </motion.div>
+                </section>
+            )}
 
             {/* Thiết bị nổi bật */}
             <section className="mx-auto max-w-[1200px] px-5 pb-2.5 pt-12">

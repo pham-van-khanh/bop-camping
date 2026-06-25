@@ -26,7 +26,22 @@ class ProductController extends Controller
             ->get()
             ->map(fn ($p) => $this->shape($p));
 
-        return Inertia::render('Welcome', ['featured' => $featured]);
+        $systemQuery = Review::where('status', 'approved')->where('category', 'system');
+
+        return Inertia::render('Welcome', [
+            'featured' => $featured,
+            'system_reviews' => (clone $systemQuery)->latest()->limit(10)->get()->map(fn (Review $r) => [
+                'id' => $r->id,
+                'reviewer_name' => $r->reviewer_name,
+                'rating' => $r->rating,
+                'content' => $r->content,
+                'meta' => 'Tháng '.$r->created_at->format('n, Y'),
+            ])->values(),
+            'review_stat' => [
+                'avg' => round((float) (clone $systemQuery)->avg('rating'), 1),
+                'count' => (clone $systemQuery)->count(),
+            ],
+        ]);
     }
 
     /** GET /thiet-bi — danh sách sản phẩm, hỗ trợ filter ?cat=, ?q=, ?sort= */
