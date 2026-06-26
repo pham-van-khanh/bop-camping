@@ -1,4 +1,5 @@
 import { Link, useForm, usePage } from '@inertiajs/react';
+import { useEffect, useState } from 'react';
 import { emit, EVENTS } from '@/lib/bus';
 
 const NAV = [
@@ -15,9 +16,18 @@ function isActive(current: string, href: string) {
 export default function Header({ cartCount = 0, userName }: { cartCount?: number; userName?: string }) {
     const url = usePage().url;
     const { post, processing } = useForm({});
+    const [menuOpen, setMenuOpen] = useState(false);
 
     // Thêm mục "Tài khoản" khi đã đăng nhập
     const nav = userName ? [...NAV, { label: 'Tài khoản', href: '/tai-khoan' }] : NAV;
+
+    // Đóng menu mobile khi đổi trang / nhấn Esc.
+    useEffect(() => setMenuOpen(false), [url]);
+    useEffect(() => {
+        const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setMenuOpen(false);
+        window.addEventListener('keydown', onKey);
+        return () => window.removeEventListener('keydown', onKey);
+    }, []);
 
     const handleUserClick = () => {
         if (userName) {
@@ -48,7 +58,7 @@ export default function Header({ cartCount = 0, userName }: { cartCount?: number
                     </span>
                 </Link>
 
-                {/* Menu — ẩn trên mobile, hiện từ md */}
+                {/* Menu desktop — ẩn trên mobile, hiện từ md */}
                 <nav className="ml-2 hidden flex-1 items-center gap-1 overflow-x-auto md:flex">
                     {nav.map((n) => {
                         const active = isActive(url, n.href);
@@ -68,6 +78,20 @@ export default function Header({ cartCount = 0, userName }: { cartCount?: number
 
                 {/* Actions — đẩy sang phải; trên mobile là icon vuông */}
                 <div className="ml-auto flex shrink-0 items-center gap-2">
+                    {/* Menu ☰ (chỉ mobile) */}
+                    <button
+                        onClick={() => setMenuOpen((o) => !o)}
+                        aria-label="Menu"
+                        aria-expanded={menuOpen}
+                        className="grid h-10 w-10 place-items-center rounded-control border border-cardBorder bg-card text-pine transition hover:border-grass md:hidden"
+                    >
+                        {menuOpen ? (
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="m6 6 12 12M18 6 6 18" /></svg>
+                        ) : (
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M4 7h16M4 12h16M4 17h16" /></svg>
+                        )}
+                    </button>
+
                     {/* Đăng nhập / tài khoản */}
                     <button
                         onClick={handleUserClick}
@@ -110,6 +134,30 @@ export default function Header({ cartCount = 0, userName }: { cartCount?: number
                     </Link>
                 </div>
             </div>
+
+            {/* Dropdown nav (mobile) */}
+            {menuOpen && (
+                <>
+                    <button aria-label="Đóng menu" onClick={() => setMenuOpen(false)} className="fixed inset-0 top-16 z-40 cursor-default md:hidden" style={{ background: 'rgba(24,35,15,.25)' }} />
+                    <nav className="absolute inset-x-0 top-16 z-50 flex flex-col gap-1 border-b border-[#c2dcec] px-4 py-2.5 md:hidden" style={{ background: 'rgba(228,243,251,.97)', backdropFilter: 'blur(14px)' }}>
+                        {nav.map((n) => {
+                            const active = isActive(url, n.href);
+                            return (
+                                <Link
+                                    key={n.href}
+                                    href={n.href}
+                                    onClick={() => setMenuOpen(false)}
+                                    className={`rounded-[11px] px-4 py-3 text-[15px] font-semibold transition ${
+                                        active ? 'bg-grass text-white' : 'text-[#3f4a32] hover:bg-black/5'
+                                    }`}
+                                >
+                                    {n.label}
+                                </Link>
+                            );
+                        })}
+                    </nav>
+                </>
+            )}
         </header>
     );
 }
