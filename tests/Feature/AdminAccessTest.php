@@ -75,13 +75,18 @@ class AdminAccessTest extends TestCase
     }
 
     /** @test */
-    public function guest_login_rejects_existing_phone_with_different_name(): void
+    public function guest_login_allows_existing_phone_to_change_name(): void
     {
-        User::factory()->create(['name' => 'Tên A', 'phone' => '0912345678', 'is_admin' => false]);
+        // SĐT là khoá định danh; tên đổi tuỳ ý (không còn chặn "tên khác").
+        $user = User::factory()->create([
+            'name' => 'Tên A', 'phone' => '0912345678', 'email' => 'a@example.com',
+            'email_verified_at' => now(), 'is_admin' => false,
+        ]);
 
-        $this->post(route('guest.login'), ['name' => 'Tên B', 'phone' => '0912345678', 'email' => 'b@example.com'])
-            ->assertSessionHasErrors('phone');
+        $this->post(route('guest.login'), ['name' => 'Tên B', 'phone' => '0912345678', 'email' => 'a@example.com'])
+            ->assertRedirect()->assertSessionHasNoErrors();
 
-        $this->assertGuest();
+        $this->assertAuthenticatedAs($user->fresh());
+        $this->assertSame('Tên B', $user->fresh()->name);
     }
 }

@@ -96,7 +96,11 @@ Route::middleware('auth')->group(function () {
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 });
 
-// Auth khách: SĐT + tên + email, xác thực OTP qua email (chỉ lần đầu)
+// Auth khách: SĐT + email (+ tên tuỳ ý), xác thực OTP qua email (chỉ lần đầu)
+// Tra SĐT → tự điền email + tên hiện tại (throttle chống dò số hàng loạt)
+Route::get('/dang-nhap/tra-thong-tin', [GuestAuthController::class, 'lookup'])
+    ->name('guest.lookup')
+    ->middleware('throttle:30,1');
 Route::post('/dang-nhap', [GuestAuthController::class, 'store'])
     ->name('guest.login')
     ->middleware('throttle:10,1');
