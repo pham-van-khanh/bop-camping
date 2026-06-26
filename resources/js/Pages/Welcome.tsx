@@ -244,12 +244,13 @@ export default function Home({ featured, system_reviews, review_stat, service_lo
 /** Banner khuyến mãi: ảnh + tiêu đề/mô tả overlay, bấm dẫn tới link (nội bộ hoặc ngoài). */
 function PromoBannerCard({ banner }: { banner: PromoBanner }) {
     const content = (
-        <div className="relative overflow-hidden rounded-[18px] border border-cardBorder" style={{ aspectRatio: '1100 / 300' }}>
-            <img src={banner.image} alt={banner.title ?? ''} className="h-full w-full object-cover" />
+        <div className="relative overflow-hidden rounded-[18px] border border-cardBorder">
+            {/* Hiện trọn ảnh theo tỷ lệ gốc — không cắt */}
+            <img src={banner.image} alt={banner.title ?? ''} className="block h-auto w-full" />
             {(banner.title || banner.subtitle) && (
-                <div className="absolute inset-0 flex flex-col justify-center gap-1.5 px-7" style={{ background: 'linear-gradient(90deg, rgba(24,35,15,.62), rgba(24,35,15,.05) 72%)' }}>
-                    {banner.title && <h3 className="font-extrabold text-white" style={{ fontSize: 'clamp(20px,3vw,30px)' }}>{banner.title}</h3>}
-                    {banner.subtitle && <p className="max-w-[480px] text-[14px] text-white/85">{banner.subtitle}</p>}
+                <div className="absolute inset-0 flex flex-col justify-end gap-1.5 p-6 sm:justify-center sm:px-7" style={{ background: 'linear-gradient(90deg, rgba(24,35,15,.62), rgba(24,35,15,.08) 72%)' }}>
+                    {banner.title && <h3 className="font-extrabold text-white" style={{ fontSize: 'clamp(20px,3vw,30px)', textShadow: '0 2px 12px rgba(0,0,0,.5)' }}>{banner.title}</h3>}
+                    {banner.subtitle && <p className="max-w-[480px] text-[14px] text-white/90" style={{ textShadow: '0 1px 8px rgba(0,0,0,.5)' }}>{banner.subtitle}</p>}
                 </div>
             )}
         </div>
