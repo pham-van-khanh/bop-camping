@@ -13,9 +13,9 @@ use Illuminate\Support\Facades\Auth;
 class GuestAuthController extends Controller
 {
     /**
-     * Tra thông tin theo SĐT để tự điền email (+ tên hiện tại) khi đăng nhập.
-     * SĐT là khoá định danh; tên để tuỳ khách đổi. Chỉ trả khách thường, email thật
-     * (bỏ email tạm @bopcamping.local) — admin không lộ qua đây.
+     * Tra thông tin theo SĐT khi đăng nhập. SĐT là khoá định danh; tên để khách đổi tuỳ ý.
+     * KHÔNG trả email thật ra client (tránh dò số gom email) — chỉ trả bản CHE để khách
+     * nhận ra tài khoản; khi đăng nhập, server tự dùng email đã lưu. Admin không lộ qua đây.
      */
     public function lookup(Request $request): JsonResponse
     {
@@ -29,10 +29,13 @@ class GuestAuthController extends Controller
             return response()->json(['exists' => false]);
         }
 
+        // Chỉ có email đã xác thực mới cho đăng nhập nhanh bằng SĐT (email tạm/chưa verify → null).
+        $hasVerifiedEmail = $user->email_verified_at && ! $user->hasPlaceholderEmail();
+
         return response()->json([
             'exists' => true,
             'name' => $user->name,
-            'email' => $user->hasPlaceholderEmail() ? null : $user->email,
+            'email_mask' => $hasVerifiedEmail ? $this->maskEmail($user->email) : null,
         ]);
     }
 
@@ -47,12 +50,11 @@ class GuestAuthController extends Controller
         $data = $request->validate([
             'name' => ['nullable', 'string', 'max:100'],
             'phone' => ['required', 'string', 'regex:/^0[0-9]{8,10}$/'],
-            'email' => ['required', 'email', 'max:255'],
+            'email' => ['nullable', 'email', 'max:255'],
             'ref' => ['nullable', 'string', 'max:20'],
         ], [
             'phone.required' => 'Vui lòng nhập số điện thoại.',
             'phone.regex' => 'Số điện thoại không hợp lệ (VD: 0912345678).',
-            'email.required' => 'Vui lòng nhập email.',
             'email.email' => 'Email không hợp lệ.',
         ]);
 
@@ -63,8 +65,19 @@ class GuestAuthController extends Controller
 
         $existing = User::where('phone', $data['phone'])->first();
 
+        // Email để trống → khách quen đăng nhập nhanh bằng SĐT: dùng email đã xác thực đã lưu
+        // (email thật không đi qua client). Không có email đã verify → bắt nhập email.
+        $email = trim((string) ($data['email'] ?? ''));
+        if ($email === '') {
+            if ($existing && $existing->email_verified_at && ! $existing->hasPlaceholderEmail()) {
+                $email = $existing->email;
+            } else {
+                return back()->withErrors(['email' => 'Vui lòng nhập email.'])->withInput();
+            }
+        }
+
         // Email đã thuộc tài khoản KHÁC → chặn.
-        $emailOwner = User::where('email', $data['email'])->first();
+        $emailOwner = User::where('email', $email)->first();
         if ($emailOwner && (! $existing || $emailOwner->id !== $existing->id)) {
             return back()->withErrors(['email' => 'Email đã dùng cho tài khoản khác.'])->withInput();
         }
@@ -73,7 +86,7 @@ class GuestAuthController extends Controller
         $name = $this->resolveName($data['name'] ?? null, $existing, $data['phone']);
 
         // Đã verify email này rồi → đăng nhập thẳng (chỉ OTP lần đầu); cập nhật tên nếu đổi.
-        if ($existing && $existing->email_verified_at && $existing->email === $data['email']) {
+        if ($existing && $existing->email_verified_at && $existing->email === $email) {
             if ($existing->name !== $name) {
                 $existing->name = $name;
                 $existing->save();
@@ -85,14 +98,14 @@ class GuestAuthController extends Controller
         }
 
         // Còn lại: gửi OTP, giữ thông tin chờ ở session cho bước 2.
-        $otp->send($data['email']);
+        $otp->send($email);
         $request->session()->put('otp_pending', [
             'name' => $name,
             'phone' => $data['phone'],
-            'email' => $data['email'],
+            'email' => $email,
         ]);
 
-        return back()->with('otp_sent', true)->with('otp_email', $data['email']);
+        return back()->with('otp_sent', true)->with('otp_email', $email);
     }
 
     /** Tên hiển thị hiệu lực: ưu tiên tên vừa nhập, rồi tên cũ, cuối cùng là SĐT. */
@@ -104,6 +117,16 @@ class GuestAuthController extends Controller
         }
 
         return $existing?->name ?? $phone;
+    }
+
+    /** Che email để hiển thị: giữ 2 ký tự đầu phần tên + tên miền, vd quen@x.com → qu**@x.com. */
+    private function maskEmail(string $email): string
+    {
+        [$local, $domain] = array_pad(explode('@', $email, 2), 2, '');
+        $keep = mb_strlen($local) <= 2 ? 1 : 2;
+        $masked = mb_substr($local, 0, $keep).str_repeat('*', max(2, mb_strlen($local) - $keep));
+
+        return $domain === '' ? $masked : $masked.'@'.$domain;
     }
 
     /**

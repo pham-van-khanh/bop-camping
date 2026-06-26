@@ -17,16 +17,19 @@ class LoginLookupRenameTest extends TestCase
     // ── Lookup tự điền email ──────────────────────────────────────────────────
 
     /** @test */
-    public function lookup_returns_email_and_name_for_existing_phone(): void
+    public function lookup_returns_masked_email_not_the_real_one(): void
     {
         User::factory()->create([
             'name' => 'Khách Quen', 'phone' => '0912345678',
             'email' => 'quen@example.com', 'email_verified_at' => now(),
         ]);
 
-        $this->getJson(route('guest.lookup', ['phone' => '0912345678']))
+        $res = $this->getJson(route('guest.lookup', ['phone' => '0912345678']))
             ->assertOk()
-            ->assertJson(['exists' => true, 'name' => 'Khách Quen', 'email' => 'quen@example.com']);
+            ->assertJson(['exists' => true, 'name' => 'Khách Quen', 'email_mask' => 'qu**@example.com']);
+
+        // KHÔNG được lộ email thật ra client.
+        $this->assertStringNotContainsString('quen@example.com', $res->getContent());
     }
 
     /** @test */
@@ -40,17 +43,41 @@ class LoginLookupRenameTest extends TestCase
     }
 
     /** @test */
-    public function lookup_hides_placeholder_email_and_admin_accounts(): void
+    public function lookup_masks_nothing_for_placeholder_email_and_hides_admins(): void
     {
-        // User tạo nhanh chỉ bằng SĐT → email tạm .local, không lộ.
+        // User tạo nhanh chỉ bằng SĐT → email tạm .local, không cho đăng nhập nhanh.
         User::create(['name' => 'Khách Cũ', 'phone' => '0911111111']);
         $this->getJson(route('guest.lookup', ['phone' => '0911111111']))
-            ->assertOk()->assertJson(['exists' => true, 'email' => null]);
+            ->assertOk()->assertJson(['exists' => true, 'email_mask' => null]);
 
         // Admin không lộ qua cổng khách.
         User::factory()->create(['phone' => '0922222222', 'email' => 'ad@x.com', 'is_admin' => true]);
         $this->getJson(route('guest.lookup', ['phone' => '0922222222']))
             ->assertOk()->assertJson(['exists' => false]);
+    }
+
+    /** @test */
+    public function returning_user_logs_in_with_phone_only_using_stored_email(): void
+    {
+        $user = User::factory()->create([
+            'name' => 'Khách Quen', 'phone' => '0912345678',
+            'email' => 'quen@example.com', 'email_verified_at' => now(),
+        ]);
+
+        // Email để trống → server tự dùng email đã xác thực đã lưu.
+        $this->post(route('guest.login'), ['phone' => '0912345678'])
+            ->assertRedirect()->assertSessionHasNoErrors();
+
+        $this->assertAuthenticatedAs($user->fresh());
+    }
+
+    /** @test */
+    public function new_phone_without_email_is_rejected(): void
+    {
+        // SĐT chưa có tài khoản verify → vẫn bắt nhập email (để gửi OTP).
+        $this->post(route('guest.login'), ['phone' => '0912345678'])
+            ->assertSessionHasErrors('email');
+        $this->assertGuest();
     }
 
     // ── Đổi tên tuỳ ý (SĐT là khoá) ───────────────────────────────────────────
