@@ -116,6 +116,18 @@ const NAV = [
             </svg>
         ),
     },
+    {
+        href: '/admin/banners',
+        name: 'admin.banners',
+        label: 'Banner',
+        icon: (
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                <rect x="3" y="5" width="18" height="14" rx="2" stroke="currentColor" strokeWidth="1.7" />
+                <path d="m3 15 5-4 4 3 4-4 5 4" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
+                <circle cx="9" cy="9" r="1.3" fill="currentColor" />
+            </svg>
+        ),
+    },
 ];
 
 export default function AdminLayout({ children }: { children: ReactNode }) {

@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AccountController;
 use App\Http\Controllers\Admin\AuthController as AdminAuthController;
+use App\Http\Controllers\Admin\BannerController as AdminBannerController;
 use App\Http\Controllers\Admin\CampingSpotController as AdminCampingSpotController;
 use App\Http\Controllers\Admin\CategoryController as AdminCategoryController;
 use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
@@ -88,6 +89,12 @@ Route::middleware(['admin'])->prefix('admin')->name('admin.')->group(function ()
     Route::post('/service-locations', [AdminServiceLocationController::class, 'store'])->name('service-locations.store')->middleware('throttle:30,1');
     Route::put('/service-locations/{serviceLocation}', [AdminServiceLocationController::class, 'update'])->name('service-locations.update')->middleware('throttle:30,1');
     Route::delete('/service-locations/{serviceLocation}', [AdminServiceLocationController::class, 'destroy'])->name('service-locations.destroy')->middleware('throttle:30,1');
+
+    // Banner (hero + promo) — CRUD
+    Route::get('/banners', [AdminBannerController::class, 'index'])->name('banners');
+    Route::post('/banners', [AdminBannerController::class, 'store'])->name('banners.store')->middleware('throttle:30,1');
+    Route::put('/banners/{banner}', [AdminBannerController::class, 'update'])->name('banners.update')->middleware('throttle:30,1');
+    Route::delete('/banners/{banner}', [AdminBannerController::class, 'destroy'])->name('banners.destroy')->middleware('throttle:30,1');
 
     // Điểm cắm trại (Cẩm nang) — CRUD + media
     Route::get('/camping-spots', [AdminCampingSpotController::class, 'index'])->name('camping-spots');

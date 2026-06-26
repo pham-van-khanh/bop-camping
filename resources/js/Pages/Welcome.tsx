@@ -27,6 +27,9 @@ const steps = [
     { n: 3, t: 'Nhận đồ và lên đường', d: 'Tụi mình giao tận nơi nội thành. Trả đồ đúng hẹn khi về, hoàn cọc ngay.' },
 ];
 
+type HeroBanner = { src: string; title: string };
+type PromoBanner = { id: number; image: string; title: string | null; subtitle: string | null; href: string | null };
+
 interface Props {
     featured: ProductResource[];
     system_reviews: SystemReview[];
@@ -34,9 +37,11 @@ interface Props {
     service_locations: ServiceLocation[];
     suggested_spots: SuggestedSpot[];
     camping_provinces: ProvinceGroup[];
+    hero_banners: HeroBanner[];
+    promo_banners: PromoBanner[];
 }
 
-export default function Home({ featured, system_reviews, review_stat, service_locations, suggested_spots, camping_provinces }: Props) {
+export default function Home({ featured, system_reviews, review_stat, service_locations, suggested_spots, camping_provinces, hero_banners, promo_banners }: Props) {
     const [guideOpen, setGuideOpen] = useState(false);
     const openCities = service_locations.filter((l) => l.status === 'open');
     const cities = openCities.map((l) => l.name).join(' hoặc ') || 'Vinh hoặc Hà Nội';
@@ -55,6 +60,7 @@ export default function Home({ featured, system_reviews, review_stat, service_lo
 
             {/* Hero ảnh full-bleed (slideshow) + panel "Đang phục vụ tại" bên phải */}
             <HeroSlideshow
+                slides={hero_banners}
                 aside={
                     <HomeServingPanel
                         locations={service_locations}
@@ -146,6 +152,17 @@ export default function Home({ featured, system_reviews, review_stat, service_lo
                 </motion.div>
             </section>
 
+            {/* Dải banner khuyến mãi (promo) — admin quản lý */}
+            {promo_banners.length > 0 && (
+                <section className="mx-auto max-w-[1200px] px-5 py-6">
+                    <div className="flex flex-col gap-4">
+                        {promo_banners.map((b) => (
+                            <PromoBannerCard key={b.id} banner={b} />
+                        ))}
+                    </div>
+                </section>
+            )}
+
             {/* Khách nói gì (đánh giá hệ thống) */}
             {system_reviews.length > 0 && (
                 <section className="mx-auto max-w-[1200px] px-5 pb-2 pt-12">
@@ -221,6 +238,29 @@ export default function Home({ featured, system_reviews, review_stat, service_lo
 
             {guideOpen && <CampingGuideModal provinces={camping_provinces} cities={cities} onClose={() => setGuideOpen(false)} />}
         </>
+    );
+}
+
+/** Banner khuyến mãi: ảnh + tiêu đề/mô tả overlay, bấm dẫn tới link (nội bộ hoặc ngoài). */
+function PromoBannerCard({ banner }: { banner: PromoBanner }) {
+    const content = (
+        <div className="relative overflow-hidden rounded-[18px] border border-cardBorder" style={{ aspectRatio: '1100 / 300' }}>
+            <img src={banner.image} alt={banner.title ?? ''} className="h-full w-full object-cover" />
+            {(banner.title || banner.subtitle) && (
+                <div className="absolute inset-0 flex flex-col justify-center gap-1.5 px-7" style={{ background: 'linear-gradient(90deg, rgba(24,35,15,.62), rgba(24,35,15,.05) 72%)' }}>
+                    {banner.title && <h3 className="font-extrabold text-white" style={{ fontSize: 'clamp(20px,3vw,30px)' }}>{banner.title}</h3>}
+                    {banner.subtitle && <p className="max-w-[480px] text-[14px] text-white/85">{banner.subtitle}</p>}
+                </div>
+            )}
+        </div>
+    );
+
+    if (!banner.href) return content;
+
+    return /^https?:\/\//.test(banner.href) ? (
+        <a href={banner.href} target="_blank" rel="noreferrer" className="block transition hover:opacity-95">{content}</a>
+    ) : (
+        <Link href={banner.href} className="block transition hover:opacity-95">{content}</Link>
     );
 }
 

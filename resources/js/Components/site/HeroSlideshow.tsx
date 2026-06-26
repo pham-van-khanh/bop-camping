@@ -9,7 +9,7 @@ import { ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 
 type Slide = { src: string; title: string };
 
-const SLIDES: Slide[] = [
+const DEFAULT_SLIDES: Slide[] = [
     { src: '/images/album/beach-night-tent.jpg', title: 'Lều sáng đèn bên biển đêm' },
     { src: '/images/album/forest-camp-aerial.jpg', title: 'Trại giữa rừng thông' },
     { src: '/images/album/cliff-turquoise.jpg', title: 'Vách đá bên biển xanh' },
@@ -25,11 +25,13 @@ function prefersReducedMotion() {
     return typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 }
 
-export default function HeroSlideshow({ children, aside }: { children?: ReactNode; aside?: ReactNode }) {
+export default function HeroSlideshow({ children, aside, slides }: { children?: ReactNode; aside?: ReactNode; slides?: Slide[] }) {
     const [index, setIndex] = useState(0);
     const [paused, setPaused] = useState(false);
     const reduced = useRef(prefersReducedMotion());
 
+    // Dùng banner hero từ admin; nếu chưa có thì rơi về 7 ảnh mặc định.
+    const SLIDES = slides && slides.length > 0 ? slides : DEFAULT_SLIDES;
     const total = SLIDES.length;
     const go = useCallback((i: number) => setIndex(((i % total) + total) % total), [total]);
     const next = useCallback(() => go(index + 1), [go, index]);

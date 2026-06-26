@@ -28,6 +28,7 @@ class DatabaseSeeder extends Seeder
             ProductSeeder::class,
             AdminUserSeeder::class,
             CampingSpotSeeder::class,
+            BannerSeeder::class,
         ]);
     }
 }

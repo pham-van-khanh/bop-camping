@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Shop;
 
 use App\Http\Controllers\Controller;
+use App\Models\Banner;
 use App\Models\CampingSpot;
 use App\Models\Category;
 use App\Models\Product;
@@ -35,6 +36,18 @@ class ProductController extends Controller
 
         return Inertia::render('Welcome', [
             'featured' => $featured,
+            // Banner quản lý ở admin: hero (slideshow) + promo (dải khuyến mãi)
+            'hero_banners' => Banner::active()->placement('hero')->ordered()->get()->map(fn (Banner $b) => [
+                'src' => $b->imageUrl(),
+                'title' => $b->title ?? '',
+            ])->values(),
+            'promo_banners' => Banner::active()->placement('promo')->ordered()->get()->map(fn (Banner $b) => [
+                'id' => $b->id,
+                'image' => $b->imageUrl(),
+                'title' => $b->title,
+                'subtitle' => $b->subtitle,
+                'href' => $b->link_url,
+            ])->values(),
             'system_reviews' => (clone $systemQuery)->latest()->limit(10)->get()->map(fn (Review $r) => [
                 'id' => $r->id,
                 'reviewer_name' => $r->reviewer_name,
