@@ -58,6 +58,7 @@ export default function CampingGuideModal({
     }, [onClose, selected]);
 
     return (
+        <>
         <div onClick={onClose} className="fixed inset-0 z-[95] flex items-start justify-center overflow-y-auto p-4 sm:p-6" style={{ background: 'rgba(24,35,15,.6)', backdropFilter: 'blur(4px)' }}>
             <div onClick={(e) => e.stopPropagation()} className="my-2 w-full max-w-[1080px] overflow-hidden rounded-[22px] bg-[#f3f5ec] shadow-2xl">
                 {/* Header */}
@@ -146,9 +147,11 @@ export default function CampingGuideModal({
                     </div>
                 </div>
             </div>
-
-            {selected && <SpotDetail spot={selected} onBack={() => setSelected(null)} />}
         </div>
+
+        {/* Chi tiết tách khỏi lớp blur của modal để 'fixed' bám viewport (không bị neo theo vùng cuộn) */}
+        {selected && <SpotDetail spot={selected} onBack={() => setSelected(null)} />}
+        </>
     );
 }
 
