@@ -52,9 +52,9 @@ export default function Header({ cartCount = 0, userName }: { cartCount?: number
                             <path d="M12 4 V20 M9 20 l3 -6 3 6" />
                         </svg>
                     </span>
-                    <span className="hidden leading-tight md:block">
-                        <span className="block text-[17px] font-extrabold tracking-tight text-pine">BỐP CAMPING</span>
-                        <span className="block font-mono text-[10px] tracking-[0.14em] text-moss">THUÊ ĐỒ DÃ NGOẠI</span>
+                    <span className="leading-tight">
+                        <span className="block text-[15px] font-extrabold tracking-tight text-pine sm:text-[17px]">BỐP CAMPING</span>
+                        <span className="hidden font-mono text-[10px] tracking-[0.14em] text-moss sm:block">THUÊ ĐỒ DÃ NGOẠI</span>
                     </span>
                 </Link>
 
