@@ -1,11 +1,13 @@
 import { Head, Link } from '@inertiajs/react';
 import { motion } from 'framer-motion';
-import { ReactNode } from 'react';
+import { ReactNode, useState } from 'react';
 import SiteLayout from '@/Layouts/SiteLayout';
 import HeroSlideshow from '@/Components/site/HeroSlideshow';
 import BiomeHero from '@/Components/site/BiomeHero';
 import ProductCard from '@/Components/site/ProductCard';
 import SystemReviews, { type SystemReview } from '@/Components/site/SystemReviews';
+import HomeServingPanel, { type ServiceLocation, type SuggestedSpot } from '@/Components/site/HomeServingPanel';
+import CampingGuideModal, { type ProvinceGroup } from '@/Components/site/CampingGuideModal';
 import type { ProductResource } from '@/types/product';
 
 const EASE: [number, number, number, number] = [0.2, 0.7, 0.2, 1];
@@ -29,9 +31,14 @@ interface Props {
     featured: ProductResource[];
     system_reviews: SystemReview[];
     review_stat: { avg: number; count: number };
+    service_locations: ServiceLocation[];
+    suggested_spots: SuggestedSpot[];
+    camping_provinces: ProvinceGroup[];
 }
 
-export default function Home({ featured, system_reviews, review_stat }: Props) {
+export default function Home({ featured, system_reviews, review_stat, service_locations, suggested_spots, camping_provinces }: Props) {
+    const [guideOpen, setGuideOpen] = useState(false);
+    const cities = service_locations.filter((l) => l.status === 'open').map((l) => l.name).join(' hoặc ') || 'Vinh hoặc Hà Nội';
     const stats: [string, string][] = [
         ['120+', 'Bộ thiết bị'],
         review_stat.count > 0 ? [`${review_stat.avg}★`, `${review_stat.count} đánh giá`] : ['Mới', 'Đánh giá khách'],
@@ -42,8 +49,16 @@ export default function Home({ featured, system_reviews, review_stat }: Props) {
         <>
             <Head title="Cho thuê thiết bị cắm trại" />
 
-            {/* Hero ảnh full-bleed (slideshow) */}
-            <HeroSlideshow>
+            {/* Hero ảnh full-bleed (slideshow) + panel "Đang phục vụ tại" bên phải */}
+            <HeroSlideshow
+                aside={
+                    <HomeServingPanel
+                        locations={service_locations}
+                        suggested={suggested_spots}
+                        onOpenGuide={() => setGuideOpen(true)}
+                    />
+                }
+            >
                 <motion.div initial={{ opacity: 0, y: 22 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, ease: EASE }}>
                     <div
                         className="mb-[22px] inline-flex items-center gap-2 rounded-pill px-3 py-[7px]"
@@ -199,6 +214,8 @@ export default function Home({ featured, system_reviews, review_stat }: Props) {
                     </Link>
                 </motion.div>
             </section>
+
+            {guideOpen && <CampingGuideModal provinces={camping_provinces} cities={cities} onClose={() => setGuideOpen(false)} />}
         </>
     );
 }
