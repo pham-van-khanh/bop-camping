@@ -10,6 +10,7 @@ use App\Http\Controllers\Admin\ProductController as AdminProductController;
 use App\Http\Controllers\Admin\PromotionController as AdminPromotionController;
 use App\Http\Controllers\Admin\ReferralController as AdminReferralController;
 use App\Http\Controllers\Admin\ReviewController as AdminReviewController;
+use App\Http\Controllers\Admin\ServiceLocationController as AdminServiceLocationController;
 use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\Admin\VoucherController as AdminVoucherController;
 use App\Http\Controllers\ProfileController;
@@ -82,6 +83,12 @@ Route::middleware(['admin'])->prefix('admin')->name('admin.')->group(function ()
     // Duyệt đánh giá
     Route::get('/reviews', [AdminReviewController::class, 'index'])->name('reviews');
     Route::patch('/reviews/{review}', [AdminReviewController::class, 'update'])->name('reviews.update')->middleware('throttle:60,1');
+
+    // Vị trí phục vụ (Vinh, Hà Nội...) — CRUD
+    Route::get('/service-locations', [AdminServiceLocationController::class, 'index'])->name('service-locations');
+    Route::post('/service-locations', [AdminServiceLocationController::class, 'store'])->name('service-locations.store')->middleware('throttle:30,1');
+    Route::put('/service-locations/{serviceLocation}', [AdminServiceLocationController::class, 'update'])->name('service-locations.update')->middleware('throttle:30,1');
+    Route::delete('/service-locations/{serviceLocation}', [AdminServiceLocationController::class, 'destroy'])->name('service-locations.destroy')->middleware('throttle:30,1');
 
     // Điểm cắm trại (Cẩm nang) — CRUD + media
     Route::get('/camping-spots', [AdminCampingSpotController::class, 'index'])->name('camping-spots');
