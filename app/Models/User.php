@@ -18,6 +18,9 @@ class User extends Authenticatable
     /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable;
 
+    /** Hậu tố email tạm khi tạo user chỉ bằng SĐT (chưa có email thật). */
+    public const PLACEHOLDER_EMAIL_SUFFIX = '@bopcamping.local';
+
     /**
      * Email là BẮT BUỘC (đăng nhập OTP, KE_HOACH 8.1). Nếu tạo user mà chưa có
      * email (vd tạo nhanh bằng SĐT) → điền email tạm; khách sẽ bổ sung email
@@ -28,9 +31,15 @@ class User extends Authenticatable
         static::creating(function (self $user) {
             if (blank($user->email)) {
                 $local = $user->phone ?: ('user'.Str::random(8));
-                $user->email = $local.'@bopcamping.local';
+                $user->email = $local.self::PLACEHOLDER_EMAIL_SUFFIX;
             }
         });
+    }
+
+    /** True nếu email chỉ là email tạm (chưa phải email thật của khách). */
+    public function hasPlaceholderEmail(): bool
+    {
+        return str_ends_with((string) $this->email, self::PLACEHOLDER_EMAIL_SUFFIX);
     }
 
     /**
@@ -128,7 +137,7 @@ class User extends Authenticatable
     public static function adminNotifyEmails(): array
     {
         return static::query()->where('is_admin', true)
-            ->where('email', 'not like', '%@bopcamping.local')
+            ->where('email', 'not like', '%'.self::PLACEHOLDER_EMAIL_SUFFIX)
             ->pluck('email')->all();
     }
 

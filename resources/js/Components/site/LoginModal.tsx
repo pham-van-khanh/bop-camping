@@ -25,7 +25,43 @@ export default function LoginModal() {
         code: '',
     });
 
+    // Giá trị đã tự điền theo SĐT — chỉ ghi đè ô khi khách chưa tự gõ.
+    const autoFilled = useRef<{ name: string; email: string }>({ name: '', email: '' });
+    const lastLookup = useRef('');
+
     useEffect(() => on(EVENTS.openLogin, () => setOpen(true)), []);
+
+    // Nhập SĐT đã tồn tại → tự điền email (+ tên hiện tại) để khách khỏi gõ lại.
+    useEffect(() => {
+        const phone = data.phone.trim();
+        if (!/^0[0-9]{8,10}$/.test(phone) || phone === lastLookup.current) return;
+        const t = setTimeout(async () => {
+            lastLookup.current = phone;
+            try {
+                const res = await fetch(`${route('guest.lookup')}?phone=${encodeURIComponent(phone)}`, {
+                    headers: { Accept: 'application/json' },
+                });
+                if (!res.ok) return;
+                const j: { exists: boolean; name?: string | null; email?: string | null } = await res.json();
+                if (!j.exists) return;
+                setData((prev) => {
+                    const next = { ...prev };
+                    if (j.email && (prev.email === '' || prev.email === autoFilled.current.email)) {
+                        autoFilled.current.email = j.email;
+                        next.email = j.email;
+                    }
+                    if (j.name && (prev.name === '' || prev.name === autoFilled.current.name)) {
+                        autoFilled.current.name = j.name;
+                        next.name = j.name;
+                    }
+                    return next;
+                });
+            } catch {
+                /* lỗi mạng → bỏ qua, khách tự nhập */
+            }
+        }, 450);
+        return () => clearTimeout(t);
+    }, [data.phone]);
 
     // Prefill mã giới thiệu từ link (?ref=) khi có.
     useEffect(() => {
@@ -83,6 +119,8 @@ export default function LoginModal() {
         setResendIn(0);
         reset();
         clearErrors();
+        autoFilled.current = { name: '', email: '' };
+        lastLookup.current = '';
         if (referral?.code) setData('ref', referral.code);
     };
 
@@ -92,7 +130,8 @@ export default function LoginModal() {
     // Bước 2: xác thực OTP.
     const verifyOtp = () => post(route('guest.login.verify'), { preserveScroll: true });
 
-    const formValid = data.name.trim().length >= 2 && data.phone.trim().length >= 8 && /\S+@\S+\.\S+/.test(data.email);
+    // Tên không bắt buộc — SĐT là khoá định danh, khách đặt tên tuỳ ý.
+    const formValid = /^0[0-9]{8,10}$/.test(data.phone.trim()) && /\S+@\S+\.\S+/.test(data.email);
     const codeValid = /^[0-9]{6}$/.test(data.code);
 
     return (
@@ -128,7 +167,7 @@ export default function LoginModal() {
 
                         {step === 'form' ? (
                             <>
-                                <p className="mb-[14px] text-[14px] text-moss">Nhập SĐT, tên và email. Lần đầu sẽ có mã xác thực gửi qua email.</p>
+                                <p className="mb-[14px] text-[14px] text-moss">Nhập SĐT và email. Khách quen chỉ cần nhập SĐT, email sẽ tự điền. Lần đầu sẽ có mã xác thực gửi qua email.</p>
                                 {referral?.referrer_name && (
                                     <div className="mb-[14px] flex items-center gap-2 rounded-[11px] px-3.5 py-2.5 text-[13px]" style={{ background: '#eef2e3', color: '#3a5a1f' }}>
                                         <span>🎁</span>
@@ -137,20 +176,13 @@ export default function LoginModal() {
                                 )}
                                 <div className="mb-[18px] flex flex-col gap-[11px]">
                                     <Field
-                                        value={data.name}
-                                        onChange={(v) => setData('name', v)}
-                                        onEnter={() => formValid && !processing && requestOtp()}
-                                        placeholder="Tên của bạn"
-                                        error={errors.name}
-                                        autoFocus
-                                    />
-                                    <Field
                                         value={data.phone}
                                         onChange={(v) => setData('phone', v)}
                                         onEnter={() => formValid && !processing && requestOtp()}
                                         placeholder="Số điện thoại"
                                         inputMode="tel"
                                         error={errors.phone}
+                                        autoFocus
                                     />
                                     <Field
                                         value={data.email}
@@ -159,6 +191,13 @@ export default function LoginModal() {
                                         placeholder="Email"
                                         inputMode="email"
                                         error={errors.email}
+                                    />
+                                    <Field
+                                        value={data.name}
+                                        onChange={(v) => setData('name', v)}
+                                        onEnter={() => formValid && !processing && requestOtp()}
+                                        placeholder="Tên hiển thị (tuỳ ý)"
+                                        error={errors.name}
                                     />
                                     <input
                                         value={data.ref}
