@@ -12,6 +12,7 @@ use App\Services\AvailabilityService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -142,6 +143,14 @@ class ProductController extends Controller
             'reviews' => $this->reviews($p),
             'review_summary' => ['count' => $p->reviews()->where('status', 'approved')->count(), 'avg' => $p->averageRating()],
             'can_review' => $user !== null && $user->reviewableOrderItemId($p->id) !== null,
+            // SEO riêng cho sản phẩm — share lên Facebook/Zalo hiện đúng tên + ảnh + mô tả.
+            'seo' => [
+                'title' => $p->name.' — Thuê tại BỐP CAMPING',
+                'description' => Str::limit(trim(strip_tags((string) $p->description)), 155)
+                    ?: 'Cho thuê '.$p->name.' theo ngày tại BỐP CAMPING.',
+                'image' => $p->thumbnail ? url(Storage::url($p->thumbnail)) : url('/images/album/forest-camp-aerial.jpg'),
+                'url' => url()->current(),
+            ],
         ]);
     }
 
