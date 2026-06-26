@@ -11,6 +11,9 @@ export interface ProductResource {
     category: { id: number; name: string; slug: string };
     images: { path: string; sort_order: number }[];
     featured: boolean;
+    // Vị trí phục vụ đang mở (badge thẻ). all_locations = phục vụ toàn hệ thống.
+    locations?: { name: string; slug: string }[];
+    all_locations?: boolean;
     // only present in show response
     unavailable_dates?: string[];
 }

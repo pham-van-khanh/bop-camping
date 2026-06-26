@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\CampingSpot;
+use App\Models\Product;
 use App\Models\ServiceLocation;
 use Illuminate\Database\Seeder;
 
@@ -48,6 +49,15 @@ class CampingSpotSeeder extends Seeder
                     'is_suggested' => $suggested,
                     'sort_order' => $i + 1,
                 ],
+            );
+        }
+
+        // Gán tất cả vị trí đang mở cho sản phẩm chưa có vị trí phục vụ nào.
+        // (ProductSeeder chạy trước nên lúc đó vị trí chưa tồn tại để link.)
+        $openIds = ServiceLocation::open()->pluck('id')->all();
+        if ($openIds) {
+            Product::doesntHave('serviceLocations')->each(
+                fn (Product $p) => $p->serviceLocations()->sync($openIds)
             );
         }
     }

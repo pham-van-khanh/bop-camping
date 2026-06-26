@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Category;
 use App\Models\Product;
+use App\Models\ServiceLocation;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -45,6 +46,7 @@ class AdminProductTest extends TestCase
         Storage::fake('public');
         $product = $this->makeProduct(thumbnail: 'products/old.jpg');
         Storage::disk('public')->put('products/old.jpg', 'old');
+        $loc = ServiceLocation::create(['name' => 'Vinh', 'area' => 'Nghệ An', 'status' => 'open', 'sort_order' => 1]);
 
         $response = $this->actingAs($this->admin())->post(
             route('admin.products.update', $product),
@@ -55,6 +57,7 @@ class AdminProductTest extends TestCase
                 'price_per_day' => 50000,
                 'quantity' => 5,
                 'status' => 'active',
+                'service_location_ids' => [$loc->id],
                 'thumbnail' => UploadedFile::fake()->create('new.jpg', 100, 'image/jpeg'),
             ],
         );

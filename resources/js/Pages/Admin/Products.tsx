@@ -7,6 +7,7 @@ import type { PageProps } from '@/types';
 
 type ProductImage = { id: number; path: string; sort_order: number };
 type CategoryOption = { id: number; name: string };
+type ServiceLocationOption = { id: number; name: string; area: string | null; status: 'open' | 'coming' };
 type Product = {
     id: number;
     name: string;
@@ -18,6 +19,7 @@ type Product = {
     thumbnail: string | null;
     status: 'active' | 'hidden';
     category: { id: number; name: string } | null;
+    service_location_ids: number[];
     images: ProductImage[];
 };
 
@@ -30,6 +32,7 @@ type ProductFormData = {
     deposit: number | null;   // null (không phải '') để JSON request xử lý đúng nullable
     status: 'active' | 'hidden';
     thumbnail: File | null;
+    service_location_ids: number[];
 };
 
 type Paginator<T> = {
@@ -44,9 +47,11 @@ type Paginator<T> = {
 export default function AdminProducts({
     products,
     categories,
+    service_locations,
 }: {
     products: Paginator<Product>;
     categories: CategoryOption[];
+    service_locations: ServiceLocationOption[];
 }) {
     const { flash } = usePage<PageProps>().props;
 
@@ -67,6 +72,8 @@ export default function AdminProducts({
         }
     }, [flash.success]);
 
+    const openLocationIds = service_locations.filter((l) => l.status === 'open').map((l) => l.id);
+
     const form = useForm<ProductFormData>({
         name: '',
         category_id: '',
@@ -76,6 +83,7 @@ export default function AdminProducts({
         deposit: null,
         status: 'active',
         thumbnail: null,
+        service_location_ids: [],
     });
 
     const blank = (): ProductFormData => ({
@@ -87,7 +95,14 @@ export default function AdminProducts({
         deposit: null,
         status: 'active',
         thumbnail: null,
+        // Mặc định gắn tất cả vị trí đang mở khi thêm mới.
+        service_location_ids: [...openLocationIds],
     });
+
+    const toggleLocation = (id: number) => {
+        const cur = form.data.service_location_ids;
+        form.setData('service_location_ids', cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]);
+    };
 
     const openCreate = () => {
         form.setData(blank());
@@ -106,6 +121,7 @@ export default function AdminProducts({
             deposit: p.deposit ?? null,
             status: p.status,
             thumbnail: null,
+            service_location_ids: p.service_location_ids ?? [],
         });
         form.clearErrors();
         setEditing(p);
@@ -463,6 +479,56 @@ export default function AdminProducts({
                                 </select>
                                 {form.errors.category_id && (
                                     <p className="mt-1 text-[12px] text-[#b3493a]">{form.errors.category_id}</p>
+                                )}
+                            </div>
+
+                            {/* Service locations */}
+                            <div>
+                                <label className="mb-1.5 block text-[13px] font-semibold text-pine">
+                                    Vị trí phục vụ <span className="text-[#b3493a]">*</span>
+                                </label>
+                                {service_locations.length === 0 ? (
+                                    <p className="text-[12.5px] text-moss">
+                                        Chưa có vị trí phục vụ nào. Thêm ở mục <span className="font-semibold">Điểm cắm trại</span> trước.
+                                    </p>
+                                ) : (
+                                    <div className="flex flex-wrap gap-2">
+                                        {service_locations.map((l) => {
+                                            const on = form.data.service_location_ids.includes(l.id);
+                                            const coming = l.status === 'coming';
+                                            return (
+                                                <button
+                                                    type="button"
+                                                    key={l.id}
+                                                    disabled={coming}
+                                                    onClick={() => toggleLocation(l.id)}
+                                                    className={`flex items-center gap-2 rounded-[11px] border px-3.5 py-2 text-[13px] font-semibold transition ${
+                                                        coming
+                                                            ? 'cursor-not-allowed border-cardBorder bg-[#f6f8f1] text-[#aab39a] opacity-70'
+                                                            : on
+                                                              ? 'border-grass bg-[#eef5e1] text-grass'
+                                                              : 'border-cardBorder bg-white text-pine hover:border-grass'
+                                                    }`}
+                                                >
+                                                    <span
+                                                        className={`grid h-[17px] w-[17px] place-items-center rounded-[5px] border text-[11px] font-bold ${
+                                                            on ? 'border-grass bg-grass text-white' : 'border-[#c4cca8] text-transparent'
+                                                        }`}
+                                                    >
+                                                        ✓
+                                                    </span>
+                                                    <span className="text-left leading-tight">
+                                                        {l.name}
+                                                        {coming && <span className="ml-1 rounded-pill bg-[#eef2e3] px-1.5 py-0.5 text-[10px] font-semibold text-moss">Sắp mở</span>}
+                                                        {l.area && <span className="block text-[10.5px] font-normal text-moss">{l.area}</span>}
+                                                    </span>
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+                                {form.errors.service_location_ids && (
+                                    <p className="mt-1 text-[12px] text-[#b3493a]">{form.errors.service_location_ids}</p>
                                 )}
                             </div>
 

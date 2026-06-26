@@ -10,7 +10,8 @@ type Sort = 'pop' | 'low' | 'high';
 interface Props {
     products: ProductResource[];
     categories: { id: number; name: string; slug: string }[];
-    filters: { cat: string; q: string; sort: string };
+    service_locations: { name: string; slug: string }[];
+    filters: { cat: string; q: string; sort: string; vi_tri: string };
 }
 
 const segBtn = (active: boolean) =>
@@ -21,20 +22,20 @@ const chipBtn = (active: boolean) =>
         active ? 'border-grass bg-grass text-white' : 'border-[#d6ddc4] bg-card text-pine hover:border-grass'
     }`;
 
-export default function Products({ products, categories, filters }: Props) {
+export default function Products({ products, categories, service_locations, filters }: Props) {
     const [search, setSearch] = useState(filters.q ?? '');
 
-    const applyFilters = (patch: Partial<{ cat: string; q: string; sort: string }>) => {
+    const applyFilters = (patch: Partial<{ cat: string; q: string; sort: string; 'vi-tri': string }>) => {
         router.get(
             '/thiet-bi',
-            { cat: filters.cat, q: filters.q, sort: filters.sort, ...patch },
+            { cat: filters.cat, q: filters.q, sort: filters.sort, 'vi-tri': filters.vi_tri, ...patch },
             { preserveState: true, replace: true },
         );
     };
 
     const clearFilters = () => {
         setSearch('');
-        applyFilters({ cat: '', q: '', sort: 'pop' });
+        applyFilters({ cat: '', q: '', sort: 'pop', 'vi-tri': '' });
     };
 
     const handleSearch = (value: string) => {
@@ -45,6 +46,7 @@ export default function Products({ products, categories, filters }: Props) {
     const isEmpty = products.length === 0;
     const sort = (filters.sort as Sort) || 'pop';
     const cat  = filters.cat ?? '';
+    const viTri = filters.vi_tri ?? '';
 
     return (
         <>
@@ -54,6 +56,27 @@ export default function Products({ products, categories, filters }: Props) {
                     <div className="mb-[7px] font-mono text-[12px] tracking-[0.1em] text-campfire">KHO THIẾT BỊ</div>
                     <h1 className="font-extrabold tracking-tight text-ink" style={{ fontSize: 'clamp(26px,3.4vw,36px)' }}>Chọn đồ cho chuyến đi</h1>
                 </div>
+
+                {/* location filter — chỉ hiện khi có >1 vị trí phục vụ */}
+                {service_locations.length > 1 && (
+                    <div className="mb-4 flex flex-wrap items-center gap-2">
+                        <span className="mr-0.5 text-[13px] font-semibold text-moss">Thuê tại:</span>
+                        <button onClick={() => applyFilters({ 'vi-tri': '' })} className={chipBtn(viTri === '')}>Tất cả</button>
+                        {service_locations.map((l) => (
+                            <button
+                                key={l.slug}
+                                onClick={() => applyFilters({ 'vi-tri': l.slug })}
+                                className={`inline-flex items-center gap-1 ${chipBtn(viTri === l.slug)}`}
+                            >
+                                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" className="flex-none">
+                                    <path d="M12 21s7-5.6 7-11a7 7 0 1 0-14 0c0 5.4 7 11 7 11Z" fill="currentColor" opacity=".85" />
+                                    <circle cx="12" cy="10" r="2.3" fill={viTri === l.slug ? '#557A2B' : '#FBFCF7'} />
+                                </svg>
+                                {l.name}
+                            </button>
+                        ))}
+                    </div>
+                )}
 
                 {/* toolbar */}
                 <div className="mb-[18px] flex flex-wrap items-center gap-3">
