@@ -4,8 +4,11 @@ namespace App\Http\Controllers\Shop;
 
 use App\Http\Controllers\Controller;
 use App\Models\Order;
+use App\Models\Product;
 use App\Models\PromotionSetting;
+use App\Models\ServiceLocation;
 use App\Models\Voucher;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
@@ -47,5 +50,46 @@ class CartController extends Controller
                 'refereeDiscountValue' => (float) $settings->referee_discount_value,
             ],
         ]);
+    }
+
+    /**
+     * GET /gio-thue/lam-tuoi?ids[]=1&ids[]=2 — làm tươi giỏ.
+     *
+     * Giỏ nằm ở localStorage nên lưu "ảnh chụp" giá/vị trí lúc thêm món. Admin có thể đổi
+     * giá/vị trí/ẩn sản phẩm sau đó → trả dữ liệu MỚI NHẤT để client đồng bộ lại. Sản phẩm
+     * đã ẩn/xoá sẽ KHÔNG có trong kết quả → client gỡ khỏi giỏ.
+     */
+    public function refresh(Request $request): JsonResponse
+    {
+        $ids = collect($request->query('ids', []))
+            ->map(fn ($x) => (int) $x)
+            ->filter()
+            ->unique()
+            ->take(100)
+            ->values();
+
+        if ($ids->isEmpty()) {
+            return response()->json(['products' => (object) []]);
+        }
+
+        $openCount = ServiceLocation::open()->count();
+
+        $products = Product::active()
+            ->with('serviceLocations')
+            ->whereIn('id', $ids)
+            ->get()
+            ->mapWithKeys(function (Product $p) use ($openCount) {
+                $open = $p->serviceLocations->where('status', 'open');
+
+                return [$p->id => [
+                    'name' => $p->name,
+                    'price_per_day' => (int) $p->price_per_day,
+                    'deposit' => (int) ($p->deposit ?? 0),
+                    'locations' => $open->map(fn (ServiceLocation $l) => ['slug' => $l->slug, 'name' => $l->name])->values(),
+                    'all_locations' => $openCount > 0 && $open->count() === $openCount,
+                ]];
+            });
+
+        return response()->json(['products' => $products]);
     }
 }

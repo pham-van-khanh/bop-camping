@@ -2,14 +2,18 @@ import { Head, Link, useForm, usePage } from '@inertiajs/react';
 import { ChangeEvent, ReactNode, useEffect, useMemo, useState } from 'react';
 import SiteLayout from '@/Layouts/SiteLayout';
 import {
-    cartTotals, clearCart, getCart, lineDays, lineDeposit, lineRent, removeLine, setQty, type CartLine,
+    cartHasLocationConflict, cartTotals, clearCart, getCart, lineDays, lineDeposit, lineRent,
+    removeLine, setCart, setQty, type CartLine, type CartLocation,
 } from '@/lib/cart';
 import { money, rangeText } from '@/lib/format';
-import { on, EVENTS } from '@/lib/bus';
+import { emit, on, EVENTS } from '@/lib/bus';
 import { estimateDiscount, voucherValueText, type AvailableVoucher, type PromoInfo } from '@/lib/voucher';
 import type { PageProps } from '@/types';
 
 type CheckoutItem = { product_id: number; quantity: number; start: string; end: string };
+
+// Dữ liệu mới nhất của sản phẩm trả về từ /gio-thue/lam-tuoi.
+type FreshProduct = { name: string; price_per_day: number; deposit: number; locations: CartLocation[]; all_locations: boolean };
 
 type Props = PageProps<{
     availableVouchers: AvailableVoucher[];
@@ -49,11 +53,36 @@ export default function Cart() {
         const current = getCart();
         setLines(current);
         setData('items', toCheckoutItems(current));
-        return on(EVENTS.cartChange, () => {
+        const off = on(EVENTS.cartChange, () => {
             const updated = getCart();
             setLines(updated);
             setData('items', toCheckoutItems(updated));
         });
+
+        // Làm tươi giỏ: giá/vị trí lưu ở localStorage có thể đã cũ (admin đổi sau khi thêm).
+        if (current.length > 0) {
+            const qs = current.map((l) => `ids[]=${l.id}`).join('&');
+            fetch(`${route('cart.refresh')}?${qs}`, { headers: { Accept: 'application/json' } })
+                .then((r) => (r.ok ? r.json() : null))
+                .then((j: { products?: Record<string, FreshProduct> } | null) => {
+                    if (!j?.products) return;
+                    const fresh = j.products;
+                    const removed: string[] = [];
+                    const next: CartLine[] = [];
+                    for (const l of current) {
+                        const p = fresh[String(l.id)];
+                        if (!p) { removed.push(l.name); continue; } // đã ẩn/xoá → gỡ
+                        next.push({ ...l, name: p.name, price: p.price_per_day, deposit: p.deposit, locations: p.locations });
+                    }
+                    setCart(next); // emit cartChange → listener cập nhật state + items
+                    if (removed.length) {
+                        emit(EVENTS.toast, `Đã gỡ ${removed.length} thiết bị không còn cho thuê khỏi giỏ.`);
+                    }
+                })
+                .catch(() => {});
+        }
+
+        return off;
     }, []);
 
     useEffect(() => {
@@ -100,10 +129,14 @@ export default function Cart() {
 
     const payable = Math.max(0, totals.rent - estimate.total) + totals.deposit;
 
+    // Sau khi làm tươi, giỏ có thể không còn cùng 1 vị trí (admin đổi vị trí sản phẩm) → chặn đặt.
+    const locationConflict = useMemo(() => cartHasLocationConflict(lines), [lines]);
+
     const canSubmit = data.name.trim().length >= 2
         && data.phone.trim().length >= 8
         && data.address.trim().length >= 4
         && lines.length > 0
+        && !locationConflict
         && !processing;
 
     const set = (k: 'name' | 'phone' | 'address' | 'note') =>
@@ -178,6 +211,16 @@ export default function Cart() {
 
                 {errors.items && (
                     <div className="mb-4 rounded-[12px] border border-red-200 bg-red-50 px-4 py-3 text-[14px] text-red-700">{errors.items}</div>
+                )}
+
+                {locationConflict && (
+                    <div className="mb-4 flex items-start gap-2.5 rounded-[12px] border border-[#e7c9a3] bg-[#fbf2e6] px-4 py-3 text-[13.5px] text-[#8a5a1f]">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" className="mt-0.5 flex-none">
+                            <path d="M12 21s7-5.6 7-11a7 7 0 1 0-14 0c0 5.4 7 11 7 11Z" fill="#C97B36" stroke="#C97B36" strokeWidth="1.5" strokeLinejoin="round" />
+                            <circle cx="12" cy="10" r="2.4" fill="#fff" />
+                        </svg>
+                        <span>Một số thiết bị đã đổi vị trí phục vụ nên giỏ không còn cùng một vị trí. Mỗi đơn chỉ thuê tại một vị trí — vui lòng gỡ bớt thiết bị không phù hợp để đặt đơn.</span>
+                    </div>
                 )}
 
                 <div className="grid items-start gap-6" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))' }}>
@@ -307,7 +350,11 @@ export default function Cart() {
                             {processing ? 'Đang xử lý…' : 'Đặt giữ chỗ · COD'}
                         </button>
                         {!canSubmit && !processing && (
-                            <div className="mt-2 text-center text-[12px] text-[#8a967a]">Điền tên, số điện thoại và địa chỉ để đặt đơn.</div>
+                            <div className="mt-2 text-center text-[12px] text-[#8a967a]">
+                                {locationConflict
+                                    ? 'Giỏ đang có thiết bị khác vị trí — gỡ bớt để đặt đơn.'
+                                    : 'Điền tên, số điện thoại và địa chỉ để đặt đơn.'}
+                            </div>
                         )}
                     </div>
                 </div>
