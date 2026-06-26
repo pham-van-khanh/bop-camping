@@ -25,7 +25,7 @@ function prefersReducedMotion() {
     return typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 }
 
-export default function HeroSlideshow({ children }: { children?: ReactNode }) {
+export default function HeroSlideshow({ children, aside }: { children?: ReactNode; aside?: ReactNode }) {
     const [index, setIndex] = useState(0);
     const [paused, setPaused] = useState(false);
     const reduced = useRef(prefersReducedMotion());
@@ -92,7 +92,10 @@ export default function HeroSlideshow({ children }: { children?: ReactNode }) {
                 className="relative mx-auto flex max-w-[1200px] flex-col justify-center px-5"
                 style={{ minHeight: 'clamp(560px,90vh,780px)', padding: 'clamp(44px,9vh,96px) 20px clamp(118px,16vh,150px)' }}
             >
-                <div className="max-w-[660px]">{children}</div>
+                <div className="flex w-full flex-col gap-9 lg:flex-row lg:items-center lg:justify-between">
+                    <div className="max-w-[640px]">{children}</div>
+                    {aside && <div className="w-full lg:w-[372px] lg:flex-none">{aside}</div>}
+                </div>
             </div>
 
             {/* Điều khiển: thumbnail + mũi tên */}

@@ -3,9 +3,11 @@
 namespace App\Http\Controllers\Shop;
 
 use App\Http\Controllers\Controller;
+use App\Models\CampingSpot;
 use App\Models\Category;
 use App\Models\Product;
 use App\Models\Review;
+use App\Models\ServiceLocation;
 use App\Services\AvailabilityService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -28,6 +30,8 @@ class ProductController extends Controller
 
         $systemQuery = Review::where('status', 'approved')->where('category', 'system');
 
+        $spots = CampingSpot::ordered()->with(['media', 'nearestServiceLocation'])->get();
+
         return Inertia::render('Welcome', [
             'featured' => $featured,
             'system_reviews' => (clone $systemQuery)->latest()->limit(10)->get()->map(fn (Review $r) => [
@@ -41,7 +45,44 @@ class ProductController extends Controller
                 'avg' => round((float) (clone $systemQuery)->avg('rating'), 1),
                 'count' => (clone $systemQuery)->count(),
             ],
+            // Cẩm nang cắm trại: vị trí phục vụ + điểm gợi ý + tất cả điểm gom theo tỉnh/thành
+            'service_locations' => ServiceLocation::ordered()->get()->map(fn (ServiceLocation $l) => [
+                'name' => $l->name,
+                'area' => $l->area,
+                'status' => $l->status,
+            ])->values(),
+            'suggested_spots' => $spots->where('is_suggested', true)->map(fn (CampingSpot $s) => [
+                'id' => $s->id,
+                'name' => $s->name,
+                'terrain_tag' => $s->terrain_tag,
+                'province' => $s->province,
+                'nearest_name' => $s->nearestServiceLocation?->name,
+            ])->values(),
+            'camping_provinces' => $spots->groupBy('province')->map(fn ($group, $province) => [
+                'province' => $province,
+                'spots' => $group->map(fn (CampingSpot $s) => $this->shapeSpot($s))->values(),
+            ])->values(),
         ]);
+    }
+
+    /** Biến đổi điểm cắm trại -> array cho cẩm nang (kèm ảnh/video + map). */
+    private function shapeSpot(CampingSpot $s): array
+    {
+        return [
+            'id' => $s->id,
+            'name' => $s->name,
+            'terrain_tag' => $s->terrain_tag,
+            'province' => $s->province,
+            'district' => $s->district,
+            'description' => $s->description,
+            'season_label' => $s->seasonLabel(),
+            'map_url' => $s->map_url,
+            'nearest_name' => $s->nearestServiceLocation?->name,
+            'media' => $s->media->map(fn ($m) => [
+                'type' => $m->type,
+                'url' => Storage::url($m->path),
+            ])->values(),
+        ];
     }
 
     /** GET /thiet-bi — danh sách sản phẩm, hỗ trợ filter ?cat=, ?q=, ?sort= */
