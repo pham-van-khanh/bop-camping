@@ -105,6 +105,17 @@ const NAV = [
             </svg>
         ),
     },
+    {
+        href: '/admin/camping-spots',
+        name: 'admin.camping-spots',
+        label: 'Điểm cắm trại',
+        icon: (
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                <path d="M12 4 3 20h18L12 4Z" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" />
+                <path d="M12 11 7 20h10l-5-9Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+            </svg>
+        ),
+    },
 ];
 
 export default function AdminLayout({ children }: { children: ReactNode }) {

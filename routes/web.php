@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AccountController;
 use App\Http\Controllers\Admin\AuthController as AdminAuthController;
+use App\Http\Controllers\Admin\CampingSpotController as AdminCampingSpotController;
 use App\Http\Controllers\Admin\CategoryController as AdminCategoryController;
 use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\Admin\OrderController as AdminOrderController;
@@ -81,6 +82,14 @@ Route::middleware(['admin'])->prefix('admin')->name('admin.')->group(function ()
     // Duyệt đánh giá
     Route::get('/reviews', [AdminReviewController::class, 'index'])->name('reviews');
     Route::patch('/reviews/{review}', [AdminReviewController::class, 'update'])->name('reviews.update')->middleware('throttle:60,1');
+
+    // Điểm cắm trại (Cẩm nang) — CRUD + media
+    Route::get('/camping-spots', [AdminCampingSpotController::class, 'index'])->name('camping-spots');
+    Route::post('/camping-spots', [AdminCampingSpotController::class, 'store'])->name('camping-spots.store')->middleware('throttle:30,1');
+    Route::put('/camping-spots/{campingSpot}', [AdminCampingSpotController::class, 'update'])->name('camping-spots.update')->middleware('throttle:30,1');
+    Route::delete('/camping-spots/{campingSpot}', [AdminCampingSpotController::class, 'destroy'])->name('camping-spots.destroy')->middleware('throttle:30,1');
+    Route::post('/camping-spots/{campingSpot}/media', [AdminCampingSpotController::class, 'storeMedia'])->name('camping-spots.media.store')->middleware('throttle:60,1');
+    Route::delete('/camping-spots/{campingSpot}/media/{media}', [AdminCampingSpotController::class, 'destroyMedia'])->name('camping-spots.media.destroy')->middleware('throttle:60,1');
 });
 
 Route::get('/dashboard', function () {
