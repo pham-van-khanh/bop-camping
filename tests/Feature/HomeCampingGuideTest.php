@@ -41,6 +41,25 @@ class HomeCampingGuideTest extends TestCase
     }
 
     /** @test */
+    public function grouped_spots_carry_media_and_map_for_detail(): void
+    {
+        $spot = CampingSpot::create([
+            'name' => 'Hồ Tà Đùng', 'province' => 'Đắk Nông', 'terrain_tag' => 'Hồ trên núi',
+            'description' => 'Vịnh Hạ Long của Tây Nguyên', 'map_url' => 'https://maps.google.com/?q=ta-dung',
+            'best_season_from' => 11, 'best_season_to' => 4, 'sort_order' => 1,
+        ]);
+        $spot->media()->create(['type' => 'image', 'path' => 'camping-spots/a.jpg', 'sort_order' => 0]);
+        $spot->media()->create(['type' => 'video', 'path' => 'camping-spots/b.mp4', 'sort_order' => 1]);
+
+        $this->get('/')->assertInertia(fn (Assert $page) => $page
+            ->where('camping_provinces.0.spots.0.map_url', 'https://maps.google.com/?q=ta-dung')
+            ->where('camping_provinces.0.spots.0.season_label', 'T11 - T4')
+            ->has('camping_provinces.0.spots.0.media', 2)
+            ->where('camping_provinces.0.spots.0.media.0.type', 'image')
+            ->where('camping_provinces.0.spots.0.media.1.type', 'video'));
+    }
+
+    /** @test */
     public function home_works_with_no_camping_data(): void
     {
         $this->get('/')->assertInertia(fn (Assert $page) => $page
