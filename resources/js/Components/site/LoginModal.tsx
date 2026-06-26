@@ -195,15 +195,15 @@ export default function LoginModal() {
                                         autoFocus
                                     />
                                     {usingAccountEmail ? (
-                                        <div className="flex items-center justify-between gap-2 rounded-[11px] border border-cardBorder bg-white px-3.5 py-2.5">
-                                            <span className="flex items-center gap-2 text-[14px] text-ink">
+                                        <div className="flex flex-col gap-1.5">
+                                            <div className="flex items-center gap-2 rounded-[11px] border border-cardBorder bg-white px-3.5 py-2.5">
                                                 <span aria-hidden>📧</span>
-                                                <span className="font-mono tracking-[0.02em]">{account?.emailMask}</span>
-                                            </span>
+                                                <span className="truncate font-mono text-[14px] tracking-[0.02em] text-ink">{account?.emailMask}</span>
+                                            </div>
                                             <button
                                                 type="button"
                                                 onClick={() => { setUseOtherEmail(true); setData('email', ''); }}
-                                                className="shrink-0 text-[13px] font-semibold text-grass hover:text-pine"
+                                                className="self-start text-[13px] font-semibold text-grass hover:text-pine"
                                             >
                                                 Dùng email khác
                                             </button>
