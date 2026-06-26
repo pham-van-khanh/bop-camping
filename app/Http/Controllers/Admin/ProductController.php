@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Category;
 use App\Models\Product;
 use App\Models\ProductImage;
+use App\Models\ServiceLocation;
 use App\Support\Slug;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -17,7 +18,7 @@ class ProductController extends Controller
 {
     public function index(): Response
     {
-        $products = Product::with(['category', 'images' => fn ($q) => $q->orderBy('sort_order')])
+        $products = Product::with(['category', 'serviceLocations', 'images' => fn ($q) => $q->orderBy('sort_order')])
             ->orderBy('name')
             ->paginate(50)
             ->through(fn (Product $p) => [
@@ -31,6 +32,7 @@ class ProductController extends Controller
                 'thumbnail' => $p->thumbnail ? Storage::url($p->thumbnail) : null,
                 'status' => $p->status,
                 'category' => $p->category ? ['id' => $p->category->id, 'name' => $p->category->name] : null,
+                'service_location_ids' => $p->serviceLocations->pluck('id')->values(),
                 'images' => $p->images->map(fn (ProductImage $img) => [
                     'id' => $img->id,
                     'path' => Storage::url($img->path),
@@ -41,6 +43,13 @@ class ProductController extends Controller
         return Inertia::render('Admin/Products', [
             'products' => $products,
             'categories' => Category::orderBy('name')->get(['id', 'name']),
+            // Vị trí phục vụ để chọn khi thêm/sửa sản phẩm (vị trí 'coming' bị khoá ở UI).
+            'service_locations' => ServiceLocation::ordered()->get()->map(fn (ServiceLocation $l) => [
+                'id' => $l->id,
+                'name' => $l->name,
+                'area' => $l->area,
+                'status' => $l->status,
+            ])->values(),
         ]);
     }
 
@@ -55,6 +64,8 @@ class ProductController extends Controller
             'deposit' => 'nullable|numeric|min:0',
             'status' => 'sometimes|in:active,hidden',
             'thumbnail' => 'nullable|file|mimes:jpg,jpeg,png,webp|max:4096',
+            'service_location_ids' => 'required|array|min:1',
+            'service_location_ids.*' => 'integer|exists:service_locations,id',
         ], [
             'name.required' => 'Tên sản phẩm không được bỏ trống.',
             'category_id.required' => 'Vui lòng chọn danh mục.',
@@ -64,6 +75,8 @@ class ProductController extends Controller
             'quantity.required' => 'Số lượng không được bỏ trống.',
             'quantity.numeric' => 'Số lượng phải là số.',
             'deposit.numeric' => 'Tiền cọc phải là số.',
+            'service_location_ids.required' => 'Vui lòng chọn ít nhất 1 vị trí phục vụ.',
+            'service_location_ids.min' => 'Vui lòng chọn ít nhất 1 vị trí phục vụ.',
         ]);
 
         $slug = Slug::unique(Product::class, $data['name']);
@@ -73,7 +86,7 @@ class ProductController extends Controller
             $thumbnailPath = $request->file('thumbnail')->store('products', 'public');
         }
 
-        Product::create([
+        $product = Product::create([
             'category_id' => (int) $data['category_id'],
             'name' => $data['name'],
             'slug' => $slug,
@@ -84,6 +97,8 @@ class ProductController extends Controller
             'status' => $data['status'] ?? 'active',
             'thumbnail' => $thumbnailPath,
         ]);
+
+        $product->serviceLocations()->sync($data['service_location_ids']);
 
         return back()->with('success', 'Đã thêm sản phẩm.');
     }
@@ -99,6 +114,8 @@ class ProductController extends Controller
             'deposit' => 'nullable|numeric|min:0',
             'status' => 'sometimes|in:active,hidden',
             'thumbnail' => 'nullable|file|mimes:jpg,jpeg,png,webp|max:4096',
+            'service_location_ids' => 'required|array|min:1',
+            'service_location_ids.*' => 'integer|exists:service_locations,id',
         ], [
             'name.required' => 'Tên sản phẩm không được bỏ trống.',
             'category_id.required' => 'Vui lòng chọn danh mục.',
@@ -108,6 +125,8 @@ class ProductController extends Controller
             'quantity.required' => 'Số lượng không được bỏ trống.',
             'quantity.numeric' => 'Số lượng phải là số.',
             'deposit.numeric' => 'Tiền cọc phải là số.',
+            'service_location_ids.required' => 'Vui lòng chọn ít nhất 1 vị trí phục vụ.',
+            'service_location_ids.min' => 'Vui lòng chọn ít nhất 1 vị trí phục vụ.',
         ]);
 
         $slug = Slug::unique(Product::class, $data['name'], $product->id);
@@ -131,6 +150,8 @@ class ProductController extends Controller
             'status' => $data['status'] ?? $product->status,
             'thumbnail' => $thumbnailPath,
         ]);
+
+        $product->serviceLocations()->sync($data['service_location_ids']);
 
         return back()->with('success', 'Đã cập nhật sản phẩm.');
     }

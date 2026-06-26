@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Str;
 
@@ -75,6 +76,18 @@ class Product extends Model
     public function reviews(): HasMany
     {
         return $this->hasMany(Review::class);
+    }
+
+    /** Vị trí phục vụ (Vinh, Hà Nội...) mà sản phẩm có cho thuê. */
+    public function serviceLocations(): BelongsToMany
+    {
+        return $this->belongsToMany(ServiceLocation::class, 'product_service_location');
+    }
+
+    /** Lọc sản phẩm cho thuê tại vị trí có slug tương ứng (vd 'vinh', 'ha-noi'). */
+    public function scopeServedAt(Builder $query, int $serviceLocationId): Builder
+    {
+        return $query->whereHas('serviceLocations', fn (Builder $q) => $q->where('service_locations.id', $serviceLocationId));
     }
 
     /** Đánh giá đã duyệt (mới nhất trước) kèm ảnh. */

@@ -21,11 +21,19 @@ class ProductController extends Controller
 {
     public function __construct(private AvailabilityService $availability) {}
 
+    /** Số vị trí đang mở (memoize) — biết sản phẩm có phục vụ "toàn hệ thống" không. */
+    private ?int $openLocationCount = null;
+
+    private function openLocationCount(): int
+    {
+        return $this->openLocationCount ??= ServiceLocation::open()->count();
+    }
+
     /** GET / — trang chủ với 4 sản phẩm nổi bật */
     public function home(): Response
     {
         $featured = Product::active()
-            ->with('category', 'images')
+            ->with('category', 'images', 'serviceLocations')
             ->limit(4)
             ->get()
             ->map(fn ($p) => $this->shape($p));
@@ -102,7 +110,7 @@ class ProductController extends Controller
     /** GET /thiet-bi — danh sách sản phẩm, hỗ trợ filter ?cat=, ?q=, ?sort= */
     public function index(Request $request): Response
     {
-        $query = Product::active()->with('category', 'images');
+        $query = Product::active()->with('category', 'images', 'serviceLocations');
 
         if ($cat = $request->query('cat')) {
             $query->whereHas('category', fn ($q) => $q->where('slug', $cat));
@@ -110,6 +118,14 @@ class ProductController extends Controller
 
         if ($q = $request->query('q')) {
             $query->search($q); // tìm có dấu + không dấu (xem Product::scopeSearch)
+        }
+
+        // Lọc theo vị trí phục vụ (?vi-tri=vinh) — resolve slug -> id rồi whereHas.
+        $openLocations = ServiceLocation::open()->ordered()->get();
+        $locParam = $request->query('vi-tri', '');
+        $activeLocation = $locParam ? $openLocations->firstWhere('slug', $locParam) : null;
+        if ($activeLocation) {
+            $query->servedAt($activeLocation->id);
         }
 
         $sort = $request->query('sort', 'pop');
@@ -130,10 +146,16 @@ class ProductController extends Controller
         return Inertia::render('Products', [
             'products' => $products,
             'categories' => $categories,
+            // Vị trí đang mở để render thanh lọc "Thuê tại" (chỉ hiện khi có >1 vị trí).
+            'service_locations' => $openLocations->map(fn (ServiceLocation $l) => [
+                'name' => $l->name,
+                'slug' => $l->slug,
+            ])->values(),
             'filters' => [
                 'cat' => $request->query('cat', ''),
                 'q' => $request->query('q', ''),
                 'sort' => $sort,
+                'vi_tri' => $activeLocation ? $activeLocation->slug : '',
             ],
         ]);
     }
@@ -141,7 +163,7 @@ class ProductController extends Controller
     /** GET /thiet-bi/{product} — chi tiết sản phẩm */
     public function show(Request $request, int $product): Response
     {
-        $p = Product::active()->with('category', 'images')->findOrFail($product);
+        $p = Product::active()->with('category', 'images', 'serviceLocations')->findOrFail($product);
 
         $from = Carbon::today();
         $to = Carbon::today()->addDays(90);
@@ -245,6 +267,28 @@ class ProductController extends Controller
                 'sort_order' => $i->sort_order,
             ])->values()->all(),
             'featured' => false,
+            // Badge vị trí: chỉ tính vị trí đang mở. all_locations = phục vụ toàn bộ
+            // vị trí đang mở -> hiện gộp "Toàn hệ thống"; ngược lại liệt kê từng nơi.
+            'locations' => $this->shapeLocations($p),
+            'all_locations' => $this->servesAllOpenLocations($p),
         ];
+    }
+
+    /** Danh sách vị trí đang mở mà sản phẩm phục vụ (cho badge thẻ sản phẩm). */
+    private function shapeLocations(Product $p): array
+    {
+        return $p->serviceLocations
+            ->where('status', 'open')
+            ->map(fn (ServiceLocation $l) => ['name' => $l->name, 'slug' => $l->slug])
+            ->values()
+            ->all();
+    }
+
+    /** True nếu sản phẩm phủ hết các vị trí đang mở (>=1) -> badge "Toàn hệ thống". */
+    private function servesAllOpenLocations(Product $p): bool
+    {
+        $total = $this->openLocationCount();
+
+        return $total > 0 && $p->serviceLocations->where('status', 'open')->count() === $total;
     }
 }
