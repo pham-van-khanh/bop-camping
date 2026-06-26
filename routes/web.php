@@ -34,6 +34,8 @@ Route::get('/thiet-bi/{product}', [ProductController::class, 'show'])->whereNumb
 Route::post('/thiet-bi/{product}/danh-gia', [ReviewController::class, 'store'])->whereNumber('product')->name('reviews.store')
     ->middleware('throttle:10,1');
 Route::get('/gio-thue', [CartController::class, 'index'])->name('cart');
+// Làm tươi giỏ: trả giá/vị trí mới nhất theo ids (giỏ ở localStorage có thể đã cũ)
+Route::get('/gio-thue/lam-tuoi', [CartController::class, 'refresh'])->name('cart.refresh')->middleware('throttle:60,1');
 Route::post('/dat-hang', [OrderController::class, 'store'])->name('order.store')->middleware('throttle:20,1');
 Route::get('/tra-cuu', [OrderLookupController::class, 'index'])->name('lookup');
 // Đánh giá sau chuyến đi qua link token (không cần đăng nhập)

@@ -63,6 +63,11 @@ export function clearCart() {
     save([]);
 }
 
+/** Ghi đè toàn bộ giỏ (dùng khi làm tươi từ server). */
+export function setCart(lines: CartLine[]) {
+    save(lines);
+}
+
 export const lineDays = (l: CartLine) => dayCount(l.start, l.end);
 export const lineRent = (l: CartLine) => l.price * l.qty * lineDays(l);
 export const lineDeposit = (l: CartLine) => l.deposit * l.qty;
@@ -104,6 +109,13 @@ export function locationConflict(
     const slugs = new Set(newLocations.map((x) => x.slug));
     const conflict = !common.some((c) => slugs.has(c.slug));
     return { conflict, cartLocations: common };
+}
+
+/** Giỏ có mâu thuẫn vị trí không (≥2 dòng ràng buộc nhưng không có vị trí chung). */
+export function cartHasLocationConflict(lines = getCart()): boolean {
+    const constrained = lines.filter((l) => l.locations && l.locations.length > 0);
+    if (constrained.length < 2) return false;
+    return cartCommonLocations(lines).length === 0;
 }
 
 export function cartTotals(lines = getCart()) {
