@@ -46,7 +46,15 @@ class CampingSpotController extends Controller
 
         return Inertia::render('Admin/CampingSpots', [
             'spots' => $spots,
-            'service_locations' => ServiceLocation::ordered()->get(['id', 'name', 'area']),
+            'service_locations' => ServiceLocation::withCount('campingSpots')->ordered()->get()
+                ->map(fn (ServiceLocation $l) => [
+                    'id' => $l->id,
+                    'name' => $l->name,
+                    'area' => $l->area,
+                    'status' => $l->status,
+                    'sort_order' => $l->sort_order,
+                    'spots_count' => $l->camping_spots_count,
+                ]),
             'provinces' => CampingSpot::provinces(),
         ]);
     }

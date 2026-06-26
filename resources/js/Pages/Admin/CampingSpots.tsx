@@ -1,10 +1,10 @@
 import { Head, router, useForm, usePage } from '@inertiajs/react';
 import { Fragment, ReactNode, useEffect, useRef, useState } from 'react';
 import AdminLayout from '@/Layouts/AdminLayout';
+import ServiceLocationsManager, { type ServiceLocation } from '@/Components/admin/ServiceLocationsManager';
 import type { PageProps } from '@/types';
 
 type Media = { id: number; type: 'image' | 'video'; url: string };
-type ServiceLocation = { id: number; name: string; area: string | null };
 type Spot = {
     id: number;
     name: string;
@@ -133,6 +133,9 @@ export default function AdminCampingSpots({
             )}
 
             <div className="p-6">
+                {/* Vị trí phục vụ — quản lý gộp ngay trong màn này */}
+                <ServiceLocationsManager locations={service_locations} />
+
                 <div className="mb-6 flex items-center justify-between">
                     <div>
                         <h1 className="text-[22px] font-extrabold text-pine">Điểm cắm trại</h1>

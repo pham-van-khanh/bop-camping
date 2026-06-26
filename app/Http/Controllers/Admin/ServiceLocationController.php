@@ -6,27 +6,11 @@ use App\Http\Controllers\Controller;
 use App\Models\ServiceLocation;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Inertia\Inertia;
-use Inertia\Response;
 
 class ServiceLocationController extends Controller
 {
-    public function index(): Response
-    {
-        $locations = ServiceLocation::withCount('campingSpots')->ordered()->get()
-            ->map(fn (ServiceLocation $l) => [
-                'id' => $l->id,
-                'name' => $l->name,
-                'area' => $l->area,
-                'status' => $l->status,
-                'sort_order' => $l->sort_order,
-                'spots_count' => $l->camping_spots_count,
-            ]);
-
-        return Inertia::render('Admin/ServiceLocations', [
-            'locations' => $locations,
-        ]);
-    }
+    // Vị trí phục vụ được quản lý ngay trong màn Điểm cắm trại (AdminCampingSpotController::index
+    // truyền danh sách). Ở đây chỉ giữ các endpoint ghi: thêm/sửa/xoá.
 
     public function store(Request $request): RedirectResponse
     {

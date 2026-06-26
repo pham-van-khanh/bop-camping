@@ -84,8 +84,7 @@ Route::middleware(['admin'])->prefix('admin')->name('admin.')->group(function ()
     Route::get('/reviews', [AdminReviewController::class, 'index'])->name('reviews');
     Route::patch('/reviews/{review}', [AdminReviewController::class, 'update'])->name('reviews.update')->middleware('throttle:60,1');
 
-    // Vị trí phục vụ (Vinh, Hà Nội...) — CRUD
-    Route::get('/service-locations', [AdminServiceLocationController::class, 'index'])->name('service-locations');
+    // Vị trí phục vụ (Vinh, Hà Nội...) — quản lý ngay trong màn Điểm cắm trại (không có trang riêng)
     Route::post('/service-locations', [AdminServiceLocationController::class, 'store'])->name('service-locations.store')->middleware('throttle:30,1');
     Route::put('/service-locations/{serviceLocation}', [AdminServiceLocationController::class, 'update'])->name('service-locations.update')->middleware('throttle:30,1');
     Route::delete('/service-locations/{serviceLocation}', [AdminServiceLocationController::class, 'destroy'])->name('service-locations.destroy')->middleware('throttle:30,1');
