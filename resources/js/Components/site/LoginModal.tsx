@@ -25,16 +25,22 @@ export default function LoginModal() {
         code: '',
     });
 
-    // Giá trị đã tự điền theo SĐT — chỉ ghi đè ô khi khách chưa tự gõ.
-    const autoFilled = useRef<{ name: string; email: string }>({ name: '', email: '' });
+    // Tài khoản khớp SĐT (email che để hiện cho khách nhận ra — email thật nằm ở server).
+    const [account, setAccount] = useState<{ name: string; emailMask: string } | null>(null);
+    const [useOtherEmail, setUseOtherEmail] = useState(false);
+    const autoFilledName = useRef('');
     const lastLookup = useRef('');
 
     useEffect(() => on(EVENTS.openLogin, () => setOpen(true)), []);
 
-    // Nhập SĐT đã tồn tại → tự điền email (+ tên hiện tại) để khách khỏi gõ lại.
+    // Nhập SĐT đã tồn tại → tự nhận tài khoản: hiện email đã che + tên hiện tại (khách khỏi gõ lại).
     useEffect(() => {
         const phone = data.phone.trim();
-        if (!/^0[0-9]{8,10}$/.test(phone) || phone === lastLookup.current) return;
+        if (!/^0[0-9]{8,10}$/.test(phone)) {
+            setAccount(null);
+            return;
+        }
+        if (phone === lastLookup.current) return;
         const t = setTimeout(async () => {
             lastLookup.current = phone;
             try {
@@ -42,26 +48,27 @@ export default function LoginModal() {
                     headers: { Accept: 'application/json' },
                 });
                 if (!res.ok) return;
-                const j: { exists: boolean; name?: string | null; email?: string | null } = await res.json();
-                if (!j.exists) return;
-                setData((prev) => {
-                    const next = { ...prev };
-                    if (j.email && (prev.email === '' || prev.email === autoFilled.current.email)) {
-                        autoFilled.current.email = j.email;
-                        next.email = j.email;
-                    }
-                    if (j.name && (prev.name === '' || prev.name === autoFilled.current.name)) {
-                        autoFilled.current.name = j.name;
-                        next.name = j.name;
-                    }
-                    return next;
-                });
+                const j: { exists: boolean; name?: string | null; email_mask?: string | null } = await res.json();
+                // Khách quen có email đã xác thực → đăng nhập nhanh bằng SĐT (email server tự dùng).
+                setAccount(j.exists && j.email_mask ? { name: j.name ?? '', emailMask: j.email_mask } : null);
+                if (j.exists) setUseOtherEmail(false);
+                // Điền sẵn tên hiện tại (chỉ khi khách chưa tự gõ) để khách thấy & đổi nếu muốn.
+                if (j.exists && j.name) {
+                    setData((prev) =>
+                        prev.name === '' || prev.name === autoFilledName.current
+                            ? ((autoFilledName.current = j.name as string), { ...prev, name: j.name as string })
+                            : prev,
+                    );
+                }
             } catch {
                 /* lỗi mạng → bỏ qua, khách tự nhập */
             }
         }, 450);
         return () => clearTimeout(t);
     }, [data.phone]);
+
+    // Dùng email tài khoản (đã che) khi có account & khách không chọn nhập email khác.
+    const usingAccountEmail = !!account && !useOtherEmail;
 
     // Prefill mã giới thiệu từ link (?ref=) khi có.
     useEffect(() => {
@@ -119,8 +126,10 @@ export default function LoginModal() {
         setResendIn(0);
         reset();
         clearErrors();
-        autoFilled.current = { name: '', email: '' };
+        autoFilledName.current = '';
         lastLookup.current = '';
+        setAccount(null);
+        setUseOtherEmail(false);
         if (referral?.code) setData('ref', referral.code);
     };
 
@@ -130,8 +139,9 @@ export default function LoginModal() {
     // Bước 2: xác thực OTP.
     const verifyOtp = () => post(route('guest.login.verify'), { preserveScroll: true });
 
-    // Tên không bắt buộc — SĐT là khoá định danh, khách đặt tên tuỳ ý.
-    const formValid = /^0[0-9]{8,10}$/.test(data.phone.trim()) && /\S+@\S+\.\S+/.test(data.email);
+    // Tên không bắt buộc — SĐT là khoá định danh. Dùng email tài khoản (đã che) thì khỏi nhập email.
+    const phoneValid = /^0[0-9]{8,10}$/.test(data.phone.trim());
+    const formValid = phoneValid && (usingAccountEmail || /\S+@\S+\.\S+/.test(data.email));
     const codeValid = /^[0-9]{6}$/.test(data.code);
 
     return (
@@ -167,7 +177,7 @@ export default function LoginModal() {
 
                         {step === 'form' ? (
                             <>
-                                <p className="mb-[14px] text-[14px] text-moss">Nhập SĐT và email. Khách quen chỉ cần nhập SĐT, email sẽ tự điền. Lần đầu sẽ có mã xác thực gửi qua email.</p>
+                                <p className="mb-[14px] text-[14px] text-moss">Nhập SĐT và email. Khách quen chỉ cần nhập SĐT là đăng nhập được. Lần đầu sẽ có mã xác thực gửi qua email.</p>
                                 {referral?.referrer_name && (
                                     <div className="mb-[14px] flex items-center gap-2 rounded-[11px] px-3.5 py-2.5 text-[13px]" style={{ background: '#eef2e3', color: '#3a5a1f' }}>
                                         <span>🎁</span>
@@ -184,14 +194,30 @@ export default function LoginModal() {
                                         error={errors.phone}
                                         autoFocus
                                     />
-                                    <Field
-                                        value={data.email}
-                                        onChange={(v) => setData('email', v)}
-                                        onEnter={() => formValid && !processing && requestOtp()}
-                                        placeholder="Email"
-                                        inputMode="email"
-                                        error={errors.email}
-                                    />
+                                    {usingAccountEmail ? (
+                                        <div className="flex items-center justify-between gap-2 rounded-[11px] border border-cardBorder bg-white px-3.5 py-2.5">
+                                            <span className="flex items-center gap-2 text-[14px] text-ink">
+                                                <span aria-hidden>📧</span>
+                                                <span className="font-mono tracking-[0.02em]">{account?.emailMask}</span>
+                                            </span>
+                                            <button
+                                                type="button"
+                                                onClick={() => { setUseOtherEmail(true); setData('email', ''); }}
+                                                className="shrink-0 text-[13px] font-semibold text-grass hover:text-pine"
+                                            >
+                                                Dùng email khác
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <Field
+                                            value={data.email}
+                                            onChange={(v) => setData('email', v)}
+                                            onEnter={() => formValid && !processing && requestOtp()}
+                                            placeholder="Email"
+                                            inputMode="email"
+                                            error={errors.email}
+                                        />
+                                    )}
                                     <Field
                                         value={data.name}
                                         onChange={(v) => setData('name', v)}
