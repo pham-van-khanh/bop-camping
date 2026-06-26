@@ -64,6 +64,10 @@ class HandleInertiaRequests extends Middleware
             'pending_reviews' => fn () => $request->user()?->is_admin
                 ? Review::where('status', 'pending')->count()
                 : null,
+            // SEO mặc định site-wide (controller có thể ghi đè bằng prop 'seo'); blade dựng meta head.
+            'seo' => [
+                'url' => $request->url(),
+            ],
         ];
     }
 
