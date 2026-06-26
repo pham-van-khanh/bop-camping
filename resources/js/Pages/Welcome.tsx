@@ -38,12 +38,16 @@ interface Props {
 
 export default function Home({ featured, system_reviews, review_stat, service_locations, suggested_spots, camping_provinces }: Props) {
     const [guideOpen, setGuideOpen] = useState(false);
-    const cities = service_locations.filter((l) => l.status === 'open').map((l) => l.name).join(' hoặc ') || 'Vinh hoặc Hà Nội';
+    const openCities = service_locations.filter((l) => l.status === 'open');
+    const cities = openCities.map((l) => l.name).join(' hoặc ') || 'Vinh hoặc Hà Nội';
+    // Cam kết + dữ liệu thật (không bịa số): COD · hoàn cọc · đánh giá thật (nếu có) · giao tận nơi tới TP thật.
     const stats: [string, string][] = [
-        ['120+', 'Bộ thiết bị'],
-        review_stat.count > 0 ? [`${review_stat.avg}★`, `${review_stat.count} đánh giá`] : ['Mới', 'Đánh giá khách'],
-        ['2.000+', 'Chuyến đi'],
-        ['Nội thành', 'Giao nhận tận nơi'],
+        ['COD', 'Trả tiền khi nhận'],
+        ['Hoàn cọc', 'Khi trả đồ đúng hẹn'],
+        review_stat.count > 0
+            ? [`${review_stat.avg}★`, `${review_stat.count} đánh giá`]
+            : ['Theo ngày', 'Nhận – trả linh hoạt'],
+        ['Tận nơi', openCities.length > 0 ? openCities.map((l) => l.name).join(' · ') : 'Giao nội thành'],
     ];
     return (
         <>
