@@ -9,17 +9,10 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class CampingSpot extends Model
 {
-    /** Nhãn hiển thị cho từng miền (single source of truth). */
-    public const REGIONS = [
-        'mien_bac' => 'Miền Bắc',
-        'mien_trung' => 'Miền Trung',
-        'mien_nam_tay_nguyen' => 'Miền Nam & Tây Nguyên',
-    ];
-
     protected $fillable = [
-        'name', 'region', 'province', 'district', 'terrain_tag', 'description',
+        'name', 'province', 'district', 'terrain_tag', 'description', 'map_url',
         'best_season_from', 'best_season_to', 'nearest_service_location_id',
-        'travel_time', 'is_suggested', 'sort_order',
+        'is_suggested', 'sort_order',
     ];
 
     protected function casts(): array
@@ -38,7 +31,7 @@ class CampingSpot extends Model
         return $this->hasMany(CampingSpotMedia::class)->orderBy('sort_order')->orderBy('id');
     }
 
-    /** Vị trí phục vụ gần nhất (cho danh sách gợi ý + thời gian di chuyển). */
+    /** Vị trí phục vụ gần nhất (cho danh sách gợi ý ở hero). */
     public function nearestServiceLocation(): BelongsTo
     {
         return $this->belongsTo(ServiceLocation::class, 'nearest_service_location_id');
@@ -56,10 +49,10 @@ class CampingSpot extends Model
         return $query->orderBy('sort_order')->orderBy('id');
     }
 
-    /** Nhãn miền để hiển thị. */
-    public function regionLabel(): string
+    /** Danh sách tỉnh/thành đã có (cho gợi ý nhập + gom nhóm). */
+    public static function provinces(): array
     {
-        return self::REGIONS[$this->region] ?? $this->region;
+        return static::query()->select('province')->distinct()->orderBy('province')->pluck('province')->all();
     }
 
     /** Nhãn mùa đẹp: "T10 - T4", hoặc "Cả năm" khi không đặt tháng. */

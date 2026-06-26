@@ -32,27 +32,30 @@ class AdminCampingSpotTest extends TestCase
     }
 
     /** @test */
-    public function admin_can_create_spot(): void
+    public function admin_can_create_spot_with_new_province_and_map_link(): void
     {
         $loc = ServiceLocation::create(['name' => 'Vinh', 'area' => 'Nghệ An', 'status' => 'open']);
 
         $this->actingAs($this->admin())->post(route('admin.camping-spots.store'), [
-            'name' => 'Biển Cửa Lò', 'region' => 'mien_trung', 'province' => 'Vinh', 'district' => 'Nghệ An',
-            'terrain_tag' => 'Bãi biển', 'description' => 'Sát biển', 'best_season_from' => 4, 'best_season_to' => 8,
-            'nearest_service_location_id' => $loc->id, 'travel_time' => '40 phút', 'is_suggested' => true,
+            'name' => 'Biển Cửa Lò', 'province' => 'Nghệ An', 'district' => 'Cửa Lò',
+            'terrain_tag' => 'Bãi biển', 'description' => 'Sát biển', 'map_url' => 'https://maps.google.com/?q=cua-lo',
+            'best_season_from' => 4, 'best_season_to' => 8,
+            'nearest_service_location_id' => $loc->id, 'is_suggested' => true,
         ])->assertRedirect()->assertSessionHas('success');
 
         $spot = CampingSpot::first();
         $this->assertSame('Biển Cửa Lò', $spot->name);
+        $this->assertSame('Nghệ An', $spot->province);          // tỉnh mới được tạo qua việc nhập
+        $this->assertSame('https://maps.google.com/?q=cua-lo', $spot->map_url);
         $this->assertTrue($spot->is_suggested);
         $this->assertSame($loc->id, $spot->nearest_service_location_id);
     }
 
     /** @test */
-    public function create_validates_required_fields(): void
+    public function create_validates_required_fields_and_map_url(): void
     {
-        $this->actingAs($this->admin())->post(route('admin.camping-spots.store'), ['region' => 'xxx'])
-            ->assertSessionHasErrors(['name', 'region', 'province', 'terrain_tag']);
+        $this->actingAs($this->admin())->post(route('admin.camping-spots.store'), ['map_url' => 'không-phải-url'])
+            ->assertSessionHasErrors(['name', 'province', 'terrain_tag', 'map_url']);
 
         $this->assertSame(0, CampingSpot::count());
     }
@@ -60,12 +63,13 @@ class AdminCampingSpotTest extends TestCase
     /** @test */
     public function admin_can_update_and_delete_spot(): void
     {
-        $spot = CampingSpot::create(['name' => 'Cũ', 'region' => 'mien_bac', 'province' => 'Hà Nội', 'terrain_tag' => 'Đồi cỏ']);
+        $spot = CampingSpot::create(['name' => 'Cũ', 'province' => 'Hà Nội', 'terrain_tag' => 'Đồi cỏ']);
 
         $this->actingAs($this->admin())->put(route('admin.camping-spots.update', $spot), [
-            'name' => 'Mới', 'region' => 'mien_bac', 'province' => 'Bắc Giang', 'terrain_tag' => 'Đồi cỏ',
+            'name' => 'Mới', 'province' => 'Bắc Giang', 'terrain_tag' => 'Đồi cỏ',
         ])->assertRedirect();
         $this->assertSame('Mới', $spot->fresh()->name);
+        $this->assertSame('Bắc Giang', $spot->fresh()->province);
 
         $this->actingAs($this->admin())->delete(route('admin.camping-spots.destroy', $spot))->assertRedirect();
         $this->assertSame(0, CampingSpot::count());
@@ -75,7 +79,7 @@ class AdminCampingSpotTest extends TestCase
     public function admin_can_upload_and_delete_media_image_and_video(): void
     {
         Storage::fake('public');
-        $spot = CampingSpot::create(['name' => 'X', 'region' => 'mien_bac', 'province' => 'Hà Nội', 'terrain_tag' => 'Rừng núi']);
+        $spot = CampingSpot::create(['name' => 'X', 'province' => 'Hà Nội', 'terrain_tag' => 'Rừng núi']);
 
         $this->actingAs($this->admin())->post(route('admin.camping-spots.media.store', $spot), [
             'media' => [
@@ -96,8 +100,8 @@ class AdminCampingSpotTest extends TestCase
     public function cannot_delete_media_of_another_spot(): void
     {
         Storage::fake('public');
-        $a = CampingSpot::create(['name' => 'A', 'region' => 'mien_bac', 'province' => 'HN', 'terrain_tag' => 'Đồi cỏ']);
-        $b = CampingSpot::create(['name' => 'B', 'region' => 'mien_bac', 'province' => 'HN', 'terrain_tag' => 'Đồi cỏ']);
+        $a = CampingSpot::create(['name' => 'A', 'province' => 'HN', 'terrain_tag' => 'Đồi cỏ']);
+        $b = CampingSpot::create(['name' => 'B', 'province' => 'HN', 'terrain_tag' => 'Đồi cỏ']);
         $mediaA = $a->media()->create(['type' => 'image', 'path' => 'camping-spots/a.jpg']);
 
         // media của A nhưng URL điểm B → 404 (chống IDOR)
