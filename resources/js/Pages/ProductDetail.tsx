@@ -61,6 +61,9 @@ export default function ProductDetail({ product, unavailable_dates, reviews, rev
     const subtotal  = product.price_per_day * qty * days;
     const subDeposit = product.deposit * qty;
     const lowStock  = product.quantity <= 2;
+    const locations = product.locations ?? [];
+    // Gộp "Toàn hệ thống" chỉ khi có ≥2 vị trí; 1 vị trí thì hiện thẳng tên nơi đó.
+    const showAllBadge = !!product.all_locations && locations.length > 1;
 
     const onChange = (s: string | null, e: string | null) => { setStart(s); setEnd(e); };
 
@@ -133,10 +136,19 @@ export default function ProductDetail({ product, unavailable_dates, reviews, rev
                     {/* info */}
                     <div>
                         <h1 className="mb-2.5 font-extrabold leading-[1.15] tracking-tight text-ink" style={{ fontSize: 'clamp(24px,3vw,30px)' }}>{product.name}</h1>
-                        <div className="mb-[18px] flex flex-wrap items-center gap-3.5">
+                        <div className="mb-[18px] flex flex-wrap items-center gap-2.5">
                             <span className="rounded-pill px-2.5 py-1 text-[12px] font-semibold" style={{ background: lowStock ? '#f7e7da' : '#dceaf6', color: lowStock ? '#C97B36' : '#2a6ea0' }}>
                                 {lowStock ? `Sắp hết · còn ${product.quantity} bộ` : `Còn ${product.quantity} bộ trong kho`}
                             </span>
+                            {locations.length > 0 && (
+                                <span className="inline-flex items-center gap-1.5 rounded-pill border border-[#dbe4cb] bg-[#f3f7ec] px-3 py-1 text-[12px] font-semibold text-pine">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" className="flex-none">
+                                        <path d="M12 21s7-5.6 7-11a7 7 0 1 0-14 0c0 5.4 7 11 7 11Z" fill="#C97B36" stroke="#C97B36" strokeWidth="1.5" strokeLinejoin="round" />
+                                        <circle cx="12" cy="10" r="2.4" fill="#fff" />
+                                    </svg>
+                                    {showAllBadge ? 'Cho thuê tại: Toàn hệ thống' : `Cho thuê tại: ${locations.map((l) => l.name).join(' · ')}`}
+                                </span>
+                            )}
                         </div>
                         <div className="mb-5 flex flex-wrap gap-2.5">
                             <div className="min-w-[140px] flex-1 rounded-[13px] px-4 py-3.5" style={{ background: '#eef2e3' }}>
