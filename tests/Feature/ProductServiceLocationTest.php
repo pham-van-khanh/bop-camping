@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Category;
+use App\Models\Order;
 use App\Models\Product;
 use App\Models\ServiceLocation;
 use App\Models\User;
@@ -136,6 +137,55 @@ class ProductServiceLocationTest extends TestCase
             $this->assertFalse($chiVinh['all_locations']);
             $this->assertSame(['Vinh'], collect($chiVinh['locations'])->pluck('name')->all());
         });
+    }
+
+    /** @test */
+    public function order_rejected_when_items_have_no_common_location(): void
+    {
+        $vinh = ServiceLocation::create(['name' => 'Vinh', 'status' => 'open', 'sort_order' => 1]);
+        $hanoi = ServiceLocation::create(['name' => 'Hà Nội', 'status' => 'open', 'sort_order' => 2]);
+
+        $vinhOnly = $this->product('Đồ Vinh', 'do-vinh');
+        $vinhOnly->serviceLocations()->sync([$vinh->id]);
+        $hanoiOnly = $this->product('Đồ Hà Nội', 'do-ha-noi');
+        $hanoiOnly->serviceLocations()->sync([$hanoi->id]);
+
+        $this->post(route('order.store'), [
+            'name' => 'Khách',
+            'phone' => '0912345678',
+            'address' => 'Số 1 Đường ABC',
+            'items' => [
+                ['product_id' => $vinhOnly->id, 'quantity' => 1, 'start' => now()->toDateString(), 'end' => now()->addDay()->toDateString()],
+                ['product_id' => $hanoiOnly->id, 'quantity' => 1, 'start' => now()->toDateString(), 'end' => now()->addDay()->toDateString()],
+            ],
+        ])->assertSessionHasErrors('items');
+
+        $this->assertSame(0, Order::count());
+    }
+
+    /** @test */
+    public function order_allowed_when_items_share_a_location(): void
+    {
+        $vinh = ServiceLocation::create(['name' => 'Vinh', 'status' => 'open', 'sort_order' => 1]);
+        $hanoi = ServiceLocation::create(['name' => 'Hà Nội', 'status' => 'open', 'sort_order' => 2]);
+
+        $both = $this->product('Toàn hệ thống', 'toan-he-thong');
+        $both->serviceLocations()->sync([$vinh->id, $hanoi->id]);
+        $vinhOnly = $this->product('Đồ Vinh', 'do-vinh');
+        $vinhOnly->serviceLocations()->sync([$vinh->id]);
+
+        // 'Toàn hệ thống' (Vinh+HN) + 'Đồ Vinh' (Vinh) -> giao = Vinh -> hợp lệ.
+        $this->post(route('order.store'), [
+            'name' => 'Khách',
+            'phone' => '0912345678',
+            'address' => 'Số 1 Đường ABC',
+            'items' => [
+                ['product_id' => $both->id, 'quantity' => 1, 'start' => now()->toDateString(), 'end' => now()->addDay()->toDateString()],
+                ['product_id' => $vinhOnly->id, 'quantity' => 1, 'start' => now()->toDateString(), 'end' => now()->addDay()->toDateString()],
+            ],
+        ])->assertSessionHasNoErrors();
+
+        $this->assertSame(1, Order::count());
     }
 
     /** @test */

@@ -58,8 +58,22 @@ class OrderController extends Controller
         // Kiểm tra tồn kho từng món
         $errors = [];
         $products = Product::whereIn('id', array_column($validated['items'], 'product_id'))
+            ->with('serviceLocations')
             ->get()
             ->keyBy('id');
+
+        // Giỏ chỉ 1 vị trí: mọi món phải thuê được ở cùng ≥1 vị trí đang mở.
+        // (FE đã chặn bằng popup; đây là van an toàn vì giỏ nằm ở localStorage.)
+        $locationSets = $products
+            ->map(fn (Product $p) => $p->serviceLocations->where('status', 'open')->pluck('id')->all())
+            ->filter(fn (array $ids) => ! empty($ids))
+            ->values()
+            ->all();
+        if (count($locationSets) > 1 && empty(array_intersect(...$locationSets))) {
+            return back()->withErrors([
+                'items' => 'Các thiết bị trong giỏ không cùng một vị trí phục vụ. Mỗi đơn chỉ thuê tại một vị trí.',
+            ])->withInput();
+        }
 
         foreach ($validated['items'] as $item) {
             $product = $products->get($item['product_id']);

@@ -4,7 +4,7 @@ import SiteLayout from '@/Layouts/SiteLayout';
 import DateRangeCalendar from '@/Components/site/DateRangeCalendar';
 import ProductReviews, { type ReviewItem, type ReviewSummary } from '@/Components/site/ProductReviews';
 import { dayCount, fromISO, money, rangeText, toISO } from '@/lib/format';
-import { addLine } from '@/lib/cart';
+import { addLine, clearCart, locationConflict, type CartLine, type CartLocation } from '@/lib/cart';
 import { emit, EVENTS } from '@/lib/bus';
 import type { PageProps } from '@/types';
 import type { ProductResource } from '@/types/product';
@@ -33,6 +33,8 @@ export default function ProductDetail({ product, unavailable_dates, reviews, rev
     const [start, setStart] = useState<string | null>(null);
     const [end, setEnd] = useState<string | null>(null);
     const [qty, setQty] = useState(1);
+    // Popup khi thêm món khác vị trí với giỏ hiện tại.
+    const [conflict, setConflict] = useState<{ pending: CartLine; cartLocations: CartLocation[] } | null>(null);
 
     const unavailable = useMemo(() => new Set<string>(unavailable_dates ?? []), [unavailable_dates]);
 
@@ -67,20 +69,41 @@ export default function ProductDetail({ product, unavailable_dates, reviews, rev
 
     const onChange = (s: string | null, e: string | null) => { setStart(s); setEnd(e); };
 
+    const buildLine = (): CartLine => ({
+        id:      product.id,
+        name:    product.name,
+        cat:     product.category.slug as any,
+        grad:    baseGrad,
+        price:   product.price_per_day,
+        deposit: product.deposit,
+        qty,
+        start:   start as string,
+        end:     end as string,
+        locations,
+    });
+
+    const commitAdd = (line: CartLine) => {
+        addLine(line);
+        emit(EVENTS.toast, `Đã thêm ${product.name} vào giỏ`);
+    };
+
     const add = () => {
         if (!canAdd || !start || !end) return;
-        addLine({
-            id:      product.id,
-            name:    product.name,
-            cat:     product.category.slug as any,
-            grad:    baseGrad,
-            price:   product.price_per_day,
-            deposit: product.deposit,
-            qty,
-            start,
-            end,
-        });
-        emit(EVENTS.toast, `Đã thêm ${product.name} vào giỏ`);
+        const line = buildLine();
+        // Giỏ chỉ giữ 1 vị trí: nếu món mới khác vị trí với giỏ → hỏi trước khi thay.
+        const { conflict: hasConflict, cartLocations } = locationConflict(locations);
+        if (hasConflict) {
+            setConflict({ pending: line, cartLocations });
+            return;
+        }
+        commitAdd(line);
+    };
+
+    const replaceCart = () => {
+        if (!conflict) return;
+        clearCart();
+        commitAdd(conflict.pending);
+        setConflict(null);
     };
 
     const activeSlide = gallery[activeImg] ?? gallery[0];
@@ -209,6 +232,42 @@ export default function ProductDetail({ product, unavailable_dates, reviews, rev
                     </div>
                 </div>
             </main>
+
+            {/* Popup: giỏ chỉ giữ 1 vị trí */}
+            {conflict && (
+                <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/45 px-4" onClick={() => setConflict(null)}>
+                    <div className="w-full max-w-[420px] rounded-[18px] bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
+                        <div className="mb-4 grid h-12 w-12 place-items-center rounded-full" style={{ background: '#f7e7da' }}>
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                                <path d="M12 21s7-5.6 7-11a7 7 0 1 0-14 0c0 5.4 7 11 7 11Z" fill="#C97B36" stroke="#C97B36" strokeWidth="1.5" strokeLinejoin="round" />
+                                <circle cx="12" cy="10" r="2.6" fill="#fff" />
+                            </svg>
+                        </div>
+                        <h2 className="mb-2 text-[18px] font-extrabold text-ink">Giỏ đang thuê ở nơi khác</h2>
+                        <p className="mb-5 text-[14px] leading-[1.55] text-moss">
+                            Giỏ hiện tại đang thuê tại{' '}
+                            <span className="font-semibold text-pine">{conflict.cartLocations.map((l) => l.name).join(' · ')}</span>.
+                            {' '}“<span className="font-semibold text-pine">{product.name}</span>” chỉ phục vụ tại{' '}
+                            <span className="font-semibold text-pine">{locations.map((l) => l.name).join(' · ')}</span>{' '}
+                            nên không thể thêm cùng giỏ. Mỗi đơn chỉ thuê tại một vị trí.
+                        </p>
+                        <div className="flex flex-col gap-2.5">
+                            <button
+                                onClick={replaceCart}
+                                className="h-[46px] rounded-control bg-grass px-5 text-[14px] font-bold text-white transition hover:bg-pine"
+                            >
+                                Xoá giỏ hiện tại &amp; thêm món này
+                            </button>
+                            <button
+                                onClick={() => setConflict(null)}
+                                className="h-[46px] rounded-control border border-cardBorder px-5 text-[14px] font-semibold text-pine transition hover:bg-[#f1f4ea]"
+                            >
+                                Giữ giỏ hiện tại
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </>
     );
 }
