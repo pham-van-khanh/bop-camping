@@ -35,4 +35,12 @@ return [
         ],
     ],
 
+    // Marketing / SEO — chỉ render khi đặt biến môi trường tương ứng (không nhúng ID giả).
+    'gtm' => [
+        'id' => env('GTM_ID'),                                  // VD: GTM-XXXXXXX
+    ],
+    'facebook' => [
+        'domain_verification' => env('FACEBOOK_DOMAIN_VERIFICATION'),
+    ],
+
 ];

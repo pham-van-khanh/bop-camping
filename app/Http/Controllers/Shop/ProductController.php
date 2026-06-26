@@ -137,21 +137,59 @@ class ProductController extends Controller
 
         $user = $request->user();
 
+        $reviewCount = $p->reviews()->where('status', 'approved')->count();
+        $reviewAvg = $p->averageRating();
+        $seoImage = $p->thumbnail ? url(Storage::url($p->thumbnail)) : url('/images/album/forest-camp-aerial.jpg');
+        $seoDesc = Str::limit(trim(strip_tags((string) $p->description)), 155)
+            ?: 'Cho thuê '.$p->name.' theo ngày tại BỐP CAMPING.';
+
         return Inertia::render('ProductDetail', [
             'product' => $this->shape($p),
             'unavailable_dates' => $unavailableDates,
             'reviews' => $this->reviews($p),
-            'review_summary' => ['count' => $p->reviews()->where('status', 'approved')->count(), 'avg' => $p->averageRating()],
+            'review_summary' => ['count' => $reviewCount, 'avg' => $reviewAvg],
             'can_review' => $user !== null && $user->reviewableOrderItemId($p->id) !== null,
-            // SEO riêng cho sản phẩm — share lên Facebook/Zalo hiện đúng tên + ảnh + mô tả.
+            // SEO riêng cho sản phẩm — share đẹp + Product schema (giá/tồn/sao) cho Google.
             'seo' => [
                 'title' => $p->name.' — Thuê tại BỐP CAMPING',
-                'description' => Str::limit(trim(strip_tags((string) $p->description)), 155)
-                    ?: 'Cho thuê '.$p->name.' theo ngày tại BỐP CAMPING.',
-                'image' => $p->thumbnail ? url(Storage::url($p->thumbnail)) : url('/images/album/forest-camp-aerial.jpg'),
+                'description' => $seoDesc,
+                'image' => $seoImage,
                 'url' => url()->current(),
+                'jsonld' => $this->productJsonLd($p, $seoImage, $seoDesc, $reviewCount, $reviewAvg),
             ],
         ]);
+    }
+
+    /** Product structured data (Google rich result: giá thuê/ngày, tồn kho, sao đánh giá). */
+    private function productJsonLd(Product $p, string $image, string $desc, int $reviewCount, float $reviewAvg): array
+    {
+        $data = [
+            '@context' => 'https://schema.org',
+            '@type' => 'Product',
+            'name' => $p->name,
+            'description' => $desc,
+            'image' => $image,
+            'category' => $p->category?->name,
+            'brand' => ['@type' => 'Brand', 'name' => 'BỐP CAMPING'],
+            'offers' => [
+                '@type' => 'Offer',
+                'price' => (int) $p->price_per_day,
+                'priceCurrency' => 'VND',
+                'availability' => $p->quantity > 0 ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
+                'url' => url()->current(),
+                'description' => 'Giá thuê theo ngày',
+            ],
+        ];
+
+        if ($reviewCount > 0) {
+            $data['aggregateRating'] = [
+                '@type' => 'AggregateRating',
+                'ratingValue' => $reviewAvg,
+                'reviewCount' => $reviewCount,
+            ];
+        }
+
+        return $data;
     }
 
     /** Đánh giá đã duyệt cho carousel (kèm ảnh/video + meta). */

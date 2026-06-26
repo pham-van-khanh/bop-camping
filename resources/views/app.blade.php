@@ -2,7 +2,10 @@
 <html lang="vi">
     <head>
         <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5, user-scalable=yes">
+        @if (config('services.facebook.domain_verification'))
+            <meta name="facebook-domain-verification" content="{{ config('services.facebook.domain_verification') }}">
+        @endif
 
         @php
             // SEO động: lấy từ prop 'seo' của trang (controller/shared), có fallback site-wide.
@@ -20,7 +23,11 @@
         <meta name="author" content="{{ $brand }}">
         <meta name="robots" content="index, follow">
         <meta name="theme-color" content="#557A2B">
+        <meta name="thumbnail" content="{{ $seoImage }}">
         <link rel="canonical" href="{{ $seoUrl }}">
+
+        {{-- Preload ảnh hero (LCP) — tải sớm để trang hiện nhanh hơn (tốt cho SEO tốc độ) --}}
+        <link rel="preload" as="image" href="/images/album/beach-night-tent.jpg" fetchpriority="high">
 
         {{-- Favicon --}}
         <link rel="icon" href="/favicon.ico" sizes="any">
@@ -54,6 +61,45 @@
             'areaServed' => ['Vinh', 'Hà Nội'],
         ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) !!}</script>
 
+        {{-- WebSite + ô tìm kiếm (sitelinks searchbox của Google) --}}
+        <script type="application/ld+json">{!! json_encode([
+            '@context' => 'https://schema.org',
+            '@type' => 'WebSite',
+            'name' => $brand,
+            'url' => url('/'),
+            'potentialAction' => [
+                '@type' => 'SearchAction',
+                'target' => url('/thiet-bi').'?q={search_term_string}',
+                'query-input' => 'required name=search_term_string',
+            ],
+        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) !!}</script>
+
+        {{-- FAQ (rich result Hỏi-Đáp trên Google) --}}
+        <script type="application/ld+json">{!! json_encode([
+            '@context' => 'https://schema.org',
+            '@type' => 'FAQPage',
+            'mainEntity' => collect([
+                ['Thuê đồ cắm trại ở BỐP CAMPING như thế nào?', 'Bạn chọn thiết bị và ngày nhận – ngày trả trên web, để lại tên và số điện thoại. Tụi mình kiểm tra còn hàng rồi giao tận nơi, không cần trả trước.'],
+                ['Có cần đặt cọc không?', 'Có. Mỗi món có mức cọc riêng, thu khi nhận đồ và hoàn lại đầy đủ khi bạn trả đồ đúng hẹn và nguyên vẹn.'],
+                ['Thanh toán bằng hình thức nào?', 'Thanh toán COD — trả tiền thuê và cọc khi nhận đồ. Không cần chuyển khoản trước.'],
+                ['Giao nhận ở những khu vực nào?', 'Hiện tụi mình giao nhận đồ thuê tại Vinh và Hà Nội (nội thành). Các khu vực khác sẽ mở thêm sớm.'],
+            ])->map(fn ($qa) => [
+                '@type' => 'Question',
+                'name' => $qa[0],
+                'acceptedAnswer' => ['@type' => 'Answer', 'text' => $qa[1]],
+            ])->all(),
+        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) !!}</script>
+
+        {{-- JSON-LD riêng theo trang (vd Product ở trang chi tiết) --}}
+        @if (! empty($seo['jsonld']))
+            <script type="application/ld+json">{!! json_encode($seo['jsonld'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) !!}</script>
+        @endif
+
+        {{-- Google Tag Manager (chỉ khi đặt GTM_ID) --}}
+        @if (config('services.gtm.id'))
+            <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);})(window,document,'script','dataLayer','{{ config('services.gtm.id') }}');</script>
+        @endif
+
         <!-- Fonts -->
         <link rel="preconnect" href="https://fonts.bunny.net">
         <link href="https://fonts.bunny.net/css?family=be-vietnam-pro:400,500,600,700,800|space-mono:400,700&display=swap" rel="stylesheet" />
@@ -65,6 +111,9 @@
         @inertiaHead
     </head>
     <body class="font-sans antialiased">
+        @if (config('services.gtm.id'))
+            <noscript><iframe src="https://www.googletagmanager.com/ns.html?id={{ config('services.gtm.id') }}" height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+        @endif
         @inertia
     </body>
 </html>
