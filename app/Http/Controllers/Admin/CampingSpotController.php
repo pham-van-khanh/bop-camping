@@ -20,23 +20,21 @@ class CampingSpotController extends Controller
     public function index(): Response
     {
         $spots = CampingSpot::with(['media', 'nearestServiceLocation'])
-            ->orderBy('region')->ordered()
+            ->orderBy('province')->ordered()
             ->paginate(50)
             ->through(fn (CampingSpot $s) => [
                 'id' => $s->id,
                 'name' => $s->name,
-                'region' => $s->region,
-                'region_label' => $s->regionLabel(),
                 'province' => $s->province,
                 'district' => $s->district,
                 'terrain_tag' => $s->terrain_tag,
                 'description' => $s->description,
+                'map_url' => $s->map_url,
                 'best_season_from' => $s->best_season_from,
                 'best_season_to' => $s->best_season_to,
                 'season_label' => $s->seasonLabel(),
                 'nearest_service_location_id' => $s->nearest_service_location_id,
                 'nearest_name' => $s->nearestServiceLocation?->name,
-                'travel_time' => $s->travel_time,
                 'is_suggested' => $s->is_suggested,
                 'sort_order' => $s->sort_order,
                 'media' => $s->media->map(fn (CampingSpotMedia $m) => [
@@ -49,7 +47,7 @@ class CampingSpotController extends Controller
         return Inertia::render('Admin/CampingSpots', [
             'spots' => $spots,
             'service_locations' => ServiceLocation::ordered()->get(['id', 'name', 'area']),
-            'regions' => CampingSpot::REGIONS,
+            'provinces' => CampingSpot::provinces(),
         ]);
     }
 
@@ -117,22 +115,21 @@ class CampingSpotController extends Controller
     {
         $data = $request->validate([
             'name' => ['required', 'string', 'min:2', 'max:150'],
-            'region' => ['required', 'in:'.implode(',', array_keys(CampingSpot::REGIONS))],
             'province' => ['required', 'string', 'max:100'],
             'district' => ['nullable', 'string', 'max:100'],
             'terrain_tag' => ['required', 'string', 'max:50'],
             'description' => ['nullable', 'string', 'max:1000'],
+            'map_url' => ['nullable', 'url', 'max:500'],
             'best_season_from' => ['nullable', 'integer', 'min:1', 'max:12'],
             'best_season_to' => ['nullable', 'integer', 'min:1', 'max:12'],
             'nearest_service_location_id' => ['nullable', 'integer', 'exists:service_locations,id'],
-            'travel_time' => ['nullable', 'string', 'max:30'],
             'is_suggested' => ['boolean'],
             'sort_order' => ['nullable', 'integer', 'min:0'],
         ], [
             'name.required' => 'Tên điểm không được bỏ trống.',
-            'region.required' => 'Vui lòng chọn miền.',
             'province.required' => 'Vui lòng nhập tỉnh/thành.',
             'terrain_tag.required' => 'Vui lòng nhập loại địa hình.',
+            'map_url.url' => 'Link bản đồ phải là một URL hợp lệ.',
         ]);
 
         $data['is_suggested'] = $request->boolean('is_suggested');
