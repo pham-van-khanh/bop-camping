@@ -26,6 +26,28 @@ class SeoMetaTest extends TestCase
         $res->assertSee('application/ld+json', false);
         $res->assertSee('name="description"', false);
         $res->assertSee('og:image', false);
+        $res->assertSee('name="thumbnail"', false);
+    }
+
+    /** @test */
+    public function home_has_website_and_faq_structured_data(): void
+    {
+        $res = $this->get('/');
+
+        // WebSite + ô tìm kiếm
+        $res->assertSee('"WebSite"', false);
+        $res->assertSee('SearchAction', false);
+        $res->assertSee('search_term_string', false);
+        // FAQ
+        $res->assertSee('"FAQPage"', false);
+        $res->assertSee('Có cần đặt cọc không?', false);
+    }
+
+    /** @test */
+    public function gtm_not_rendered_without_id(): void
+    {
+        config(['services.gtm.id' => null]);
+        $this->get('/')->assertDontSee('googletagmanager.com/gtm.js', false);
     }
 
     /** @test */
@@ -44,5 +66,10 @@ class SeoMetaTest extends TestCase
         $res->assertSee('Lều Naturehike Cloud-Up 2', false);
         $res->assertSee('Lều 2 người siêu nhẹ, chống nước tốt.', false);
         $res->assertSee('property="og:title"', false);
+
+        // Product schema (giá + tồn kho) cho Google rich result.
+        $res->assertSee('"Product"', false);
+        $res->assertSee('"price":120000', false);
+        $res->assertSee('schema.org/InStock', false);
     }
 }
