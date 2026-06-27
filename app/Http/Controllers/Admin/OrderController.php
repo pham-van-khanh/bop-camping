@@ -39,6 +39,13 @@ class OrderController extends Controller
             'discount_total' => $o->discount_total,
             'amount_due' => $o->amount_due,
             'status' => $o->status,
+            // Lớp thanh toán 2 tầng (xem design_spec_checkout_payment.md)
+            'payment_option' => $o->payment_option,
+            'payment_label' => $o->paymentLabel(),
+            'deposit_paid' => $o->depositPaid(),
+            'rental_paid' => $o->rentalPaid(),
+            'prepay_amount' => $o->prepayAmount(),
+            'cod_amount' => $o->codAmount(),
             'note' => $o->note,
             'created_at' => $o->created_at->format('d/m/Y H:i'),
             'items' => $o->items->map(fn ($i) => [
@@ -97,5 +104,24 @@ class OrderController extends Controller
         $order->update(['status' => $validated['status']]);
 
         return back()->with('success', "Đơn {$order->code} → {$validated['status']}");
+    }
+
+    /**
+     * Đánh dấu đã nhận / chưa nhận tiền (chuyển khoản thủ công hoặc COD).
+     * field = deposit (cọc) | rental (phí thuê).
+     */
+    public function updatePayment(Request $request, Order $order): RedirectResponse
+    {
+        $data = $request->validate([
+            'field' => ['required', 'in:deposit,rental'],
+            'paid' => ['required', 'boolean'],
+        ]);
+
+        $column = $data['field'] === 'deposit' ? 'deposit_paid_at' : 'rental_paid_at';
+        $order->update([$column => $data['paid'] ? now() : null]);
+
+        $what = $data['field'] === 'deposit' ? 'cọc' : 'phí thuê';
+
+        return back()->with('success', "Đơn {$order->code}: ".($data['paid'] ? "đã nhận {$what}" : "bỏ đánh dấu {$what}"));
     }
 }

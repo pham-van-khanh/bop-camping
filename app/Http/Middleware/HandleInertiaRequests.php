@@ -52,6 +52,9 @@ class HandleInertiaRequests extends Middleware
                 'order_pay' => session('order_pay'),
                 'order_discount' => session('order_discount'),
                 'order_items' => session('order_items'),
+                'order_payment_option' => session('order_payment_option'),
+                'order_prepay' => session('order_prepay'),
+                'order_cod' => session('order_cod'),
                 'success' => session('success'),
                 // Đăng nhập OTP: tín hiệu cho LoginModal chuyển sang bước nhập mã.
                 'otp_sent' => session('otp_sent'),

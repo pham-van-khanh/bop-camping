@@ -20,10 +20,13 @@ type Props = PageProps<{
     referralRef: string;
     firstOrderEligible: boolean;
     promo: PromoInfo;
+    bank: { name: string; account_number: string; account_holder: string };
 }>;
 
+type PaymentOption = 'full' | 'deposit';
+
 export default function Cart() {
-    const { auth, flash, availableVouchers, referralRef, firstOrderEligible, promo } = usePage<Props>().props;
+    const { auth, flash, availableVouchers, referralRef, firstOrderEligible, promo, bank } = usePage<Props>().props;
     const user = auth.user;
     const promoOn = !!user && promo.enabled;
 
@@ -39,6 +42,7 @@ export default function Cart() {
         referral_code: string;
         voucher_codes: string[];
         items: CheckoutItem[];
+        payment_option: PaymentOption;
     }>({
         name: user?.name ?? '',
         phone: user?.phone ?? '',
@@ -47,6 +51,7 @@ export default function Cart() {
         referral_code: firstOrderEligible ? (referralRef ?? '') : '',
         voucher_codes: [],
         items: [],
+        payment_option: 'deposit', // mặc định: trả cọc trước, phí thuê COD (gần với COD hiện tại)
     });
 
     useEffect(() => {
@@ -127,7 +132,11 @@ export default function Cart() {
         [totals.rent, promo, refereeValue, selectedVouchers],
     );
 
-    const payable = Math.max(0, totals.rent - estimate.total) + totals.deposit;
+    // Thanh toán 2 tầng: cọc luôn trả trước (CK); phí thuê tuỳ option (trả trước hoặc COD).
+    const rentalAfterDiscount = Math.max(0, totals.rent - estimate.total);
+    const isFull = data.payment_option === 'full';
+    const prepay = isFull ? rentalAfterDiscount + totals.deposit : totals.deposit;
+    const codDue = isFull ? 0 : rentalAfterDiscount;
 
     // Sau khi làm tươi, giỏ có thể không còn cùng 1 vị trí (admin đổi vị trí sản phẩm) → chặn đặt.
     const locationConflict = useMemo(() => cartHasLocationConflict(lines), [lines]);
@@ -165,8 +174,17 @@ export default function Cart() {
                             {(flash.order_discount ?? 0) > 0 && (
                                 <Row k="Đã giảm" v={`−${money(flash.order_discount ?? 0)}`} mono accentWarm />
                             )}
-                            <Row k="Trả khi nhận (COD)" v={money(flash.order_pay ?? 0)} mono accent />
+                            <Row
+                                k={flash.order_payment_option === 'full' ? 'Chuyển khoản trước (toàn bộ)' : 'Chuyển khoản trước (cọc)'}
+                                v={money(flash.order_prepay ?? 0)}
+                                mono
+                                accent
+                            />
+                            {(flash.order_cod ?? 0) > 0 && (
+                                <Row k="Thu khi nhận (COD phí thuê)" v={money(flash.order_cod ?? 0)} mono accentWarm />
+                            )}
                         </div>
+                        <p className="mb-[22px] text-[13px] text-moss">Vui lòng chuyển khoản theo nội dung là mã đơn ở trên. Tụi mình sẽ gọi xác nhận trong 24h.</p>
                         <div className="flex flex-wrap justify-center gap-2.5">
                             <Link
                                 href={`/tra-cuu?code=${encodeURIComponent(flash.order_code ?? '')}&phone=${encodeURIComponent(flash.order_phone ?? '')}`}
@@ -320,6 +338,27 @@ export default function Cart() {
                             </div>
                         )}
 
+                        {/* Hình thức thanh toán */}
+                        <div className="mb-4 border-t border-cardBorder pt-3.5">
+                            <div className="mb-2 text-[11px] font-bold uppercase tracking-[0.05em] text-[#8a967a]">Hình thức thanh toán</div>
+                            <div className="flex flex-col gap-2">
+                                <PayOptionCard
+                                    active={data.payment_option === 'deposit'}
+                                    onSelect={() => setData('payment_option', 'deposit')}
+                                    title="Chuyển khoản cọc trước"
+                                    desc="Phí thuê trả COD khi nhận đồ"
+                                    amount={`CK ${money(totals.deposit)}`}
+                                />
+                                <PayOptionCard
+                                    active={data.payment_option === 'full'}
+                                    onSelect={() => setData('payment_option', 'full')}
+                                    title="Chuyển khoản toàn bộ"
+                                    desc="Trả cọc + phí thuê trước, không thu COD"
+                                    amount={`CK ${money(rentalAfterDiscount + totals.deposit)}`}
+                                />
+                            </div>
+                        </div>
+
                         {/* Tóm tắt đơn */}
                         <div className="border-t border-cardBorder pt-3.5">
                             <Row k="Phí thuê" v={money(totals.rent)} mono />
@@ -329,25 +368,37 @@ export default function Cart() {
                             {estimate.capped && (
                                 <p className="py-1 text-right text-[11px] text-[#a3ad92]">Đã áp mức giảm tối đa cho đơn này</p>
                             )}
-                            <Row k="Tạm tính (sau giảm)" v={money(Math.max(0, totals.rent - estimate.total))} mono />
                             <Row k="Tổng cọc (hoàn khi trả)" v={money(totals.deposit)} mono accentWarm />
                             <div className="mt-1.5 flex justify-between border-t border-dashed pt-2.5 text-[16px]" style={{ borderColor: '#d6ddc4' }}>
-                                <span className="font-bold text-ink">Trả khi nhận</span>
-                                <span className="font-mono text-[18px] font-bold text-grass">{money(payable)}</span>
+                                <span className="font-bold text-ink">Chuyển khoản trước</span>
+                                <span className="font-mono text-[18px] font-bold text-grass">{money(prepay)}</span>
                             </div>
+                            {codDue > 0 && (
+                                <div className="mt-1 flex justify-between text-[14px]">
+                                    <span className="text-moss">Thu khi nhận (COD)</span>
+                                    <span className="font-mono font-semibold text-campfire">{money(codDue)}</span>
+                                </div>
+                            )}
                             {estimate.total > 0 && (
                                 <p className="mt-1 text-right text-[11px] text-[#a3ad92]">Giảm là tạm tính — xác nhận khi đặt đơn.</p>
                             )}
                         </div>
 
-                        <div className="my-3.5 flex items-center gap-2.5 rounded-[11px] px-3.5 py-[11px] text-[13px]" style={{ background: '#eef2e3', color: '#3a5a1f' }}>
-                            <span className="grid h-[22px] w-[22px] flex-none place-items-center rounded-[6px] bg-grass text-[11px] font-bold text-white">COD</span>
-                            <span>Thanh toán tiền mặt khi nhận đồ. Tiền cọc hoàn lại đầy đủ khi trả đủ và nguyên vẹn.</span>
+                        {/* Thông tin chuyển khoản */}
+                        <div className="my-3.5 rounded-[11px] border border-cardBorder px-3.5 py-3 text-[13px]" style={{ background: '#f6f8ef' }}>
+                            <div className="mb-1.5 flex items-center gap-2 font-bold text-pine">
+                                <span className="grid h-[22px] w-[22px] flex-none place-items-center rounded-[6px] bg-grass text-[10px] font-bold text-white">CK</span>
+                                Chuyển khoản giữ chỗ
+                            </div>
+                            <div className="flex justify-between py-0.5"><span className="text-moss">Ngân hàng</span><span className="font-semibold text-ink">{bank.name}</span></div>
+                            <div className="flex justify-between py-0.5"><span className="text-moss">Số tài khoản</span><span className="font-mono font-semibold text-ink">{bank.account_number}</span></div>
+                            <div className="flex justify-between py-0.5"><span className="text-moss">Chủ tài khoản</span><span className="font-semibold text-ink">{bank.account_holder}</span></div>
+                            <p className="mt-1.5 text-[12px] text-moss">Nội dung CK ghi tên + SĐT. Tụi mình gọi xác nhận trong 24h. {isFull ? 'Đã trả toàn bộ — không thu COD.' : 'Tiền cọc hoàn lại đầy đủ khi trả đồ nguyên vẹn.'}</p>
                         </div>
                         <button onClick={submit} disabled={!canSubmit}
                             className="h-[52px] w-full rounded-control text-[16px] font-bold text-white transition disabled:cursor-not-allowed"
                             style={{ background: canSubmit ? '#557A2B' : '#c4cfae' }}>
-                            {processing ? 'Đang xử lý…' : 'Đặt giữ chỗ · COD'}
+                            {processing ? 'Đang xử lý…' : 'Đặt giữ chỗ'}
                         </button>
                         {!canSubmit && !processing && (
                             <div className="mt-2 text-center text-[12px] text-[#8a967a]">
@@ -365,6 +416,25 @@ export default function Cart() {
 
 function toCheckoutItems(lines: CartLine[]): CheckoutItem[] {
     return lines.map((l) => ({ product_id: l.id, quantity: l.qty, start: l.start, end: l.end }));
+}
+
+function PayOptionCard({ active, onSelect, title, desc, amount }: { active: boolean; onSelect: () => void; title: string; desc: string; amount: string }) {
+    return (
+        <button
+            type="button"
+            onClick={onSelect}
+            className={`flex items-center gap-2.5 rounded-[11px] border px-3 py-2.5 text-left transition ${active ? 'border-grass bg-[#eef2e3]' : 'border-cardBorder hover:border-grass'}`}
+        >
+            <span className={`mt-0.5 grid h-[18px] w-[18px] flex-none place-items-center rounded-full border ${active ? 'border-grass' : 'border-[#c4cca8]'}`}>
+                {active && <span className="h-[10px] w-[10px] rounded-full bg-grass" />}
+            </span>
+            <span className="min-w-0 flex-1">
+                <span className="block text-[13.5px] font-bold text-pine">{title}</span>
+                <span className="block text-[12px] text-moss">{desc}</span>
+            </span>
+            <span className="flex-none font-mono text-[12.5px] font-bold text-grass">{amount}</span>
+        </button>
+    );
 }
 
 function Row({ k, v, mono, accent, accentWarm }: { k: string; v: string; mono?: boolean; accent?: boolean; accentWarm?: boolean }) {

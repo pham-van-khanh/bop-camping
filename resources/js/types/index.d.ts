@@ -13,6 +13,9 @@ export interface Flash {
     order_pay?: number;
     order_discount?: number;
     order_items?: number;
+    order_payment_option?: 'full' | 'deposit';
+    order_prepay?: number;
+    order_cod?: number;
     success?: string;
     otp_sent?: boolean;
     otp_email?: string;

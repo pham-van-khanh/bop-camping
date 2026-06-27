@@ -54,6 +54,7 @@ Route::middleware(['admin'])->prefix('admin')->name('admin.')->group(function ()
     Route::get('/dashboard', [AdminDashboardController::class, 'index'])->name('dashboard');
     Route::get('/orders', [AdminOrderController::class, 'index'])->name('orders');
     Route::patch('/orders/{order}', [AdminOrderController::class, 'updateStatus'])->name('orders.update');
+    Route::patch('/orders/{order}/payment', [AdminOrderController::class, 'updatePayment'])->name('orders.payment')->middleware('throttle:60,1');
 
     Route::get('/categories', [AdminCategoryController::class, 'index'])->name('categories');
     Route::post('/categories', [AdminCategoryController::class, 'store'])->name('categories.store');

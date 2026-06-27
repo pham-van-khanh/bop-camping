@@ -47,6 +47,7 @@ class OrderController extends Controller
             'referral_code' => ['nullable', 'string', 'max:20'],
             'voucher_codes' => ['nullable', 'array', 'max:10'],
             'voucher_codes.*' => ['string', 'max:30'],
+            'payment_option' => ['nullable', 'in:full,deposit'],
         ], [
             'name.required' => 'Vui lòng nhập họ tên.',
             'phone.required' => 'Vui lòng nhập số điện thoại.',
@@ -118,6 +119,8 @@ class OrderController extends Controller
                 'end_date' => $endDate,
                 'status' => 'pending',
                 'payment_method' => 'cod',
+                // Mặc định 'deposit' (trả cọc trước + thuê COD) nếu không gửi — frontend luôn gửi explicit.
+                'payment_option' => $validated['payment_option'] ?? Order::PAYMENT_DEPOSIT,
             ]);
 
             $totalPrice = 0;
@@ -187,9 +190,12 @@ class OrderController extends Controller
             'order_code' => $order->code,
             'order_name' => $validated['name'],
             'order_phone' => $validated['phone'],
-            'order_pay' => $order->total_price + $order->deposit_total - $order->discount_total,
+            'order_pay' => $order->amount_due,
             'order_discount' => $order->discount_total,
             'order_items' => count($validated['items']),
+            'order_payment_option' => $order->payment_option,
+            'order_prepay' => $order->prepayAmount(),
+            'order_cod' => $order->codAmount(),
         ]);
     }
 }

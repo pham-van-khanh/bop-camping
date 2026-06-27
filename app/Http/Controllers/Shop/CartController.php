@@ -49,6 +49,12 @@ class CartController extends Controller
                 'refereeDiscountType' => $settings->referee_discount_type,
                 'refereeDiscountValue' => (float) $settings->referee_discount_value,
             ],
+            // Thông tin chuyển khoản (khách trả trước cọc / toàn bộ).
+            'bank' => [
+                'name' => config('shop.bank.name'),
+                'account_number' => config('shop.bank.account_number'),
+                'account_holder' => config('shop.bank.account_holder'),
+            ],
         ]);
     }
 

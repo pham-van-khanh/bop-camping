@@ -15,6 +15,9 @@ type Order = {
     total_price: number; deposit_total: number; discount_total: number; amount_due: number;
     status: string; note: string | null; created_at: string; items: OrderItem[];
     vouchers: UsedVoucher[]; referral: { referrer_name: string | null; status: string } | null;
+    payment_option: 'full' | 'deposit' | null;
+    payment_label: string; deposit_paid: boolean; rental_paid: boolean;
+    prepay_amount: number; cod_amount: number;
 };
 type Stats = { total: number; pending: number; confirmed: number; renting: number; returned: number; cancelled: number };
 type InventoryItem = { id: number; name: string; category: string; quantity: number; status: string };
@@ -47,6 +50,15 @@ export default function AdminOrders({
 
     const changeStatus = (order: Order, status: string) => {
         router.patch(route('admin.orders.update', order.id), { status }, { preserveScroll: true });
+    };
+
+    const markPaid = (order: Order, field: 'deposit' | 'rental', paid: boolean) => {
+        router.patch(route('admin.orders.payment', order.id), { field, paid }, { preserveScroll: true });
+    };
+
+    const PAYMENT_OPTION_LABEL: Record<string, string> = {
+        full: 'Trả toàn bộ trước',
+        deposit: 'Cọc trước · thuê COD',
     };
 
     const filterTab = (status: string) => {
@@ -158,6 +170,9 @@ export default function AdminOrders({
                                                                 style={{ color: style.color, background: style.bg }}>
                                                                 {STATUS_LABEL[order.status]}
                                                             </span>
+                                                            {order.payment_option && (
+                                                                <div className="mt-1 text-[11px] font-semibold text-moss">{order.payment_label}</div>
+                                                            )}
                                                         </td>
                                                         <td className="px-4 py-3">
                                                             <div className="flex flex-wrap gap-1.5">
@@ -220,10 +235,34 @@ export default function AdminOrders({
                                                                             <DetailRow label="Tiền thuê" value={money(order.total_price)} mono />
                                                                             {order.discount_total > 0 && <DetailRow label="Giảm giá" value={`−${money(order.discount_total)}`} mono accent="#3a5a1f" />}
                                                                             <DetailRow label="Tiền cọc" value={money(order.deposit_total)} mono />
-                                                                            <div className="mt-1 flex items-center justify-between border-t border-[#eef2e3] pt-2">
-                                                                                <span className="font-bold text-ink">Trả khi nhận</span>
-                                                                                <span className="font-mono text-[14px] font-extrabold text-pine">{money(order.amount_due)}</span>
-                                                                            </div>
+                                                                            {order.payment_option ? (
+                                                                                <>
+                                                                                    <DetailRow label="Hình thức" value={PAYMENT_OPTION_LABEL[order.payment_option]} />
+                                                                                    <DetailRow label="Chuyển khoản trước" value={money(order.prepay_amount)} mono />
+                                                                                    {order.cod_amount > 0 && <DetailRow label="Thu COD khi nhận" value={money(order.cod_amount)} mono accent="#C97B36" />}
+                                                                                    <div className="mt-2 flex items-center justify-between border-t border-[#eef2e3] pt-2">
+                                                                                        <span className="text-moss">Tình trạng</span>
+                                                                                        <span className="font-semibold text-pine">{order.payment_label}</span>
+                                                                                    </div>
+                                                                                    <div className="mt-2 flex flex-wrap gap-1.5" onClick={(e) => e.stopPropagation()}>
+                                                                                        <PayToggle
+                                                                                            label="cọc"
+                                                                                            paid={order.deposit_paid}
+                                                                                            onToggle={() => markPaid(order, 'deposit', !order.deposit_paid)}
+                                                                                        />
+                                                                                        <PayToggle
+                                                                                            label="phí thuê"
+                                                                                            paid={order.rental_paid}
+                                                                                            onToggle={() => markPaid(order, 'rental', !order.rental_paid)}
+                                                                                        />
+                                                                                    </div>
+                                                                                </>
+                                                                            ) : (
+                                                                                <div className="mt-1 flex items-center justify-between border-t border-[#eef2e3] pt-2">
+                                                                                    <span className="font-bold text-ink">Trả khi nhận</span>
+                                                                                    <span className="font-mono text-[14px] font-extrabold text-pine">{money(order.amount_due)}</span>
+                                                                                </div>
+                                                                            )}
                                                                         </div>
 
                                                                         <div className="mb-2 mt-3 text-[12px] font-bold uppercase tracking-[0.04em] text-grass">Ưu đãi đã dùng</div>
@@ -296,6 +335,21 @@ export default function AdminOrders({
                 )}
             </div>
         </>
+    );
+}
+
+function PayToggle({ label, paid, onToggle }: { label: string; paid: boolean; onToggle: () => void }) {
+    return (
+        <button
+            onClick={onToggle}
+            className={`rounded-[8px] border px-2.5 py-1 text-[11px] font-semibold transition ${
+                paid
+                    ? 'border-grass bg-[#eef2e3] text-grass hover:bg-[#e2ecd0]'
+                    : 'border-cardBorder text-pine hover:border-grass hover:text-grass'
+            }`}
+        >
+            {paid ? `✓ Đã nhận ${label}` : `Đánh dấu nhận ${label}`}
+        </button>
     );
 }
 

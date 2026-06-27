@@ -29,6 +29,9 @@ class Order extends Model
         'discount_total',
         'status',
         'payment_method',
+        'payment_option',
+        'deposit_paid_at',
+        'rental_paid_at',
         'note',
     ];
 
@@ -40,7 +43,14 @@ class Order extends Model
         'discount_total' => 'integer',
         'review_invited_at' => 'datetime',
         'review_submitted_at' => 'datetime',
+        'deposit_paid_at' => 'datetime',
+        'rental_paid_at' => 'datetime',
     ];
+
+    /** Option thanh toán (xem design_spec_checkout_payment.md). */
+    public const PAYMENT_FULL = 'full';       // trả cọc + phí thuê trước
+
+    public const PAYMENT_DEPOSIT = 'deposit';  // trả cọc trước, phí thuê COD khi nhận
 
     /** Tự sinh mã đơn khi tạo */
     protected static function booted(): void
@@ -84,6 +94,64 @@ class Order extends Model
     public function getAmountDueAttribute(): int
     {
         return (int) $this->total_price + (int) $this->deposit_total - (int) $this->discount_total;
+    }
+
+    /** Phí thuê thực trả (đã trừ giảm giá), không âm. */
+    public function rentalPayable(): int
+    {
+        return max(0, (int) $this->total_price - (int) $this->discount_total);
+    }
+
+    /** Số tiền khách trả TRƯỚC (chuyển khoản): full = tất cả; deposit = chỉ cọc. */
+    public function prepayAmount(): int
+    {
+        return $this->payment_option === self::PAYMENT_DEPOSIT
+            ? (int) $this->deposit_total
+            : $this->amount_due; // full (mặc định cho đơn cũ) = trả hết
+    }
+
+    /** Số tiền thu COD khi nhận: full = 0; deposit = phí thuê. */
+    public function codAmount(): int
+    {
+        return $this->payment_option === self::PAYMENT_DEPOSIT ? $this->rentalPayable() : 0;
+    }
+
+    public function depositPaid(): bool
+    {
+        return $this->deposit_paid_at !== null;
+    }
+
+    public function rentalPaid(): bool
+    {
+        return $this->rental_paid_at !== null;
+    }
+
+    /** Đã thu đủ tiền (cọc + phí thuê) chưa. */
+    public function isFullyPaid(): bool
+    {
+        return $this->depositPaid() && $this->rentalPaid();
+    }
+
+    /** Nhãn gộp thanh toán (map sang từ ngữ thiết kế — xem design spec mục 5). */
+    public function paymentLabel(): string
+    {
+        if ($this->status === 'cancelled') {
+            return 'Đã huỷ';
+        }
+        if ($this->status === 'returned') {
+            return 'Đã trả đồ';
+        }
+        if (! $this->depositPaid()) {
+            return 'Chờ chuyển khoản cọc';
+        }
+        if ($this->payment_option === self::PAYMENT_DEPOSIT && ! $this->rentalPaid()) {
+            return 'Đã nhận cọc · chờ COD phí thuê';
+        }
+        if (! $this->rentalPaid()) {
+            return 'Đã nhận cọc';
+        }
+
+        return 'Đã thanh toán đủ';
     }
 
     /** Email gửi thông báo được (bỏ email tạm <phone>@bopcamping.local). Null nếu không gửi được. */
