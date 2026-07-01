@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\CampingSpot;
 use App\Models\CampingSpotMedia;
 use App\Models\ServiceLocation;
+use App\Support\MediaType;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -14,9 +15,6 @@ use Inertia\Response;
 
 class CampingSpotController extends Controller
 {
-    /** Ảnh + video cho phép trong điểm cắm trại (như review media). */
-    private const MEDIA_MIMES = 'mimetypes:image/jpeg,image/png,image/webp,video/mp4,video/webm,video/quicktime';
-
     public function index(): Response
     {
         $spots = CampingSpot::with(['media', 'nearestServiceLocation'])
@@ -88,7 +86,7 @@ class CampingSpotController extends Controller
     {
         $request->validate([
             'media' => ['required', 'array', 'max:12'],
-            'media.*' => ['file', self::MEDIA_MIMES, 'max:51200'], // ≤50MB
+            'media.*' => ['file', MediaType::MIMES_RULE, 'max:51200'], // ≤50MB
         ], [
             'media.*.mimetypes' => 'Chỉ nhận ảnh (jpg, png, webp) hoặc video (mp4, webm, mov).',
             'media.*.max' => 'Mỗi tệp tối đa 50MB.',
@@ -96,9 +94,8 @@ class CampingSpotController extends Controller
 
         $maxSort = (int) $campingSpot->media()->max('sort_order');
         foreach ((array) $request->file('media', []) as $file) {
-            $isVideo = str_starts_with((string) $file->getMimeType(), 'video/');
             $campingSpot->media()->create([
-                'type' => $isVideo ? 'video' : 'image',
+                'type' => MediaType::detect($file),
                 'path' => $file->store('camping-spots', 'public'),
                 'sort_order' => ++$maxSort,
             ]);

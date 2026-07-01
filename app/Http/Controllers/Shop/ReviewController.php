@@ -5,14 +5,12 @@ namespace App\Http\Controllers\Shop;
 use App\Http\Controllers\Controller;
 use App\Models\Product;
 use App\Models\Review;
+use App\Support\MediaType;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 
 class ReviewController extends Controller
 {
-    /** Ảnh + video cho phép trong đánh giá. */
-    private const MEDIA_MIMES = 'mimetypes:image/jpeg,image/png,image/webp,video/mp4,video/webm,video/quicktime';
-
     /**
      * POST /thiet-bi/{product}/danh-gia — gửi đánh giá sản phẩm.
      * Ai cũng gửi được (khách vãng lai nhập tên); mọi đánh giá vào trạng thái pending chờ admin duyệt.
@@ -27,7 +25,7 @@ class ReviewController extends Controller
             'rating' => ['required', 'integer', 'min:1', 'max:5'],
             'content' => ['nullable', 'string', 'max:1500'],
             'media' => ['nullable', 'array', 'max:4'],
-            'media.*' => ['file', self::MEDIA_MIMES, 'max:30720'], // ≤30MB (ảnh thực tế nhỏ hơn nhiều)
+            'media.*' => ['file', MediaType::MIMES_RULE, 'max:30720'], // ≤30MB (ảnh thực tế nhỏ hơn nhiều)
         ];
         if (! $user) {
             $rules['reviewer_name'] = ['required', 'string', 'max:60'];
@@ -54,9 +52,8 @@ class ReviewController extends Controller
         ]);
 
         foreach ((array) $request->file('media', []) as $i => $file) {
-            $isVideo = str_starts_with((string) $file->getMimeType(), 'video/');
             $review->images()->create([
-                'type' => $isVideo ? 'video' : 'image',
+                'type' => MediaType::detect($file),
                 'path' => $file->store('reviews', 'public'),
                 'sort_order' => $i,
             ]);

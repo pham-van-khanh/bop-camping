@@ -40,9 +40,9 @@ export default function ProductDetail({ product, unavailable_dates, reviews, rev
 
     const baseGrad = gradFor(product.category.slug);
     // Build gallery: real images first, then fallback gradient variants
-    const gallery: ({ type: 'img'; src: string } | { type: 'grad'; bg: string })[] = useMemo(() => {
+    const gallery: ({ type: 'img'; src: string } | { type: 'video'; src: string } | { type: 'grad'; bg: string })[] = useMemo(() => {
         if (product.images.length > 0) {
-            return product.images.map((img) => ({ type: 'img' as const, src: img.path }));
+            return product.images.map((img) => (img.type === 'video' ? { type: 'video' as const, src: img.path } : { type: 'img' as const, src: img.path }));
         }
         return [150, 35, 205, 330].map((a) => ({
             type: 'grad' as const,
@@ -123,6 +123,9 @@ export default function ProductDetail({ product, unavailable_dates, reviews, rev
                             {activeSlide.type === 'img' && (
                                 <img src={activeSlide.src} alt={product.name} className="absolute inset-0 h-full w-full object-cover" />
                             )}
+                            {activeSlide.type === 'video' && (
+                                <video src={activeSlide.src} controls className="absolute inset-0 h-full w-full object-cover" />
+                            )}
                             <div className="absolute inset-0" style={{ background: 'radial-gradient(220px 150px at 76% 20%, rgba(255,255,255,.34), transparent 60%)' }} />
                             <div className="absolute inset-x-0 bottom-0 h-[90px]" style={{ background: 'linear-gradient(180deg,rgba(24,35,15,0),rgba(24,35,15,.4))' }} />
                             <span className="absolute bottom-4 left-[18px] font-mono text-[13px] tracking-[0.06em] text-white">{product.category.name}</span>
@@ -133,11 +136,16 @@ export default function ProductDetail({ product, unavailable_dates, reviews, rev
                                     key={i}
                                     onClick={() => setActiveImg(i)}
                                     aria-label={`Ảnh ${i + 1}`}
-                                    className="h-[70px] overflow-hidden rounded-[11px] transition"
+                                    className="relative h-[70px] overflow-hidden rounded-[11px] transition"
                                     style={{ outline: i === activeImg ? '2px solid #557A2B' : '1px solid #E3E8D6', outlineOffset: i === activeImg ? 1 : 0 }}
                                 >
                                     {g.type === 'img' ? (
                                         <img src={g.src} alt="" className="h-full w-full object-cover" />
+                                    ) : g.type === 'video' ? (
+                                        <>
+                                            <video src={g.src} className="h-full w-full object-cover" muted />
+                                            <span className="absolute inset-0 grid place-items-center bg-black/25 text-[10px] text-white">▶</span>
+                                        </>
                                     ) : (
                                         <div className="h-full w-full" style={{ background: g.bg }} />
                                     )}

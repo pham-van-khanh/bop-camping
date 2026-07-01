@@ -248,4 +248,25 @@ class ProductPageTest extends TestCase
             ->has('product.images')
         );
     }
+
+    /**
+     * bopcamping-qwg — trang public phải trả về type (image/video) cho từng ảnh/video
+     * trong gallery, để FE render đúng thẻ <video> khi cần (không chỉ ảnh).
+     *
+     * @test
+     */
+    public function product_detail_exposes_media_type_for_gallery_items(): void
+    {
+        $cat = $this->category();
+        $p = $this->product($cat);
+        $p->images()->create(['path' => 'products/a.jpg', 'sort_order' => 1, 'type' => 'image']);
+        $p->images()->create(['path' => 'products/clip.mp4', 'sort_order' => 2, 'type' => 'video']);
+
+        $response = $this->get("/thiet-bi/{$p->id}");
+
+        $response->assertInertia(fn ($page) => $page
+            ->where('product.images.0.type', 'image')
+            ->where('product.images.1.type', 'video')
+        );
+    }
 }
