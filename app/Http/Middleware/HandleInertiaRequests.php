@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\PromotionSetting;
 use App\Models\ReferralCode;
 use App\Models\Review;
 use Illuminate\Http\Request;
@@ -60,6 +61,8 @@ class HandleInertiaRequests extends Middleware
             // Mã giới thiệu đang chờ (từ link ?ref= hoặc nhập tay) — để hiện popup + prefill.
             // Lazy: resolve khi render (SAU khi CaptureReferralCode lưu session) — nếu eager sẽ rỗng ở request đầu.
             'referral' => fn () => $this->sharedReferral($request),
+            // Ưu đãi khuyến khích thêm email (đơn đầu) — LoginModal hiện % lấy từ đây, KHÔNG hardcode.
+            'emailBonus' => fn () => $this->sharedEmailBonus(),
             // Số đánh giá chờ duyệt — badge sidebar admin (chỉ tính cho admin).
             'pending_reviews' => fn () => $request->user()?->is_admin
                 ? Review::where('status', 'pending')->count()
@@ -86,6 +89,18 @@ class HandleInertiaRequests extends Middleware
         return [
             'code' => $rc?->code ?? strtoupper($ref),
             'referrer_name' => $rc?->user?->name,
+        ];
+    }
+
+    /** @return array{enabled: bool, type: string, value: float} */
+    private function sharedEmailBonus(): array
+    {
+        $settings = PromotionSetting::current();
+
+        return [
+            'enabled' => $settings->email_bonus_enabled,
+            'type' => $settings->email_bonus_discount_type,
+            'value' => (float) $settings->email_bonus_discount_value,
         ];
     }
 }

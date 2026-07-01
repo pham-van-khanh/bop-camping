@@ -157,9 +157,10 @@ composer --version
 ### 8.1 Email khách hàng & xác thực OTP qua email
 
 **Thay đổi mô hình đăng nhập:**
-- Trường đăng nhập: **SĐT + tên + email** (thêm `email` vào bảng `users`)
-- Xác thực danh tính: gửi **OTP 6 số qua email** (không xác thực SĐT)
+- Trường đăng nhập: **SĐT (bắt buộc) + tên (tuỳ ý) + email (tuỳ ý — xem cập nhật bopcamping-3xr)**. SĐT là khoá định danh duy nhất; email KHÔNG bắt buộc — khách bỏ trống vẫn đăng ký/đăng nhập được (email tạm `<phone>@bopcamping.local` tự gán, chưa verify).
+- Xác thực danh tính: chỉ khi có nhập email mới/chưa verify → gửi **OTP 6 số qua email** (không xác thực SĐT). Bỏ trống email hoặc email đã verify → vào thẳng, không cần OTP.
 - OTP hết hạn sau 10 phút, dùng 1 lần
+- **Khuyến khích thêm email**: khách thêm + xác thực email thật (trước khi đặt đơn đầu tiên) được giảm giá đơn đầu (mặc định 5%, cấu hình ở Admin → Khuyến mãi, không hardcode) — xem `EmailBonusService`.
 
 **Email thông báo tự động:**
 - Đặt đơn thành công → gửi mail kèm mã đơn, tóm tắt sản phẩm, ngày thuê, tổng tiền, tiền cọc

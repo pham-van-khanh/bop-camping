@@ -2,16 +2,18 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { useEffect, useRef, useState } from 'react';
 import { useForm, usePage } from '@inertiajs/react';
 import { on, emit, EVENTS } from '@/lib/bus';
+import { money } from '@/lib/format';
 import type { PageProps } from '@/types';
 
 /**
- * Modal đăng nhập khách: SĐT + tên + email, xác thực OTP qua email (chỉ lần đầu).
- * - Bước 1: nhập SĐT/tên/email → POST /dang-nhap. Nếu email đã verify → vào thẳng;
- *   nếu chưa → server gửi OTP và trả flash.otp_sent → chuyển bước 2.
+ * Modal đăng nhập khách: SĐT là bắt buộc; tên + email tuỳ ý (email khuyến khích qua ưu đãi
+ * đơn đầu — xem emailBonus prop). Chỉ xác thực OTP qua email khi có nhập email mới/chưa verify.
+ * - Bước 1: nhập SĐT (+tên/email) → POST /dang-nhap. Không nhập email hoặc email đã verify → vào
+ *   thẳng; email mới/chưa verify → server gửi OTP và trả flash.otp_sent → chuyển bước 2.
  * - Bước 2: nhập OTP 6 số → POST /dang-nhap/xac-thuc.
  */
 export default function LoginModal() {
-    const { referral, auth, flash } = usePage<PageProps>().props;
+    const { referral, auth, flash, emailBonus } = usePage<PageProps>().props;
     const [open, setOpen] = useState(false);
     const [step, setStep] = useState<'form' | 'otp'>('form');
     const [resendIn, setResendIn] = useState(0);
@@ -139,10 +141,16 @@ export default function LoginModal() {
     // Bước 2: xác thực OTP.
     const verifyOtp = () => post(route('guest.login.verify'), { preserveScroll: true });
 
-    // Tên không bắt buộc — SĐT là khoá định danh. Dùng email tài khoản (đã che) thì khỏi nhập email.
+    // Tên & email không bắt buộc — SĐT là khoá định danh duy nhất. Nếu có nhập email thì phải
+    // đúng định dạng (còn để trống thì bỏ qua, khách vào thẳng không cần OTP).
     const phoneValid = /^0[0-9]{8,10}$/.test(data.phone.trim());
-    const formValid = phoneValid && (usingAccountEmail || /\S+@\S+\.\S+/.test(data.email));
+    const emailTyped = data.email.trim() !== '';
+    const emailOk = !emailTyped || /\S+@\S+\.\S+/.test(data.email);
+    const formValid = phoneValid && (usingAccountEmail || emailOk);
     const codeValid = /^[0-9]{6}$/.test(data.code);
+    const bonusText = emailBonus?.enabled
+        ? emailBonus.type === 'percent' ? `giảm ${emailBonus.value}%` : `giảm ${money(emailBonus.value)}`
+        : null;
 
     return (
         <AnimatePresence>
@@ -177,7 +185,7 @@ export default function LoginModal() {
 
                         {step === 'form' ? (
                             <>
-                                <p className="mb-[14px] text-[14px] text-moss">Nhập SĐT và email. Khách quen chỉ cần nhập SĐT là đăng nhập được. Lần đầu sẽ có mã xác thực gửi qua email.</p>
+                                <p className="mb-[14px] text-[14px] text-moss">Chỉ cần số điện thoại là đăng nhập được. Nếu nhập email, lần đầu sẽ có mã xác thực gửi qua email.</p>
                                 {referral?.referrer_name && (
                                     <div className="mb-[14px] flex items-center gap-2 rounded-[11px] px-3.5 py-2.5 text-[13px]" style={{ background: '#eef2e3', color: '#3a5a1f' }}>
                                         <span>🎁</span>
@@ -209,14 +217,21 @@ export default function LoginModal() {
                                             </button>
                                         </div>
                                     ) : (
-                                        <Field
-                                            value={data.email}
-                                            onChange={(v) => setData('email', v)}
-                                            onEnter={() => formValid && !processing && requestOtp()}
-                                            placeholder="Email"
-                                            inputMode="email"
-                                            error={errors.email}
-                                        />
+                                        <div>
+                                            <Field
+                                                value={data.email}
+                                                onChange={(v) => setData('email', v)}
+                                                onEnter={() => formValid && !processing && requestOtp()}
+                                                placeholder="Email (không bắt buộc)"
+                                                inputMode="email"
+                                                error={errors.email}
+                                            />
+                                            {bonusText && (
+                                                <p className="mt-1.5 text-[12.5px] text-grass">
+                                                    🎁 Để trống nếu chưa có email. Thêm email để được <strong>{bonusText}</strong> cho đơn hàng đầu tiên!
+                                                </p>
+                                            )}
+                                        </div>
                                     )}
                                     <Field
                                         value={data.name}

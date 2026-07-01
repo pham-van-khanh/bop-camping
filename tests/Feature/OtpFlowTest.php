@@ -150,10 +150,32 @@ class OtpFlowTest extends TestCase
         $this->assertGuest();
     }
 
-    /** @test */
-    public function email_is_required_at_login(): void
+    /** @test Email không bắt buộc — khách mới bỏ trống email vẫn vào thẳng, không cần OTP. */
+    public function new_guest_without_email_logs_in_directly_without_otp(): void
     {
+        Mail::fake();
+
         $this->post(route('guest.login'), ['name' => 'Khách', 'phone' => '0912345678'])
-            ->assertSessionHasErrors('email');
+            ->assertRedirect();
+
+        $this->assertAuthenticated();
+        Mail::assertNothingQueued();
+        $user = User::where('phone', '0912345678')->first();
+        $this->assertNotNull($user);
+        $this->assertStringEndsWith('@bopcamping.local', $user->email);
+        $this->assertNull($user->email_verified_at);
+    }
+
+    /** @test Khách cũ (đã từng tạo bằng SĐT, chưa có email thật) bỏ trống email → vào thẳng lại. */
+    public function returning_guest_without_verified_email_logs_in_directly_without_otp(): void
+    {
+        Mail::fake();
+        $old = User::create(['name' => 'Khách Cũ', 'phone' => '0912345678']);
+
+        $this->post(route('guest.login'), ['name' => 'Khách Cũ', 'phone' => '0912345678'])
+            ->assertRedirect();
+
+        $this->assertAuthenticatedAs($old->fresh());
+        Mail::assertNothingQueued();
     }
 }
