@@ -30,6 +30,7 @@ interface Props {
 export default function ProductDetail({ product, unavailable_dates, reviews, review_summary, can_review }: Props) {
     const { auth } = usePage<PageProps>().props;
     const [activeImg, setActiveImg] = useState(0);
+    const [lightboxOpen, setLightboxOpen] = useState(false);
     const [start, setStart] = useState<string | null>(null);
     const [end, setEnd] = useState<string | null>(null);
     const [qty, setQty] = useState(1);
@@ -121,10 +122,26 @@ export default function ProductDetail({ product, unavailable_dates, reviews, rev
                             style={activeSlide.type === 'grad' ? { background: activeSlide.bg } : { background: baseGrad }}
                         >
                             {activeSlide.type === 'img' && (
-                                <img src={activeSlide.src} alt={product.name} className="absolute inset-0 h-full w-full object-cover" />
+                                <img
+                                    src={activeSlide.src}
+                                    alt={product.name}
+                                    onClick={() => setLightboxOpen(true)}
+                                    className="absolute inset-0 h-full w-full cursor-zoom-in object-cover"
+                                />
                             )}
                             {activeSlide.type === 'video' && (
                                 <video key={activeSlide.src} src={activeSlide.src} controls autoPlay muted loop playsInline className="absolute inset-0 h-full w-full object-cover" />
+                            )}
+                            {(activeSlide.type === 'img' || activeSlide.type === 'video') && (
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); setLightboxOpen(true); }}
+                                    aria-label="Xem cỡ lớn"
+                                    className="absolute right-3 top-3 z-10 grid h-9 w-9 place-items-center rounded-full bg-black/45 text-white transition hover:bg-black/65"
+                                >
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                                        <path d="M9 3H4a1 1 0 0 0-1 1v5M15 3h5a1 1 0 0 1 1 1v5M9 21H4a1 1 0 0 1-1-1v-5M15 21h5a1 1 0 0 0 1-1v-5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                                    </svg>
+                                </button>
                             )}
                             <div className="pointer-events-none absolute inset-0" style={{ background: 'radial-gradient(220px 150px at 76% 20%, rgba(255,255,255,.34), transparent 60%)' }} />
                             <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[90px]" style={{ background: 'linear-gradient(180deg,rgba(24,35,15,0),rgba(24,35,15,.4))' }} />
@@ -240,6 +257,43 @@ export default function ProductDetail({ product, unavailable_dates, reviews, rev
                     </div>
                 </div>
             </main>
+
+            {/* Lightbox: xem ảnh/video cỡ lớn, không bị cắt */}
+            {lightboxOpen && (activeSlide.type === 'img' || activeSlide.type === 'video') && (
+                <div
+                    onClick={() => setLightboxOpen(false)}
+                    className="fixed inset-0 z-[95] flex items-center justify-center p-6"
+                    style={{ background: 'rgba(12,16,8,.82)' }}
+                >
+                    <button
+                        onClick={() => setLightboxOpen(false)}
+                        aria-label="Đóng"
+                        className="absolute right-4 top-4 grid h-10 w-10 place-items-center rounded-full bg-white/15 text-[20px] text-white"
+                    >
+                        ×
+                    </button>
+                    {activeSlide.type === 'img' ? (
+                        <img
+                            src={activeSlide.src}
+                            alt={product.name}
+                            onClick={(e) => e.stopPropagation()}
+                            className="max-h-[90vh] max-w-[92vw] rounded-[12px] object-contain"
+                        />
+                    ) : (
+                        <video
+                            key={activeSlide.src}
+                            src={activeSlide.src}
+                            controls
+                            autoPlay
+                            muted
+                            loop
+                            playsInline
+                            onClick={(e) => e.stopPropagation()}
+                            className="max-h-[90vh] max-w-[92vw] rounded-[12px] object-contain"
+                        />
+                    )}
+                </div>
+            )}
 
             {/* Popup: giỏ chỉ giữ 1 vị trí */}
             {conflict && (
