@@ -188,6 +188,24 @@ class AdminProductTest extends TestCase
     }
 
     /**
+     * bopcamping-7ty (security audit) — chặn upload quá 12 file/lần (CWE-770:
+     * Allocation of Resources Without Limits), khớp trần đã dùng cho camping_spot_media.
+     *
+     * @test
+     */
+    public function image_upload_rejects_more_than_12_files_per_request(): void
+    {
+        Storage::fake('public');
+        $product = $this->makeProduct();
+
+        $this->actingAs($this->admin())->post(route('admin.products.images.store', $product), [
+            'images' => array_map(fn ($i) => UploadedFile::fake()->image("a{$i}.jpg"), range(1, 13)),
+        ])->assertSessionHasErrors('images');
+
+        $this->assertSame(0, $product->images()->count());
+    }
+
+    /**
      * bopcamping-qwg (QA gap-fill) — khách (không admin) không upload được ảnh/video sản phẩm.
      *
      * @test

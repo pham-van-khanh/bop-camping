@@ -181,9 +181,10 @@ class ProductController extends Controller
     public function storeImage(Request $request, Product $product): RedirectResponse
     {
         $request->validate([
-            'images' => 'required|array',
+            'images' => ['required', 'array', 'max:12'],
             'images.*' => ['file', self::MEDIA_MIMES, 'max:51200'], // ≤50MB
         ], [
+            'images.max' => 'Tối đa 12 ảnh/video mỗi lần.',
             'images.*.mimetypes' => 'Chỉ nhận ảnh (jpg, png, webp) hoặc video (mp4, webm, mov).',
             'images.*.max' => 'Mỗi tệp tối đa 50MB.',
         ]);
