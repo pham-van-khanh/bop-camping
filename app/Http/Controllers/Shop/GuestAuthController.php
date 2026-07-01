@@ -40,10 +40,10 @@ class GuestAuthController extends Controller
     }
 
     /**
-     * Bước 1 — Đăng nhập bằng SĐT + email (+ tên tuỳ ý).
-     * - SĐT là khoá định danh; KHÔNG ràng buộc tên — khách đổi tên thoải mái (như đổi tên hiển thị).
-     * - Email ĐÃ verify (đăng nhập lại) → vào thẳng, KHÔNG cần OTP.
-     * - Lần đầu / email chưa verify → gửi OTP qua email, chờ bước 2.
+     * Bước 1 — Đăng nhập bằng SĐT (+ tên tuỳ ý, + email TUỲ CHỌN).
+     * - SĐT là khoá định danh duy nhất; KHÔNG ràng buộc tên — khách đổi tên thoải mái.
+     * - Email không bắt buộc: bỏ trống → vào thẳng bằng SĐT, không cần OTP.
+     * - Có nhập email mới/chưa verify → gửi OTP qua email, chờ bước 2. Email ĐÃ verify → vào thẳng.
      */
     public function store(Request $request, OtpService $otp): RedirectResponse
     {
@@ -65,14 +65,24 @@ class GuestAuthController extends Controller
 
         $existing = User::where('phone', $data['phone'])->first();
 
-        // Email để trống → khách quen đăng nhập nhanh bằng SĐT: dùng email đã xác thực đã lưu
-        // (email thật không đi qua client). Không có email đã verify → bắt nhập email.
+        // Email KHÔNG bắt buộc — SĐT là khoá định danh duy nhất. Để trống:
+        // - khách quen (đã có email thật + verify) → server tự dùng email đã lưu (đăng nhập thẳng, không đi qua client).
+        // - khách chưa từng có email thật (mới hoặc cũ) → tạo/đăng nhập thẳng bằng SĐT, KHÔNG cần OTP
+        //   (không có email thật để xác thực). Khách có thể bổ sung email sau để nhận ưu đãi đơn đầu.
         $email = trim((string) ($data['email'] ?? ''));
         if ($email === '') {
             if ($existing && $existing->email_verified_at && ! $existing->hasPlaceholderEmail()) {
                 $email = $existing->email;
             } else {
-                return back()->withErrors(['email' => 'Vui lòng nhập email.'])->withInput();
+                $name = $this->resolveName($data['name'] ?? null, $existing, $data['phone']);
+                $user = $existing ?? new User(['phone' => $data['phone']]);
+                $user->name = $name;
+                $user->save();
+
+                Auth::login($user, remember: true);
+                $request->session()->regenerate();
+
+                return back();
             }
         }
 

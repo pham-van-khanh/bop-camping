@@ -20,6 +20,9 @@ type Settings = {
     conversion_trigger_status: string;
     max_referrals_per_user_per_month: number;
     reward_clawback_enabled: boolean;
+    email_bonus_enabled: boolean;
+    email_bonus_discount_type: 'fixed' | 'percent';
+    email_bonus_discount_value: number | string;
 };
 
 type Props = PageProps<{
@@ -105,6 +108,13 @@ export default function AdminPromotion() {
                         <Select label="Kiểu giảm" value={data.referee_discount_type} onChange={(v) => setData('referee_discount_type', v as Settings['referee_discount_type'])}
                             options={[{ value: 'percent', label: 'Phần trăm (%)' }, { value: 'fixed', label: 'Số tiền (đ)' }]} />
                         <Num label="Giá trị giảm đơn đầu" value={data.referee_discount_value} onChange={(v) => setData('referee_discount_value', v)} error={errors.referee_discount_value} />
+                    </Section>
+
+                    <Section title="Ưu đãi thêm email (email không bắt buộc khi đăng ký)">
+                        <Toggle label="Bật ưu đãi khi khách thêm email" checked={data.email_bonus_enabled} onChange={(v) => setData('email_bonus_enabled', v)} />
+                        <Select label="Kiểu giảm" value={data.email_bonus_discount_type} onChange={(v) => setData('email_bonus_discount_type', v as Settings['email_bonus_discount_type'])}
+                            options={[{ value: 'percent', label: 'Phần trăm (%)' }, { value: 'fixed', label: 'Số tiền (đ)' }]} />
+                        <Num label="Giá trị giảm đơn đầu" value={data.email_bonus_discount_value} onChange={(v) => setData('email_bonus_discount_value', v)} error={errors.email_bonus_discount_value} />
                     </Section>
 
                     <Section title="Thưởng người giới thiệu (referrer)">

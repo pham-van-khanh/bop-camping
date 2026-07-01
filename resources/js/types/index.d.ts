@@ -23,6 +23,12 @@ export interface Referral {
     referrer_name: string | null;
 }
 
+export interface EmailBonus {
+    enabled: boolean;
+    type: 'fixed' | 'percent';
+    value: number;
+}
+
 export type PageProps<
     T extends Record<string, unknown> = Record<string, unknown>,
 > = T & {
@@ -31,5 +37,6 @@ export type PageProps<
     };
     flash: Flash;
     referral: Referral | null;
+    emailBonus: EmailBonus;
     pending_reviews?: number | null;
 };

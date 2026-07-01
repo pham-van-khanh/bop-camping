@@ -71,13 +71,12 @@ class LoginLookupRenameTest extends TestCase
         $this->assertAuthenticatedAs($user->fresh());
     }
 
-    /** @test */
-    public function new_phone_without_email_is_rejected(): void
+    /** @test Email không bắt buộc (bopcamping-3xr): SĐT mới bỏ trống email → vào thẳng, không OTP. */
+    public function new_phone_without_email_logs_in_directly(): void
     {
-        // SĐT chưa có tài khoản verify → vẫn bắt nhập email (để gửi OTP).
         $this->post(route('guest.login'), ['phone' => '0912345678'])
-            ->assertSessionHasErrors('email');
-        $this->assertGuest();
+            ->assertRedirect()->assertSessionHasNoErrors();
+        $this->assertAuthenticated();
     }
 
     // ── Đổi tên tuỳ ý (SĐT là khoá) ───────────────────────────────────────────

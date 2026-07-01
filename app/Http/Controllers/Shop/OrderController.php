@@ -10,6 +10,7 @@ use App\Models\Product;
 use App\Models\PromotionSetting;
 use App\Models\User;
 use App\Services\AvailabilityService;
+use App\Services\Promotion\EmailBonusService;
 use App\Services\Promotion\VoucherService;
 use App\Services\Referral\ReferralService;
 use Illuminate\Http\RedirectResponse;
@@ -25,6 +26,7 @@ class OrderController extends Controller
         private AvailabilityService $availability,
         private ReferralService $referrals,
         private VoucherService $vouchers,
+        private EmailBonusService $emailBonus,
     ) {}
 
     /**
@@ -158,6 +160,10 @@ class OrderController extends Controller
                 $validated['referral_code'] ?? null,
                 $settings,
             );
+            $order->refresh();
+
+            // (1.5) Ưu đãi thêm email cho đơn đầu (khuyến khích khách bổ sung email — email không bắt buộc).
+            $this->emailBonus->applyFirstOrderDiscount($order, $settings);
             $order->refresh();
 
             // (2) Voucher (stacking + trần) áp lên phần còn lại.
