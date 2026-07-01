@@ -120,6 +120,54 @@ class AdminProductTest extends TestCase
     }
 
     /**
+     * bopcamping-6a3 — admin có thể upload ảnh + video cho sản phẩm, và xoá được video.
+     *
+     * @test
+     */
+    public function admin_can_upload_and_delete_image_and_video(): void
+    {
+        Storage::fake('public');
+        $product = $this->makeProduct();
+
+        $this->actingAs($this->admin())->post(route('admin.products.images.store', $product), [
+            'images' => [
+                UploadedFile::fake()->image('a.jpg'),
+                UploadedFile::fake()->create('clip.mp4', 800, 'video/mp4'),
+            ],
+        ])->assertRedirect()->assertSessionHas('success');
+
+        $this->assertSame(2, $product->images()->count());
+        $this->assertSame(['image', 'video'], $product->images()->orderBy('id')->pluck('type')->all());
+
+        $videoImage = $product->images()->where('type', 'video')->first();
+        $this->actingAs($this->admin())
+            ->delete(route('admin.products.images.destroy', [$product, $videoImage]))
+            ->assertRedirect();
+
+        $this->assertDatabaseMissing('product_images', ['id' => $videoImage->id]);
+        Storage::disk('public')->assertMissing($videoImage->path);
+    }
+
+    /**
+     * bopcamping-6a3 — chặn upload mimetype không hợp lệ (chỉ nhận ảnh/video đã khai báo).
+     *
+     * @test
+     */
+    public function image_upload_rejects_invalid_mimetype(): void
+    {
+        Storage::fake('public');
+        $product = $this->makeProduct();
+
+        $this->actingAs($this->admin())->post(route('admin.products.images.store', $product), [
+            'images' => [
+                UploadedFile::fake()->create('doc.pdf', 100, 'application/pdf'),
+            ],
+        ])->assertSessionHasErrors('images.0');
+
+        $this->assertSame(0, $product->images()->count());
+    }
+
+    /**
      * 76f — IDOR: không xoá được ảnh qua URL sản phẩm khác (CWE-639).
      *
      * @test

@@ -5,7 +5,7 @@ import ProductStatusPill from '@/Components/ProductStatusPill';
 import { money } from '@/lib/format';
 import type { PageProps } from '@/types';
 
-type ProductImage = { id: number; path: string; sort_order: number };
+type ProductImage = { id: number; path: string; sort_order: number; type: 'image' | 'video' };
 type CategoryOption = { id: number; name: string };
 type ServiceLocationOption = { id: number; name: string; area: string | null; status: 'open' | 'coming' };
 type Product = {
@@ -195,11 +195,11 @@ export default function AdminProducts({
         <>
             <Head title="Admin · Sản phẩm" />
 
-            {/* Hidden file input for image upload */}
+            {/* Hidden file input for image/video upload */}
             <input
                 ref={uploadRef}
                 type="file"
-                accept="image/*"
+                accept="image/*,video/*"
                 multiple
                 className="hidden"
                 onChange={handleFileChange}
@@ -363,7 +363,7 @@ export default function AdminProducts({
                                                                         strokeLinecap="round"
                                                                     />
                                                                 </svg>
-                                                                {uploadingId === p.id ? 'Đang tải…' : 'Upload ảnh'}
+                                                                {uploadingId === p.id ? 'Đang tải…' : 'Upload ảnh/video'}
                                                             </button>
                                                         </div>
 
@@ -375,11 +375,22 @@ export default function AdminProducts({
                                                             <div className="flex flex-wrap gap-3">
                                                                 {p.images.map((img) => (
                                                                     <div key={img.id} className="group relative">
-                                                                        <img
-                                                                            src={img.path}
-                                                                            alt=""
-                                                                            className="h-20 w-20 rounded-[10px] object-cover border border-cardBorder"
-                                                                        />
+                                                                        {img.type === 'video' ? (
+                                                                            <video
+                                                                                src={img.path}
+                                                                                className="h-20 w-20 rounded-[10px] border border-cardBorder object-cover"
+                                                                                muted
+                                                                            />
+                                                                        ) : (
+                                                                            <img
+                                                                                src={img.path}
+                                                                                alt=""
+                                                                                className="h-20 w-20 rounded-[10px] object-cover border border-cardBorder"
+                                                                            />
+                                                                        )}
+                                                                        {img.type === 'video' && (
+                                                                            <span className="pointer-events-none absolute inset-0 grid place-items-center text-white">▶</span>
+                                                                        )}
                                                                         <button
                                                                             onClick={() => deleteImage(p.id, img.id)}
                                                                             className="absolute -right-1.5 -top-1.5 hidden h-5 w-5 items-center justify-center rounded-full bg-[#b3493a] text-[10px] font-bold text-white shadow group-hover:flex"
