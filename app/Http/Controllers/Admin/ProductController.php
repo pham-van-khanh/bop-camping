@@ -16,6 +16,9 @@ use Inertia\Response;
 
 class ProductController extends Controller
 {
+    /** Ảnh + video cho phép trong gallery sản phẩm (như review media). */
+    private const MEDIA_MIMES = 'mimetypes:image/jpeg,image/png,image/webp,video/mp4,video/webm,video/quicktime';
+
     public function index(): Response
     {
         $products = Product::with(['category', 'serviceLocations', 'images' => fn ($q) => $q->orderBy('sort_order')])
@@ -37,6 +40,7 @@ class ProductController extends Controller
                     'id' => $img->id,
                     'path' => Storage::url($img->path),
                     'sort_order' => $img->sort_order,
+                    'type' => $img->type,
                 ])->values(),
             ]);
 
@@ -178,16 +182,21 @@ class ProductController extends Controller
     {
         $request->validate([
             'images' => 'required|array',
-            'images.*' => 'file|mimes:jpg,jpeg,png,webp|max:4096',
+            'images.*' => ['file', self::MEDIA_MIMES, 'max:51200'], // ≤50MB
+        ], [
+            'images.*.mimetypes' => 'Chỉ nhận ảnh (jpg, png, webp) hoặc video (mp4, webm, mov).',
+            'images.*.max' => 'Mỗi tệp tối đa 50MB.',
         ]);
 
         $maxSort = $product->images()->max('sort_order') ?? 0;
 
         foreach ($request->file('images') as $file) {
             $path = $file->store('products', 'public');
+            $isVideo = str_starts_with((string) $file->getMimeType(), 'video/');
             $product->images()->create([
                 'path' => $path,
                 'sort_order' => ++$maxSort,
+                'type' => $isVideo ? 'video' : 'image',
             ]);
         }
 

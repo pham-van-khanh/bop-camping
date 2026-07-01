@@ -265,6 +265,7 @@ class ProductController extends Controller
             'images' => $p->images->map(fn ($i) => [
                 'path' => $i->path,
                 'sort_order' => $i->sort_order,
+                'type' => $i->type,
             ])->values()->all(),
             'featured' => false,
             // Badge vị trí: chỉ tính vị trí đang mở. all_locations = phục vụ toàn bộ
