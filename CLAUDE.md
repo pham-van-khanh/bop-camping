@@ -4,9 +4,11 @@ Web cho thuê thiết bị cắm trại của **một shop duy nhất**. Khách 
 
 > Kế hoạch chi tiết, mô hình dữ liệu và bảng màu nằm trong [KE_HOACH.md](KE_HOACH.md) — đọc file đó trước khi triển khai tính năng.
 
-**Trạng thái hiện tại:** đã scaffold **Laravel 12.62** (DB=SQLite, migrate xong, trang welcome chạy). Chưa cài Breeze/Inertia/React (issue `bopcamping-iee`). Xem `bd ready` để biết việc tiếp theo.
+**Trạng thái hiện tại:** đã qua giai đoạn scaffold — **Laravel 12.62 + Breeze/Inertia/React/TypeScript** cài đầy đủ, build chạy được (`composer run dev`). DB dev = **MySQL 8** qua Docker (container `bopcamping_db`, port 3307; SQLite chỉ còn file rỗng không dùng). Toàn bộ migration đã apply.
 
-> **Git/Beads:** repo hiện **chỉ ở local** (chưa cấu hình remote). Các bước "git push" trong phần Session Completion phía dưới CHƯA áp dụng cho tới khi thêm remote — hiện tại chỉ commit local + `bd` lưu local.
+Đã triển khai: shop (danh sách/chi tiết sản phẩm, giỏ hàng, checkout/đơn hàng, tra cứu đơn, đăng nhập khách qua OTP email, review + review-invite, voucher/khuyến mãi, referral, địa điểm phục vụ/camping spot) và trang quản trị admin (dashboard, sản phẩm, danh mục, đơn hàng, banner, user, voucher, review, referral, promotion, service location) — xem `app/Http/Controllers/{Shop,Admin}` và `resources/js/Pages/{*,Admin}`. Xem `bd ready` để biết việc tiếp theo.
+
+> **Git/Beads:** repo đã có remote (`origin` → GitHub). Các bước "git push" trong phần Session Completion phía dưới **áp dụng như bình thường**.
 
 ## Tech Stack (đã chốt)
 
