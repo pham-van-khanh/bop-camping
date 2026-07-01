@@ -58,78 +58,80 @@ export default function AdminVouchers() {
     return (
         <>
             <Head title="Admin · Voucher" />
-            <h1 className="mb-4 text-[22px] font-extrabold text-ink">Voucher</h1>
+            <div className="p-6">
+                <h1 className="mb-4 text-[22px] font-extrabold text-ink">Voucher</h1>
 
-            {toast && <div className="mb-4 rounded-[10px] border border-grass/40 bg-[#eef2e3] px-4 py-2.5 text-[14px] font-semibold text-pine">{toast}</div>}
+                {toast && <div className="mb-4 rounded-[10px] border border-grass/40 bg-[#eef2e3] px-4 py-2.5 text-[14px] font-semibold text-pine">{toast}</div>}
 
-            {/* Tạo voucher thủ công */}
-            <form onSubmit={submitCreate} className="mb-5 flex flex-wrap items-end gap-3 rounded-card border border-cardBorder bg-card p-4">
-                <Field label="SĐT khách">
-                    <input value={create.data.phone} onChange={(e) => create.setData('phone', e.target.value)} placeholder="09..." className={inputCls} />
-                    {create.errors.phone && <span className="text-[12px] text-red-500">{create.errors.phone}</span>}
-                </Field>
-                <Field label="Kiểu giảm">
-                    <SelectInput value={create.data.type} onChange={(v) => create.setData('type', v)} ariaLabel="Kiểu voucher" className="min-w-[150px]"
-                        options={[{ value: 'fixed', label: 'Số tiền (đ)' }, { value: 'percent', label: 'Phần trăm (%)' }]} />
-                </Field>
-                <Field label="Giá trị">
-                    <input type="number" step="any" value={create.data.value} onChange={(e) => create.setData('value', e.target.value)} className={inputCls} />
-                    {create.errors.value && <span className="text-[12px] text-red-500">{create.errors.value}</span>}
-                </Field>
-                <Field label="HSD (ngày)">
-                    <input type="number" value={create.data.validity_days} onChange={(e) => create.setData('validity_days', e.target.value)} placeholder="mặc định" className={inputCls} />
-                </Field>
-                <button type="submit" disabled={create.processing} className="h-11 rounded-control bg-grass px-5 text-[14px] font-bold text-white disabled:opacity-60">Tạo voucher</button>
-            </form>
+                {/* Tạo voucher thủ công */}
+                <form onSubmit={submitCreate} className="mb-5 flex flex-wrap items-end gap-3 rounded-card border border-cardBorder bg-card p-4">
+                    <Field label="SĐT khách">
+                        <input value={create.data.phone} onChange={(e) => create.setData('phone', e.target.value)} placeholder="09..." className={inputCls} />
+                        {create.errors.phone && <span className="text-[12px] text-red-500">{create.errors.phone}</span>}
+                    </Field>
+                    <Field label="Kiểu giảm">
+                        <SelectInput value={create.data.type} onChange={(v) => create.setData('type', v)} ariaLabel="Kiểu voucher" className="min-w-[150px]"
+                            options={[{ value: 'fixed', label: 'Số tiền (đ)' }, { value: 'percent', label: 'Phần trăm (%)' }]} />
+                    </Field>
+                    <Field label="Giá trị">
+                        <input type="number" step="any" value={create.data.value} onChange={(e) => create.setData('value', e.target.value)} className={inputCls} />
+                        {create.errors.value && <span className="text-[12px] text-red-500">{create.errors.value}</span>}
+                    </Field>
+                    <Field label="HSD (ngày)">
+                        <input type="number" value={create.data.validity_days} onChange={(e) => create.setData('validity_days', e.target.value)} placeholder="mặc định" className={inputCls} />
+                    </Field>
+                    <button type="submit" disabled={create.processing} className="h-11 rounded-control bg-grass px-5 text-[14px] font-bold text-white disabled:opacity-60">Tạo voucher</button>
+                </form>
 
-            {/* Bộ lọc */}
-            <div className="mb-3 flex flex-wrap items-center gap-2">
-                <span className="text-[13px] font-semibold text-moss">Lọc:</span>
-                <SelectInput value={filters.status ?? ''} onChange={(v) => filter({ status: v })} placeholder="Mọi trạng thái" ariaLabel="Lọc theo trạng thái" className="w-[170px]"
-                    options={Object.entries(STATUS_LABEL).map(([value, label]) => ({ value, label }))} />
-                <SelectInput value={filters.source ?? ''} onChange={(v) => filter({ source: v })} placeholder="Mọi nguồn" ariaLabel="Lọc theo nguồn" className="w-[190px]"
-                    options={Object.entries(VOUCHER_SOURCE_LABEL).map(([value, label]) => ({ value, label }))} />
-            </div>
+                {/* Bộ lọc */}
+                <div className="mb-3 flex flex-wrap items-center gap-2">
+                    <span className="text-[13px] font-semibold text-moss">Lọc:</span>
+                    <SelectInput value={filters.status ?? ''} onChange={(v) => filter({ status: v })} placeholder="Mọi trạng thái" ariaLabel="Lọc theo trạng thái" className="w-[170px]"
+                        options={Object.entries(STATUS_LABEL).map(([value, label]) => ({ value, label }))} />
+                    <SelectInput value={filters.source ?? ''} onChange={(v) => filter({ source: v })} placeholder="Mọi nguồn" ariaLabel="Lọc theo nguồn" className="w-[190px]"
+                        options={Object.entries(VOUCHER_SOURCE_LABEL).map(([value, label]) => ({ value, label }))} />
+                </div>
 
-            <div className="overflow-x-auto rounded-card border border-cardBorder bg-card">
-                <table className="w-full text-[13px]">
-                    <thead>
-                        <tr className="border-b border-cardBorder text-left text-moss" style={{ background: '#f8faf4' }}>
-                            <th className="px-3 py-2.5 font-semibold">Mã</th>
-                            <th className="px-3 py-2.5 font-semibold">Khách</th>
-                            <th className="px-3 py-2.5 font-semibold">Giá trị</th>
-                            <th className="px-3 py-2.5 font-semibold">Nguồn</th>
-                            <th className="px-3 py-2.5 font-semibold">Trạng thái</th>
-                            <th className="px-3 py-2.5 font-semibold">HSD</th>
-                            <th className="px-3 py-2.5"></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {vouchers.data.length === 0 && (
-                            <tr><td colSpan={7} className="px-3 py-6 text-center text-moss">Chưa có voucher nào.</td></tr>
-                        )}
-                        {vouchers.data.map((v) => (
-                            <tr key={v.id} className="border-t border-[#eef2e3]">
-                                <td className="px-3 py-2.5 font-mono font-bold text-pine">{v.code}</td>
-                                <td className="px-3 py-2.5 text-ink">{v.user ? `${v.user.name} · ${v.user.phone}` : '—'}</td>
-                                <td className="px-3 py-2.5 font-semibold text-grass">{voucherValueText(v.type, v.value)}</td>
-                                <td className="px-3 py-2.5 text-moss">{VOUCHER_SOURCE_LABEL[v.source] ?? VOUCHER_SOURCE_FALLBACK}</td>
-                                <td className="px-3 py-2.5">
-                                    <span className="rounded-pill px-2.5 py-1 text-[11px] font-bold" style={STATUS_STYLE[v.status]}>{STATUS_LABEL[v.status]}</span>
-                                </td>
-                                <td className="px-3 py-2.5 text-moss">{v.expires_at ?? '—'}</td>
-                                <td className="px-3 py-2.5 text-right">
-                                    {v.status === 'active' && (
-                                        <button onClick={() => revoke(v.id)} className="text-[12px] font-semibold text-[#b3493a] hover:underline">Thu hồi</button>
-                                    )}
-                                </td>
+                <div className="overflow-x-auto rounded-card border border-cardBorder bg-card">
+                    <table className="w-full text-[13px]">
+                        <thead>
+                            <tr className="border-b border-cardBorder text-left text-moss" style={{ background: '#f8faf4' }}>
+                                <th className="px-3 py-2.5 font-semibold">Mã</th>
+                                <th className="px-3 py-2.5 font-semibold">Khách</th>
+                                <th className="px-3 py-2.5 font-semibold">Giá trị</th>
+                                <th className="px-3 py-2.5 font-semibold">Nguồn</th>
+                                <th className="px-3 py-2.5 font-semibold">Trạng thái</th>
+                                <th className="px-3 py-2.5 font-semibold">HSD</th>
+                                <th className="px-3 py-2.5"></th>
                             </tr>
-                        ))}
-                    </tbody>
-                </table>
-            </div>
+                        </thead>
+                        <tbody>
+                            {vouchers.data.length === 0 && (
+                                <tr><td colSpan={7} className="px-3 py-6 text-center text-moss">Chưa có voucher nào.</td></tr>
+                            )}
+                            {vouchers.data.map((v) => (
+                                <tr key={v.id} className="border-t border-[#eef2e3]">
+                                    <td className="px-3 py-2.5 font-mono font-bold text-pine">{v.code}</td>
+                                    <td className="px-3 py-2.5 text-ink">{v.user ? `${v.user.name} · ${v.user.phone}` : '—'}</td>
+                                    <td className="px-3 py-2.5 font-semibold text-grass">{voucherValueText(v.type, v.value)}</td>
+                                    <td className="px-3 py-2.5 text-moss">{VOUCHER_SOURCE_LABEL[v.source] ?? VOUCHER_SOURCE_FALLBACK}</td>
+                                    <td className="px-3 py-2.5">
+                                        <span className="rounded-pill px-2.5 py-1 text-[11px] font-bold" style={STATUS_STYLE[v.status]}>{STATUS_LABEL[v.status]}</span>
+                                    </td>
+                                    <td className="px-3 py-2.5 text-moss">{v.expires_at ?? '—'}</td>
+                                    <td className="px-3 py-2.5 text-right">
+                                        {v.status === 'active' && (
+                                            <button onClick={() => revoke(v.id)} className="text-[12px] font-semibold text-[#b3493a] hover:underline">Thu hồi</button>
+                                        )}
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
 
-            <Pagination paginator={vouchers} />
+                <Pagination paginator={vouchers} />
+            </div>
         </>
     );
 }
