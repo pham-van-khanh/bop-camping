@@ -30,13 +30,13 @@ class ProductController extends Controller
                 'price_per_day' => $p->price_per_day,
                 'quantity' => $p->quantity,
                 'deposit' => $p->deposit,
-                'thumbnail' => $p->thumbnail ? Storage::url($p->thumbnail) : null,
+                'thumbnail' => $p->thumbnail ? Storage::disk('media')->url($p->thumbnail) : null,
                 'status' => $p->status,
                 'category' => $p->category ? ['id' => $p->category->id, 'name' => $p->category->name] : null,
                 'service_location_ids' => $p->serviceLocations->pluck('id')->values(),
                 'images' => $p->images->map(fn (ProductImage $img) => [
                     'id' => $img->id,
-                    'path' => Storage::url($img->path),
+                    'path' => Storage::disk('media')->url($img->path),
                     'sort_order' => $img->sort_order,
                     'type' => $img->type,
                 ])->values(),
@@ -85,7 +85,7 @@ class ProductController extends Controller
 
         $thumbnailPath = null;
         if ($request->hasFile('thumbnail')) {
-            $thumbnailPath = $request->file('thumbnail')->store('products', 'public');
+            $thumbnailPath = $request->file('thumbnail')->store('admin/products', 'media');
         }
 
         $product = Product::create([
@@ -136,9 +136,9 @@ class ProductController extends Controller
         $thumbnailPath = $product->thumbnail;
         if ($request->hasFile('thumbnail')) {
             if ($thumbnailPath) {
-                Storage::disk('public')->delete($thumbnailPath);
+                Storage::disk('media')->delete($thumbnailPath);
             }
-            $thumbnailPath = $request->file('thumbnail')->store('products', 'public');
+            $thumbnailPath = $request->file('thumbnail')->store('admin/products', 'media');
         }
 
         $product->update([
@@ -162,13 +162,13 @@ class ProductController extends Controller
     {
         // Xóa tất cả ảnh phụ trên storage
         foreach ($product->images as $image) {
-            Storage::disk('public')->delete($image->path);
+            Storage::disk('media')->delete($image->path);
         }
         $product->images()->delete();
 
         // Xóa thumbnail
         if ($product->thumbnail) {
-            Storage::disk('public')->delete($product->thumbnail);
+            Storage::disk('media')->delete($product->thumbnail);
         }
 
         $product->delete();
@@ -191,7 +191,7 @@ class ProductController extends Controller
 
         foreach ($request->file('images') as $file) {
             $product->images()->create([
-                'path' => $file->store('products', 'public'),
+                'path' => $file->store('admin/products', 'media'),
                 'sort_order' => ++$maxSort,
                 'type' => MediaType::detect($file),
             ]);
@@ -205,7 +205,7 @@ class ProductController extends Controller
         // Chặn IDOR: ảnh phải thuộc đúng sản phẩm trên URL (CWE-639).
         abort_unless($image->product_id === $product->id, 404);
 
-        Storage::disk('public')->delete($image->path);
+        Storage::disk('media')->delete($image->path);
         $image->delete();
 
         return back()->with('success', 'Đã xoá ảnh.');

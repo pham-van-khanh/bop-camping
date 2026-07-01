@@ -102,7 +102,7 @@ class ProductController extends Controller
             'nearest_name' => $s->nearestServiceLocation?->name,
             'media' => $s->media->map(fn ($m) => [
                 'type' => $m->type,
-                'url' => Storage::url($m->path),
+                'url' => Storage::disk('media')->url($m->path),
             ])->values(),
         ];
     }
@@ -174,7 +174,7 @@ class ProductController extends Controller
 
         $reviewCount = $p->reviews()->where('status', 'approved')->count();
         $reviewAvg = $p->averageRating();
-        $seoImage = $p->thumbnail ? url(Storage::url($p->thumbnail)) : url('/images/album/forest-camp-aerial.jpg');
+        $seoImage = $p->thumbnail ? url(Storage::disk('media')->url($p->thumbnail)) : url('/images/album/forest-camp-aerial.jpg');
         $seoDesc = Str::limit(trim(strip_tags((string) $p->description)), 155)
             ?: 'Cho thuê '.$p->name.' theo ngày tại BỐP CAMPING.';
 
@@ -239,7 +239,7 @@ class ProductController extends Controller
                 'meta' => trim(($r->orderItem ? $r->orderItem->days.' ngày · ' : '').'Tháng '.$r->created_at->format('n, Y')),
                 'media' => $r->images->map(fn ($m) => [
                     'type' => $m->type,
-                    'url' => Storage::url($m->path),
+                    'url' => Storage::disk('media')->url($m->path),
                 ])->values(),
             ])->values()->all();
     }
@@ -255,7 +255,7 @@ class ProductController extends Controller
             'price_per_day' => $p->price_per_day,
             'quantity' => $p->quantity,
             'deposit' => $p->deposit ?? 0,
-            'thumbnail' => $p->thumbnail,
+            'thumbnail' => $p->thumbnail ? Storage::disk('media')->url($p->thumbnail) : null,
             'status' => $p->status,
             'category' => [
                 'id' => $p->category->id,
@@ -263,7 +263,7 @@ class ProductController extends Controller
                 'slug' => $p->category->slug,
             ],
             'images' => $p->images->map(fn ($i) => [
-                'path' => $i->path,
+                'url' => Storage::disk('media')->url($i->path),
                 'sort_order' => $i->sort_order,
                 'type' => $i->type,
             ])->values()->all(),

@@ -300,7 +300,7 @@ function ReviewModalView({ review, productName, onClose }: { review: ReviewItem;
                             {review.media.map((m, i) => (
                                 <div key={i} className="overflow-hidden rounded-[10px]" style={{ aspectRatio: '1/1' }}>
                                     {m.type === 'video'
-                                        ? <video src={m.url} controls className="h-full w-full object-cover" />
+                                        ? <video src={m.url} controls autoPlay muted loop playsInline className="h-full w-full object-cover" />
                                         : <img src={m.url} alt="" className="h-full w-full object-cover" />}
                                 </div>
                             ))}

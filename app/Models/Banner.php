@@ -48,6 +48,6 @@ class Banner extends Model
     /** URL ảnh: ảnh upload (storage) hoặc đường dẫn public (/images/...) / link ngoài. */
     public function imageUrl(): string
     {
-        return Str::startsWith($this->image, ['/', 'http']) ? $this->image : Storage::url($this->image);
+        return Str::startsWith($this->image, ['/', 'http']) ? $this->image : Storage::disk('media')->url($this->image);
     }
 }

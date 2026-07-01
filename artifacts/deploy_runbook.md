@@ -206,6 +206,12 @@ php artisan route:cache
 php artisan view:cache
 ```
 
+> **Lưu ý `MEDIA_DISK`/`AWS_*`**: sau `config:cache`, Laravel đọc giá trị env đã
+> đóng băng trong cache, không đọc lại `.env` nữa. Nếu sau này đổi `MEDIA_DISK`
+> hoặc bất kỳ key `AWS_*` trong `.env` production, **phải chạy lại
+> `php artisan config:cache`** (hoặc `config:clear` nếu tạm không cache) để
+> thay đổi có hiệu lực — sửa `.env` không thôi sẽ không đủ.
+
 ---
 
 ## Giai đoạn 4 — Nginx + HTTPS

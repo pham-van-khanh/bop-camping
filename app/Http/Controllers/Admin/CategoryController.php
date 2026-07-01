@@ -23,7 +23,7 @@ class CategoryController extends Controller
                 'name' => $c->name,
                 'slug' => $c->slug,
                 'description' => $c->description,
-                'image' => $c->image ? Storage::url($c->image) : null,
+                'image' => $c->image ? Storage::disk('media')->url($c->image) : null,
                 'product_count' => $c->products_count,
             ]);
 
@@ -44,7 +44,7 @@ class CategoryController extends Controller
 
         $imagePath = null;
         if ($request->hasFile('image')) {
-            $imagePath = $request->file('image')->store('categories', 'public');
+            $imagePath = $request->file('image')->store('admin/categories', 'media');
         }
 
         Category::create([
@@ -70,9 +70,9 @@ class CategoryController extends Controller
         $imagePath = $category->image;
         if ($request->hasFile('image')) {
             if ($imagePath) {
-                Storage::disk('public')->delete($imagePath);
+                Storage::disk('media')->delete($imagePath);
             }
-            $imagePath = $request->file('image')->store('categories', 'public');
+            $imagePath = $request->file('image')->store('admin/categories', 'media');
         }
 
         $category->update([
@@ -93,7 +93,7 @@ class CategoryController extends Controller
         }
 
         if ($category->image) {
-            Storage::disk('public')->delete($category->image);
+            Storage::disk('media')->delete($category->image);
         }
 
         $category->delete();

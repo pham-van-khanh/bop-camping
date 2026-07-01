@@ -38,7 +38,7 @@ class CampingSpotController extends Controller
                 'media' => $s->media->map(fn (CampingSpotMedia $m) => [
                     'id' => $m->id,
                     'type' => $m->type,
-                    'url' => Storage::url($m->path),
+                    'url' => Storage::disk('media')->url($m->path),
                 ])->values(),
             ]);
 
@@ -75,7 +75,7 @@ class CampingSpotController extends Controller
     public function destroy(CampingSpot $campingSpot): RedirectResponse
     {
         foreach ($campingSpot->media as $m) {
-            Storage::disk('public')->delete($m->path);
+            Storage::disk('media')->delete($m->path);
         }
         $campingSpot->delete(); // media cascade ở DB
 
@@ -96,7 +96,7 @@ class CampingSpotController extends Controller
         foreach ((array) $request->file('media', []) as $file) {
             $campingSpot->media()->create([
                 'type' => MediaType::detect($file),
-                'path' => $file->store('camping-spots', 'public'),
+                'path' => $file->store('admin/camping-spots', 'media'),
                 'sort_order' => ++$maxSort,
             ]);
         }
@@ -109,7 +109,7 @@ class CampingSpotController extends Controller
         // Chặn IDOR: media phải thuộc đúng điểm trên URL (CWE-639).
         abort_unless($media->camping_spot_id === $campingSpot->id, 404);
 
-        Storage::disk('public')->delete($media->path);
+        Storage::disk('media')->delete($media->path);
         $media->delete();
 
         return back()->with('success', 'Đã xoá ảnh/video.');
