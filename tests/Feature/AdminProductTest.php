@@ -168,6 +168,44 @@ class AdminProductTest extends TestCase
     }
 
     /**
+     * bopcamping-qwg (QA gap-fill) — chặn file vượt trần 50MB, dù mimetype hợp lệ.
+     *
+     * @test
+     */
+    public function image_upload_rejects_file_over_size_limit(): void
+    {
+        Storage::fake('public');
+        $product = $this->makeProduct();
+
+        $this->actingAs($this->admin())->post(route('admin.products.images.store', $product), [
+            // fake()->create dùng KB — 51201 KB > 51200 KB (50MB) trần cho phép.
+            'images' => [
+                UploadedFile::fake()->create('big.mp4', 51201, 'video/mp4'),
+            ],
+        ])->assertSessionHasErrors('images.0');
+
+        $this->assertSame(0, $product->images()->count());
+    }
+
+    /**
+     * bopcamping-qwg (QA gap-fill) — khách (không admin) không upload được ảnh/video sản phẩm.
+     *
+     * @test
+     */
+    public function non_admin_cannot_upload_product_media(): void
+    {
+        Storage::fake('public');
+        $product = $this->makeProduct();
+        $guest = User::factory()->create(['is_admin' => false]);
+
+        $this->actingAs($guest)->post(route('admin.products.images.store', $product), [
+            'images' => [UploadedFile::fake()->image('a.jpg')],
+        ])->assertRedirect(route('admin.login'));
+
+        $this->assertSame(0, $product->images()->count());
+    }
+
+    /**
      * 76f — IDOR: không xoá được ảnh qua URL sản phẩm khác (CWE-639).
      *
      * @test
