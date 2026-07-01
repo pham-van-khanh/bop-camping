@@ -168,16 +168,24 @@ export default function AdminProducts({
     };
 
     /* --- Image upload --- */
+    // Lưu ở ref (không phải state) vì chỉ dùng để nhớ sản phẩm đích cho lần chọn file
+    // kế tiếp — set nó KHÔNG được kích hoạt trạng thái "đang tải" trên UI (xem dưới).
+    const uploadTargetRef = useRef<number | null>(null);
     const triggerUpload = (productId: number) => {
-        setUploadingId(productId);
+        uploadTargetRef.current = productId;
         uploadRef.current?.click();
     };
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (!uploadingId || !e.target.files?.length) return;
+        const productId = uploadTargetRef.current;
+        // Bấm Cancel ở hộp thoại chọn file → không có file → không set uploadingId,
+        // nút không bị kẹt ở "Đang tải…" (trước đây set uploadingId ngay lúc mở dialog,
+        // nếu khách Cancel thì onChange không bắn nên không có gì reset lại được).
+        if (!productId || !e.target.files?.length) return;
+        setUploadingId(productId);
         const formData = new FormData();
         Array.from(e.target.files).forEach((f) => formData.append('images[]', f));
-        router.post(route('admin.products.images.store', uploadingId), formData, {
+        router.post(route('admin.products.images.store', productId), formData, {
             forceFormData: true,
             preserveScroll: true,
             onFinish: () => {
