@@ -36,7 +36,7 @@ class AdminCategoryTest extends TestCase
     /** @test */
     public function admin_can_update_category_image_via_spoofed_post(): void
     {
-        Storage::fake('public');
+        Storage::fake('media');
         $cat = Category::create(['name' => 'Cũ', 'slug' => 'cu']);
 
         $this->actingAs($this->admin())->post(route('admin.categories.update', $cat), [
@@ -48,13 +48,13 @@ class AdminCategoryTest extends TestCase
         $cat->refresh();
         $this->assertSame('Mới', $cat->name);
         $this->assertNotNull($cat->image);
-        Storage::disk('public')->assertExists($cat->image);
+        Storage::disk('media')->assertExists($cat->image);
     }
 
     /** @test */
     public function category_image_rejects_svg(): void
     {
-        Storage::fake('public');
+        Storage::fake('media');
 
         $this->actingAs($this->admin())->post(route('admin.categories.store'), [
             'name' => 'X',

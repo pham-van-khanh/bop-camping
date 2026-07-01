@@ -54,7 +54,7 @@ class ReviewController extends Controller
         foreach ((array) $request->file('media', []) as $i => $file) {
             $review->images()->create([
                 'type' => MediaType::detect($file),
-                'path' => $file->store('reviews', 'public'),
+                'path' => $file->store('user/reviews', 'media'),
                 'sort_order' => $i,
             ]);
         }

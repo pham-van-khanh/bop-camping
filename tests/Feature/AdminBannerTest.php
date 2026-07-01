@@ -35,7 +35,7 @@ class AdminBannerTest extends TestCase
     /** @test */
     public function admin_can_create_banner_with_image(): void
     {
-        Storage::fake('public');
+        Storage::fake('media');
 
         $this->actingAs($this->admin())->post(route('admin.banners.store'), [
             'placement' => 'promo',
@@ -49,7 +49,7 @@ class AdminBannerTest extends TestCase
         $this->assertSame('promo', $b->placement);
         $this->assertSame('/thiet-bi', $b->link_url);
         $this->assertTrue($b->is_active);
-        Storage::disk('public')->assertExists($b->image);
+        Storage::disk('media')->assertExists($b->image);
     }
 
     /** @test */

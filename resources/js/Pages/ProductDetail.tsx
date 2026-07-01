@@ -42,7 +42,7 @@ export default function ProductDetail({ product, unavailable_dates, reviews, rev
     // Build gallery: real images first, then fallback gradient variants
     const gallery: ({ type: 'img'; src: string } | { type: 'video'; src: string } | { type: 'grad'; bg: string })[] = useMemo(() => {
         if (product.images.length > 0) {
-            return product.images.map((img) => (img.type === 'video' ? { type: 'video' as const, src: img.path } : { type: 'img' as const, src: img.path }));
+            return product.images.map((img) => (img.type === 'video' ? { type: 'video' as const, src: img.url } : { type: 'img' as const, src: img.url }));
         }
         return [150, 35, 205, 330].map((a) => ({
             type: 'grad' as const,
@@ -124,11 +124,11 @@ export default function ProductDetail({ product, unavailable_dates, reviews, rev
                                 <img src={activeSlide.src} alt={product.name} className="absolute inset-0 h-full w-full object-cover" />
                             )}
                             {activeSlide.type === 'video' && (
-                                <video src={activeSlide.src} controls className="absolute inset-0 h-full w-full object-cover" />
+                                <video key={activeSlide.src} src={activeSlide.src} controls autoPlay muted loop playsInline className="absolute inset-0 h-full w-full object-cover" />
                             )}
-                            <div className="absolute inset-0" style={{ background: 'radial-gradient(220px 150px at 76% 20%, rgba(255,255,255,.34), transparent 60%)' }} />
-                            <div className="absolute inset-x-0 bottom-0 h-[90px]" style={{ background: 'linear-gradient(180deg,rgba(24,35,15,0),rgba(24,35,15,.4))' }} />
-                            <span className="absolute bottom-4 left-[18px] font-mono text-[13px] tracking-[0.06em] text-white">{product.category.name}</span>
+                            <div className="pointer-events-none absolute inset-0" style={{ background: 'radial-gradient(220px 150px at 76% 20%, rgba(255,255,255,.34), transparent 60%)' }} />
+                            <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[90px]" style={{ background: 'linear-gradient(180deg,rgba(24,35,15,0),rgba(24,35,15,.4))' }} />
+                            <span className="pointer-events-none absolute bottom-4 left-[18px] font-mono text-[13px] tracking-[0.06em] text-white">{product.category.name}</span>
                         </div>
                         <div className="mt-2.5 grid grid-cols-4 gap-2.5">
                             {gallery.map((g, i) => (

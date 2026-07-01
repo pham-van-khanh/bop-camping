@@ -43,9 +43,9 @@ class AdminProductTest extends TestCase
      */
     public function update_with_new_thumbnail_persists_file_and_drops_old(): void
     {
-        Storage::fake('public');
+        Storage::fake('media');
         $product = $this->makeProduct(thumbnail: 'products/old.jpg');
-        Storage::disk('public')->put('products/old.jpg', 'old');
+        Storage::disk('media')->put('products/old.jpg', 'old');
         $loc = ServiceLocation::create(['name' => 'Vinh', 'area' => 'Nghệ An', 'status' => 'open', 'sort_order' => 1]);
 
         $response = $this->actingAs($this->admin())->post(
@@ -68,8 +68,8 @@ class AdminProductTest extends TestCase
         $product->refresh();
         $this->assertNotNull($product->thumbnail);
         $this->assertNotSame('products/old.jpg', $product->thumbnail);
-        Storage::disk('public')->assertExists($product->thumbnail);
-        Storage::disk('public')->assertMissing('products/old.jpg');
+        Storage::disk('media')->assertExists($product->thumbnail);
+        Storage::disk('media')->assertMissing('products/old.jpg');
     }
 
     /**
@@ -79,7 +79,7 @@ class AdminProductTest extends TestCase
      */
     public function thumbnail_rejects_svg(): void
     {
-        Storage::fake('public');
+        Storage::fake('media');
         $product = $this->makeProduct();
 
         $response = $this->actingAs($this->admin())->post(
@@ -126,7 +126,7 @@ class AdminProductTest extends TestCase
      */
     public function admin_can_upload_and_delete_image_and_video(): void
     {
-        Storage::fake('public');
+        Storage::fake('media');
         $product = $this->makeProduct();
 
         $this->actingAs($this->admin())->post(route('admin.products.images.store', $product), [
@@ -145,7 +145,7 @@ class AdminProductTest extends TestCase
             ->assertRedirect();
 
         $this->assertDatabaseMissing('product_images', ['id' => $videoImage->id]);
-        Storage::disk('public')->assertMissing($videoImage->path);
+        Storage::disk('media')->assertMissing($videoImage->path);
     }
 
     /**
@@ -155,7 +155,7 @@ class AdminProductTest extends TestCase
      */
     public function image_upload_rejects_invalid_mimetype(): void
     {
-        Storage::fake('public');
+        Storage::fake('media');
         $product = $this->makeProduct();
 
         $this->actingAs($this->admin())->post(route('admin.products.images.store', $product), [
@@ -174,7 +174,7 @@ class AdminProductTest extends TestCase
      */
     public function image_upload_rejects_file_over_size_limit(): void
     {
-        Storage::fake('public');
+        Storage::fake('media');
         $product = $this->makeProduct();
 
         $this->actingAs($this->admin())->post(route('admin.products.images.store', $product), [
@@ -195,7 +195,7 @@ class AdminProductTest extends TestCase
      */
     public function image_upload_rejects_more_than_12_files_per_request(): void
     {
-        Storage::fake('public');
+        Storage::fake('media');
         $product = $this->makeProduct();
 
         $this->actingAs($this->admin())->post(route('admin.products.images.store', $product), [
@@ -212,7 +212,7 @@ class AdminProductTest extends TestCase
      */
     public function non_admin_cannot_upload_product_media(): void
     {
-        Storage::fake('public');
+        Storage::fake('media');
         $product = $this->makeProduct();
         $guest = User::factory()->create(['is_admin' => false]);
 
@@ -230,7 +230,7 @@ class AdminProductTest extends TestCase
      */
     public function cannot_delete_image_through_wrong_product(): void
     {
-        Storage::fake('public');
+        Storage::fake('media');
         $productA = $this->makeProduct();
         $category = Category::create(['name' => 'Bếp', 'slug' => 'bep']);
         $productB = Product::create([

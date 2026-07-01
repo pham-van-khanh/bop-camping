@@ -23,7 +23,7 @@ class ReviewSubmitTest extends TestCase
     /** @test */
     public function eligible_customer_can_submit_review_with_image_and_video(): void
     {
-        Storage::fake('public');
+        Storage::fake('media');
         $user = User::create(['name' => 'Trần Quốc Bảo', 'phone' => '0900000001']);
         $product = $this->product();
         $this->returnedOrder($user, $product);

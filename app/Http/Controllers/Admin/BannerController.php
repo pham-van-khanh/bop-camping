@@ -36,7 +36,7 @@ class BannerController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $data = $this->validated($request, creating: true);
-        $data['image'] = $request->file('image')->store('banners', 'public');
+        $data['image'] = $request->file('image')->store('admin/banners', 'media');
         Banner::create($data);
 
         return back()->with('success', 'Đã thêm banner.');
@@ -48,7 +48,7 @@ class BannerController extends Controller
 
         if ($request->hasFile('image')) {
             $this->deleteImage($banner);
-            $data['image'] = $request->file('image')->store('banners', 'public');
+            $data['image'] = $request->file('image')->store('admin/banners', 'media');
         }
 
         $banner->update($data);
@@ -68,7 +68,7 @@ class BannerController extends Controller
     private function deleteImage(Banner $banner): void
     {
         if ($banner->image && ! Str::startsWith($banner->image, ['/', 'http'])) {
-            Storage::disk('public')->delete($banner->image);
+            Storage::disk('media')->delete($banner->image);
         }
     }
 
