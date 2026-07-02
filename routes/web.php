@@ -32,6 +32,8 @@ Route::get('/', [ProductController::class, 'home'])->name('home');
 // Mặt tiền khách
 Route::get('/thiet-bi', [ProductController::class, 'index'])->name('products');
 Route::get('/thiet-bi/{product}', [ProductController::class, 'show'])->whereNumber('product')->name('products.show');
+// Tồn kho theo khoảng ngày (bopcamping-1z1) — fetch từ trang chi tiết khi chọn ngày
+Route::get('/thiet-bi/{product}/kha-dung', [ProductController::class, 'availability'])->whereNumber('product')->name('products.availability')->middleware('throttle:60,1');
 // Khách vãng lai cũng gửi được — mọi đánh giá vào 'pending' chờ admin duyệt
 Route::post('/thiet-bi/{product}/danh-gia', [ReviewController::class, 'store'])->whereNumber('product')->name('reviews.store')
     ->middleware('throttle:10,1');

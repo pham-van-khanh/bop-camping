@@ -1,5 +1,5 @@
 import { Head, Link, usePage } from '@inertiajs/react';
-import { ReactNode, useMemo, useState } from 'react';
+import { ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import SiteLayout from '@/Layouts/SiteLayout';
 import DateRangeCalendar from '@/Components/site/DateRangeCalendar';
 import ProductReviews, { type ReviewItem, type ReviewSummary } from '@/Components/site/ProductReviews';
@@ -36,8 +36,31 @@ export default function ProductDetail({ product, unavailable_dates, reviews, rev
     const [qty, setQty] = useState(1);
     // Popup khi thêm món khác vị trí với giỏ hiện tại.
     const [conflict, setConflict] = useState<{ pending: CartLine; cartLocations: CartLocation[] } | null>(null);
+    // Tồn kho THỰC theo khoảng ngày từ server (bopcamping-1z1) — quantity tĩnh
+    // không biết combo/đơn khác đã chiếm bao nhiêu trong khoảng khách chọn.
+    const [avail, setAvail] = useState<number | null>(null);
+    const [checking, setChecking] = useState(false);
+    const fetchSeq = useRef(0); // chống race: chỉ nhận kết quả lần fetch mới nhất
 
     const unavailable = useMemo(() => new Set<string>(unavailable_dates ?? []), [unavailable_dates]);
+
+    useEffect(() => {
+        if (!start || !end) {
+            setAvail(null);
+            return;
+        }
+        const seq = ++fetchSeq.current;
+        setChecking(true);
+        fetch(`/thiet-bi/${product.id}/kha-dung?start=${start}&end=${end}`, { headers: { Accept: 'application/json' } })
+            .then((r) => (r.ok ? r.json() : null))
+            .then((j: { available: number } | null) => {
+                if (seq !== fetchSeq.current) return;
+                setAvail(j ? j.available : null);
+                if (j) setQty((q) => Math.max(1, Math.min(q, Math.max(1, j.available))));
+            })
+            .catch(() => seq === fetchSeq.current && setAvail(null))
+            .finally(() => seq === fetchSeq.current && setChecking(false));
+    }, [start, end, product.id]);
 
     const baseGrad = gradFor(product.category.slug);
     // Build gallery: real images first, then fallback gradient variants
@@ -53,14 +76,17 @@ export default function ProductDetail({ product, unavailable_dates, reviews, rev
 
     const days = start && end ? dayCount(start, end) : 0;
 
-    let availState: 'none' | 'ok' | 'bad' = 'none';
+    // Fallback client (lịch 90 ngày) khi fetch server lỗi — chỉ phát hiện ngày hết sạch.
+    let clientBad = false;
     if (start && end) {
-        availState = 'ok';
         for (let t = fromISO(start).getTime(); t <= fromISO(end).getTime(); t += 86400000) {
-            if (unavailable.has(toISO(new Date(t)))) { availState = 'bad'; break; }
+            if (unavailable.has(toISO(new Date(t)))) { clientBad = true; break; }
         }
     }
-    const canAdd    = availState === 'ok';
+    // Số còn thuê được trong khoảng đã chọn: ưu tiên số thực từ server.
+    const remaining = avail ?? (clientBad ? 0 : product.quantity);
+    const qtyCap    = Math.max(1, remaining);
+    const canAdd    = !!start && !!end && !checking && remaining >= qty && qty >= 1;
     const subtotal  = product.price_per_day * qty * days;
     const subDeposit = product.deposit * qty;
     const lowStock  = product.quantity <= 2;
@@ -226,16 +252,28 @@ export default function ProductDetail({ product, unavailable_dates, reviews, rev
                                     <div className="flex items-center overflow-hidden rounded-[10px] border border-cardBorder">
                                         <button onClick={() => setQty((q) => Math.max(1, q - 1))} className="h-9 w-[34px] bg-[#f1f4ea] text-[18px] text-grass">−</button>
                                         <span className="w-[38px] text-center font-mono font-bold">{qty}</span>
-                                        <button onClick={() => setQty((q) => Math.min(product.quantity, q + 1))} className="h-9 w-[34px] bg-[#f1f4ea] text-[18px] text-grass">+</button>
+                                        <button onClick={() => setQty((q) => Math.min(qtyCap, q + 1))} className="h-9 w-[34px] bg-[#f1f4ea] text-[18px] text-grass">+</button>
                                     </div>
                                 </div>
                             </div>
 
-                            {availState !== 'none' && (
-                                <div className="rounded-[10px] px-3 py-2 text-[13px] font-semibold"
-                                    style={availState === 'ok' ? { background: '#dcebc4', color: '#3a5a1f' } : { background: '#f6ddd6', color: '#b3493a' }}>
-                                    {availState === 'ok' ? `Còn đủ ${product.quantity} bộ cho khoảng này` : 'Khoảng này có ngày đã hết, chọn ngày khác giúp tụi mình nhé'}
-                                </div>
+                            {start && end && (
+                                checking ? (
+                                    <div className="rounded-[10px] px-3 py-2 text-[13px] font-semibold" style={{ background: '#f1f4ea', color: '#5a6b47' }}>
+                                        Đang kiểm tra tồn kho…
+                                    </div>
+                                ) : remaining === 0 ? (
+                                    <div className="rounded-[10px] px-3 py-2 text-[13px] font-semibold" style={{ background: '#f6ddd6', color: '#b3493a' }}>
+                                        Khoảng này đã được thuê hết, chọn ngày khác giúp tụi mình nhé
+                                    </div>
+                                ) : (
+                                    <div className="rounded-[10px] px-3 py-2 text-[13px] font-semibold"
+                                        style={remaining < product.quantity ? { background: '#f7e7da', color: '#8a5a1f' } : { background: '#dcebc4', color: '#3a5a1f' }}>
+                                        {remaining < product.quantity
+                                            ? `Khoảng này chỉ còn ${remaining} bộ trống (${product.quantity - remaining} bộ đã được đặt)`
+                                            : `Còn đủ ${remaining} bộ cho khoảng này`}
+                                    </div>
+                                )
                             )}
 
                             <div className="mt-3.5 flex items-center justify-between gap-3">

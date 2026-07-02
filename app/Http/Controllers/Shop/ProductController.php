@@ -11,6 +11,7 @@ use App\Models\Product;
 use App\Models\Review;
 use App\Models\ServiceLocation;
 use App\Services\AvailabilityService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Storage;
@@ -217,6 +218,31 @@ class ProductController extends Controller
                 'url' => url()->current(),
                 'jsonld' => $this->productJsonLd($p, $seoImage, $seoDesc, $reviewCount, $reviewAvg),
             ],
+        ]);
+    }
+
+    /**
+     * GET /thiet-bi/{product}/kha-dung?start=&end= — tồn kho theo khoảng ngày.
+     *
+     * bopcamping-1z1: trang chi tiết từng hiện quantity tĩnh nên combo/đơn khác
+     * đã chiếm kho mà khách vẫn thấy đủ. Endpoint đi qua AvailabilityService
+     * (single source of truth) — FE fetch mỗi khi chọn xong khoảng ngày.
+     */
+    public function availability(Request $request, int $product): JsonResponse
+    {
+        $data = $request->validate([
+            'start' => ['required', 'date_format:Y-m-d'],
+            'end' => ['required', 'date_format:Y-m-d', 'after_or_equal:start'],
+        ]);
+
+        $p = Product::active()->findOrFail($product);
+
+        return response()->json([
+            'available' => $this->availability->availableQuantity(
+                $p,
+                Carbon::parse($data['start']),
+                Carbon::parse($data['end']),
+            ),
         ]);
     }
 
