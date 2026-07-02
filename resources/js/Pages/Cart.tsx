@@ -2,7 +2,7 @@ import { Head, Link, useForm, usePage } from '@inertiajs/react';
 import { ChangeEvent, ReactNode, useEffect, useMemo, useState } from 'react';
 import SiteLayout from '@/Layouts/SiteLayout';
 import {
-    cartHasLocationConflict, cartTotals, clearCart, getCart, lineDays, lineDeposit, lineRent,
+    cartHasLocationConflict, cartTotals, clearCart, getCart, isComboLine, lineDays, lineDeposit, lineRent,
     removeLine, setCart, setQty, type CartLine, type CartLocation,
 } from '@/lib/cart';
 import { money, rangeText } from '@/lib/format';
@@ -11,9 +11,18 @@ import { estimateDiscount, voucherValueText, type AvailableVoucher, type PromoIn
 import type { PageProps } from '@/types';
 
 type CheckoutItem = { product_id: number; quantity: number; start: string; end: string };
+type CheckoutCombo = { combo_id: number; quantity: number; start: string; end: string };
 
-// Dữ liệu mới nhất của sản phẩm trả về từ /gio-thue/lam-tuoi.
+// Dữ liệu mới nhất của sản phẩm/combo trả về từ /gio-thue/lam-tuoi.
 type FreshProduct = { name: string; price_per_day: number; deposit: number; locations: CartLocation[]; all_locations: boolean };
+type FreshCombo = {
+    name: string;
+    combo_price: number;
+    deposit: number;
+    items: { name: string; qty: number }[];
+    locations: CartLocation[];
+    all_locations: boolean;
+};
 
 type Props = PageProps<{
     availableVouchers: AvailableVoucher[];
@@ -39,6 +48,7 @@ export default function Cart() {
         referral_code: string;
         voucher_codes: string[];
         items: CheckoutItem[];
+        combos: CheckoutCombo[];
     }>({
         name: user?.name ?? '',
         phone: user?.phone ?? '',
@@ -47,29 +57,48 @@ export default function Cart() {
         referral_code: firstOrderEligible ? (referralRef ?? '') : '',
         voucher_codes: [],
         items: [],
+        combos: [],
     });
+
+    // Đồng bộ form với giỏ: tách dòng lẻ → items, dòng combo → combos (payload checkout).
+    const syncForm = (cartLines: CartLine[]) => {
+        setData((prev) => ({
+            ...prev,
+            items: toCheckoutItems(cartLines),
+            combos: toCheckoutCombos(cartLines),
+        }));
+    };
 
     useEffect(() => {
         const current = getCart();
         setLines(current);
-        setData('items', toCheckoutItems(current));
+        syncForm(current);
         const off = on(EVENTS.cartChange, () => {
             const updated = getCart();
             setLines(updated);
-            setData('items', toCheckoutItems(updated));
+            syncForm(updated);
         });
 
         // Làm tươi giỏ: giá/vị trí lưu ở localStorage có thể đã cũ (admin đổi sau khi thêm).
         if (current.length > 0) {
-            const qs = current.map((l) => `ids[]=${l.id}`).join('&');
+            const qs = current
+                .map((l) => (isComboLine(l) ? `combo_ids[]=${l.id}` : `ids[]=${l.id}`))
+                .join('&');
             fetch(`${route('cart.refresh')}?${qs}`, { headers: { Accept: 'application/json' } })
                 .then((r) => (r.ok ? r.json() : null))
-                .then((j: { products?: Record<string, FreshProduct> } | null) => {
+                .then((j: { products?: Record<string, FreshProduct>; combos?: Record<string, FreshCombo> } | null) => {
                     if (!j?.products) return;
                     const fresh = j.products;
+                    const freshCombos = j.combos ?? {};
                     const removed: string[] = [];
                     const next: CartLine[] = [];
                     for (const l of current) {
+                        if (isComboLine(l)) {
+                            const c = freshCombos[String(l.id)];
+                            if (!c) { removed.push(l.name); continue; } // combo đã ẩn/xoá → gỡ
+                            next.push({ ...l, name: c.name, price: c.combo_price, deposit: c.deposit, locations: c.locations, comboItems: c.items });
+                            continue;
+                        }
                         const p = fresh[String(l.id)];
                         if (!p) { removed.push(l.name); continue; } // đã ẩn/xoá → gỡ
                         next.push({ ...l, name: p.name, price: p.price_per_day, deposit: p.deposit, locations: p.locations });
@@ -227,11 +256,29 @@ export default function Cart() {
                     {/* Danh sách món */}
                     <div>
                         {lines.map((it, i) => (
-                            <div key={`${it.id}-${it.start}-${it.end}`} className="mb-3 flex gap-3.5 rounded-[14px] border border-cardBorder bg-card p-[13px]">
+                            <div key={`${it.kind ?? 'product'}-${it.id}-${it.start}-${it.end}`} className="mb-3 flex gap-3.5 rounded-[14px] border border-cardBorder bg-card p-[13px]">
                                 <div className="h-16 w-16 flex-none rounded-[10px]" style={{ background: it.grad }} />
                                 <div className="min-w-0 flex-1">
-                                    <div className="text-[15px] font-bold leading-[1.25] text-ink">{it.name}</div>
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        {isComboLine(it) && (
+                                            <span className="rounded-pill bg-grass px-2 py-0.5 font-mono text-[10px] font-bold text-white">COMBO</span>
+                                        )}
+                                        <div className="text-[15px] font-bold leading-[1.25] text-ink">{it.name}</div>
+                                    </div>
                                     <div className="my-1 font-mono text-[12px] text-[#8a967a]">{rangeText(it.start, it.end)} · {lineDays(it)} ngày</div>
+                                    {/* Combo: khối mở rộng xem các món con (PRD combo mục 6) */}
+                                    {isComboLine(it) && (it.comboItems?.length ?? 0) > 0 && (
+                                        <details className="mb-1.5">
+                                            <summary className="cursor-pointer select-none text-[12.5px] font-semibold text-grass">
+                                                Gồm {it.comboItems!.length} món — xem chi tiết
+                                            </summary>
+                                            <ul className="mt-1 rounded-[9px] px-3 py-2 text-[12.5px] text-moss" style={{ background: '#f6f8ef' }}>
+                                                {it.comboItems!.map((ci, k) => (
+                                                    <li key={k}>· {ci.qty}× {ci.name}</li>
+                                                ))}
+                                            </ul>
+                                        </details>
+                                    )}
                                     <div className="flex flex-wrap items-center justify-between gap-2.5">
                                         <div className="flex items-center overflow-hidden rounded-[9px] border border-cardBorder">
                                             <button onClick={() => setQty(i, it.qty - 1)} className="h-8 w-[30px] bg-[#f1f4ea] text-[16px] text-grass">−</button>
@@ -247,7 +294,10 @@ export default function Cart() {
                                 <button onClick={() => removeLine(i)} title="Xoá" className="self-start px-1 py-0.5 text-[18px]" style={{ color: '#b3493a' }}>×</button>
                             </div>
                         ))}
-                        <Link href="/thiet-bi" className="mt-1 inline-block text-[14px] font-bold text-grass">+ Thêm thiết bị khác</Link>
+                        <div className="mt-1 flex flex-wrap gap-4">
+                            <Link href="/thiet-bi" className="inline-block text-[14px] font-bold text-grass">+ Thêm thiết bị khác</Link>
+                            <Link href="/combos" className="inline-block text-[14px] font-bold text-grass">+ Xem combo tiết kiệm</Link>
+                        </div>
                     </div>
 
                     {/* Checkout */}
@@ -364,7 +414,15 @@ export default function Cart() {
 }
 
 function toCheckoutItems(lines: CartLine[]): CheckoutItem[] {
-    return lines.map((l) => ({ product_id: l.id, quantity: l.qty, start: l.start, end: l.end }));
+    return lines
+        .filter((l) => !isComboLine(l))
+        .map((l) => ({ product_id: l.id, quantity: l.qty, start: l.start, end: l.end }));
+}
+
+function toCheckoutCombos(lines: CartLine[]): CheckoutCombo[] {
+    return lines
+        .filter(isComboLine)
+        .map((l) => ({ combo_id: l.id, quantity: l.qty, start: l.start, end: l.end }));
 }
 
 function Row({ k, v, mono, accent, accentWarm }: { k: string; v: string; mono?: boolean; accent?: boolean; accentWarm?: boolean }) {

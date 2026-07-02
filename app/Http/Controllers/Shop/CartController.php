@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Shop;
 
 use App\Http\Controllers\Controller;
+use App\Models\Combo;
 use App\Models\Order;
 use App\Models\Product;
 use App\Models\PromotionSetting;
@@ -10,6 +11,7 @@ use App\Models\ServiceLocation;
 use App\Models\Voucher;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -53,23 +55,19 @@ class CartController extends Controller
     }
 
     /**
-     * GET /gio-thue/lam-tuoi?ids[]=1&ids[]=2 — làm tươi giỏ.
+     * GET /gio-thue/lam-tuoi?ids[]=1&combo_ids[]=2 — làm tươi giỏ.
      *
      * Giỏ nằm ở localStorage nên lưu "ảnh chụp" giá/vị trí lúc thêm món. Admin có thể đổi
-     * giá/vị trí/ẩn sản phẩm sau đó → trả dữ liệu MỚI NHẤT để client đồng bộ lại. Sản phẩm
-     * đã ẩn/xoá sẽ KHÔNG có trong kết quả → client gỡ khỏi giỏ.
+     * giá/vị trí/ẩn sản phẩm hoặc combo sau đó → trả dữ liệu MỚI NHẤT để client đồng bộ
+     * lại. Sản phẩm/combo đã ẩn/xoá sẽ KHÔNG có trong kết quả → client gỡ khỏi giỏ.
      */
     public function refresh(Request $request): JsonResponse
     {
-        $ids = collect($request->query('ids', []))
-            ->map(fn ($x) => (int) $x)
-            ->filter()
-            ->unique()
-            ->take(100)
-            ->values();
+        $ids = $this->idsFromQuery($request, 'ids');
+        $comboIds = $this->idsFromQuery($request, 'combo_ids');
 
-        if ($ids->isEmpty()) {
-            return response()->json(['products' => (object) []]);
+        if ($ids->isEmpty() && $comboIds->isEmpty()) {
+            return response()->json(['products' => (object) [], 'combos' => (object) []]);
         }
 
         $openCount = ServiceLocation::open()->count();
@@ -90,6 +88,36 @@ class CartController extends Controller
                 ]];
             });
 
-        return response()->json(['products' => $products]);
+        // Combo trong giỏ: giá/cọc/vị trí mới nhất; combo ẩn (vd US-07) không trả về → client gỡ.
+        $combos = Combo::active()
+            ->whereHas('items')
+            ->with('items.product.serviceLocations')
+            ->whereIn('id', $comboIds)
+            ->get()
+            ->mapWithKeys(function (Combo $c) use ($openCount) {
+                $locations = $c->commonOpenLocations();
+
+                return [$c->id => [
+                    'name' => $c->name,
+                    'combo_price' => (int) $c->combo_price,
+                    'deposit' => (int) ($c->deposit ?? 0),
+                    'items' => $c->items->map(fn ($i) => ['name' => $i->product?->name ?? '', 'qty' => $i->quantity])->values(),
+                    'locations' => $locations,
+                    'all_locations' => $openCount > 0 && count($locations) === $openCount,
+                ]];
+            });
+
+        return response()->json(['products' => $products, 'combos' => $combos]);
+    }
+
+    /** @return Collection<int, int> */
+    private function idsFromQuery(Request $request, string $key)
+    {
+        return collect($request->query($key, []))
+            ->map(fn ($x) => (int) $x)
+            ->filter()
+            ->unique()
+            ->take(100)
+            ->values();
     }
 }

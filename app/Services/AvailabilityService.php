@@ -73,6 +73,53 @@ class AvailabilityService
     }
 
     /**
+     * Case 4 — các món con làm combo hết trong khoảng [start, end]:
+     * món có intdiv(available, qty) < needed, kèm số còn/số cần để hiển thị.
+     *
+     * @return array<int, array{product: Product, available: int, required: int}>
+     */
+    public function comboInsufficientItems(Combo $combo, Carbon $start, Carbon $end, int $needed = 1): array
+    {
+        $combo->loadMissing('items.product');
+
+        $insufficient = [];
+        foreach ($combo->items as $item) {
+            if (! $item->product || $item->quantity < 1) {
+                continue;
+            }
+            $available = $this->availableQuantity($item->product, $start, $end);
+            if (intdiv($available, $item->quantity) < $needed) {
+                $insufficient[] = [
+                    'product' => $item->product,
+                    'available' => $available,
+                    'required' => $item->quantity * $needed,
+                ];
+            }
+        }
+
+        return $insufficient;
+    }
+
+    /**
+     * Case 4 — khoảng gần nhất còn đủ combo, giữ nguyên độ dài, dịch tối đa
+     * $scanDays ngày kể từ start. Null nếu không có (PRD 5.5: scan tối đa 30 ngày).
+     *
+     * @return array{start: string, end: string}|null
+     */
+    public function nextComboWindow(Combo $combo, Carbon $start, Carbon $end, int $scanDays = 30): ?array
+    {
+        for ($offset = 1; $offset <= $scanDays; $offset++) {
+            $s = $start->copy()->addDays($offset);
+            $e = $end->copy()->addDays($offset);
+            if ($this->comboAvailable($combo, $s, $e) >= 1) {
+                return ['start' => $s->toDateString(), 'end' => $e->toDateString()];
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * Kiểm tra nhiều sản phẩm cùng lúc (dùng khi validate giỏ hàng).
      *
      * @param  array<int, int>  $items  [ product_id => quantity ]

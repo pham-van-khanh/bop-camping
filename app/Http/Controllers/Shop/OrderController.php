@@ -5,11 +5,13 @@ namespace App\Http\Controllers\Shop;
 use App\Http\Controllers\Controller;
 use App\Mail\NewOrderAdminMail;
 use App\Mail\OrderPlacedMail;
+use App\Models\Combo;
 use App\Models\Order;
 use App\Models\Product;
 use App\Models\PromotionSetting;
 use App\Models\User;
 use App\Services\AvailabilityService;
+use App\Services\ComboPricingService;
 use App\Services\Promotion\EmailBonusService;
 use App\Services\Promotion\VoucherService;
 use App\Services\Referral\ReferralService;
@@ -19,11 +21,13 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Str;
 
 class OrderController extends Controller
 {
     public function __construct(
         private AvailabilityService $availability,
+        private ComboPricingService $comboPricing,
         private ReferralService $referrals,
         private VoucherService $vouchers,
         private EmailBonusService $emailBonus,
@@ -32,7 +36,10 @@ class OrderController extends Controller
     /**
      * POST /dat-hang — tạo đơn thuê từ giỏ hàng.
      *
-     * Body: { name, phone, address?, note?, items: [{ product_id, quantity, start, end }] }
+     * Body: { name, phone, address?, note?,
+     *         items:  [{ product_id, quantity, start, end }],   // thuê lẻ
+     *         combos: [{ combo_id, quantity, start, end }] }    // thuê trọn bộ
+     * Combo được bung thành order_items per-product cùng combo_group_uuid (PRD combo mục 4).
      */
     public function store(Request $request): RedirectResponse
     {
@@ -41,32 +48,58 @@ class OrderController extends Controller
             'phone' => ['required', 'string', 'regex:/^0[0-9]{8,10}$/'],
             'address' => ['nullable', 'string', 'max:255'],
             'note' => ['nullable', 'string', 'max:500'],
-            'items' => ['required', 'array', 'min:1'],
+            'items' => ['nullable', 'array'],
             'items.*.product_id' => ['required', 'integer', 'exists:products,id'],
             'items.*.quantity' => ['required', 'integer', 'min:1', 'max:99'],
             'items.*.start' => ['required', 'date_format:Y-m-d', 'after_or_equal:today'],
             'items.*.end' => ['required', 'date_format:Y-m-d', 'after_or_equal:items.*.start'],
+            'combos' => ['nullable', 'array'],
+            'combos.*.combo_id' => ['required', 'integer', 'exists:combos,id'],
+            'combos.*.quantity' => ['required', 'integer', 'min:1', 'max:10'],
+            'combos.*.start' => ['required', 'date_format:Y-m-d', 'after_or_equal:today'],
+            'combos.*.end' => ['required', 'date_format:Y-m-d', 'after_or_equal:combos.*.start'],
             'referral_code' => ['nullable', 'string', 'max:20'],
             'voucher_codes' => ['nullable', 'array', 'max:10'],
             'voucher_codes.*' => ['string', 'max:30'],
         ], [
             'name.required' => 'Vui lòng nhập họ tên.',
             'phone.required' => 'Vui lòng nhập số điện thoại.',
-            'phone.regex' => 'Số điện thoại không hợp lệ.',
-            'items.required' => 'Giỏ thuê đang trống.',
-            'items.min' => 'Giỏ thuê đang trống.',
         ]);
 
-        // Kiểm tra tồn kho từng món
+        $itemLines = $validated['items'] ?? [];
+        $comboLines = $validated['combos'] ?? [];
+
+        if (empty($itemLines) && empty($comboLines)) {
+            return back()->withErrors(['items' => 'Giỏ thuê đang trống.'])->withInput();
+        }
+
         $errors = [];
-        $products = Product::whereIn('id', array_column($validated['items'], 'product_id'))
+        $products = Product::whereIn('id', array_column($itemLines, 'product_id'))
             ->with('serviceLocations')
             ->get()
             ->keyBy('id');
 
-        // Giỏ chỉ 1 vị trí: mọi món phải thuê được ở cùng ≥1 vị trí đang mở.
+        // Combo phải đang bán và còn món; nạp sẵn product + vị trí cho check bên dưới.
+        $combos = Combo::active()
+            ->whereHas('items')
+            ->with('items.product.serviceLocations')
+            ->whereIn('id', array_column($comboLines, 'combo_id'))
+            ->get()
+            ->keyBy('id');
+        foreach ($comboLines as $line) {
+            if (! $combos->has($line['combo_id'])) {
+                $errors[] = 'Combo bạn chọn không còn cho thuê.';
+            }
+        }
+        if (! empty($errors)) {
+            return back()->withErrors(['items' => implode(' ', $errors)])->withInput();
+        }
+
+        // Giỏ chỉ 1 vị trí: mọi món (kể cả món trong combo) phải thuê được ở cùng ≥1 vị trí đang mở.
         // (FE đã chặn bằng popup; đây là van an toàn vì giỏ nằm ở localStorage.)
-        $locationSets = $products
+        $allProducts = $products->values()
+            ->concat($combos->flatMap(fn (Combo $c) => $c->items->map(fn ($i) => $i->product)->filter()));
+        $locationSets = $allProducts
             ->map(fn (Product $p) => $p->serviceLocations->where('status', 'open')->pluck('id')->all())
             ->filter(fn (array $ids) => ! empty($ids))
             ->values()
@@ -77,19 +110,36 @@ class OrderController extends Controller
             ])->withInput();
         }
 
-        foreach ($validated['items'] as $item) {
-            $product = $products->get($item['product_id']);
+        // Kiểm kho: GỘP tổng nhu cầu per (sản phẩm + khoảng ngày) từ cả thuê lẻ lẫn
+        // combo đã bung — chống overbook khi cùng 1 sản phẩm xuất hiện ở cả hai phần.
+        // Mọi phép tính đều qua AvailabilityService (single source of truth).
+        $needed = []; // "productId|start|end" => qty
+        foreach ($itemLines as $item) {
+            $key = "{$item['product_id']}|{$item['start']}|{$item['end']}";
+            $needed[$key] = ($needed[$key] ?? 0) + $item['quantity'];
+        }
+        foreach ($comboLines as $line) {
+            $combo = $combos->get($line['combo_id']);
+            foreach ($combo->items as $comboItem) {
+                $key = "{$comboItem->product_id}|{$line['start']}|{$line['end']}";
+                $needed[$key] = ($needed[$key] ?? 0) + $comboItem->quantity * $line['quantity'];
+            }
+        }
+
+        $comboProducts = $combos->flatMap(fn (Combo $c) => $c->items->map(fn ($i) => $i->product))
+            ->filter()
+            ->keyBy('id');
+        foreach ($needed as $key => $qty) {
+            [$productId, $start, $end] = explode('|', $key);
+            $product = $products->get((int) $productId) ?? $comboProducts->get((int) $productId);
             if (! $product) {
-                $errors[] = "Sản phẩm #$item[product_id] không tồn tại.";
+                $errors[] = "Sản phẩm #$productId không tồn tại.";
 
                 continue;
             }
 
-            $start = Carbon::parse($item['start']);
-            $end = Carbon::parse($item['end']);
-            $available = $this->availability->availableQuantity($product, $start, $end);
-
-            if ($available < $item['quantity']) {
+            $available = $this->availability->availableQuantity($product, Carbon::parse($start), Carbon::parse($end));
+            if ($available < $qty) {
                 $errors[] = "\"{$product->name}\" chỉ còn {$available} bộ trong khoảng thời gian này.";
             }
         }
@@ -99,9 +149,9 @@ class OrderController extends Controller
         }
 
         // Tạo đơn trong transaction
-        $order = DB::transaction(function () use ($validated, $products) {
-            $starts = array_column($validated['items'], 'start');
-            $ends = array_column($validated['items'], 'end');
+        $order = DB::transaction(function () use ($validated, $itemLines, $comboLines, $products, $combos) {
+            $starts = array_merge(array_column($itemLines, 'start'), array_column($comboLines, 'start'));
+            $ends = array_merge(array_column($itemLines, 'end'), array_column($comboLines, 'end'));
             $startDate = Carbon::parse(min($starts));
             $endDate = Carbon::parse(max($ends));
 
@@ -125,7 +175,7 @@ class OrderController extends Controller
             $totalPrice = 0;
             $depositTotal = 0;
 
-            foreach ($validated['items'] as $item) {
+            foreach ($itemLines as $item) {
                 $product = $products->get($item['product_id']);
                 $days = Carbon::parse($item['start'])->diffInDays(Carbon::parse($item['end'])) + 1;
                 $subtotal = $product->price_per_day * $item['quantity'] * $days;
@@ -140,6 +190,36 @@ class OrderController extends Controller
 
                 $totalPrice += $subtotal;
                 $depositTotal += ($product->deposit ?? 0) * $item['quantity'];
+            }
+
+            // Bung combo thành order_items per-product (PRD combo 5.3). Mỗi combo-instance
+            // = 1 combo_group_uuid riêng (1 đơn có thể chứa 2 combo giống nhau); giá/cọc
+            // phân bổ snapshot qua ComboPricingService — tổng khớp từng đồng (AC-3).
+            foreach ($comboLines as $line) {
+                $combo = $combos->get($line['combo_id']);
+                $days = Carbon::parse($line['start'])->diffInDays(Carbon::parse($line['end'])) + 1;
+                $allocation = $this->comboPricing->allocate($combo);
+
+                for ($instance = 0; $instance < $line['quantity']; $instance++) {
+                    $groupUuid = (string) Str::uuid();
+
+                    foreach ($allocation as $alloc) {
+                        $order->items()->create([
+                            'product_id' => $alloc['product_id'],
+                            'combo_id' => $combo->id,
+                            'combo_group_uuid' => $groupUuid,
+                            'quantity' => $alloc['quantity'],
+                            'price_per_day' => $alloc['price_per_day'], // snapshot giá lẻ để đối chiếu
+                            'days' => $days,
+                            'subtotal' => $alloc['allocated_price'] * $days,
+                            'allocated_price' => $alloc['allocated_price'],
+                            'allocated_deposit' => $alloc['allocated_deposit'],
+                        ]);
+                    }
+
+                    $totalPrice += (int) $combo->combo_price * $days;
+                    $depositTotal += (int) ($combo->deposit ?? 0);
+                }
             }
 
             $order->update([
@@ -195,7 +275,7 @@ class OrderController extends Controller
             'order_phone' => $validated['phone'],
             'order_pay' => $order->total_price + $order->deposit_total - $order->discount_total,
             'order_discount' => $order->discount_total,
-            'order_items' => count($validated['items']),
+            'order_items' => count($itemLines) + count($comboLines),
         ]);
     }
 }

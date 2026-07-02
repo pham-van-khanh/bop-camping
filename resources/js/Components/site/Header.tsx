@@ -5,6 +5,7 @@ import { emit, EVENTS } from '@/lib/bus';
 const NAV = [
     { label: 'Trang chủ', href: '/' },
     { label: 'Thuê đồ', href: '/thiet-bi' },
+    { label: 'Combo', href: '/combos' },
     { label: 'Tra cứu đơn', href: '/tra-cuu' },
 ];
 

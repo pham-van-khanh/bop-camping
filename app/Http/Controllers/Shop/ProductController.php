@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Banner;
 use App\Models\CampingSpot;
 use App\Models\Category;
+use App\Models\Combo;
 use App\Models\Product;
 use App\Models\Review;
 use App\Models\ServiceLocation;
@@ -42,8 +43,32 @@ class ProductController extends Controller
 
         $spots = CampingSpot::ordered()->with(['media', 'nearestServiceLocation'])->get();
 
+        // Section "Combo tiết kiệm": 3–4 combo nổi bật theo sort_order (PRD combo mục 6)
+        $featuredCombos = Combo::active()
+            ->whereHas('items')
+            ->with(['items.product', 'images'])
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->limit(4)
+            ->get()
+            ->map(fn (Combo $c) => [
+                'id' => $c->id,
+                'name' => $c->name,
+                'slug' => $c->slug,
+                'combo_price' => (int) $c->combo_price,
+                'sum_individual' => $c->sumIndividualPrice(),
+                'savings_amount' => $c->savingsAmount(),
+                'savings_percent' => $c->savingsPercent(),
+                'suitable_for' => $c->suitable_for,
+                'items_count' => $c->items->count(),
+                'image' => $c->images->first()
+                    ? Storage::disk('media')->url($c->images->first()->path)
+                    : null,
+            ])->values();
+
         return Inertia::render('Welcome', [
             'featured' => $featured,
+            'featured_combos' => $featuredCombos,
             // Banner quản lý ở admin: hero (slideshow) + promo (dải khuyến mãi)
             'hero_banners' => Banner::active()->placement('hero')->ordered()->get()->map(fn (Banner $b) => [
                 'src' => $b->imageUrl(),

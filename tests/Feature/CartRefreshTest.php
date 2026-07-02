@@ -78,8 +78,9 @@ class CartRefreshTest extends TestCase
     /** @test */
     public function empty_ids_returns_empty(): void
     {
+        // 'combos' thêm từ Combo P2 (bopcamping-6he) — giỏ làm tươi được cả dòng combo
         $this->getJson(route('cart.refresh'))
             ->assertOk()
-            ->assertExactJson(['products' => []]);
+            ->assertExactJson(['products' => [], 'combos' => []]);
     }
 }

@@ -17,6 +17,7 @@ use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\Admin\VoucherController as AdminVoucherController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\Shop\CartController;
+use App\Http\Controllers\Shop\ComboController;
 use App\Http\Controllers\Shop\GuestAuthController;
 use App\Http\Controllers\Shop\OrderController;
 use App\Http\Controllers\Shop\OrderLookupController;
@@ -34,6 +35,11 @@ Route::get('/thiet-bi/{product}', [ProductController::class, 'show'])->whereNumb
 // Khách vãng lai cũng gửi được — mọi đánh giá vào 'pending' chờ admin duyệt
 Route::post('/thiet-bi/{product}/danh-gia', [ReviewController::class, 'store'])->whereNumber('product')->name('reviews.store')
     ->middleware('throttle:10,1');
+// Combo thuê trọn bộ (bopcamping-6he)
+Route::get('/combos', [ComboController::class, 'index'])->name('combos');
+Route::get('/combos/{slug}', [ComboController::class, 'show'])->name('combos.show');
+// Check tồn kho realtime theo khoảng ngày (Case 4) — fetch từ trang chi tiết
+Route::get('/combos/{slug}/kha-dung', [ComboController::class, 'availability'])->name('combos.availability')->middleware('throttle:60,1');
 Route::get('/gio-thue', [CartController::class, 'index'])->name('cart');
 // Làm tươi giỏ: trả giá/vị trí mới nhất theo ids (giỏ ở localStorage có thể đã cũ)
 Route::get('/gio-thue/lam-tuoi', [CartController::class, 'refresh'])->name('cart.refresh')->middleware('throttle:60,1');

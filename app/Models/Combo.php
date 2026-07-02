@@ -75,6 +75,35 @@ class Combo extends Model
     }
 
     /**
+     * Vị trí phục vụ của combo = GIAO các vị trí đang mở của mọi món con
+     * (giỏ chỉ 1 vị trí — combo tham gia ràng buộc vị trí như sản phẩm lẻ).
+     *
+     * @return array<int, array{slug: string, name: string}>
+     */
+    public function commonOpenLocations(): array
+    {
+        $this->loadMissing('items.product.serviceLocations');
+
+        $sets = $this->items
+            ->map(fn (ComboItem $item) => $item->product?->serviceLocations
+                ?->where('status', 'open')->keyBy('slug') ?? collect())
+            ->filter(fn ($set) => $set->isNotEmpty());
+
+        if ($sets->isEmpty()) {
+            return [];
+        }
+
+        $common = $sets->shift();
+        foreach ($sets as $set) {
+            $common = $common->intersectByKeys($set);
+        }
+
+        return $common->map(fn (ServiceLocation $l) => ['slug' => $l->slug, 'name' => $l->name])
+            ->values()
+            ->all();
+    }
+
+    /**
      * US-07 — ẩn mọi combo active chứa sản phẩm (gọi khi admin ẩn/xoá product).
      * Single source of truth cho rule "không bán combo thiếu món".
      *

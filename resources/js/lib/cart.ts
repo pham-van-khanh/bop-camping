@@ -2,23 +2,28 @@
 // để Header cập nhật badge và trang Giỏ vẽ lại.
 import { dayCount } from './format';
 import { emit, EVENTS } from './bus';
-import type { CatKey } from './catalog';
 
 export type CartLocation = { slug: string; name: string };
 
 export type CartLine = {
-    id: number;
+    id: number; // product id, hoặc combo id khi kind = 'combo'
     name: string;
-    cat: CatKey;
+    cat: string; // slug danh mục (legacy) — combo dùng 'combo'
     grad: string;
-    price: number;
-    deposit: number;
+    price: number; // giá/ngày (combo = combo_price)
+    deposit: number; // cọc 1 lần / bộ (combo = cọc combo)
     qty: number;
     start: string; // ISO
     end: string; // ISO
     // Vị trí phục vụ (đang mở) của sản phẩm — để giữ giỏ trong cùng 1 vị trí.
     locations?: CartLocation[];
+    // Dòng combo (PRD combo): id trỏ vào combos, kèm danh sách món để mở rộng xem.
+    kind?: 'product' | 'combo';
+    comboItems?: { name: string; qty: number }[];
 };
+
+/** Dòng giỏ là combo (dòng cũ không có kind = product). */
+export const isComboLine = (l: CartLine) => l.kind === 'combo';
 
 const KEY = 'bop_cart_v1';
 
@@ -37,10 +42,15 @@ function save(lines: CartLine[]) {
     emit(EVENTS.cartChange, lines.length);
 }
 
-/** Gộp khi cùng sản phẩm + cùng khoảng ngày */
+/** Gộp khi cùng sản phẩm/combo + cùng khoảng ngày (id product và combo là 2 không gian riêng) */
 export function addLine(line: CartLine) {
     const lines = getCart();
-    const i = lines.findIndex((l) => l.id === line.id && l.start === line.start && l.end === line.end);
+    const i = lines.findIndex(
+        (l) => l.id === line.id
+            && (l.kind ?? 'product') === (line.kind ?? 'product')
+            && l.start === line.start
+            && l.end === line.end,
+    );
     if (i >= 0) lines[i].qty += line.qty;
     else lines.push(line);
     save(lines);
