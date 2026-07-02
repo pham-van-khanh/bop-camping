@@ -20,6 +20,7 @@ type Product = {
     status: 'active' | 'hidden';
     category: { id: number; name: string } | null;
     service_location_ids: number[];
+    combo_names: string[];
     images: ProductImage[];
 };
 
@@ -626,6 +627,13 @@ export default function AdminProducts({
                                         </label>
                                     ))}
                                 </div>
+                                {/* US-07: ẩn sản phẩm đang thuộc combo → combo tự ẩn theo */}
+                                {form.data.status === 'hidden' && editing && editing.combo_names.length > 0 && (
+                                    <p className="mt-2 rounded-[9px] bg-[#fdf3f1] px-3.5 py-2.5 text-[12.5px] font-semibold text-[#b3493a]">
+                                        ⚠ Sản phẩm này thuộc combo: {editing.combo_names.join(', ')}. Ẩn sản phẩm sẽ tự
+                                        ẩn các combo đó khỏi trang bán.
+                                    </p>
+                                )}
                             </div>
 
                             {/* Description */}
@@ -696,6 +704,16 @@ export default function AdminProducts({
                         <p className="mb-4 text-[13px] text-moss">
                             Tất cả ảnh của sản phẩm cũng sẽ bị xoá. Hành động không thể hoàn tác.
                         </p>
+                        {/* US-07: xoá sản phẩm thuộc combo → combo tự ẩn */}
+                        {(() => {
+                            const comboNames = products.data.find((p) => p.id === deleteId)?.combo_names ?? [];
+                            return comboNames.length > 0 ? (
+                                <p className="mb-4 rounded-[9px] bg-[#fdf3f1] px-3.5 py-2.5 text-[12.5px] font-semibold text-[#b3493a]">
+                                    ⚠ Sản phẩm này thuộc combo: {comboNames.join(', ')}. Xoá sản phẩm sẽ tự ẩn các
+                                    combo đó khỏi trang bán.
+                                </p>
+                            ) : null;
+                        })()}
                         {deleteError && (
                             <div className="mb-4 rounded-[9px] bg-[#f6ddd6] px-3.5 py-2.5 text-[12.5px] font-semibold text-[#b3493a]">
                                 {deleteError}

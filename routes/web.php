@@ -5,6 +5,7 @@ use App\Http\Controllers\Admin\AuthController as AdminAuthController;
 use App\Http\Controllers\Admin\BannerController as AdminBannerController;
 use App\Http\Controllers\Admin\CampingSpotController as AdminCampingSpotController;
 use App\Http\Controllers\Admin\CategoryController as AdminCategoryController;
+use App\Http\Controllers\Admin\ComboController as AdminComboController;
 use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\Admin\OrderController as AdminOrderController;
 use App\Http\Controllers\Admin\ProductController as AdminProductController;
@@ -66,6 +67,14 @@ Route::middleware(['admin'])->prefix('admin')->name('admin.')->group(function ()
     Route::delete('/products/{product}', [AdminProductController::class, 'destroy'])->name('products.destroy');
     Route::post('/products/{product}/images', [AdminProductController::class, 'storeImage'])->name('products.images.store')->middleware('throttle:60,1');
     Route::delete('/products/{product}/images/{image}', [AdminProductController::class, 'destroyImage'])->name('products.images.destroy');
+
+    // Combo thuê trọn bộ — CRUD + ảnh (bopcamping-s9d)
+    Route::get('/combos', [AdminComboController::class, 'index'])->name('combos');
+    Route::post('/combos', [AdminComboController::class, 'store'])->name('combos.store')->middleware('throttle:30,1');
+    Route::put('/combos/{combo}', [AdminComboController::class, 'update'])->name('combos.update')->middleware('throttle:30,1');
+    Route::delete('/combos/{combo}', [AdminComboController::class, 'destroy'])->name('combos.destroy');
+    Route::post('/combos/{combo}/images', [AdminComboController::class, 'storeImage'])->name('combos.images.store')->middleware('throttle:60,1');
+    Route::delete('/combos/{combo}/images/{image}', [AdminComboController::class, 'destroyImage'])->name('combos.images.destroy');
 
     Route::get('/users', [AdminUserController::class, 'index'])->name('users');
     Route::post('/users', [AdminUserController::class, 'store'])->name('users.store')->middleware('throttle:30,1');

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Category;
+use App\Models\Combo;
 use App\Models\Product;
 use App\Models\ProductImage;
 use App\Models\ServiceLocation;
@@ -19,6 +20,14 @@ class ProductController extends Controller
 {
     public function index(): Response
     {
+        // Tên các combo active chứa từng sản phẩm — FE cảnh báo khi ẩn/xoá (US-07)
+        $comboNamesByProduct = Combo::query()
+            ->where('is_active', true)
+            ->join('combo_items', 'combo_items.combo_id', '=', 'combos.id')
+            ->get(['combo_items.product_id', 'combos.name'])
+            ->groupBy('product_id')
+            ->map(fn ($rows) => $rows->pluck('name')->values());
+
         $products = Product::with(['category', 'serviceLocations', 'images' => fn ($q) => $q->orderBy('sort_order')])
             ->orderBy('name')
             ->paginate(50)
@@ -34,6 +43,7 @@ class ProductController extends Controller
                 'status' => $p->status,
                 'category' => $p->category ? ['id' => $p->category->id, 'name' => $p->category->name] : null,
                 'service_location_ids' => $p->serviceLocations->pluck('id')->values(),
+                'combo_names' => $comboNamesByProduct->get($p->id) ?? [],
                 'images' => $p->images->map(fn (ProductImage $img) => [
                     'id' => $img->id,
                     'path' => Storage::disk('media')->url($img->path),
@@ -141,6 +151,8 @@ class ProductController extends Controller
             $thumbnailPath = $request->file('thumbnail')->store('admin/products', 'media');
         }
 
+        $wasActive = $product->status === 'active';
+
         $product->update([
             'category_id' => (int) $data['category_id'],
             'name' => $data['name'],
@@ -155,11 +167,19 @@ class ProductController extends Controller
 
         $product->serviceLocations()->sync($data['service_location_ids']);
 
+        // US-07: sản phẩm vừa bị ẩn → combo chứa nó không được bán tiếp
+        if ($wasActive && $product->status === 'hidden') {
+            Combo::hideForProduct($product, 'product_hidden');
+        }
+
         return back()->with('success', 'Đã cập nhật sản phẩm.');
     }
 
     public function destroy(Product $product): RedirectResponse
     {
+        // US-07: ẩn combo TRƯỚC khi xoá — sau đó combo_items cascade theo FK
+        Combo::hideForProduct($product, 'product_deleted');
+
         // Xóa tất cả ảnh phụ trên storage
         foreach ($product->images as $image) {
             Storage::disk('media')->delete($image->path);

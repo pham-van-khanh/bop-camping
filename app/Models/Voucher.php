@@ -18,6 +18,7 @@ class Voucher extends Model
         'status',
         'min_order_amount',
         'applies_to',
+        'applicable_to_combos',
         'max_uses',
         'used_count',
         'expires_at',
@@ -28,6 +29,7 @@ class Voucher extends Model
     protected $casts = [
         'value' => 'decimal:2',
         'min_order_amount' => 'decimal:2',
+        'applicable_to_combos' => 'boolean',
         'max_uses' => 'integer',
         'used_count' => 'integer',
         'expires_at' => 'datetime',

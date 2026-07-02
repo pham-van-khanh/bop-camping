@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use App\Models\Combo;
+use App\Models\ComboItem;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Product;
@@ -36,6 +38,38 @@ class AvailabilityService
     public function isAvailable(Product $product, Carbon $start, Carbon $end, int $needed = 1): bool
     {
         return $this->availableQuantity($product, $start, $end) >= $needed;
+    }
+
+    /**
+     * Số combo còn có thể thuê trong khoảng [start, end] (PRD combo 5.1).
+     *
+     * KHÔNG có logic tồn kho mới — mỗi món con đi qua availableQuantity() hiện có:
+     * comboAvailable = min( intdiv(available(product_i), quantity_i) ).
+     * Combo chưa có món nào → 0 (không bao giờ cho thuê combo rỗng).
+     */
+    public function comboAvailable(Combo $combo, Carbon $start, Carbon $end): int
+    {
+        $combo->loadMissing('items.product');
+
+        if ($combo->items->isEmpty()) {
+            return 0;
+        }
+
+        return (int) $combo->items->map(function (ComboItem $item) use ($start, $end) {
+            if (! $item->product || $item->quantity < 1) {
+                return 0;
+            }
+
+            return intdiv($this->availableQuantity($item->product, $start, $end), $item->quantity);
+        })->min();
+    }
+
+    /**
+     * Kiểm tra có đủ số combo cần thuê không (mirror isAvailable cho product).
+     */
+    public function isComboAvailable(Combo $combo, Carbon $start, Carbon $end, int $needed = 1): bool
+    {
+        return $this->comboAvailable($combo, $start, $end) >= $needed;
     }
 
     /**
