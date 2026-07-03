@@ -25,12 +25,22 @@ type RecentOrder = {
     created_at: string;
 };
 
-type Props = PageProps<{ stats: Stats; recent: RecentOrder[] }>;
+// US-09: top combo theo lượt thuê + convert-rate từ event log gợi ý trong giỏ.
+type ComboStat = {
+    id: number;
+    name: string;
+    rentals: number;
+    shown: number;
+    converted: number;
+    convert_rate: number | null;
+};
+
+type Props = PageProps<{ stats: Stats; recent: RecentOrder[]; combo_stats: ComboStat[] }>;
 
 const STATUS_ORDER = ['pending', 'confirmed', 'renting', 'returned', 'cancelled'] as const;
 
 export default function AdminDashboard() {
-    const { stats, recent } = usePage<Props>().props;
+    const { stats, recent, combo_stats } = usePage<Props>().props;
 
     return (
         <>
@@ -55,6 +65,48 @@ export default function AdminDashboard() {
                         </Link>
                     ))}
                 </div>
+
+                {/* Combo: lượt thuê + hiệu quả banner gợi ý trong giỏ (US-09) */}
+                {combo_stats.length > 0 && (
+                    <div className="mb-6 rounded-card border border-cardBorder bg-card p-5">
+                        <div className="mb-3 flex items-center justify-between">
+                            <h2 className="text-[16px] font-bold text-ink">Combo — lượt thuê &amp; convert</h2>
+                            <Link href="/admin/combos" className="text-[13px] font-semibold text-grass hover:text-pine">Quản lý combo →</Link>
+                        </div>
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-[14px]">
+                                <thead>
+                                    <tr className="border-b border-cardBorder text-left text-[12px] uppercase tracking-[0.04em] text-moss">
+                                        <th className="py-2 pr-3 font-semibold">Combo</th>
+                                        <th className="py-2 pr-3 text-right font-semibold">Lượt thuê</th>
+                                        <th className="py-2 pr-3 text-right font-semibold">Banner hiện</th>
+                                        <th className="py-2 pr-3 text-right font-semibold">Đã convert</th>
+                                        <th className="py-2 text-right font-semibold">Tỷ lệ convert</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {combo_stats.map((c) => (
+                                        <tr key={c.id} className="border-b border-cardBorder/60 last:border-0">
+                                            <td className="py-2.5 pr-3 font-semibold text-ink">{c.name}</td>
+                                            <td className="py-2.5 pr-3 text-right font-mono font-bold text-pine">{c.rentals}</td>
+                                            <td className="py-2.5 pr-3 text-right font-mono text-moss">{c.shown}</td>
+                                            <td className="py-2.5 pr-3 text-right font-mono text-moss">{c.converted}</td>
+                                            <td className="py-2.5 text-right">
+                                                {c.convert_rate === null ? (
+                                                    <span className="text-[12px] text-[#a3ad92]">chưa có dữ liệu</span>
+                                                ) : (
+                                                    <span className="font-mono font-bold" style={{ color: c.convert_rate >= 30 ? '#557A2B' : '#C97B36' }}>
+                                                        {c.convert_rate}%
+                                                    </span>
+                                                )}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                )}
 
                 {/* Đơn mới gần đây */}
                 <div className="rounded-card border border-cardBorder bg-card p-5">

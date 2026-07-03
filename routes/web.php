@@ -47,6 +47,9 @@ Route::get('/combos/{slug}/kha-dung', [ComboController::class, 'availability'])-
 Route::get('/gio-thue', [CartController::class, 'index'])->name('cart');
 // Làm tươi giỏ: trả giá/vị trí mới nhất theo ids (giỏ ở localStorage có thể đã cũ)
 Route::get('/gio-thue/lam-tuoi', [CartController::class, 'refresh'])->name('cart.refresh')->middleware('throttle:60,1');
+// Cart combo detection (Case 3, P4) — POST vì payload giỏ dạng mảng; chạy lại mỗi khi giỏ đổi
+Route::post('/gio-thue/goi-y-combo', [CartController::class, 'suggestion'])->name('cart.suggestion')->middleware('throttle:60,1');
+Route::post('/gio-thue/goi-y-combo/da-chuyen', [CartController::class, 'suggestionConverted'])->name('cart.suggestion.converted')->middleware('throttle:30,1');
 Route::post('/dat-hang', [OrderController::class, 'store'])->name('order.store')->middleware('throttle:20,1');
 Route::get('/tra-cuu', [OrderLookupController::class, 'index'])->name('lookup');
 // Đánh giá sau chuyến đi qua link token (không cần đăng nhập)

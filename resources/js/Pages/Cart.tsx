@@ -1,9 +1,12 @@
 import { Head, Link, useForm, usePage } from '@inertiajs/react';
+import axios from 'axios';
 import { ChangeEvent, ReactNode, useEffect, useMemo, useState } from 'react';
 import SiteLayout from '@/Layouts/SiteLayout';
+import { COMBO_GRAD } from '@/Components/site/ComboCard';
 import {
-    cartHasLocationConflict, cartTotals, clearCart, getCart, isComboLine, lineDays, lineDeposit, lineRent,
-    removeLine, setCart, setQty, type CartLine, type CartLocation,
+    addLine, cartHasLocationConflict, cartTotals, clearCart, getCart, isComboLine, lineDays, lineDeposit,
+    lineRent, locationConflict as checkLocationConflict, removeLine, setCart, setQty,
+    type CartLine, type CartLocation,
 } from '@/lib/cart';
 import { money, rangeText } from '@/lib/format';
 import { emit, on, EVENTS } from '@/lib/bus';
@@ -12,6 +15,35 @@ import type { PageProps } from '@/types';
 
 type CheckoutItem = { product_id: number; quantity: number; start: string; end: string };
 type CheckoutCombo = { combo_id: number; quantity: number; start: string; end: string };
+
+// Gợi ý từ cart combo detection (PRD 5.4) — server trả tối đa 1 gợi ý.
+type Suggestion = {
+    type: 'exact' | 'superset' | 'upsell';
+    savings: number;
+    savings_total: number;
+    days: number;
+    start: string;
+    end: string;
+    combo: {
+        id: number;
+        name: string;
+        slug: string;
+        combo_price: number;
+        deposit: number;
+        sum_individual: number;
+        items: { product_id: number; name: string; qty: number }[];
+        locations: CartLocation[];
+    };
+    missing: {
+        product_id: number;
+        name: string;
+        qty: number;
+        price_per_day: number;
+        deposit: number;
+        category_slug: string;
+        locations: CartLocation[];
+    }[];
+};
 
 // Dữ liệu mới nhất của sản phẩm/combo trả về từ /gio-thue/lam-tuoi.
 type FreshProduct = { name: string; price_per_day: number; deposit: number; locations: CartLocation[]; all_locations: boolean };
@@ -39,6 +71,7 @@ export default function Cart() {
     const [lines, setLines] = useState<CartLine[]>([]);
     const [selectedCodes, setSelectedCodes] = useState<string[]>([]);
     const [manualCode, setManualCode] = useState('');
+    const [suggestion, setSuggestion] = useState<Suggestion | null>(null);
 
     const { data, setData, post, processing, errors } = useForm<{
         name: string;
@@ -120,6 +153,95 @@ export default function Cart() {
 
     // Giữ voucher_codes của form đồng bộ với lựa chọn.
     useEffect(() => setData('voucher_codes', selectedCodes), [selectedCodes]);
+
+    // Cart combo detection (PRD 5.4): chạy lại MỖI khi giỏ/voucher đổi (debounce nhẹ).
+    // Voucher tham gia vì "convert phải rẻ hơn sau voucher" quyết định có gợi ý hay không.
+    useEffect(() => {
+        if (lines.length === 0 || flash.order_code) {
+            setSuggestion(null);
+            return;
+        }
+        const t = setTimeout(() => {
+            axios.post<{ suggestion: Suggestion | null }>(route('cart.suggestion'), {
+                items: toCheckoutItems(lines),
+                combos: toCheckoutCombos(lines),
+                voucher_codes: selectedCodes,
+            })
+                .then((r) => setSuggestion(r.data.suggestion ?? null))
+                .catch(() => setSuggestion(null));
+        }, 350);
+        return () => clearTimeout(t);
+    }, [lines, selectedCodes, flash.order_code]);
+
+    /** Convert 1 click (exact/superset): trừ các món khớp, thêm 1 dòng combo — giữ nguyên khoảng ngày. */
+    const convertToCombo = () => {
+        if (!suggestion || suggestion.type === 'upsell') return;
+        const { combo, start, end } = suggestion;
+
+        const need = new Map(combo.items.map((ci) => [ci.product_id, ci.qty]));
+        const next: CartLine[] = [];
+        for (const l of lines) {
+            if (isComboLine(l) || l.start !== start || l.end !== end) {
+                next.push(l);
+                continue;
+            }
+            const n = need.get(l.id) ?? 0;
+            const take = Math.min(n, l.qty);
+            if (take > 0) need.set(l.id, n - take);
+            if (l.qty - take > 0) next.push({ ...l, qty: l.qty - take });
+        }
+        // Giỏ đã đổi giữa chừng, không còn đủ món → thôi, đợi detection chạy lại
+        if ([...need.values()].some((v) => v > 0)) return;
+
+        if (checkLocationConflict(combo.locations, next).conflict) {
+            emit(EVENTS.toast, 'Combo không phục vụ tại vị trí của giỏ hiện tại.');
+            return;
+        }
+
+        setCart([...next, {
+            id: combo.id,
+            name: combo.name,
+            cat: 'combo',
+            grad: COMBO_GRAD,
+            price: combo.combo_price,
+            deposit: combo.deposit,
+            qty: 1,
+            start,
+            end,
+            locations: combo.locations,
+            kind: 'combo',
+            comboItems: combo.items.map((ci) => ({ name: ci.name, qty: ci.qty })),
+        }]);
+        axios.post(route('cart.suggestion.converted'), { combo_id: combo.id, suggestion_type: suggestion.type }).catch(() => {});
+        emit(EVENTS.toast, `Đã chuyển thành ${combo.name} — tiết kiệm ${money(suggestion.savings_total)}`);
+    };
+
+    /** Upsell: thêm nhanh món thiếu (giá lẻ) — detection sẽ chạy lại và banner thành "khớp đủ". */
+    const quickAddMissing = () => {
+        if (!suggestion || suggestion.type !== 'upsell') return;
+        for (const m of suggestion.missing) {
+            if (checkLocationConflict(m.locations).conflict) {
+                emit(EVENTS.toast, `${m.name} không phục vụ tại vị trí của giỏ hiện tại.`);
+                return;
+            }
+        }
+        for (const m of suggestion.missing) {
+            addLine({
+                id: m.product_id,
+                name: m.name,
+                cat: m.category_slug,
+                grad: 'linear-gradient(150deg,#4a6741,#7a9b6b)',
+                price: m.price_per_day,
+                deposit: m.deposit,
+                qty: m.qty,
+                start: suggestion.start,
+                end: suggestion.end,
+                locations: m.locations,
+            });
+        }
+        axios.post(route('cart.suggestion.converted'), { combo_id: suggestion.combo.id, suggestion_type: 'upsell' }).catch(() => {});
+        emit(EVENTS.toast, `Đã thêm ${suggestion.missing.map((m) => m.name).join(', ')} vào giỏ`);
+    };
 
     const totals = cartTotals(lines);
 
@@ -252,6 +374,35 @@ export default function Cart() {
                     </div>
                 )}
 
+                {/* Banner cart combo detection (PRD 5.4): exact/superset → convert 1 click; upsell → thêm nhanh */}
+                {suggestion && (
+                    <div className="mb-4 flex flex-wrap items-center gap-3 rounded-[14px] px-4 py-3.5 text-white" style={{ background: COMBO_GRAD }}>
+                        <span className="rounded-pill bg-white/20 px-2.5 py-1 font-mono text-[11px] font-bold tracking-[0.06em]">COMBO</span>
+                        <span className="min-w-[220px] flex-1 text-[13.5px] leading-[1.5]">
+                            {suggestion.type === 'upsell' ? (
+                                <>
+                                    Thêm <b>{suggestion.missing.map((m) => `${m.qty}× ${m.name}`).join(', ')}</b> nữa là thành{' '}
+                                    <Link href={`/combos/${suggestion.combo.slug}`} className="font-bold underline decoration-white/50 underline-offset-2">{suggestion.combo.name}</Link>
+                                    , rẻ hơn <b className="font-mono">{money(suggestion.savings_total)}</b> cho {suggestion.days} ngày
+                                </>
+                            ) : (
+                                <>
+                                    Giỏ của bạn khớp{' '}
+                                    <Link href={`/combos/${suggestion.combo.slug}`} className="font-bold underline decoration-white/50 underline-offset-2">{suggestion.combo.name}</Link>
+                                    {' '}— tiết kiệm <b className="font-mono">{money(suggestion.savings_total)}</b>
+                                    {suggestion.type === 'superset' && <span className="text-white/85"> (các món ngoài combo giữ nguyên thuê lẻ)</span>}
+                                </>
+                            )}
+                        </span>
+                        <button
+                            onClick={suggestion.type === 'upsell' ? quickAddMissing : convertToCombo}
+                            className="h-[38px] whitespace-nowrap rounded-control bg-white px-4 text-[13px] font-bold text-pine transition hover:bg-[#f1f4ea]"
+                        >
+                            {suggestion.type === 'upsell' ? 'Thêm nhanh' : 'Chuyển thành combo'}
+                        </button>
+                    </div>
+                )}
+
                 <div className="grid items-start gap-6" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))' }}>
                     {/* Danh sách món */}
                     <div>
@@ -276,6 +427,10 @@ export default function Cart() {
                                                 {it.comboItems!.map((ci, k) => (
                                                     <li key={k}>· {ci.qty}× {ci.name}</li>
                                                 ))}
+                                                {/* Đã duyệt với chủ shop: combo là khối nguyên vẹn, không xoá lẻ món con */}
+                                                <li className="mt-1 text-[11.5px] italic" style={{ color: '#a3ad92' }}>
+                                                    Combo là bộ cố định — muốn đổi món, xoá combo và thêm lẻ từng món.
+                                                </li>
                                             </ul>
                                         </details>
                                     )}

@@ -2,12 +2,17 @@
 
 namespace App\Models;
 
+use Database\Factories\ComboFactory;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\Log;
 
 class Combo extends Model
 {
+    /** @use HasFactory<ComboFactory> */
+    use HasFactory;
+
     protected $fillable = [
         'name',
         'slug',

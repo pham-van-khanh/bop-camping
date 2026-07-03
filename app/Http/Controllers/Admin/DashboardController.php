@@ -3,7 +3,10 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\Combo;
+use App\Models\ComboEvent;
 use App\Models\Order;
+use App\Models\OrderItem;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -42,6 +45,52 @@ class DashboardController extends Controller
                 'revenue_month' => $revenueMonth,
             ],
             'recent' => $recent,
+            'combo_stats' => $this->comboStats(),
         ]);
+    }
+
+    /**
+     * US-09 — widget combo: top theo lượt thuê (mỗi combo_group_uuid = 1 lượt,
+     * bỏ đơn huỷ) + shown/converted/convert-rate từ event log gợi ý trong giỏ.
+     *
+     * @return array<int, array{id:int, name:string, rentals:int, shown:int, converted:int, convert_rate:int|null}>
+     */
+    private function comboStats(): array
+    {
+        $rentals = OrderItem::query()
+            ->whereNotNull('combo_id')
+            ->whereHas('order', fn ($q) => $q->where('status', '!=', 'cancelled'))
+            ->selectRaw('combo_id, COUNT(DISTINCT combo_group_uuid) as rentals')
+            ->groupBy('combo_id')
+            ->pluck('rentals', 'combo_id');
+
+        $events = ComboEvent::query()
+            ->selectRaw('combo_id, event, COUNT(*) as c')
+            ->groupBy('combo_id', 'event')
+            ->get()
+            ->groupBy('combo_id');
+
+        $comboIds = $rentals->keys()->merge($events->keys())->unique()->values();
+        $names = Combo::whereIn('id', $comboIds)->pluck('name', 'id');
+
+        return $comboIds
+            ->map(function ($id) use ($rentals, $events, $names) {
+                $ev = $events->get($id, collect());
+                $shown = (int) ($ev->firstWhere('event', ComboEvent::SHOWN)->c ?? 0);
+                $converted = (int) ($ev->firstWhere('event', ComboEvent::CONVERTED)->c ?? 0);
+
+                return [
+                    'id' => (int) $id,
+                    'name' => $names[$id] ?? ('Combo #'.$id),
+                    'rentals' => (int) ($rentals[$id] ?? 0),
+                    'shown' => $shown,
+                    'converted' => $converted,
+                    'convert_rate' => $shown > 0 ? (int) round($converted * 100 / $shown) : null,
+                ];
+            })
+            ->sortByDesc('rentals')
+            ->take(5)
+            ->values()
+            ->all();
     }
 }

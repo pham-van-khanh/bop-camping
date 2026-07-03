@@ -3,15 +3,11 @@
 /**
  * ComboCartDetectionTest — AC-5, AC-6, mục 5.4 trong prd_combo.md
  *
- * 📌 File này dành cho P4 (bopcamping-28v) — test case giữ nguyên theo template
- *    của chủ shop, implement ComboDetectionService theo TDD ở phase đó.
- *    setUp tự SKIP khi service chưa tồn tại để suite P2/P3 vẫn xanh;
- *    khi làm P4: tạo service + factories (hoặc adapt helper) rồi bỏ guard.
+ * 📌 Test case giữ nguyên theo template của chủ shop (P4, bopcamping-28v).
+ *    Guard skip đã gỡ khi implement ComboDetectionService + factories ở P4.
  *
- * ⚠️ GIẢ ĐỊNH: App\Services\ComboDetectionService với method
- *    detect(Collection $cartItems, $start, $end): ?ComboSuggestion
- *    Trong đó ComboSuggestion có: type (exact|superset|upsell),
- *    combo, savings, missingItems (cho upsell).
+ * Contract: App\Services\ComboDetectionService::detect(Collection $cartItems, $start, $end): ?ComboSuggestion
+ *    ComboSuggestion có: type (exact|superset|upsell), combo, savings, missingItems (cho upsell).
  *    Cart item dạng: ['product_id' => int, 'quantity' => int]
  */
 
@@ -29,7 +25,7 @@ class ComboCartDetectionTest extends TestCase
 {
     use RefreshDatabase;
 
-    private object $detector;
+    private ComboDetectionService $detector;
 
     private Product $tent;
 
@@ -43,9 +39,6 @@ class ComboCartDetectionTest extends TestCase
     {
         parent::setUp();
 
-        if (! class_exists(ComboDetectionService::class)) {
-            $this->markTestSkipped('P4 (bopcamping-28v) — ComboDetectionService chưa được implement.');
-        }
         $this->detector = app(ComboDetectionService::class);
 
         $this->tent = Product::factory()->create(['price_per_day' => 200_000, 'quantity' => 5]);
@@ -139,7 +132,14 @@ class ComboCartDetectionTest extends TestCase
             'start_date' => '2026-07-12',
             'end_date' => '2026-07-14',
         ]);
-        $order->items()->create(['product_id' => $this->tent->id, 'quantity' => 5]);
+        // order_items yêu cầu snapshot giá (NOT NULL) — bổ sung cho khớp schema
+        $order->items()->create([
+            'product_id' => $this->tent->id,
+            'quantity' => 5,
+            'price_per_day' => 200_000,
+            'days' => 3,
+            'subtotal' => 5 * 3 * 200_000,
+        ]);
 
         // Giỏ khớp đủ combo nhưng combo không còn available → KHÔNG gợi ý (AC-6)
         $suggestion = $this->detector->detect(
