@@ -2,7 +2,9 @@
 
 namespace App\Models;
 
+use Database\Factories\ProductFactory;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -11,6 +13,9 @@ use Illuminate\Support\Str;
 
 class Product extends Model
 {
+    /** @use HasFactory<ProductFactory> */
+    use HasFactory;
+
     protected $fillable = [
         'category_id',
         'name',
@@ -82,6 +87,15 @@ class Product extends Model
     public function serviceLocations(): BelongsToMany
     {
         return $this->belongsToMany(ServiceLocation::class, 'product_service_location');
+    }
+
+    /** Case 2 — "thường thuê cùng": phụ kiện admin gán tay, theo sort_order (US-08). */
+    public function accessories(): BelongsToMany
+    {
+        return $this->belongsToMany(Product::class, 'product_accessories', 'product_id', 'related_product_id')
+            ->withPivot('sort_order')
+            ->withTimestamps()
+            ->orderBy('product_accessories.sort_order');
     }
 
     /** Lọc sản phẩm cho thuê tại vị trí có slug tương ứng (vd 'vinh', 'ha-noi'). */

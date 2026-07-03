@@ -107,13 +107,20 @@ export default function AdminCampingSpots({
         });
     };
 
-    const triggerUpload = (id: number) => { setUploadingId(id); uploadRef.current?.click(); };
+    // Lưu ở ref (không phải state) — set nó KHÔNG kích hoạt trạng thái "đang tải" trên
+    // UI. Nếu setUploadingId ngay lúc bấm nút (trước khi biết có chọn file hay không),
+    // khách Cancel hộp thoại chọn file thì onChange không bắn, không có gì reset lại
+    // uploadingId → nút kẹt ở "Đang tải…" vĩnh viễn tới khi reload trang.
+    const uploadTargetRef = useRef<number | null>(null);
+    const triggerUpload = (id: number) => { uploadTargetRef.current = id; uploadRef.current?.click(); };
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (!uploadingId || !e.target.files?.length) return;
+        const id = uploadTargetRef.current;
+        if (!id || !e.target.files?.length) return;
+        setUploadingId(id);
         const fd = new FormData();
         Array.from(e.target.files).forEach((f) => fd.append('media[]', f));
-        router.post(route('admin.camping-spots.media.store', uploadingId), fd, {
+        router.post(route('admin.camping-spots.media.store', id), fd, {
             forceFormData: true, preserveScroll: true,
             onFinish: () => { setUploadingId(null); e.target.value = ''; },
         });

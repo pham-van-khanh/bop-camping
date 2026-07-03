@@ -5,9 +5,10 @@ import ProductStatusPill from '@/Components/ProductStatusPill';
 import { money } from '@/lib/format';
 import type { PageProps } from '@/types';
 
-type ProductImage = { id: number; path: string; sort_order: number };
+type ProductImage = { id: number; path: string; sort_order: number; type: 'image' | 'video' };
 type CategoryOption = { id: number; name: string };
 type ServiceLocationOption = { id: number; name: string; area: string | null; status: 'open' | 'coming' };
+type AccessoryOption = { id: number; name: string; status: 'active' | 'hidden' };
 type Product = {
     id: number;
     name: string;
@@ -20,6 +21,8 @@ type Product = {
     status: 'active' | 'hidden';
     category: { id: number; name: string } | null;
     service_location_ids: number[];
+    accessory_ids: number[];
+    combo_names: string[];
     images: ProductImage[];
 };
 
@@ -33,6 +36,8 @@ type ProductFormData = {
     status: 'active' | 'hidden';
     thumbnail: File | null;
     service_location_ids: number[];
+    // "Thường thuê cùng" (US-08) — thứ tự trong mảng = thứ tự hiển thị ở trang sản phẩm
+    accessory_ids: number[];
 };
 
 type Paginator<T> = {
@@ -48,10 +53,12 @@ export default function AdminProducts({
     products,
     categories,
     service_locations,
+    accessory_options,
 }: {
     products: Paginator<Product>;
     categories: CategoryOption[];
     service_locations: ServiceLocationOption[];
+    accessory_options: AccessoryOption[];
 }) {
     const { flash } = usePage<PageProps>().props;
 
@@ -84,6 +91,7 @@ export default function AdminProducts({
         status: 'active',
         thumbnail: null,
         service_location_ids: [],
+        accessory_ids: [],
     });
 
     const blank = (): ProductFormData => ({
@@ -97,6 +105,7 @@ export default function AdminProducts({
         thumbnail: null,
         // Mặc định gắn tất cả vị trí đang mở khi thêm mới.
         service_location_ids: [...openLocationIds],
+        accessory_ids: [],
     });
 
     const toggleLocation = (id: number) => {
@@ -104,9 +113,19 @@ export default function AdminProducts({
         form.setData('service_location_ids', cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]);
     };
 
+    /* --- "Thường thuê cùng" (US-08): thứ tự click = thứ tự hiển thị --- */
+    const [accSearch, setAccSearch] = useState('');
+    const accessoryName = (id: number) => accessory_options.find((o) => o.id === id)?.name ?? `#${id}`;
+
+    const toggleAccessory = (id: number) => {
+        const cur = form.data.accessory_ids;
+        form.setData('accessory_ids', cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]);
+    };
+
     const openCreate = () => {
         form.setData(blank());
         form.clearErrors();
+        setAccSearch('');
         setEditing(null);
         setModalMode('create');
     };
@@ -122,8 +141,10 @@ export default function AdminProducts({
             status: p.status,
             thumbnail: null,
             service_location_ids: p.service_location_ids ?? [],
+            accessory_ids: p.accessory_ids ?? [],
         });
         form.clearErrors();
+        setAccSearch('');
         setEditing(p);
         setModalMode('edit');
     };
@@ -147,12 +168,21 @@ export default function AdminProducts({
         }));
 
         const opts = { forceFormData: true, onSuccess: closeModal };
+        // FormData không gửi được mảng rỗng → gửi '' để backend hiểu là "xoá hết gợi ý"
+        // (khác với không gửi key = giữ nguyên).
         if (modalMode === 'create') {
-            form.transform((data) => data);
+            form.transform((data) => ({
+                ...data,
+                accessory_ids: data.accessory_ids.length ? data.accessory_ids : '',
+            }));
             form.post(route('admin.products.store'), opts);
         } else if (editing) {
             // PHP không nạp $_FILES cho PUT → POST kèm _method spoofing để upload ảnh khi sửa hoạt động.
-            form.transform((data) => ({ ...data, _method: 'put' }));
+            form.transform((data) => ({
+                ...data,
+                _method: 'put',
+                accessory_ids: data.accessory_ids.length ? data.accessory_ids : '',
+            }));
             form.post(route('admin.products.update', editing.id), opts);
         }
     };
@@ -168,16 +198,24 @@ export default function AdminProducts({
     };
 
     /* --- Image upload --- */
+    // Lưu ở ref (không phải state) vì chỉ dùng để nhớ sản phẩm đích cho lần chọn file
+    // kế tiếp — set nó KHÔNG được kích hoạt trạng thái "đang tải" trên UI (xem dưới).
+    const uploadTargetRef = useRef<number | null>(null);
     const triggerUpload = (productId: number) => {
-        setUploadingId(productId);
+        uploadTargetRef.current = productId;
         uploadRef.current?.click();
     };
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (!uploadingId || !e.target.files?.length) return;
+        const productId = uploadTargetRef.current;
+        // Bấm Cancel ở hộp thoại chọn file → không có file → không set uploadingId,
+        // nút không bị kẹt ở "Đang tải…" (trước đây set uploadingId ngay lúc mở dialog,
+        // nếu khách Cancel thì onChange không bắn nên không có gì reset lại được).
+        if (!productId || !e.target.files?.length) return;
+        setUploadingId(productId);
         const formData = new FormData();
         Array.from(e.target.files).forEach((f) => formData.append('images[]', f));
-        router.post(route('admin.products.images.store', uploadingId), formData, {
+        router.post(route('admin.products.images.store', productId), formData, {
             forceFormData: true,
             preserveScroll: true,
             onFinish: () => {
@@ -195,11 +233,11 @@ export default function AdminProducts({
         <>
             <Head title="Admin · Sản phẩm" />
 
-            {/* Hidden file input for image upload */}
+            {/* Hidden file input for image/video upload */}
             <input
                 ref={uploadRef}
                 type="file"
-                accept="image/*"
+                accept="image/*,video/*"
                 multiple
                 className="hidden"
                 onChange={handleFileChange}
@@ -363,7 +401,7 @@ export default function AdminProducts({
                                                                         strokeLinecap="round"
                                                                     />
                                                                 </svg>
-                                                                {uploadingId === p.id ? 'Đang tải…' : 'Upload ảnh'}
+                                                                {uploadingId === p.id ? 'Đang tải…' : 'Upload ảnh/video'}
                                                             </button>
                                                         </div>
 
@@ -375,11 +413,22 @@ export default function AdminProducts({
                                                             <div className="flex flex-wrap gap-3">
                                                                 {p.images.map((img) => (
                                                                     <div key={img.id} className="group relative">
-                                                                        <img
-                                                                            src={img.path}
-                                                                            alt=""
-                                                                            className="h-20 w-20 rounded-[10px] object-cover border border-cardBorder"
-                                                                        />
+                                                                        {img.type === 'video' ? (
+                                                                            <video
+                                                                                src={img.path}
+                                                                                className="h-20 w-20 rounded-[10px] border border-cardBorder object-cover"
+                                                                                muted
+                                                                            />
+                                                                        ) : (
+                                                                            <img
+                                                                                src={img.path}
+                                                                                alt=""
+                                                                                className="h-20 w-20 rounded-[10px] object-cover border border-cardBorder"
+                                                                            />
+                                                                        )}
+                                                                        {img.type === 'video' && (
+                                                                            <span className="pointer-events-none absolute inset-0 grid place-items-center text-white">▶</span>
+                                                                        )}
                                                                         <button
                                                                             onClick={() => deleteImage(p.id, img.id)}
                                                                             className="absolute -right-1.5 -top-1.5 hidden h-5 w-5 items-center justify-center rounded-full bg-[#b3493a] text-[10px] font-bold text-white shadow group-hover:flex"
@@ -532,6 +581,77 @@ export default function AdminProducts({
                                 )}
                             </div>
 
+                            {/* Thường thuê cùng (US-08) — gợi ý hiện ở trang sản phẩm (Case 2) */}
+                            <div>
+                                <label className="mb-1.5 block text-[13px] font-semibold text-pine">
+                                    Thường thuê cùng
+                                    <span className="ml-1 font-normal text-moss">(thứ tự chọn = thứ tự hiển thị)</span>
+                                </label>
+
+                                {/* Chip các món đã chọn, đúng thứ tự */}
+                                {form.data.accessory_ids.length > 0 && (
+                                    <div className="mb-2 flex flex-wrap gap-1.5">
+                                        {form.data.accessory_ids.map((id, i) => (
+                                            <span key={id} className="flex items-center gap-1.5 rounded-pill bg-[#eef5e1] py-1 pl-2.5 pr-1.5 text-[12px] font-semibold text-grass">
+                                                <span className="font-mono text-[10.5px] text-moss">{i + 1}.</span>
+                                                {accessoryName(id)}
+                                                <button
+                                                    type="button"
+                                                    onClick={() => toggleAccessory(id)}
+                                                    className="grid h-4 w-4 place-items-center rounded-full bg-[#c4cfae] text-[10px] font-bold text-white hover:bg-[#b3493a]"
+                                                    title="Bỏ khỏi gợi ý"
+                                                >
+                                                    ×
+                                                </button>
+                                            </span>
+                                        ))}
+                                    </div>
+                                )}
+
+                                <input
+                                    type="text"
+                                    value={accSearch}
+                                    onChange={(e) => setAccSearch(e.target.value)}
+                                    placeholder="Tìm sản phẩm để thêm gợi ý…"
+                                    className="w-full rounded-[10px] border border-cardBorder px-3.5 py-2 text-[13px] outline-none transition focus:border-grass"
+                                />
+                                <div className="mt-1.5 max-h-[160px] overflow-y-auto rounded-[10px] border border-cardBorder">
+                                    {accessory_options
+                                        .filter((o) => o.id !== editing?.id)
+                                        .filter((o) => o.name.toLowerCase().includes(accSearch.toLowerCase()))
+                                        .map((o) => {
+                                            const on = form.data.accessory_ids.includes(o.id);
+                                            return (
+                                                <button
+                                                    type="button"
+                                                    key={o.id}
+                                                    onClick={() => toggleAccessory(o.id)}
+                                                    className={`flex w-full items-center gap-2 border-b border-[#f1f4ea] px-3 py-2 text-left text-[12.5px] transition last:border-b-0 ${
+                                                        on ? 'bg-[#f4f8ec] font-semibold text-grass' : 'text-pine hover:bg-[#fafcf7]'
+                                                    }`}
+                                                >
+                                                    <span
+                                                        className={`grid h-[15px] w-[15px] flex-none place-items-center rounded-[4px] border text-[10px] font-bold ${
+                                                            on ? 'border-grass bg-grass text-white' : 'border-[#c4cca8] text-transparent'
+                                                        }`}
+                                                    >
+                                                        ✓
+                                                    </span>
+                                                    <span className="flex-1">{o.name}</span>
+                                                    {o.status === 'hidden' && (
+                                                        <span className="rounded-pill bg-[#f1f4ea] px-1.5 py-0.5 text-[10px] font-semibold text-moss">Đang ẩn</span>
+                                                    )}
+                                                </button>
+                                            );
+                                        })}
+                                </div>
+                                {Object.entries(form.errors)
+                                    .filter(([k]) => k.startsWith('accessory_ids'))
+                                    .map(([k, v]) => (
+                                        <p key={k} className="mt-1 text-[12px] text-[#b3493a]">{v}</p>
+                                    ))}
+                            </div>
+
                             {/* Price / Qty / Deposit row */}
                             <div className="grid grid-cols-3 gap-3">
                                 <div>
@@ -607,6 +727,13 @@ export default function AdminProducts({
                                         </label>
                                     ))}
                                 </div>
+                                {/* US-07: ẩn sản phẩm đang thuộc combo → combo tự ẩn theo */}
+                                {form.data.status === 'hidden' && editing && editing.combo_names.length > 0 && (
+                                    <p className="mt-2 rounded-[9px] bg-[#fdf3f1] px-3.5 py-2.5 text-[12.5px] font-semibold text-[#b3493a]">
+                                        ⚠ Sản phẩm này thuộc combo: {editing.combo_names.join(', ')}. Ẩn sản phẩm sẽ tự
+                                        ẩn các combo đó khỏi trang bán.
+                                    </p>
+                                )}
                             </div>
 
                             {/* Description */}
@@ -677,6 +804,16 @@ export default function AdminProducts({
                         <p className="mb-4 text-[13px] text-moss">
                             Tất cả ảnh của sản phẩm cũng sẽ bị xoá. Hành động không thể hoàn tác.
                         </p>
+                        {/* US-07: xoá sản phẩm thuộc combo → combo tự ẩn */}
+                        {(() => {
+                            const comboNames = products.data.find((p) => p.id === deleteId)?.combo_names ?? [];
+                            return comboNames.length > 0 ? (
+                                <p className="mb-4 rounded-[9px] bg-[#fdf3f1] px-3.5 py-2.5 text-[12.5px] font-semibold text-[#b3493a]">
+                                    ⚠ Sản phẩm này thuộc combo: {comboNames.join(', ')}. Xoá sản phẩm sẽ tự ẩn các
+                                    combo đó khỏi trang bán.
+                                </p>
+                            ) : null;
+                        })()}
                         {deleteError && (
                             <div className="mb-4 rounded-[9px] bg-[#f6ddd6] px-3.5 py-2.5 text-[12.5px] font-semibold text-[#b3493a]">
                                 {deleteError}

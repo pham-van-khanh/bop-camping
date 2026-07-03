@@ -69,6 +69,26 @@ curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
 sudo apt install -y nodejs
 ```
 
+### 2.2b Nâng trần upload PHP-FPM (BẮT BUỘC cho video sản phẩm/điểm cắm trại/đánh giá)
+
+Mặc định PHP giới hạn `upload_max_filesize`/`post_max_size` rất thấp (2M/8M) —
+thấp hơn nhiều trần 50MB mà app cho phép ở tầng validate (`ProductController`,
+`CampingSpotController`, `ReviewController`). Nếu không nâng, video sẽ bị PHP
+chặn TRƯỚC KHI Laravel kịp validate, admin/khách nhận lỗi mơ hồ
+(`PostTooLargeException`). Xem `artifacts/security_audit_2026-07-01.md`.
+
+```bash
+sudo nano /etc/php/8.3/fpm/php.ini
+```
+Sửa 2 dòng (chừa margin cho multipart overhead so với trần 50MB của app):
+```ini
+upload_max_filesize = 55M
+post_max_size = 55M
+```
+```bash
+sudo systemctl restart php8.3-fpm
+```
+
 ### 2.3 Tạo database MySQL
 
 ```bash
@@ -186,6 +206,12 @@ php artisan route:cache
 php artisan view:cache
 ```
 
+> **Lưu ý `MEDIA_DISK`/`AWS_*`**: sau `config:cache`, Laravel đọc giá trị env đã
+> đóng băng trong cache, không đọc lại `.env` nữa. Nếu sau này đổi `MEDIA_DISK`
+> hoặc bất kỳ key `AWS_*` trong `.env` production, **phải chạy lại
+> `php artisan config:cache`** (hoặc `config:clear` nếu tạm không cache) để
+> thay đổi có hiệu lực — sửa `.env` không thôi sẽ không đủ.
+
 ---
 
 ## Giai đoạn 4 — Nginx + HTTPS
@@ -203,7 +229,7 @@ server {
 
     index index.php;
     charset utf-8;
-    client_max_body_size 20M;          # cho upload ảnh review/sản phẩm
+    client_max_body_size 55M;          # video sản phẩm/điểm cắm trại tới 50MB — khớp 2.2b
 
     location / {
         try_files $uri $uri/ /index.php?$query_string;

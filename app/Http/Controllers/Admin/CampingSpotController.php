@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\CampingSpot;
 use App\Models\CampingSpotMedia;
 use App\Models\ServiceLocation;
+use App\Support\MediaType;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -14,9 +15,6 @@ use Inertia\Response;
 
 class CampingSpotController extends Controller
 {
-    /** Ảnh + video cho phép trong điểm cắm trại (như review media). */
-    private const MEDIA_MIMES = 'mimetypes:image/jpeg,image/png,image/webp,video/mp4,video/webm,video/quicktime';
-
     public function index(): Response
     {
         $spots = CampingSpot::with(['media', 'nearestServiceLocation'])
@@ -40,7 +38,7 @@ class CampingSpotController extends Controller
                 'media' => $s->media->map(fn (CampingSpotMedia $m) => [
                     'id' => $m->id,
                     'type' => $m->type,
-                    'url' => Storage::url($m->path),
+                    'url' => Storage::disk('media')->url($m->path),
                 ])->values(),
             ]);
 
@@ -77,7 +75,7 @@ class CampingSpotController extends Controller
     public function destroy(CampingSpot $campingSpot): RedirectResponse
     {
         foreach ($campingSpot->media as $m) {
-            Storage::disk('public')->delete($m->path);
+            Storage::disk('media')->delete($m->path);
         }
         $campingSpot->delete(); // media cascade ở DB
 
@@ -88,7 +86,7 @@ class CampingSpotController extends Controller
     {
         $request->validate([
             'media' => ['required', 'array', 'max:12'],
-            'media.*' => ['file', self::MEDIA_MIMES, 'max:51200'], // ≤50MB
+            'media.*' => ['file', MediaType::MIMES_RULE, 'max:51200'], // ≤50MB
         ], [
             'media.*.mimetypes' => 'Chỉ nhận ảnh (jpg, png, webp) hoặc video (mp4, webm, mov).',
             'media.*.max' => 'Mỗi tệp tối đa 50MB.',
@@ -96,10 +94,9 @@ class CampingSpotController extends Controller
 
         $maxSort = (int) $campingSpot->media()->max('sort_order');
         foreach ((array) $request->file('media', []) as $file) {
-            $isVideo = str_starts_with((string) $file->getMimeType(), 'video/');
             $campingSpot->media()->create([
-                'type' => $isVideo ? 'video' : 'image',
-                'path' => $file->store('camping-spots', 'public'),
+                'type' => MediaType::detect($file),
+                'path' => $file->store('admin/camping-spots', 'media'),
                 'sort_order' => ++$maxSort,
             ]);
         }
@@ -112,7 +109,7 @@ class CampingSpotController extends Controller
         // Chặn IDOR: media phải thuộc đúng điểm trên URL (CWE-639).
         abort_unless($media->camping_spot_id === $campingSpot->id, 404);
 
-        Storage::disk('public')->delete($media->path);
+        Storage::disk('media')->delete($media->path);
         $media->delete();
 
         return back()->with('success', 'Đã xoá ảnh/video.');

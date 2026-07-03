@@ -5,6 +5,7 @@ use App\Http\Controllers\Admin\AuthController as AdminAuthController;
 use App\Http\Controllers\Admin\BannerController as AdminBannerController;
 use App\Http\Controllers\Admin\CampingSpotController as AdminCampingSpotController;
 use App\Http\Controllers\Admin\CategoryController as AdminCategoryController;
+use App\Http\Controllers\Admin\ComboController as AdminComboController;
 use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\Admin\OrderController as AdminOrderController;
 use App\Http\Controllers\Admin\ProductController as AdminProductController;
@@ -16,6 +17,7 @@ use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\Admin\VoucherController as AdminVoucherController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\Shop\CartController;
+use App\Http\Controllers\Shop\ComboController;
 use App\Http\Controllers\Shop\GuestAuthController;
 use App\Http\Controllers\Shop\OrderController;
 use App\Http\Controllers\Shop\OrderLookupController;
@@ -30,12 +32,24 @@ Route::get('/', [ProductController::class, 'home'])->name('home');
 // Mặt tiền khách
 Route::get('/thiet-bi', [ProductController::class, 'index'])->name('products');
 Route::get('/thiet-bi/{product}', [ProductController::class, 'show'])->whereNumber('product')->name('products.show');
+// Tồn kho theo khoảng ngày (bopcamping-1z1) — fetch từ trang chi tiết khi chọn ngày
+Route::get('/thiet-bi/{product}/kha-dung', [ProductController::class, 'availability'])->whereNumber('product')->name('products.availability')->middleware('throttle:60,1');
+// Tồn kho gợi ý "thường thuê cùng" + combo banner theo khoảng ngày (Combo P3, AC-9)
+Route::get('/thiet-bi/{product}/goi-y-kha-dung', [ProductController::class, 'suggestionAvailability'])->whereNumber('product')->name('products.suggestions')->middleware('throttle:60,1');
 // Khách vãng lai cũng gửi được — mọi đánh giá vào 'pending' chờ admin duyệt
 Route::post('/thiet-bi/{product}/danh-gia', [ReviewController::class, 'store'])->whereNumber('product')->name('reviews.store')
     ->middleware('throttle:10,1');
+// Combo thuê trọn bộ (bopcamping-6he)
+Route::get('/combos', [ComboController::class, 'index'])->name('combos');
+Route::get('/combos/{slug}', [ComboController::class, 'show'])->name('combos.show');
+// Check tồn kho realtime theo khoảng ngày (Case 4) — fetch từ trang chi tiết
+Route::get('/combos/{slug}/kha-dung', [ComboController::class, 'availability'])->name('combos.availability')->middleware('throttle:60,1');
 Route::get('/gio-thue', [CartController::class, 'index'])->name('cart');
 // Làm tươi giỏ: trả giá/vị trí mới nhất theo ids (giỏ ở localStorage có thể đã cũ)
 Route::get('/gio-thue/lam-tuoi', [CartController::class, 'refresh'])->name('cart.refresh')->middleware('throttle:60,1');
+// Cart combo detection (Case 3, P4) — POST vì payload giỏ dạng mảng; chạy lại mỗi khi giỏ đổi
+Route::post('/gio-thue/goi-y-combo', [CartController::class, 'suggestion'])->name('cart.suggestion')->middleware('throttle:60,1');
+Route::post('/gio-thue/goi-y-combo/da-chuyen', [CartController::class, 'suggestionConverted'])->name('cart.suggestion.converted')->middleware('throttle:30,1');
 Route::post('/dat-hang', [OrderController::class, 'store'])->name('order.store')->middleware('throttle:20,1');
 Route::get('/tra-cuu', [OrderLookupController::class, 'index'])->name('lookup');
 // Đánh giá sau chuyến đi qua link token (không cần đăng nhập)
@@ -64,8 +78,16 @@ Route::middleware(['admin'])->prefix('admin')->name('admin.')->group(function ()
     Route::post('/products', [AdminProductController::class, 'store'])->name('products.store');
     Route::put('/products/{product}', [AdminProductController::class, 'update'])->name('products.update');
     Route::delete('/products/{product}', [AdminProductController::class, 'destroy'])->name('products.destroy');
-    Route::post('/products/{product}/images', [AdminProductController::class, 'storeImage'])->name('products.images.store');
+    Route::post('/products/{product}/images', [AdminProductController::class, 'storeImage'])->name('products.images.store')->middleware('throttle:60,1');
     Route::delete('/products/{product}/images/{image}', [AdminProductController::class, 'destroyImage'])->name('products.images.destroy');
+
+    // Combo thuê trọn bộ — CRUD + ảnh (bopcamping-s9d)
+    Route::get('/combos', [AdminComboController::class, 'index'])->name('combos');
+    Route::post('/combos', [AdminComboController::class, 'store'])->name('combos.store')->middleware('throttle:30,1');
+    Route::put('/combos/{combo}', [AdminComboController::class, 'update'])->name('combos.update')->middleware('throttle:30,1');
+    Route::delete('/combos/{combo}', [AdminComboController::class, 'destroy'])->name('combos.destroy');
+    Route::post('/combos/{combo}/images', [AdminComboController::class, 'storeImage'])->name('combos.images.store')->middleware('throttle:60,1');
+    Route::delete('/combos/{combo}/images/{image}', [AdminComboController::class, 'destroyImage'])->name('combos.images.destroy');
 
     Route::get('/users', [AdminUserController::class, 'index'])->name('users');
     Route::post('/users', [AdminUserController::class, 'store'])->name('users.store')->middleware('throttle:30,1');

@@ -44,6 +44,9 @@ class PromotionController extends Controller
             'conversion_trigger_status' => ['required', 'in:pending,confirmed,renting,returned'],
             'max_referrals_per_user_per_month' => ['required', 'integer', 'min:0'],
             'reward_clawback_enabled' => ['required', 'boolean'],
+            'email_bonus_enabled' => ['required', 'boolean'],
+            'email_bonus_discount_type' => ['required', 'in:fixed,percent'],
+            'email_bonus_discount_value' => ['required', 'numeric', 'min:0'],
         ], [
             'required' => 'Vui lòng nhập :attribute.',
             'numeric' => ':attribute phải là số.',
@@ -63,6 +66,8 @@ class PromotionController extends Controller
             'referrer_reward_type' => 'Kiểu thưởng referrer',
             'discount_applies_to' => 'Khuyến mãi áp lên',
             'conversion_trigger_status' => 'Trạng thái tính giới thiệu',
+            'email_bonus_discount_type' => 'Kiểu giảm khi thêm email',
+            'email_bonus_discount_value' => 'Giá trị giảm khi thêm email',
         ]);
 
         PromotionSetting::current()->update($data);

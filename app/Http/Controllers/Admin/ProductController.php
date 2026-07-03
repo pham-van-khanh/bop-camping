@@ -4,9 +4,11 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Category;
+use App\Models\Combo;
 use App\Models\Product;
 use App\Models\ProductImage;
 use App\Models\ServiceLocation;
+use App\Support\MediaType;
 use App\Support\Slug;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -18,7 +20,15 @@ class ProductController extends Controller
 {
     public function index(): Response
     {
-        $products = Product::with(['category', 'serviceLocations', 'images' => fn ($q) => $q->orderBy('sort_order')])
+        // Tên các combo active chứa từng sản phẩm — FE cảnh báo khi ẩn/xoá (US-07)
+        $comboNamesByProduct = Combo::query()
+            ->where('is_active', true)
+            ->join('combo_items', 'combo_items.combo_id', '=', 'combos.id')
+            ->get(['combo_items.product_id', 'combos.name'])
+            ->groupBy('product_id')
+            ->map(fn ($rows) => $rows->pluck('name')->values());
+
+        $products = Product::with(['category', 'serviceLocations', 'accessories', 'images' => fn ($q) => $q->orderBy('sort_order')])
             ->orderBy('name')
             ->paginate(50)
             ->through(fn (Product $p) => [
@@ -29,20 +39,25 @@ class ProductController extends Controller
                 'price_per_day' => $p->price_per_day,
                 'quantity' => $p->quantity,
                 'deposit' => $p->deposit,
-                'thumbnail' => $p->thumbnail ? Storage::url($p->thumbnail) : null,
+                'thumbnail' => $p->thumbnail ? Storage::disk('media')->url($p->thumbnail) : null,
                 'status' => $p->status,
                 'category' => $p->category ? ['id' => $p->category->id, 'name' => $p->category->name] : null,
                 'service_location_ids' => $p->serviceLocations->pluck('id')->values(),
+                'accessory_ids' => $p->accessories->pluck('id')->values(),
+                'combo_names' => $comboNamesByProduct->get($p->id) ?? [],
                 'images' => $p->images->map(fn (ProductImage $img) => [
                     'id' => $img->id,
-                    'path' => Storage::url($img->path),
+                    'path' => Storage::disk('media')->url($img->path),
                     'sort_order' => $img->sort_order,
+                    'type' => $img->type,
                 ])->values(),
             ]);
 
         return Inertia::render('Admin/Products', [
             'products' => $products,
             'categories' => Category::orderBy('name')->get(['id', 'name']),
+            // Toàn bộ sản phẩm cho picker "Thường thuê cùng" (US-08) — shop nhỏ, không cần search server
+            'accessory_options' => Product::orderBy('name')->get(['id', 'name', 'status']),
             // Vị trí phục vụ để chọn khi thêm/sửa sản phẩm (vị trí 'coming' bị khoá ở UI).
             'service_locations' => ServiceLocation::ordered()->get()->map(fn (ServiceLocation $l) => [
                 'id' => $l->id,
@@ -66,6 +81,8 @@ class ProductController extends Controller
             'thumbnail' => 'nullable|file|mimes:jpg,jpeg,png,webp|max:4096',
             'service_location_ids' => 'required|array|min:1',
             'service_location_ids.*' => 'integer|exists:service_locations,id',
+            'accessory_ids' => 'sometimes|nullable|array|max:20',
+            'accessory_ids.*' => 'integer|distinct|exists:products,id',
         ], [
             'name.required' => 'Tên sản phẩm không được bỏ trống.',
             'category_id.required' => 'Vui lòng chọn danh mục.',
@@ -77,13 +94,14 @@ class ProductController extends Controller
             'deposit.numeric' => 'Tiền cọc phải là số.',
             'service_location_ids.required' => 'Vui lòng chọn ít nhất 1 vị trí phục vụ.',
             'service_location_ids.min' => 'Vui lòng chọn ít nhất 1 vị trí phục vụ.',
+            'accessory_ids.*.exists' => 'Sản phẩm gợi ý không hợp lệ.',
         ]);
 
         $slug = Slug::unique(Product::class, $data['name']);
 
         $thumbnailPath = null;
         if ($request->hasFile('thumbnail')) {
-            $thumbnailPath = $request->file('thumbnail')->store('products', 'public');
+            $thumbnailPath = $request->file('thumbnail')->store('admin/products', 'media');
         }
 
         $product = Product::create([
@@ -99,6 +117,7 @@ class ProductController extends Controller
         ]);
 
         $product->serviceLocations()->sync($data['service_location_ids']);
+        $this->syncAccessories($product, $data);
 
         return back()->with('success', 'Đã thêm sản phẩm.');
     }
@@ -116,6 +135,8 @@ class ProductController extends Controller
             'thumbnail' => 'nullable|file|mimes:jpg,jpeg,png,webp|max:4096',
             'service_location_ids' => 'required|array|min:1',
             'service_location_ids.*' => 'integer|exists:service_locations,id',
+            'accessory_ids' => 'sometimes|nullable|array|max:20',
+            'accessory_ids.*' => 'integer|distinct|exists:products,id',
         ], [
             'name.required' => 'Tên sản phẩm không được bỏ trống.',
             'category_id.required' => 'Vui lòng chọn danh mục.',
@@ -127,6 +148,7 @@ class ProductController extends Controller
             'deposit.numeric' => 'Tiền cọc phải là số.',
             'service_location_ids.required' => 'Vui lòng chọn ít nhất 1 vị trí phục vụ.',
             'service_location_ids.min' => 'Vui lòng chọn ít nhất 1 vị trí phục vụ.',
+            'accessory_ids.*.exists' => 'Sản phẩm gợi ý không hợp lệ.',
         ]);
 
         $slug = Slug::unique(Product::class, $data['name'], $product->id);
@@ -134,10 +156,12 @@ class ProductController extends Controller
         $thumbnailPath = $product->thumbnail;
         if ($request->hasFile('thumbnail')) {
             if ($thumbnailPath) {
-                Storage::disk('public')->delete($thumbnailPath);
+                Storage::disk('media')->delete($thumbnailPath);
             }
-            $thumbnailPath = $request->file('thumbnail')->store('products', 'public');
+            $thumbnailPath = $request->file('thumbnail')->store('admin/products', 'media');
         }
+
+        $wasActive = $product->status === 'active';
 
         $product->update([
             'category_id' => (int) $data['category_id'],
@@ -152,21 +176,51 @@ class ProductController extends Controller
         ]);
 
         $product->serviceLocations()->sync($data['service_location_ids']);
+        $this->syncAccessories($product, $data);
+
+        // US-07: sản phẩm vừa bị ẩn → combo chứa nó không được bán tiếp
+        if ($wasActive && $product->status === 'hidden') {
+            Combo::hideForProduct($product, 'product_hidden');
+        }
 
         return back()->with('success', 'Đã cập nhật sản phẩm.');
     }
 
+    /**
+     * US-08 — sync "thường thuê cùng": sort_order = vị trí trong mảng gửi lên.
+     * Không gửi key = giữ nguyên; gửi rỗng ('' từ FormData) = xoá hết.
+     * Tự gợi ý chính mình bị loại lặng lẽ.
+     */
+    private function syncAccessories(Product $product, array $data): void
+    {
+        if (! array_key_exists('accessory_ids', $data)) {
+            return;
+        }
+
+        $product->accessories()->sync(
+            collect($data['accessory_ids'] ?? [])
+                ->map(fn ($id) => (int) $id)
+                ->reject(fn (int $id) => $id === $product->id)
+                ->values()
+                ->mapWithKeys(fn (int $id, int $i) => [$id => ['sort_order' => $i]])
+                ->all()
+        );
+    }
+
     public function destroy(Product $product): RedirectResponse
     {
+        // US-07: ẩn combo TRƯỚC khi xoá — sau đó combo_items cascade theo FK
+        Combo::hideForProduct($product, 'product_deleted');
+
         // Xóa tất cả ảnh phụ trên storage
         foreach ($product->images as $image) {
-            Storage::disk('public')->delete($image->path);
+            Storage::disk('media')->delete($image->path);
         }
         $product->images()->delete();
 
         // Xóa thumbnail
         if ($product->thumbnail) {
-            Storage::disk('public')->delete($product->thumbnail);
+            Storage::disk('media')->delete($product->thumbnail);
         }
 
         $product->delete();
@@ -177,17 +231,21 @@ class ProductController extends Controller
     public function storeImage(Request $request, Product $product): RedirectResponse
     {
         $request->validate([
-            'images' => 'required|array',
-            'images.*' => 'file|mimes:jpg,jpeg,png,webp|max:4096',
+            'images' => ['required', 'array', 'max:12'],
+            'images.*' => ['file', MediaType::MIMES_RULE, 'max:51200'], // ≤50MB
+        ], [
+            'images.max' => 'Tối đa 12 ảnh/video mỗi lần.',
+            'images.*.mimetypes' => 'Chỉ nhận ảnh (jpg, png, webp) hoặc video (mp4, webm, mov).',
+            'images.*.max' => 'Mỗi tệp tối đa 50MB.',
         ]);
 
         $maxSort = $product->images()->max('sort_order') ?? 0;
 
         foreach ($request->file('images') as $file) {
-            $path = $file->store('products', 'public');
             $product->images()->create([
-                'path' => $path,
+                'path' => $file->store('admin/products', 'media'),
                 'sort_order' => ++$maxSort,
+                'type' => MediaType::detect($file),
             ]);
         }
 
@@ -199,7 +257,7 @@ class ProductController extends Controller
         // Chặn IDOR: ảnh phải thuộc đúng sản phẩm trên URL (CWE-639).
         abort_unless($image->product_id === $product->id, 404);
 
-        Storage::disk('public')->delete($image->path);
+        Storage::disk('media')->delete($image->path);
         $image->delete();
 
         return back()->with('success', 'Đã xoá ảnh.');

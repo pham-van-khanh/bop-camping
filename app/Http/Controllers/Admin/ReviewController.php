@@ -35,7 +35,7 @@ class ReviewController extends Controller
             'admin_note' => $r->admin_note,
             'product' => $r->product ? ['id' => $r->product->id, 'name' => $r->product->name] : null,
             'created_at' => $r->created_at->format('d/m/Y H:i'),
-            'media' => $r->images->map(fn ($m) => ['type' => $m->type, 'url' => Storage::url($m->path)])->values(),
+            'media' => $r->images->map(fn ($m) => ['type' => $m->type, 'url' => Storage::disk('media')->url($m->path)])->values(),
         ]);
 
         $counts = Review::selectRaw('status, count(*) as c')->groupBy('status')->pluck('c', 'status');

@@ -36,6 +36,7 @@ class VoucherController extends Controller
                 'value' => (float) $v->value,
                 'source' => $v->source,
                 'status' => $v->status,
+                'applicable_to_combos' => (bool) $v->applicable_to_combos,
                 'user' => $v->user ? ['name' => $v->user->name, 'phone' => $v->user->phone] : null,
                 'expires_at' => $v->expires_at?->format('d/m/Y'),
                 'used_at' => $v->used_at?->format('d/m/Y H:i'),
@@ -54,6 +55,9 @@ class VoucherController extends Controller
             'type' => ['required', 'in:fixed,percent'],
             'value' => ['required', 'numeric', 'min:0'],
             'validity_days' => ['nullable', 'integer', 'min:1', 'max:3650'],
+            // AC-8 (PRD combo mục 7): voucher thường không giảm phần combo;
+            // bật cờ này mới áp được lên giá trị combo trong đơn
+            'applicable_to_combos' => ['sometimes', 'boolean'],
         ]);
 
         $user = User::where('phone', $data['phone'])->firstOrFail();
@@ -69,6 +73,7 @@ class VoucherController extends Controller
             'status' => 'active',
             'max_uses' => 1,
             'expires_at' => now()->addDays($days),
+            'applicable_to_combos' => (bool) ($data['applicable_to_combos'] ?? false),
         ]);
 
         return back()->with('success', "Đã tạo voucher cho {$user->name}.");

@@ -30,7 +30,7 @@ This is the **SINGLE SOURCE OF TRUTH** for technology choices on BopCamping
 | Database (dev) | **SQLite** | Nhẹ, không cần cài thêm. File `database/database.sqlite`. |
 | Database (prod) | **MySQL 8** | Chuyển khi deploy. Giữ migration tương thích cả hai. |
 | ORM / Query | **Eloquent + Query Builder** | Luôn dùng prepared statements (mặc định của Eloquent). |
-| File/Ảnh sản phẩm | **Laravel Storage (local disk)** | `storage/app/public` + `php artisan storage:link`. |
+| File/Ảnh sản phẩm | **Laravel Storage — disk `media`** | Dev: local disk (`storage/app/public` + `php artisan storage:link`). Prod (tuỳ chọn): S3 (hoặc S3-compatible) qua `league/flysystem-aws-s3-v3`, chuyển bằng `MEDIA_DISK=s3` + `AWS_*` trong `.env` — không cần đổi code. Xem `artifacts/adr_s3_media_storage.md`. |
 | Email (OTP đăng nhập) | **Laravel Mail (SMTP)** | Cấu hình `MAIL_*` trong `.env` (KHÔNG commit secret). Dev có thể dùng `MAIL_MAILER=log`. Prod: SMTP thật (vd Gmail app-password). |
 
 ## Tooling & Quality Gates

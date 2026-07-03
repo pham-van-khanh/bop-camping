@@ -23,6 +23,8 @@ class PromotionSetting extends Model
         'min_order_amount' => 'decimal:2',
         'max_referrals_per_user_per_month' => 'integer',
         'reward_clawback_enabled' => 'boolean',
+        'email_bonus_enabled' => 'boolean',
+        'email_bonus_discount_value' => 'decimal:2',
     ];
 
     /** Lấy bản ghi cấu hình duy nhất (tạo mặc định nếu chưa có). */

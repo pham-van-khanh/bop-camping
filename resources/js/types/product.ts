@@ -9,7 +9,7 @@ export interface ProductResource {
     thumbnail: string | null;
     status: string;
     category: { id: number; name: string; slug: string };
-    images: { path: string; sort_order: number }[];
+    images: { url: string; sort_order: number; type: 'image' | 'video' }[];
     featured: boolean;
     // Vị trí phục vụ đang mở (badge thẻ). all_locations = phục vụ toàn hệ thống.
     locations?: { name: string; slug: string }[];

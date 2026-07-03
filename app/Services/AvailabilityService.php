@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use App\Models\Combo;
+use App\Models\ComboItem;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Product;
@@ -36,6 +38,85 @@ class AvailabilityService
     public function isAvailable(Product $product, Carbon $start, Carbon $end, int $needed = 1): bool
     {
         return $this->availableQuantity($product, $start, $end) >= $needed;
+    }
+
+    /**
+     * Số combo còn có thể thuê trong khoảng [start, end] (PRD combo 5.1).
+     *
+     * KHÔNG có logic tồn kho mới — mỗi món con đi qua availableQuantity() hiện có:
+     * comboAvailable = min( intdiv(available(product_i), quantity_i) ).
+     * Combo chưa có món nào → 0 (không bao giờ cho thuê combo rỗng).
+     */
+    public function comboAvailable(Combo $combo, Carbon $start, Carbon $end): int
+    {
+        $combo->loadMissing('items.product');
+
+        if ($combo->items->isEmpty()) {
+            return 0;
+        }
+
+        return (int) $combo->items->map(function (ComboItem $item) use ($start, $end) {
+            if (! $item->product || $item->quantity < 1) {
+                return 0;
+            }
+
+            return intdiv($this->availableQuantity($item->product, $start, $end), $item->quantity);
+        })->min();
+    }
+
+    /**
+     * Kiểm tra có đủ số combo cần thuê không (mirror isAvailable cho product).
+     */
+    public function isComboAvailable(Combo $combo, Carbon $start, Carbon $end, int $needed = 1): bool
+    {
+        return $this->comboAvailable($combo, $start, $end) >= $needed;
+    }
+
+    /**
+     * Case 4 — các món con làm combo hết trong khoảng [start, end]:
+     * món có intdiv(available, qty) < needed, kèm số còn/số cần để hiển thị.
+     *
+     * @return array<int, array{product: Product, available: int, required: int}>
+     */
+    public function comboInsufficientItems(Combo $combo, Carbon $start, Carbon $end, int $needed = 1): array
+    {
+        $combo->loadMissing('items.product');
+
+        $insufficient = [];
+        foreach ($combo->items as $item) {
+            if (! $item->product || $item->quantity < 1) {
+                continue;
+            }
+            $available = $this->availableQuantity($item->product, $start, $end);
+            if (intdiv($available, $item->quantity) < $needed) {
+                $insufficient[] = [
+                    'product' => $item->product,
+                    'available' => $available,
+                    'required' => $item->quantity * $needed,
+                ];
+            }
+        }
+
+        return $insufficient;
+    }
+
+    /**
+     * Case 4 — khoảng gần nhất còn đủ combo, giữ nguyên độ dài, dịch tối đa
+     * $scanDays ngày kể từ start. Null nếu không có (PRD 5.5: scan tối đa 30 ngày).
+     *
+     * @return array{start: string, end: string}|null
+     */
+    public function nextComboWindow(Combo $combo, Carbon $start, Carbon $end, int $scanDays = 30): ?array
+    {
+        for ($offset = 1; $offset <= $scanDays; $offset++) {
+            $s = $start->copy()->addDays($offset);
+            $e = $end->copy()->addDays($offset);
+            if ($this->comboAvailable($combo, $s, $e) >= 1) {
+                return ['start' => $s->toDateString(), 'end' => $e->toDateString()];
+            }
+        }
+
+        return null;
     }
 
     /**

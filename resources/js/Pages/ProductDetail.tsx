@@ -1,7 +1,8 @@
 import { Head, Link, usePage } from '@inertiajs/react';
-import { ReactNode, useMemo, useState } from 'react';
+import { ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import SiteLayout from '@/Layouts/SiteLayout';
 import DateRangeCalendar from '@/Components/site/DateRangeCalendar';
+import { COMBO_GRAD } from '@/Components/site/ComboCard';
 import ProductReviews, { type ReviewItem, type ReviewSummary } from '@/Components/site/ProductReviews';
 import { dayCount, fromISO, money, rangeText, toISO } from '@/lib/format';
 import { addLine, clearCart, locationConflict, type CartLine, type CartLocation } from '@/lib/cart';
@@ -19,30 +20,115 @@ const GRAD: Record<string, string> = {
 };
 const gradFor = (slug: string) => GRAD[slug] ?? 'linear-gradient(150deg,#4a6741,#7a9b6b)';
 
+/** Phụ kiện "thường thuê cùng" (Case 2, US-03) — admin gán tay ở form sản phẩm. */
+type AccessoryItem = {
+    id: number;
+    name: string;
+    price_per_day: number;
+    deposit: number;
+    quantity: number;
+    thumbnail: string | null;
+    category: { name: string; slug: string };
+    locations: CartLocation[];
+};
+
+/** Combo active tiết kiệm nhất chứa sản phẩm — banner PRD 5.6, ưu tiên hơn gợi ý lẻ. */
+type ComboBanner = {
+    id: number;
+    name: string;
+    slug: string;
+    combo_price: number;
+    sum_individual: number;
+    savings_amount: number;
+    savings_percent: number;
+    items_count: number;
+};
+
 interface Props {
     product: ProductResource;
     unavailable_dates: string[];
+    accessories: AccessoryItem[];
+    combo_banner: ComboBanner | null;
     reviews: ReviewItem[];
     review_summary: ReviewSummary;
     can_review: boolean;
 }
 
-export default function ProductDetail({ product, unavailable_dates, reviews, review_summary, can_review }: Props) {
+export default function ProductDetail({ product, unavailable_dates, accessories, combo_banner, reviews, review_summary, can_review }: Props) {
     const { auth } = usePage<PageProps>().props;
     const [activeImg, setActiveImg] = useState(0);
+    const [lightboxOpen, setLightboxOpen] = useState(false);
     const [start, setStart] = useState<string | null>(null);
     const [end, setEnd] = useState<string | null>(null);
     const [qty, setQty] = useState(1);
-    // Popup khi thêm món khác vị trí với giỏ hiện tại.
-    const [conflict, setConflict] = useState<{ pending: CartLine; cartLocations: CartLocation[] } | null>(null);
+    // Popup khi thêm món khác vị trí với giỏ hiện tại (1 món lẻ hoặc cả loạt phụ kiện).
+    const [conflict, setConflict] = useState<{ pending: CartLine[]; cartLocations: CartLocation[] } | null>(null);
+    // Tồn kho THỰC theo khoảng ngày từ server (bopcamping-1z1) — quantity tĩnh
+    // không biết combo/đơn khác đã chiếm bao nhiêu trong khoảng khách chọn.
+    const [avail, setAvail] = useState<number | null>(null);
+    const [checking, setChecking] = useState(false);
+    const fetchSeq = useRef(0); // chống race: chỉ nhận kết quả lần fetch mới nhất
+    // Gợi ý P3: tồn kho phụ kiện + combo banner theo khoảng ngày (AC-9).
+    const [accAvail, setAccAvail] = useState<Record<number, number> | null>(null);
+    const [comboAvail, setComboAvail] = useState<number | null>(null);
+    const sugSeq = useRef(0);
+    const [accChecked, setAccChecked] = useState<Set<number>>(() => new Set(accessories.map((a) => a.id)));
+    const [accQty, setAccQty] = useState<Record<number, number>>({});
 
     const unavailable = useMemo(() => new Set<string>(unavailable_dates ?? []), [unavailable_dates]);
 
+    useEffect(() => {
+        if (!start || !end) {
+            setAvail(null);
+            return;
+        }
+        const seq = ++fetchSeq.current;
+        setChecking(true);
+        fetch(`/thiet-bi/${product.id}/kha-dung?start=${start}&end=${end}`, { headers: { Accept: 'application/json' } })
+            .then((r) => (r.ok ? r.json() : null))
+            .then((j: { available: number } | null) => {
+                if (seq !== fetchSeq.current) return;
+                setAvail(j ? j.available : null);
+                if (j) setQty((q) => Math.max(1, Math.min(q, Math.max(1, j.available))));
+            })
+            .catch(() => seq === fetchSeq.current && setAvail(null))
+            .finally(() => seq === fetchSeq.current && setChecking(false));
+    }, [start, end, product.id]);
+
+    // Tồn kho gợi ý (phụ kiện + combo banner) theo khoảng ngày — AC-9.
+    useEffect(() => {
+        if (!start || !end || (accessories.length === 0 && !combo_banner)) {
+            setAccAvail(null);
+            setComboAvail(null);
+            return;
+        }
+        const seq = ++sugSeq.current;
+        fetch(`/thiet-bi/${product.id}/goi-y-kha-dung?start=${start}&end=${end}`, { headers: { Accept: 'application/json' } })
+            .then((r) => (r.ok ? r.json() : null))
+            .then((j: { accessories: { id: number; available: number }[]; combo_available: number | null } | null) => {
+                if (seq !== sugSeq.current) return;
+                if (!j) {
+                    setAccAvail(null);
+                    setComboAvail(null);
+                    return;
+                }
+                const map: Record<number, number> = {};
+                j.accessories.forEach((a) => { map[a.id] = a.available; });
+                setAccAvail(map);
+                setComboAvail(j.combo_available);
+            })
+            .catch(() => {
+                if (seq !== sugSeq.current) return;
+                setAccAvail(null);
+                setComboAvail(null);
+            });
+    }, [start, end, product.id, accessories.length, combo_banner?.id]);
+
     const baseGrad = gradFor(product.category.slug);
     // Build gallery: real images first, then fallback gradient variants
-    const gallery: ({ type: 'img'; src: string } | { type: 'grad'; bg: string })[] = useMemo(() => {
+    const gallery: ({ type: 'img'; src: string } | { type: 'video'; src: string } | { type: 'grad'; bg: string })[] = useMemo(() => {
         if (product.images.length > 0) {
-            return product.images.map((img) => ({ type: 'img' as const, src: img.path }));
+            return product.images.map((img) => (img.type === 'video' ? { type: 'video' as const, src: img.url } : { type: 'img' as const, src: img.url }));
         }
         return [150, 35, 205, 330].map((a) => ({
             type: 'grad' as const,
@@ -52,14 +138,17 @@ export default function ProductDetail({ product, unavailable_dates, reviews, rev
 
     const days = start && end ? dayCount(start, end) : 0;
 
-    let availState: 'none' | 'ok' | 'bad' = 'none';
+    // Fallback client (lịch 90 ngày) khi fetch server lỗi — chỉ phát hiện ngày hết sạch.
+    let clientBad = false;
     if (start && end) {
-        availState = 'ok';
         for (let t = fromISO(start).getTime(); t <= fromISO(end).getTime(); t += 86400000) {
-            if (unavailable.has(toISO(new Date(t)))) { availState = 'bad'; break; }
+            if (unavailable.has(toISO(new Date(t)))) { clientBad = true; break; }
         }
     }
-    const canAdd    = availState === 'ok';
+    // Số còn thuê được trong khoảng đã chọn: ưu tiên số thực từ server.
+    const remaining = avail ?? (clientBad ? 0 : product.quantity);
+    const qtyCap    = Math.max(1, remaining);
+    const canAdd    = !!start && !!end && !checking && remaining >= qty && qty >= 1;
     const subtotal  = product.price_per_day * qty * days;
     const subDeposit = product.deposit * qty;
     const lowStock  = product.quantity <= 2;
@@ -82,9 +171,9 @@ export default function ProductDetail({ product, unavailable_dates, reviews, rev
         locations,
     });
 
-    const commitAdd = (line: CartLine) => {
-        addLine(line);
-        emit(EVENTS.toast, `Đã thêm ${product.name} vào giỏ`);
+    const commitAdd = (lines: CartLine[]) => {
+        lines.forEach(addLine);
+        emit(EVENTS.toast, lines.length === 1 ? `Đã thêm ${lines[0].name} vào giỏ` : `Đã thêm ${lines.length} món vào giỏ`);
     };
 
     const add = () => {
@@ -93,10 +182,10 @@ export default function ProductDetail({ product, unavailable_dates, reviews, rev
         // Giỏ chỉ giữ 1 vị trí: nếu món mới khác vị trí với giỏ → hỏi trước khi thay.
         const { conflict: hasConflict, cartLocations } = locationConflict(locations);
         if (hasConflict) {
-            setConflict({ pending: line, cartLocations });
+            setConflict({ pending: [line], cartLocations });
             return;
         }
-        commitAdd(line);
+        commitAdd([line]);
     };
 
     const replaceCart = () => {
@@ -105,6 +194,55 @@ export default function ProductDetail({ product, unavailable_dates, reviews, rev
         commitAdd(conflict.pending);
         setConflict(null);
     };
+
+    /* --- "Thường thuê cùng" (Case 2, US-03) --- */
+
+    // Số còn thuê được của phụ kiện trong khoảng đã chọn (fallback kho tĩnh khi chưa chọn/lỗi fetch).
+    const accCap = (a: AccessoryItem) => accAvail?.[a.id] ?? a.quantity;
+    // AC-9: đã chọn khoảng ngày → CHỈ hiện món còn hàng; chưa chọn → hiện tất cả.
+    const visibleAccessories = start && end && accAvail !== null
+        ? accessories.filter((a) => (accAvail[a.id] ?? 0) >= 1)
+        : accessories;
+    const selectedAccessories = visibleAccessories.filter((a) => accChecked.has(a.id));
+    const qtyOf = (a: AccessoryItem) => Math.max(1, Math.min(accQty[a.id] ?? 1, Math.max(1, accCap(a))));
+    const accPerDay = selectedAccessories.reduce((s, a) => s + a.price_per_day * qtyOf(a), 0);
+    const accDeposit = selectedAccessories.reduce((s, a) => s + a.deposit * qtyOf(a), 0);
+
+    const toggleAcc = (id: number) =>
+        setAccChecked((s) => {
+            const n = new Set(s);
+            if (n.has(id)) n.delete(id);
+            else n.add(id);
+            return n;
+        });
+
+    const bumpAccQty = (a: AccessoryItem, d: number) =>
+        setAccQty((m) => ({ ...m, [a.id]: Math.max(1, Math.min(Math.max(1, accCap(a)), qtyOf(a) + d)) }));
+
+    const addAccessories = () => {
+        if (!start || !end || selectedAccessories.length === 0) return;
+        const lines: CartLine[] = selectedAccessories.map((a) => ({
+            id:      a.id,
+            name:    a.name,
+            cat:     a.category.slug as any,
+            grad:    gradFor(a.category.slug),
+            price:   a.price_per_day,
+            deposit: a.deposit,
+            qty:     qtyOf(a),
+            start,
+            end,
+            locations: a.locations,
+        }));
+        const conflicted = lines.find((l) => locationConflict(l.locations ?? []).conflict);
+        if (conflicted) {
+            setConflict({ pending: lines, cartLocations: locationConflict(conflicted.locations ?? []).cartLocations });
+            return;
+        }
+        commitAdd(lines);
+    };
+
+    // Banner combo chỉ hiện khi còn hàng trong khoảng đã chọn (chưa chọn ngày → hiện).
+    const showComboBanner = !!combo_banner && (comboAvail === null || comboAvail >= 1);
 
     const activeSlide = gallery[activeImg] ?? gallery[0];
 
@@ -121,11 +259,30 @@ export default function ProductDetail({ product, unavailable_dates, reviews, rev
                             style={activeSlide.type === 'grad' ? { background: activeSlide.bg } : { background: baseGrad }}
                         >
                             {activeSlide.type === 'img' && (
-                                <img src={activeSlide.src} alt={product.name} className="absolute inset-0 h-full w-full object-cover" />
+                                <img
+                                    src={activeSlide.src}
+                                    alt={product.name}
+                                    onClick={() => setLightboxOpen(true)}
+                                    className="absolute inset-0 h-full w-full cursor-zoom-in object-cover"
+                                />
                             )}
-                            <div className="absolute inset-0" style={{ background: 'radial-gradient(220px 150px at 76% 20%, rgba(255,255,255,.34), transparent 60%)' }} />
-                            <div className="absolute inset-x-0 bottom-0 h-[90px]" style={{ background: 'linear-gradient(180deg,rgba(24,35,15,0),rgba(24,35,15,.4))' }} />
-                            <span className="absolute bottom-4 left-[18px] font-mono text-[13px] tracking-[0.06em] text-white">{product.category.name}</span>
+                            {activeSlide.type === 'video' && (
+                                <video key={activeSlide.src} src={activeSlide.src} controls autoPlay muted loop playsInline className="absolute inset-0 h-full w-full object-cover" />
+                            )}
+                            {(activeSlide.type === 'img' || activeSlide.type === 'video') && (
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); setLightboxOpen(true); }}
+                                    aria-label="Xem cỡ lớn"
+                                    className="absolute right-3 top-3 z-10 grid h-9 w-9 place-items-center rounded-full bg-black/45 text-white transition hover:bg-black/65"
+                                >
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                                        <path d="M9 3H4a1 1 0 0 0-1 1v5M15 3h5a1 1 0 0 1 1 1v5M9 21H4a1 1 0 0 1-1-1v-5M15 21h5a1 1 0 0 0 1-1v-5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                                    </svg>
+                                </button>
+                            )}
+                            <div className="pointer-events-none absolute inset-0" style={{ background: 'radial-gradient(220px 150px at 76% 20%, rgba(255,255,255,.34), transparent 60%)' }} />
+                            <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[90px]" style={{ background: 'linear-gradient(180deg,rgba(24,35,15,0),rgba(24,35,15,.4))' }} />
+                            <span className="pointer-events-none absolute bottom-4 left-[18px] font-mono text-[13px] tracking-[0.06em] text-white">{product.category.name}</span>
                         </div>
                         <div className="mt-2.5 grid grid-cols-4 gap-2.5">
                             {gallery.map((g, i) => (
@@ -133,11 +290,16 @@ export default function ProductDetail({ product, unavailable_dates, reviews, rev
                                     key={i}
                                     onClick={() => setActiveImg(i)}
                                     aria-label={`Ảnh ${i + 1}`}
-                                    className="h-[70px] overflow-hidden rounded-[11px] transition"
+                                    className="relative h-[70px] overflow-hidden rounded-[11px] transition"
                                     style={{ outline: i === activeImg ? '2px solid #557A2B' : '1px solid #E3E8D6', outlineOffset: i === activeImg ? 1 : 0 }}
                                 >
                                     {g.type === 'img' ? (
                                         <img src={g.src} alt="" className="h-full w-full object-cover" />
+                                    ) : g.type === 'video' ? (
+                                        <>
+                                            <video src={g.src} className="h-full w-full object-cover" muted />
+                                            <span className="absolute inset-0 grid place-items-center bg-black/25 text-[10px] text-white">▶</span>
+                                        </>
                                     ) : (
                                         <div className="h-full w-full" style={{ background: g.bg }} />
                                     )}
@@ -183,6 +345,25 @@ export default function ProductDetail({ product, unavailable_dates, reviews, rev
                                 <div className="font-mono text-[22px] font-bold text-campfire">{money(product.deposit)}</div>
                             </div>
                         </div>
+
+                        {/* PRD 5.6: banner "thuộc combo" — ưu tiên hiển thị hơn gợi ý lẻ */}
+                        {combo_banner && showComboBanner && (
+                            <Link
+                                href={`/combos/${combo_banner.slug}`}
+                                className="group mb-[18px] flex items-center gap-3 rounded-[14px] px-4 py-3.5 text-white transition hover:-translate-y-0.5 hover:shadow-cardhover"
+                                style={{ background: COMBO_GRAD }}
+                            >
+                                <span className="rounded-pill bg-white/20 px-2.5 py-1 font-mono text-[11px] font-bold tracking-[0.06em]">COMBO</span>
+                                <span className="flex-1 text-[13.5px] leading-[1.45]">
+                                    Sản phẩm này có trong <b>{combo_banner.name}</b>
+                                    {combo_banner.savings_amount > 0 && (
+                                        <> — tiết kiệm <b className="font-mono">{money(combo_banner.savings_amount)}</b>/ngày</>
+                                    )}
+                                </span>
+                                <span className="whitespace-nowrap text-[13px] font-bold transition group-hover:translate-x-0.5">Xem combo →</span>
+                            </Link>
+                        )}
+
                         {product.description && (
                             <p className="mb-[18px] text-[15px] leading-[1.6] text-[#3f4a32]">{product.description}</p>
                         )}
@@ -201,16 +382,28 @@ export default function ProductDetail({ product, unavailable_dates, reviews, rev
                                     <div className="flex items-center overflow-hidden rounded-[10px] border border-cardBorder">
                                         <button onClick={() => setQty((q) => Math.max(1, q - 1))} className="h-9 w-[34px] bg-[#f1f4ea] text-[18px] text-grass">−</button>
                                         <span className="w-[38px] text-center font-mono font-bold">{qty}</span>
-                                        <button onClick={() => setQty((q) => Math.min(product.quantity, q + 1))} className="h-9 w-[34px] bg-[#f1f4ea] text-[18px] text-grass">+</button>
+                                        <button onClick={() => setQty((q) => Math.min(qtyCap, q + 1))} className="h-9 w-[34px] bg-[#f1f4ea] text-[18px] text-grass">+</button>
                                     </div>
                                 </div>
                             </div>
 
-                            {availState !== 'none' && (
-                                <div className="rounded-[10px] px-3 py-2 text-[13px] font-semibold"
-                                    style={availState === 'ok' ? { background: '#dcebc4', color: '#3a5a1f' } : { background: '#f6ddd6', color: '#b3493a' }}>
-                                    {availState === 'ok' ? `Còn đủ ${product.quantity} bộ cho khoảng này` : 'Khoảng này có ngày đã hết, chọn ngày khác giúp tụi mình nhé'}
-                                </div>
+                            {start && end && (
+                                checking ? (
+                                    <div className="rounded-[10px] px-3 py-2 text-[13px] font-semibold" style={{ background: '#f1f4ea', color: '#5a6b47' }}>
+                                        Đang kiểm tra tồn kho…
+                                    </div>
+                                ) : remaining === 0 ? (
+                                    <div className="rounded-[10px] px-3 py-2 text-[13px] font-semibold" style={{ background: '#f6ddd6', color: '#b3493a' }}>
+                                        Khoảng này đã được thuê hết, chọn ngày khác giúp tụi mình nhé
+                                    </div>
+                                ) : (
+                                    <div className="rounded-[10px] px-3 py-2 text-[13px] font-semibold"
+                                        style={remaining < product.quantity ? { background: '#f7e7da', color: '#8a5a1f' } : { background: '#dcebc4', color: '#3a5a1f' }}>
+                                        {remaining < product.quantity
+                                            ? `Khoảng này chỉ còn ${remaining} bộ trống (${product.quantity - remaining} bộ đã được đặt)`
+                                            : `Còn đủ ${remaining} bộ cho khoảng này`}
+                                    </div>
+                                )
                             )}
 
                             <div className="mt-3.5 flex items-center justify-between gap-3">
@@ -231,7 +424,124 @@ export default function ProductDetail({ product, unavailable_dates, reviews, rev
                         </div>
                     </div>
                 </div>
+
+                {/* Case 2 (US-03): "Thường thuê cùng" — AC-9: đã chọn ngày thì chỉ hiện món còn hàng */}
+                {accessories.length > 0 && (
+                    <section className="mt-12">
+                        <div className="mb-1 font-mono text-[12px] font-bold tracking-[0.14em] text-campfire">THƯỜNG THUÊ CÙNG</div>
+                        <div className="mb-4 flex flex-wrap items-end justify-between gap-2">
+                            <h2 className="text-[20px] font-extrabold tracking-tight text-ink">Món hay đi kèm {product.name}</h2>
+                            {(!start || !end) && (
+                                <span className="text-[12.5px] text-moss">Chọn ngày thuê ở trên để kiểm tra món còn trống</span>
+                            )}
+                        </div>
+
+                        {visibleAccessories.length === 0 ? (
+                            <div className="rounded-[14px] border border-cardBorder bg-white px-4 py-5 text-[13.5px] text-moss">
+                                Các món gợi ý đều đã kín lịch trong khoảng {rangeText(start, end)} — đổi ngày để xem lại nhé.
+                            </div>
+                        ) : (
+                            <div className="overflow-hidden rounded-[16px] border border-cardBorder bg-white">
+                                {visibleAccessories.map((a, i) => {
+                                    const on = accChecked.has(a.id);
+                                    const cap = Math.max(1, accCap(a));
+                                    const q = qtyOf(a);
+                                    // Có khoảng ngày + số thực từ server → báo khan hàng nếu bị đơn khác chiếm bớt
+                                    const scarce = start && end && accAvail !== null && accCap(a) < a.quantity;
+                                    return (
+                                        <div key={a.id} className={`flex flex-wrap items-center gap-3 px-4 py-3 ${i > 0 ? 'border-t border-[#f1f4ea]' : ''}`}>
+                                            <button
+                                                onClick={() => toggleAcc(a.id)}
+                                                aria-label={on ? `Bỏ chọn ${a.name}` : `Chọn ${a.name}`}
+                                                className={`grid h-[22px] w-[22px] flex-none place-items-center rounded-[7px] border text-[13px] font-bold transition ${
+                                                    on ? 'border-grass bg-grass text-white' : 'border-[#c4cca8] bg-white text-transparent'
+                                                }`}
+                                            >
+                                                ✓
+                                            </button>
+                                            {a.thumbnail ? (
+                                                <img src={a.thumbnail} alt={a.name} className="h-12 w-12 flex-none rounded-[10px] object-cover" />
+                                            ) : (
+                                                <div className="h-12 w-12 flex-none rounded-[10px]" style={{ background: gradFor(a.category.slug) }} />
+                                            )}
+                                            <div className="min-w-[140px] flex-1">
+                                                <Link href={`/thiet-bi/${a.id}`} className="text-[14px] font-bold text-ink hover:text-grass">{a.name}</Link>
+                                                <div className="text-[11.5px] text-moss">
+                                                    {a.category.name}
+                                                    {scarce && <span className="text-campfire"> · chỉ còn {accCap(a)} bộ trong khoảng này</span>}
+                                                </div>
+                                            </div>
+                                            <div className="font-mono text-[14px] font-bold text-grass">
+                                                {money(a.price_per_day)}<span className="font-sans text-[11px] font-normal text-[#8a967a]">/ngày</span>
+                                            </div>
+                                            <div className={`flex items-center overflow-hidden rounded-[9px] border border-cardBorder ${on ? '' : 'opacity-40'}`}>
+                                                <button onClick={() => bumpAccQty(a, -1)} disabled={!on} className="h-8 w-[30px] bg-[#f1f4ea] text-[16px] text-grass">−</button>
+                                                <span className="w-[32px] text-center font-mono text-[13px] font-bold">{q}</span>
+                                                <button onClick={() => bumpAccQty(a, 1)} disabled={!on || q >= cap} className="h-8 w-[30px] bg-[#f1f4ea] text-[16px] text-grass disabled:opacity-50">+</button>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+
+                                <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[#eef2e3] px-4 py-3.5" style={{ background: '#f8faf4' }}>
+                                    <div>
+                                        <div className="text-[12px] text-[#8a967a]">Phần thêm {days > 0 ? `(${days} ngày)` : ''}</div>
+                                        <div className="font-mono text-[17px] font-bold text-grass">
+                                            {days > 0 ? money(accPerDay * days) : <>{money(accPerDay)}<span className="font-sans text-[12px] font-normal text-[#8a967a]">/ngày</span></>}
+                                        </div>
+                                        {accDeposit > 0 && <div className="font-mono text-[11px] text-campfire">+ cọc {money(accDeposit)}</div>}
+                                    </div>
+                                    <button
+                                        onClick={addAccessories}
+                                        disabled={!start || !end || selectedAccessories.length === 0}
+                                        className="h-[44px] rounded-control px-5 text-[13.5px] font-bold text-white transition disabled:cursor-not-allowed"
+                                        style={{ background: start && end && selectedAccessories.length > 0 ? '#557A2B' : '#c4cfae' }}
+                                    >
+                                        {start && end ? `Thêm ${selectedAccessories.length} món vào giỏ` : 'Chọn ngày để thêm'}
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                    </section>
+                )}
             </main>
+
+            {/* Lightbox: xem ảnh/video cỡ lớn, không bị cắt */}
+            {lightboxOpen && (activeSlide.type === 'img' || activeSlide.type === 'video') && (
+                <div
+                    onClick={() => setLightboxOpen(false)}
+                    className="fixed inset-0 z-[95] flex items-center justify-center p-6"
+                    style={{ background: 'rgba(12,16,8,.82)' }}
+                >
+                    <button
+                        onClick={() => setLightboxOpen(false)}
+                        aria-label="Đóng"
+                        className="absolute right-4 top-4 grid h-10 w-10 place-items-center rounded-full bg-white/15 text-[20px] text-white"
+                    >
+                        ×
+                    </button>
+                    {activeSlide.type === 'img' ? (
+                        <img
+                            src={activeSlide.src}
+                            alt={product.name}
+                            onClick={(e) => e.stopPropagation()}
+                            className="max-h-[90vh] max-w-[92vw] rounded-[12px] object-contain"
+                        />
+                    ) : (
+                        <video
+                            key={activeSlide.src}
+                            src={activeSlide.src}
+                            controls
+                            autoPlay
+                            muted
+                            loop
+                            playsInline
+                            onClick={(e) => e.stopPropagation()}
+                            className="max-h-[90vh] max-w-[92vw] rounded-[12px] object-contain"
+                        />
+                    )}
+                </div>
+            )}
 
             {/* Popup: giỏ chỉ giữ 1 vị trí */}
             {conflict && (
@@ -247,16 +557,24 @@ export default function ProductDetail({ product, unavailable_dates, reviews, rev
                         <p className="mb-5 text-[14px] leading-[1.55] text-moss">
                             Giỏ hiện tại đang thuê tại{' '}
                             <span className="font-semibold text-pine">{conflict.cartLocations.map((l) => l.name).join(' · ')}</span>.
-                            {' '}“<span className="font-semibold text-pine">{product.name}</span>” chỉ phục vụ tại{' '}
-                            <span className="font-semibold text-pine">{locations.map((l) => l.name).join(' · ')}</span>{' '}
-                            nên không thể thêm cùng giỏ. Mỗi đơn chỉ thuê tại một vị trí.
+                            {' '}“<span className="font-semibold text-pine">{conflict.pending.map((l) => l.name).join('” · “')}</span>”
+                            {conflict.pending.length === 1 ? (
+                                <>
+                                    {' '}chỉ phục vụ tại{' '}
+                                    <span className="font-semibold text-pine">{(conflict.pending[0].locations ?? []).map((l) => l.name).join(' · ')}</span>{' '}
+                                    nên không thể thêm cùng giỏ.
+                                </>
+                            ) : (
+                                <> không phục vụ tại vị trí của giỏ nên không thể thêm cùng giỏ.</>
+                            )}
+                            {' '}Mỗi đơn chỉ thuê tại một vị trí.
                         </p>
                         <div className="flex flex-col gap-2.5">
                             <button
                                 onClick={replaceCart}
                                 className="h-[46px] rounded-control bg-grass px-5 text-[14px] font-bold text-white transition hover:bg-pine"
                             >
-                                Xoá giỏ hiện tại &amp; thêm món này
+                                Xoá giỏ hiện tại &amp; thêm {conflict.pending.length === 1 ? 'món này' : `${conflict.pending.length} món mới`}
                             </button>
                             <button
                                 onClick={() => setConflict(null)}

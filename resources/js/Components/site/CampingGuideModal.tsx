@@ -167,17 +167,17 @@ function SpotDetail({ spot, onBack }: { spot: GuideSpot; onBack: () => void }) {
                 {/* Gallery / cover */}
                 <div className="relative" style={{ aspectRatio: '16/9', background: terrainGradient(spot.terrain_tag) }}>
                     {cur && (cur.type === 'video'
-                        ? <video src={cur.url} controls className="h-full w-full object-cover" />
+                        ? <video key={cur.url} src={cur.url} controls autoPlay muted loop playsInline className="h-full w-full object-cover" />
                         : <img src={cur.url} alt={spot.name} className="h-full w-full object-cover" />)}
 
                     {media.length > 1 && (
                         <>
                             <button onClick={() => setIdx((i) => (i - 1 + media.length) % media.length)} aria-label="Trước" className="absolute left-3 top-1/2 grid h-9 w-9 -translate-y-1/2 place-items-center rounded-full bg-black/45 text-white">‹</button>
                             <button onClick={() => setIdx((i) => (i + 1) % media.length)} aria-label="Sau" className="absolute right-3 top-1/2 grid h-9 w-9 -translate-y-1/2 place-items-center rounded-full bg-black/45 text-white">›</button>
-                            <div className="absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full bg-black/45 px-2.5 py-1 font-mono text-[11px] text-white">{idx + 1}/{media.length}</div>
+                            <div className="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full bg-black/45 px-2.5 py-1 font-mono text-[11px] text-white">{idx + 1}/{media.length}</div>
                         </>
                     )}
-                    <span className="absolute left-3 top-3 rounded-pill px-3 py-1 font-mono text-[12px] text-white" style={{ background: 'rgba(24,35,15,.5)' }}>{spot.terrain_tag}</span>
+                    <span className="pointer-events-none absolute left-3 top-3 rounded-pill px-3 py-1 font-mono text-[12px] text-white" style={{ background: 'rgba(24,35,15,.5)' }}>{spot.terrain_tag}</span>
                     <button onClick={onBack} aria-label="Đóng" className="absolute right-3 top-3 grid h-9 w-9 place-items-center rounded-full bg-black/45 text-white">×</button>
                 </div>
 

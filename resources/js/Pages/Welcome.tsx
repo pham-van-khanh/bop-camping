@@ -6,6 +6,7 @@ import HeroSlideshow from '@/Components/site/HeroSlideshow';
 import BiomeHero from '@/Components/site/BiomeHero';
 import ProductCard from '@/Components/site/ProductCard';
 import SystemReviews, { type SystemReview } from '@/Components/site/SystemReviews';
+import ComboCard, { type ComboCardData } from '@/Components/site/ComboCard';
 import HomeServingPanel, { type ServiceLocation, type SuggestedSpot } from '@/Components/site/HomeServingPanel';
 import CampingGuideModal, { type ProvinceGroup } from '@/Components/site/CampingGuideModal';
 import type { ProductResource } from '@/types/product';
@@ -32,6 +33,7 @@ type PromoBanner = { id: number; image: string; title: string | null; subtitle: 
 
 interface Props {
     featured: ProductResource[];
+    featured_combos: ComboCardData[];
     system_reviews: SystemReview[];
     review_stat: { avg: number; count: number };
     service_locations: ServiceLocation[];
@@ -41,7 +43,7 @@ interface Props {
     promo_banners: PromoBanner[];
 }
 
-export default function Home({ featured, system_reviews, review_stat, service_locations, suggested_spots, camping_provinces, hero_banners, promo_banners }: Props) {
+export default function Home({ featured, featured_combos, system_reviews, review_stat, service_locations, suggested_spots, camping_provinces, hero_banners, promo_banners }: Props) {
     const [guideOpen, setGuideOpen] = useState(false);
     const openCities = service_locations.filter((l) => l.status === 'open');
     const cities = openCities.map((l) => l.name).join(' hoặc ') || 'Vinh hoặc Hà Nội';
@@ -189,6 +191,22 @@ export default function Home({ featured, system_reviews, review_stat, service_lo
                     {featured.map((p, i) => <ProductCard key={p.id} p={p} compact index={i} />)}
                 </div>
             </section>
+
+            {/* Combo tiết kiệm (PRD combo mục 6 — 3–4 combo nổi bật theo sort_order) */}
+            {featured_combos.length > 0 && (
+                <section className="mx-auto max-w-[1200px] px-5 pb-2.5 pt-12">
+                    <div className="mb-[22px] flex items-end justify-between gap-4">
+                        <motion.div {...reveal}>
+                            <div className="mb-2 font-mono text-[12px] tracking-[0.1em] text-campfire">THUÊ TRỌN BỘ · RẺ HƠN THUÊ LẺ</div>
+                            <h2 className="font-extrabold tracking-tight text-ink" style={{ fontSize: 'clamp(24px,3vw,32px)' }}>Combo tiết kiệm</h2>
+                        </motion.div>
+                        <Link href="/combos" className="shrink-0 whitespace-nowrap font-bold text-grass hover:text-pine">Xem tất cả →</Link>
+                    </div>
+                    <div className="grid gap-[18px]" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(248px, 1fr))' }}>
+                        {featured_combos.map((c, i) => <ComboCard key={c.id} c={c} index={i} />)}
+                    </div>
+                </section>
+            )}
 
             {/* Thuê đồ 3 bước */}
             <section className="mx-auto max-w-[1200px] px-5 pb-5 pt-[54px]">

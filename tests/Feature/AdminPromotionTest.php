@@ -43,6 +43,7 @@ class AdminPromotionTest extends TestCase
             'max_discount_percent_per_order', 'max_vouchers_stack_per_order', 'voucher_validity_days',
             'min_order_amount', 'discount_applies_to', 'conversion_trigger_status',
             'max_referrals_per_user_per_month', 'reward_clawback_enabled',
+            'email_bonus_enabled', 'email_bonus_discount_type', 'email_bonus_discount_value',
         ]), ['referee_discount_value' => 15, 'max_discount_percent_per_order' => 30]);
 
         $this->actingAs($admin)->put(route('admin.promotion.update'), $payload)
@@ -93,5 +94,29 @@ class AdminPromotionTest extends TestCase
         $voucher = Voucher::where('user_id', $customer->id)->firstOrFail();
         $this->assertNotNull($voucher->expires_at);
         $this->assertSame(45, (int) round(now()->diffInDays($voucher->expires_at, false)));
+    }
+
+    /**
+     * AC-8 (bopcamping-1od): admin bật "Áp dụng cả combo" → voucher giảm được
+     * phần combo; không gửi cờ → mặc định false (voucher thường).
+     *
+     * @test
+     */
+    public function admin_can_create_combo_applicable_voucher(): void
+    {
+        $admin = $this->admin();
+        User::create(['name' => 'Khách', 'phone' => '0944444444']);
+
+        $this->actingAs($admin)->post(route('admin.vouchers.store'), [
+            'phone' => '0944444444', 'type' => 'percent', 'value' => 10, 'applicable_to_combos' => true,
+        ])->assertRedirect()->assertSessionHasNoErrors();
+
+        $this->assertTrue((bool) Voucher::latest('id')->first()->applicable_to_combos);
+
+        $this->actingAs($admin)->post(route('admin.vouchers.store'), [
+            'phone' => '0944444444', 'type' => 'percent', 'value' => 10,
+        ])->assertRedirect()->assertSessionHasNoErrors();
+
+        $this->assertFalse((bool) Voucher::latest('id')->first()->applicable_to_combos);
     }
 }

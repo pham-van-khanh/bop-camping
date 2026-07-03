@@ -6,10 +6,12 @@ use App\Http\Controllers\Controller;
 use App\Models\Banner;
 use App\Models\CampingSpot;
 use App\Models\Category;
+use App\Models\Combo;
 use App\Models\Product;
 use App\Models\Review;
 use App\Models\ServiceLocation;
 use App\Services\AvailabilityService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Storage;
@@ -42,8 +44,32 @@ class ProductController extends Controller
 
         $spots = CampingSpot::ordered()->with(['media', 'nearestServiceLocation'])->get();
 
+        // Section "Combo tiết kiệm": 3–4 combo nổi bật theo sort_order (PRD combo mục 6)
+        $featuredCombos = Combo::active()
+            ->whereHas('items')
+            ->with(['items.product', 'images'])
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->limit(4)
+            ->get()
+            ->map(fn (Combo $c) => [
+                'id' => $c->id,
+                'name' => $c->name,
+                'slug' => $c->slug,
+                'combo_price' => (int) $c->combo_price,
+                'sum_individual' => $c->sumIndividualPrice(),
+                'savings_amount' => $c->savingsAmount(),
+                'savings_percent' => $c->savingsPercent(),
+                'suitable_for' => $c->suitable_for,
+                'items_count' => $c->items->count(),
+                'image' => $c->images->first()
+                    ? Storage::disk('media')->url($c->images->first()->path)
+                    : null,
+            ])->values();
+
         return Inertia::render('Welcome', [
             'featured' => $featured,
+            'featured_combos' => $featuredCombos,
             // Banner quản lý ở admin: hero (slideshow) + promo (dải khuyến mãi)
             'hero_banners' => Banner::active()->placement('hero')->ordered()->get()->map(fn (Banner $b) => [
                 'src' => $b->imageUrl(),
@@ -102,7 +128,7 @@ class ProductController extends Controller
             'nearest_name' => $s->nearestServiceLocation?->name,
             'media' => $s->media->map(fn ($m) => [
                 'type' => $m->type,
-                'url' => Storage::url($m->path),
+                'url' => Storage::disk('media')->url($m->path),
             ])->values(),
         ];
     }
@@ -174,13 +200,38 @@ class ProductController extends Controller
 
         $reviewCount = $p->reviews()->where('status', 'approved')->count();
         $reviewAvg = $p->averageRating();
-        $seoImage = $p->thumbnail ? url(Storage::url($p->thumbnail)) : url('/images/album/forest-camp-aerial.jpg');
+        $seoImage = $p->thumbnail ? url(Storage::disk('media')->url($p->thumbnail)) : url('/images/album/forest-camp-aerial.jpg');
         $seoDesc = Str::limit(trim(strip_tags((string) $p->description)), 155)
             ?: 'Cho thuê '.$p->name.' theo ngày tại BỐP CAMPING.';
+
+        $bannerCombo = $this->bannerCombo($p);
 
         return Inertia::render('ProductDetail', [
             'product' => $this->shape($p),
             'unavailable_dates' => $unavailableDates,
+            // Case 2 (US-03): "thường thuê cùng" — FE lọc còn hàng theo khoảng ngày (AC-9)
+            'accessories' => $this->activeAccessories($p)
+                ->map(fn (Product $a) => [
+                    'id' => $a->id,
+                    'name' => $a->name,
+                    'price_per_day' => (int) $a->price_per_day,
+                    'deposit' => (int) ($a->deposit ?? 0),
+                    'quantity' => (int) $a->quantity,
+                    'thumbnail' => $a->thumbnail ? Storage::disk('media')->url($a->thumbnail) : null,
+                    'category' => ['name' => $a->category->name, 'slug' => $a->category->slug],
+                    'locations' => $this->shapeLocations($a),
+                ])->values(),
+            // PRD 5.6: banner "thuộc combo" — ưu tiên hiển thị hơn gợi ý lẻ
+            'combo_banner' => $bannerCombo ? [
+                'id' => $bannerCombo->id,
+                'name' => $bannerCombo->name,
+                'slug' => $bannerCombo->slug,
+                'combo_price' => (int) $bannerCombo->combo_price,
+                'sum_individual' => $bannerCombo->sumIndividualPrice(),
+                'savings_amount' => $bannerCombo->savingsAmount(),
+                'savings_percent' => $bannerCombo->savingsPercent(),
+                'items_count' => $bannerCombo->items->count(),
+            ] : null,
             'reviews' => $this->reviews($p),
             'review_summary' => ['count' => $reviewCount, 'avg' => $reviewAvg],
             'can_review' => $user !== null && $user->reviewableOrderItemId($p->id) !== null,
@@ -193,6 +244,84 @@ class ProductController extends Controller
                 'jsonld' => $this->productJsonLd($p, $seoImage, $seoDesc, $reviewCount, $reviewAvg),
             ],
         ]);
+    }
+
+    /**
+     * GET /thiet-bi/{product}/kha-dung?start=&end= — tồn kho theo khoảng ngày.
+     *
+     * bopcamping-1z1: trang chi tiết từng hiện quantity tĩnh nên combo/đơn khác
+     * đã chiếm kho mà khách vẫn thấy đủ. Endpoint đi qua AvailabilityService
+     * (single source of truth) — FE fetch mỗi khi chọn xong khoảng ngày.
+     */
+    public function availability(Request $request, int $product): JsonResponse
+    {
+        $data = $request->validate([
+            'start' => ['required', 'date_format:Y-m-d'],
+            'end' => ['required', 'date_format:Y-m-d', 'after_or_equal:start'],
+        ]);
+
+        $p = Product::active()->findOrFail($product);
+
+        return response()->json([
+            'available' => $this->availability->availableQuantity(
+                $p,
+                Carbon::parse($data['start']),
+                Carbon::parse($data['end']),
+            ),
+        ]);
+    }
+
+    /**
+     * GET /thiet-bi/{product}/goi-y-kha-dung?start=&end= — tồn kho theo khoảng
+     * ngày của các gợi ý trên trang sản phẩm: từng phụ kiện (AC-9) + combo banner.
+     * Cùng đi qua AvailabilityService như mọi check tồn kho khác (AC-10).
+     */
+    public function suggestionAvailability(Request $request, int $product): JsonResponse
+    {
+        $data = $request->validate([
+            'start' => ['required', 'date_format:Y-m-d'],
+            'end' => ['required', 'date_format:Y-m-d', 'after_or_equal:start'],
+        ]);
+
+        $p = Product::active()->findOrFail($product);
+        $start = Carbon::parse($data['start']);
+        $end = Carbon::parse($data['end']);
+
+        $bannerCombo = $this->bannerCombo($p);
+
+        return response()->json([
+            'accessories' => $this->activeAccessories($p)
+                ->map(fn (Product $a) => [
+                    'id' => $a->id,
+                    'available' => $this->availability->availableQuantity($a, $start, $end),
+                ])->values(),
+            // null = không có banner; 0 = combo hết trong khoảng này → FE ẩn banner
+            'combo_available' => $bannerCombo
+                ? $this->availability->comboAvailable($bannerCombo, $start, $end)
+                : null,
+        ]);
+    }
+
+    /** Phụ kiện "thường thuê cùng" đang bán, theo sort_order admin đã xếp. */
+    private function activeAccessories(Product $p)
+    {
+        return $p->accessories()->where('status', 'active')
+            ->with('category', 'serviceLocations')
+            ->get();
+    }
+
+    /**
+     * Combo active tiết kiệm nhiều nhất chứa sản phẩm — nguồn cho banner PRD 5.6.
+     * Trang chi tiết và endpoint gợi ý dùng chung để banner/tồn kho luôn cùng 1 combo.
+     */
+    private function bannerCombo(Product $p): ?Combo
+    {
+        return Combo::active()
+            ->whereHas('items', fn ($q) => $q->where('product_id', $p->id))
+            ->with('items.product')
+            ->get()
+            ->sortByDesc(fn (Combo $c) => $c->savingsAmount())
+            ->first();
     }
 
     /** Product structured data (Google rich result: giá thuê/ngày, tồn kho, sao đánh giá). */
@@ -239,7 +368,7 @@ class ProductController extends Controller
                 'meta' => trim(($r->orderItem ? $r->orderItem->days.' ngày · ' : '').'Tháng '.$r->created_at->format('n, Y')),
                 'media' => $r->images->map(fn ($m) => [
                     'type' => $m->type,
-                    'url' => Storage::url($m->path),
+                    'url' => Storage::disk('media')->url($m->path),
                 ])->values(),
             ])->values()->all();
     }
@@ -255,7 +384,7 @@ class ProductController extends Controller
             'price_per_day' => $p->price_per_day,
             'quantity' => $p->quantity,
             'deposit' => $p->deposit ?? 0,
-            'thumbnail' => $p->thumbnail,
+            'thumbnail' => $p->thumbnail ? Storage::disk('media')->url($p->thumbnail) : null,
             'status' => $p->status,
             'category' => [
                 'id' => $p->category->id,
@@ -263,8 +392,9 @@ class ProductController extends Controller
                 'slug' => $p->category->slug,
             ],
             'images' => $p->images->map(fn ($i) => [
-                'path' => $i->path,
+                'url' => Storage::disk('media')->url($i->path),
                 'sort_order' => $i->sort_order,
+                'type' => $i->type,
             ])->values()->all(),
             'featured' => false,
             // Badge vị trí: chỉ tính vị trí đang mở. all_locations = phục vụ toàn bộ

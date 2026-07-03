@@ -78,7 +78,7 @@ class AdminCampingSpotTest extends TestCase
     /** @test */
     public function admin_can_upload_and_delete_media_image_and_video(): void
     {
-        Storage::fake('public');
+        Storage::fake('media');
         $spot = CampingSpot::create(['name' => 'X', 'province' => 'Hà Nội', 'terrain_tag' => 'Rừng núi']);
 
         $this->actingAs($this->admin())->post(route('admin.camping-spots.media.store', $spot), [
@@ -99,7 +99,7 @@ class AdminCampingSpotTest extends TestCase
     /** @test */
     public function cannot_delete_media_of_another_spot(): void
     {
-        Storage::fake('public');
+        Storage::fake('media');
         $a = CampingSpot::create(['name' => 'A', 'province' => 'HN', 'terrain_tag' => 'Đồi cỏ']);
         $b = CampingSpot::create(['name' => 'B', 'province' => 'HN', 'terrain_tag' => 'Đồi cỏ']);
         $mediaA = $a->media()->create(['type' => 'image', 'path' => 'camping-spots/a.jpg']);

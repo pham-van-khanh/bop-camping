@@ -10,10 +10,14 @@ class OrderItem extends Model
     protected $fillable = [
         'order_id',
         'product_id',
+        'combo_id',
+        'combo_group_uuid',
         'quantity',
         'price_per_day',
         'days',
         'subtotal',
+        'allocated_price',
+        'allocated_deposit',
     ];
 
     protected $casts = [
@@ -21,6 +25,8 @@ class OrderItem extends Model
         'price_per_day' => 'integer',
         'days' => 'integer',
         'subtotal' => 'integer',
+        'allocated_price' => 'integer',
+        'allocated_deposit' => 'integer',
     ];
 
     public function order(): BelongsTo
@@ -31,5 +37,11 @@ class OrderItem extends Model
     public function product(): BelongsTo
     {
         return $this->belongsTo(Product::class);
+    }
+
+    /** Combo mà item này được bung ra từ đó — null nếu thuê lẻ. */
+    public function combo(): BelongsTo
+    {
+        return $this->belongsTo(Combo::class);
     }
 }

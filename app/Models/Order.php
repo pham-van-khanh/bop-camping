@@ -3,7 +3,9 @@
 namespace App\Models;
 
 use App\Observers\OrderObserver;
+use Database\Factories\OrderFactory;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -12,6 +14,9 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 #[ObservedBy([OrderObserver::class])]
 class Order extends Model
 {
+    /** @use HasFactory<OrderFactory> */
+    use HasFactory;
+
     protected $fillable = [
         'user_id',
         'code',
@@ -27,6 +32,7 @@ class Order extends Model
         'total_price',
         'deposit_total',
         'discount_total',
+        'discount_breakdown',
         'status',
         'payment_method',
         'note',
@@ -38,6 +44,7 @@ class Order extends Model
         'total_price' => 'integer',
         'deposit_total' => 'integer',
         'discount_total' => 'integer',
+        'discount_breakdown' => 'array',
         'review_invited_at' => 'datetime',
         'review_submitted_at' => 'datetime',
     ];
@@ -102,5 +109,24 @@ class Order extends Model
     public static function activeStatuses(): array
     {
         return ['pending', 'confirmed', 'renting'];
+    }
+
+    /**
+     * Cộng giảm giá KÈM lưu vết nguồn (bopcamping-3ag) — dòng amount 0 bị loại.
+     * Bất biến: sum(discount_breakdown.amount) === discount_total.
+     *
+     * @param  array<int, array{source: string, amount: int, code?: string}>  $lines
+     */
+    public function applyDiscountLines(array $lines): void
+    {
+        $lines = array_values(array_filter($lines, fn (array $l) => (int) $l['amount'] !== 0));
+        if ($lines === []) {
+            return;
+        }
+
+        $this->update([
+            'discount_total' => (int) $this->discount_total + (int) array_sum(array_column($lines, 'amount')),
+            'discount_breakdown' => array_merge($this->discount_breakdown ?? [], $lines),
+        ]);
     }
 }

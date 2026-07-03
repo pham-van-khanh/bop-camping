@@ -60,6 +60,29 @@ return [
             'report' => false,
         ],
 
+        // Disk nghiệp vụ cho ảnh/video (product, camping-spot, category,
+        // banner, review). MEDIA_DISK=local (mặc định, dev) hoặc =s3 (prod,
+        // cần điền đủ AWS_* trong .env) — xem artifacts/adr_s3_media_storage.md.
+        'media' => env('MEDIA_DISK', 'local') === 's3' ? [
+            'driver' => 's3',
+            'key' => env('AWS_ACCESS_KEY_ID'),
+            'secret' => env('AWS_SECRET_ACCESS_KEY'),
+            'region' => env('AWS_DEFAULT_REGION'),
+            'bucket' => env('AWS_BUCKET'),
+            'url' => env('AWS_URL'),
+            'endpoint' => env('AWS_ENDPOINT'),
+            'use_path_style_endpoint' => env('AWS_USE_PATH_STYLE_ENDPOINT', false),
+            'throw' => false,
+            'report' => false,
+        ] : [
+            'driver' => 'local',
+            'root' => storage_path('app/public'),
+            'url' => rtrim(env('APP_URL', 'http://localhost'), '/').'/storage',
+            'visibility' => 'public',
+            'throw' => false,
+            'report' => false,
+        ],
+
     ],
 
     /*
