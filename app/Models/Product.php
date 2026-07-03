@@ -84,6 +84,15 @@ class Product extends Model
         return $this->belongsToMany(ServiceLocation::class, 'product_service_location');
     }
 
+    /** Case 2 — "thường thuê cùng": phụ kiện admin gán tay, theo sort_order (US-08). */
+    public function accessories(): BelongsToMany
+    {
+        return $this->belongsToMany(Product::class, 'product_accessories', 'product_id', 'related_product_id')
+            ->withPivot('sort_order')
+            ->withTimestamps()
+            ->orderBy('product_accessories.sort_order');
+    }
+
     /** Lọc sản phẩm cho thuê tại vị trí có slug tương ứng (vd 'vinh', 'ha-noi'). */
     public function scopeServedAt(Builder $query, int $serviceLocationId): Builder
     {

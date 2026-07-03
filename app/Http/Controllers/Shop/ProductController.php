@@ -204,9 +204,34 @@ class ProductController extends Controller
         $seoDesc = Str::limit(trim(strip_tags((string) $p->description)), 155)
             ?: 'Cho thuê '.$p->name.' theo ngày tại BỐP CAMPING.';
 
+        $bannerCombo = $this->bannerCombo($p);
+
         return Inertia::render('ProductDetail', [
             'product' => $this->shape($p),
             'unavailable_dates' => $unavailableDates,
+            // Case 2 (US-03): "thường thuê cùng" — FE lọc còn hàng theo khoảng ngày (AC-9)
+            'accessories' => $this->activeAccessories($p)
+                ->map(fn (Product $a) => [
+                    'id' => $a->id,
+                    'name' => $a->name,
+                    'price_per_day' => (int) $a->price_per_day,
+                    'deposit' => (int) ($a->deposit ?? 0),
+                    'quantity' => (int) $a->quantity,
+                    'thumbnail' => $a->thumbnail ? Storage::disk('media')->url($a->thumbnail) : null,
+                    'category' => ['name' => $a->category->name, 'slug' => $a->category->slug],
+                    'locations' => $this->shapeLocations($a),
+                ])->values(),
+            // PRD 5.6: banner "thuộc combo" — ưu tiên hiển thị hơn gợi ý lẻ
+            'combo_banner' => $bannerCombo ? [
+                'id' => $bannerCombo->id,
+                'name' => $bannerCombo->name,
+                'slug' => $bannerCombo->slug,
+                'combo_price' => (int) $bannerCombo->combo_price,
+                'sum_individual' => $bannerCombo->sumIndividualPrice(),
+                'savings_amount' => $bannerCombo->savingsAmount(),
+                'savings_percent' => $bannerCombo->savingsPercent(),
+                'items_count' => $bannerCombo->items->count(),
+            ] : null,
             'reviews' => $this->reviews($p),
             'review_summary' => ['count' => $reviewCount, 'avg' => $reviewAvg],
             'can_review' => $user !== null && $user->reviewableOrderItemId($p->id) !== null,
@@ -244,6 +269,59 @@ class ProductController extends Controller
                 Carbon::parse($data['end']),
             ),
         ]);
+    }
+
+    /**
+     * GET /thiet-bi/{product}/goi-y-kha-dung?start=&end= — tồn kho theo khoảng
+     * ngày của các gợi ý trên trang sản phẩm: từng phụ kiện (AC-9) + combo banner.
+     * Cùng đi qua AvailabilityService như mọi check tồn kho khác (AC-10).
+     */
+    public function suggestionAvailability(Request $request, int $product): JsonResponse
+    {
+        $data = $request->validate([
+            'start' => ['required', 'date_format:Y-m-d'],
+            'end' => ['required', 'date_format:Y-m-d', 'after_or_equal:start'],
+        ]);
+
+        $p = Product::active()->findOrFail($product);
+        $start = Carbon::parse($data['start']);
+        $end = Carbon::parse($data['end']);
+
+        $bannerCombo = $this->bannerCombo($p);
+
+        return response()->json([
+            'accessories' => $this->activeAccessories($p)
+                ->map(fn (Product $a) => [
+                    'id' => $a->id,
+                    'available' => $this->availability->availableQuantity($a, $start, $end),
+                ])->values(),
+            // null = không có banner; 0 = combo hết trong khoảng này → FE ẩn banner
+            'combo_available' => $bannerCombo
+                ? $this->availability->comboAvailable($bannerCombo, $start, $end)
+                : null,
+        ]);
+    }
+
+    /** Phụ kiện "thường thuê cùng" đang bán, theo sort_order admin đã xếp. */
+    private function activeAccessories(Product $p)
+    {
+        return $p->accessories()->where('status', 'active')
+            ->with('category', 'serviceLocations')
+            ->get();
+    }
+
+    /**
+     * Combo active tiết kiệm nhiều nhất chứa sản phẩm — nguồn cho banner PRD 5.6.
+     * Trang chi tiết và endpoint gợi ý dùng chung để banner/tồn kho luôn cùng 1 combo.
+     */
+    private function bannerCombo(Product $p): ?Combo
+    {
+        return Combo::active()
+            ->whereHas('items', fn ($q) => $q->where('product_id', $p->id))
+            ->with('items.product')
+            ->get()
+            ->sortByDesc(fn (Combo $c) => $c->savingsAmount())
+            ->first();
     }
 
     /** Product structured data (Google rich result: giá thuê/ngày, tồn kho, sao đánh giá). */

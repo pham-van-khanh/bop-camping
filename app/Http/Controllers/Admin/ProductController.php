@@ -28,7 +28,7 @@ class ProductController extends Controller
             ->groupBy('product_id')
             ->map(fn ($rows) => $rows->pluck('name')->values());
 
-        $products = Product::with(['category', 'serviceLocations', 'images' => fn ($q) => $q->orderBy('sort_order')])
+        $products = Product::with(['category', 'serviceLocations', 'accessories', 'images' => fn ($q) => $q->orderBy('sort_order')])
             ->orderBy('name')
             ->paginate(50)
             ->through(fn (Product $p) => [
@@ -43,6 +43,7 @@ class ProductController extends Controller
                 'status' => $p->status,
                 'category' => $p->category ? ['id' => $p->category->id, 'name' => $p->category->name] : null,
                 'service_location_ids' => $p->serviceLocations->pluck('id')->values(),
+                'accessory_ids' => $p->accessories->pluck('id')->values(),
                 'combo_names' => $comboNamesByProduct->get($p->id) ?? [],
                 'images' => $p->images->map(fn (ProductImage $img) => [
                     'id' => $img->id,
@@ -55,6 +56,8 @@ class ProductController extends Controller
         return Inertia::render('Admin/Products', [
             'products' => $products,
             'categories' => Category::orderBy('name')->get(['id', 'name']),
+            // Toàn bộ sản phẩm cho picker "Thường thuê cùng" (US-08) — shop nhỏ, không cần search server
+            'accessory_options' => Product::orderBy('name')->get(['id', 'name', 'status']),
             // Vị trí phục vụ để chọn khi thêm/sửa sản phẩm (vị trí 'coming' bị khoá ở UI).
             'service_locations' => ServiceLocation::ordered()->get()->map(fn (ServiceLocation $l) => [
                 'id' => $l->id,
@@ -78,6 +81,8 @@ class ProductController extends Controller
             'thumbnail' => 'nullable|file|mimes:jpg,jpeg,png,webp|max:4096',
             'service_location_ids' => 'required|array|min:1',
             'service_location_ids.*' => 'integer|exists:service_locations,id',
+            'accessory_ids' => 'sometimes|nullable|array|max:20',
+            'accessory_ids.*' => 'integer|distinct|exists:products,id',
         ], [
             'name.required' => 'Tên sản phẩm không được bỏ trống.',
             'category_id.required' => 'Vui lòng chọn danh mục.',
@@ -89,6 +94,7 @@ class ProductController extends Controller
             'deposit.numeric' => 'Tiền cọc phải là số.',
             'service_location_ids.required' => 'Vui lòng chọn ít nhất 1 vị trí phục vụ.',
             'service_location_ids.min' => 'Vui lòng chọn ít nhất 1 vị trí phục vụ.',
+            'accessory_ids.*.exists' => 'Sản phẩm gợi ý không hợp lệ.',
         ]);
 
         $slug = Slug::unique(Product::class, $data['name']);
@@ -111,6 +117,7 @@ class ProductController extends Controller
         ]);
 
         $product->serviceLocations()->sync($data['service_location_ids']);
+        $this->syncAccessories($product, $data);
 
         return back()->with('success', 'Đã thêm sản phẩm.');
     }
@@ -128,6 +135,8 @@ class ProductController extends Controller
             'thumbnail' => 'nullable|file|mimes:jpg,jpeg,png,webp|max:4096',
             'service_location_ids' => 'required|array|min:1',
             'service_location_ids.*' => 'integer|exists:service_locations,id',
+            'accessory_ids' => 'sometimes|nullable|array|max:20',
+            'accessory_ids.*' => 'integer|distinct|exists:products,id',
         ], [
             'name.required' => 'Tên sản phẩm không được bỏ trống.',
             'category_id.required' => 'Vui lòng chọn danh mục.',
@@ -139,6 +148,7 @@ class ProductController extends Controller
             'deposit.numeric' => 'Tiền cọc phải là số.',
             'service_location_ids.required' => 'Vui lòng chọn ít nhất 1 vị trí phục vụ.',
             'service_location_ids.min' => 'Vui lòng chọn ít nhất 1 vị trí phục vụ.',
+            'accessory_ids.*.exists' => 'Sản phẩm gợi ý không hợp lệ.',
         ]);
 
         $slug = Slug::unique(Product::class, $data['name'], $product->id);
@@ -166,6 +176,7 @@ class ProductController extends Controller
         ]);
 
         $product->serviceLocations()->sync($data['service_location_ids']);
+        $this->syncAccessories($product, $data);
 
         // US-07: sản phẩm vừa bị ẩn → combo chứa nó không được bán tiếp
         if ($wasActive && $product->status === 'hidden') {
@@ -173,6 +184,27 @@ class ProductController extends Controller
         }
 
         return back()->with('success', 'Đã cập nhật sản phẩm.');
+    }
+
+    /**
+     * US-08 — sync "thường thuê cùng": sort_order = vị trí trong mảng gửi lên.
+     * Không gửi key = giữ nguyên; gửi rỗng ('' từ FormData) = xoá hết.
+     * Tự gợi ý chính mình bị loại lặng lẽ.
+     */
+    private function syncAccessories(Product $product, array $data): void
+    {
+        if (! array_key_exists('accessory_ids', $data)) {
+            return;
+        }
+
+        $product->accessories()->sync(
+            collect($data['accessory_ids'] ?? [])
+                ->map(fn ($id) => (int) $id)
+                ->reject(fn (int $id) => $id === $product->id)
+                ->values()
+                ->mapWithKeys(fn (int $id, int $i) => [$id => ['sort_order' => $i]])
+                ->all()
+        );
     }
 
     public function destroy(Product $product): RedirectResponse

@@ -8,6 +8,7 @@ import type { PageProps } from '@/types';
 type ProductImage = { id: number; path: string; sort_order: number; type: 'image' | 'video' };
 type CategoryOption = { id: number; name: string };
 type ServiceLocationOption = { id: number; name: string; area: string | null; status: 'open' | 'coming' };
+type AccessoryOption = { id: number; name: string; status: 'active' | 'hidden' };
 type Product = {
     id: number;
     name: string;
@@ -20,6 +21,7 @@ type Product = {
     status: 'active' | 'hidden';
     category: { id: number; name: string } | null;
     service_location_ids: number[];
+    accessory_ids: number[];
     combo_names: string[];
     images: ProductImage[];
 };
@@ -34,6 +36,8 @@ type ProductFormData = {
     status: 'active' | 'hidden';
     thumbnail: File | null;
     service_location_ids: number[];
+    // "Thường thuê cùng" (US-08) — thứ tự trong mảng = thứ tự hiển thị ở trang sản phẩm
+    accessory_ids: number[];
 };
 
 type Paginator<T> = {
@@ -49,10 +53,12 @@ export default function AdminProducts({
     products,
     categories,
     service_locations,
+    accessory_options,
 }: {
     products: Paginator<Product>;
     categories: CategoryOption[];
     service_locations: ServiceLocationOption[];
+    accessory_options: AccessoryOption[];
 }) {
     const { flash } = usePage<PageProps>().props;
 
@@ -85,6 +91,7 @@ export default function AdminProducts({
         status: 'active',
         thumbnail: null,
         service_location_ids: [],
+        accessory_ids: [],
     });
 
     const blank = (): ProductFormData => ({
@@ -98,6 +105,7 @@ export default function AdminProducts({
         thumbnail: null,
         // Mặc định gắn tất cả vị trí đang mở khi thêm mới.
         service_location_ids: [...openLocationIds],
+        accessory_ids: [],
     });
 
     const toggleLocation = (id: number) => {
@@ -105,9 +113,19 @@ export default function AdminProducts({
         form.setData('service_location_ids', cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]);
     };
 
+    /* --- "Thường thuê cùng" (US-08): thứ tự click = thứ tự hiển thị --- */
+    const [accSearch, setAccSearch] = useState('');
+    const accessoryName = (id: number) => accessory_options.find((o) => o.id === id)?.name ?? `#${id}`;
+
+    const toggleAccessory = (id: number) => {
+        const cur = form.data.accessory_ids;
+        form.setData('accessory_ids', cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]);
+    };
+
     const openCreate = () => {
         form.setData(blank());
         form.clearErrors();
+        setAccSearch('');
         setEditing(null);
         setModalMode('create');
     };
@@ -123,8 +141,10 @@ export default function AdminProducts({
             status: p.status,
             thumbnail: null,
             service_location_ids: p.service_location_ids ?? [],
+            accessory_ids: p.accessory_ids ?? [],
         });
         form.clearErrors();
+        setAccSearch('');
         setEditing(p);
         setModalMode('edit');
     };
@@ -148,12 +168,21 @@ export default function AdminProducts({
         }));
 
         const opts = { forceFormData: true, onSuccess: closeModal };
+        // FormData không gửi được mảng rỗng → gửi '' để backend hiểu là "xoá hết gợi ý"
+        // (khác với không gửi key = giữ nguyên).
         if (modalMode === 'create') {
-            form.transform((data) => data);
+            form.transform((data) => ({
+                ...data,
+                accessory_ids: data.accessory_ids.length ? data.accessory_ids : '',
+            }));
             form.post(route('admin.products.store'), opts);
         } else if (editing) {
             // PHP không nạp $_FILES cho PUT → POST kèm _method spoofing để upload ảnh khi sửa hoạt động.
-            form.transform((data) => ({ ...data, _method: 'put' }));
+            form.transform((data) => ({
+                ...data,
+                _method: 'put',
+                accessory_ids: data.accessory_ids.length ? data.accessory_ids : '',
+            }));
             form.post(route('admin.products.update', editing.id), opts);
         }
     };
@@ -550,6 +579,77 @@ export default function AdminProducts({
                                 {form.errors.service_location_ids && (
                                     <p className="mt-1 text-[12px] text-[#b3493a]">{form.errors.service_location_ids}</p>
                                 )}
+                            </div>
+
+                            {/* Thường thuê cùng (US-08) — gợi ý hiện ở trang sản phẩm (Case 2) */}
+                            <div>
+                                <label className="mb-1.5 block text-[13px] font-semibold text-pine">
+                                    Thường thuê cùng
+                                    <span className="ml-1 font-normal text-moss">(thứ tự chọn = thứ tự hiển thị)</span>
+                                </label>
+
+                                {/* Chip các món đã chọn, đúng thứ tự */}
+                                {form.data.accessory_ids.length > 0 && (
+                                    <div className="mb-2 flex flex-wrap gap-1.5">
+                                        {form.data.accessory_ids.map((id, i) => (
+                                            <span key={id} className="flex items-center gap-1.5 rounded-pill bg-[#eef5e1] py-1 pl-2.5 pr-1.5 text-[12px] font-semibold text-grass">
+                                                <span className="font-mono text-[10.5px] text-moss">{i + 1}.</span>
+                                                {accessoryName(id)}
+                                                <button
+                                                    type="button"
+                                                    onClick={() => toggleAccessory(id)}
+                                                    className="grid h-4 w-4 place-items-center rounded-full bg-[#c4cfae] text-[10px] font-bold text-white hover:bg-[#b3493a]"
+                                                    title="Bỏ khỏi gợi ý"
+                                                >
+                                                    ×
+                                                </button>
+                                            </span>
+                                        ))}
+                                    </div>
+                                )}
+
+                                <input
+                                    type="text"
+                                    value={accSearch}
+                                    onChange={(e) => setAccSearch(e.target.value)}
+                                    placeholder="Tìm sản phẩm để thêm gợi ý…"
+                                    className="w-full rounded-[10px] border border-cardBorder px-3.5 py-2 text-[13px] outline-none transition focus:border-grass"
+                                />
+                                <div className="mt-1.5 max-h-[160px] overflow-y-auto rounded-[10px] border border-cardBorder">
+                                    {accessory_options
+                                        .filter((o) => o.id !== editing?.id)
+                                        .filter((o) => o.name.toLowerCase().includes(accSearch.toLowerCase()))
+                                        .map((o) => {
+                                            const on = form.data.accessory_ids.includes(o.id);
+                                            return (
+                                                <button
+                                                    type="button"
+                                                    key={o.id}
+                                                    onClick={() => toggleAccessory(o.id)}
+                                                    className={`flex w-full items-center gap-2 border-b border-[#f1f4ea] px-3 py-2 text-left text-[12.5px] transition last:border-b-0 ${
+                                                        on ? 'bg-[#f4f8ec] font-semibold text-grass' : 'text-pine hover:bg-[#fafcf7]'
+                                                    }`}
+                                                >
+                                                    <span
+                                                        className={`grid h-[15px] w-[15px] flex-none place-items-center rounded-[4px] border text-[10px] font-bold ${
+                                                            on ? 'border-grass bg-grass text-white' : 'border-[#c4cca8] text-transparent'
+                                                        }`}
+                                                    >
+                                                        ✓
+                                                    </span>
+                                                    <span className="flex-1">{o.name}</span>
+                                                    {o.status === 'hidden' && (
+                                                        <span className="rounded-pill bg-[#f1f4ea] px-1.5 py-0.5 text-[10px] font-semibold text-moss">Đang ẩn</span>
+                                                    )}
+                                                </button>
+                                            );
+                                        })}
+                                </div>
+                                {Object.entries(form.errors)
+                                    .filter(([k]) => k.startsWith('accessory_ids'))
+                                    .map(([k, v]) => (
+                                        <p key={k} className="mt-1 text-[12px] text-[#b3493a]">{v}</p>
+                                    ))}
                             </div>
 
                             {/* Price / Qty / Deposit row */}
