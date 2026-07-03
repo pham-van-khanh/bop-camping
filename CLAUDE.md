@@ -41,6 +41,13 @@ Máy này có nhiều bản PHP cài qua Homebrew (7.1/7.2/7.4/8.1/8.3) và dùn
 - **Node**: quản lý bằng **nvm**, mặc định đặt là **Node 20** (`nvm alias default 20`). Bản brew `node` (22) bị nvm "đè" — đây là chủ ý. (React/Vite cần Node ≥ 20.)
 - Verify nhanh trong terminal mới: `php -v` → 8.3.x, `node -v` → v20.x.
 
+### Nhiều máy dev, mỗi máy một kiểu (PHP 8.3/8.4/8.5) — quy ước chống lệch
+
+- **composer.json đã pin `config.platform.php = 8.3.8`** (golden path + PHP prod). Máy chạy PHP 8.4/8.5 vẫn dev bình thường, nhưng `composer update` LUÔN resolve theo 8.3 → không bao giờ tạo lock mà máy 8.3 không cài được. KHÔNG gỡ pin này.
+- **Test trên máy thiếu `pdo_sqlite`** (vd Linux không sudo): chạy bằng MySQL với DB test riêng:
+  `DB_CONNECTION=mysql DB_DATABASE=bop_camping_test php artisan test`.
+  Test phải **collation-safe** — chạy đúng trên cả sqlite (LIKE so byte) lẫn MySQL `utf8mb4_unicode_ci` (LIKE không phân biệt dấu: 'leu' khớp 'lều'). Khi viết test search: đừng để dữ liệu "nhiễu" chứa từ khoá dạng có-dấu trong name/description.
+
 ## Quick Reference
 
 ```bash

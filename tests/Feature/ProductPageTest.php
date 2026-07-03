@@ -124,7 +124,9 @@ class ProductPageTest extends TestCase
     {
         $cat = $this->category();
         $this->product($cat, ['name' => 'Lều siêu nhẹ']);
-        $this->product($cat, ['name' => 'Túi ngủ lông vũ']);
+        // Description KHÔNG chứa 'lều': mặc định 'Mô tả lều' làm sản phẩm này cũng khớp
+        // 'q=leu' trên MySQL (utf8mb4_unicode_ci LIKE không phân biệt dấu) → test lệch collation.
+        $this->product($cat, ['name' => 'Túi ngủ lông vũ', 'description' => 'Giữ ấm mùa đông, gấp gọn.']);
 
         $response = $this->get('/thiet-bi?q=leu');
 
