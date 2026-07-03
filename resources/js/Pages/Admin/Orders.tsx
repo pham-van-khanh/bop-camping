@@ -1,12 +1,44 @@
 import { Head, router, usePage } from '@inertiajs/react';
-import { ReactNode, useState } from 'react';
+import { Fragment, ReactNode, useState } from 'react';
 import AdminLayout from '@/Layouts/AdminLayout';
 import ProductStatusPill from '@/Components/ProductStatusPill';
 import { money } from '@/lib/format';
 import { STATUS_LABEL, STATUS_STYLE } from '@/lib/orderStatus';
 import { voucherValueText, VOUCHER_SOURCE_LABEL, VOUCHER_SOURCE_FALLBACK, type VoucherType } from '@/lib/voucher';
 
-type OrderItem = { name: string; quantity: number; price_per_day: number; days: number; subtotal: number };
+type OrderItem = {
+    name: string;
+    quantity: number;
+    price_per_day: number;
+    days: number;
+    subtotal: number;
+    // bopcamping-d7l: items thuộc combo mang uuid nhóm + giá phân bổ (AC-3)
+    combo_group_uuid: string | null;
+    combo_name: string | null;
+    allocated_price: number | null;
+};
+
+// Nhóm items chi tiết đơn: mỗi combo_group_uuid = 1 khối combo, còn lại là dòng lẻ.
+type ItemGroup = { key: string; combo: string | null; items: OrderItem[] };
+
+function groupItems(items: OrderItem[]): ItemGroup[] {
+    const groups: ItemGroup[] = [];
+    const byUuid = new Map<string, ItemGroup>();
+    items.forEach((it, i) => {
+        if (it.combo_group_uuid) {
+            let g = byUuid.get(it.combo_group_uuid);
+            if (!g) {
+                g = { key: it.combo_group_uuid, combo: it.combo_name ?? 'Combo', items: [] };
+                byUuid.set(it.combo_group_uuid, g);
+                groups.push(g);
+            }
+            g.items.push(it);
+        } else {
+            groups.push({ key: `single-${i}`, combo: null, items: [it] });
+        }
+    });
+    return groups;
+}
 type UsedVoucher = { code: string; type: VoucherType; value: number; source: string };
 type Order = {
     id: number; code: string; customer_name: string; customer_phone: string;
@@ -201,12 +233,36 @@ export default function AdminOrders({
                                                                                     </tr>
                                                                                 </thead>
                                                                                 <tbody>
-                                                                                    {order.items.map((item, i) => (
-                                                                                        <tr key={i} className="border-t border-[#eef2e3]">
-                                                                                            <td className="px-3 py-2 text-ink">{item.name}<div className="text-[11px] text-moss">{money(item.price_per_day)}/ngày</div></td>
-                                                                                            <td className="px-3 py-2 text-center text-moss">{item.quantity} × {item.days}</td>
-                                                                                            <td className="px-3 py-2 text-right font-mono font-bold text-ink">{money(item.subtotal)}</td>
+                                                                                    {groupItems(order.items).map((g) => g.combo === null ? (
+                                                                                        <tr key={g.key} className="border-t border-[#eef2e3]">
+                                                                                            <td className="px-3 py-2 text-ink">{g.items[0].name}<div className="text-[11px] text-moss">{money(g.items[0].price_per_day)}/ngày</div></td>
+                                                                                            <td className="px-3 py-2 text-center text-moss">{g.items[0].quantity} × {g.items[0].days}</td>
+                                                                                            <td className="px-3 py-2 text-right font-mono font-bold text-ink">{money(g.items[0].subtotal)}</td>
                                                                                         </tr>
+                                                                                    ) : (
+                                                                                        /* bopcamping-d7l: khối combo — header + các món con với giá phân bổ */
+                                                                                        <Fragment key={g.key}>
+                                                                                            <tr className="border-t border-[#eef2e3]" style={{ background: '#f3f7ec' }}>
+                                                                                                <td className="px-3 py-2" colSpan={2}>
+                                                                                                    <span className="mr-1.5 rounded-pill bg-grass px-1.5 py-0.5 font-mono text-[9.5px] font-bold text-white">COMBO</span>
+                                                                                                    <span className="font-bold text-pine">{g.combo}</span>
+                                                                                                    <div className="mt-0.5 text-[11px] text-moss">{g.items.length} món · tổng giá phân bổ = giá combo</div>
+                                                                                                </td>
+                                                                                                <td className="px-3 py-2 text-right font-mono font-bold text-pine">{money(g.items.reduce((s, it) => s + it.subtotal, 0))}</td>
+                                                                                            </tr>
+                                                                                            {g.items.map((item, i) => (
+                                                                                                <tr key={i} className="border-t border-[#f3f7ec]">
+                                                                                                    <td className="py-1.5 pl-7 pr-3 text-ink">
+                                                                                                        {item.name}
+                                                                                                        <div className="text-[11px] text-moss">
+                                                                                                            phân bổ {money(item.allocated_price ?? item.price_per_day)}/ngày · giá lẻ {money(item.price_per_day)}/ngày
+                                                                                                        </div>
+                                                                                                    </td>
+                                                                                                    <td className="px-3 py-1.5 text-center text-moss">{item.quantity} × {item.days}</td>
+                                                                                                    <td className="px-3 py-1.5 text-right font-mono text-ink">{money(item.subtotal)}</td>
+                                                                                                </tr>
+                                                                                            ))}
+                                                                                        </Fragment>
                                                                                     ))}
                                                                                 </tbody>
                                                                             </table>

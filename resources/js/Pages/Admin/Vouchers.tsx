@@ -12,6 +12,8 @@ type Row = {
     value: number;
     source: string;
     status: 'active' | 'used' | 'expired' | 'revoked';
+    // AC-8: voucher thường không giảm phần combo; bật cờ này mới áp lên combo
+    applicable_to_combos: boolean;
     user: { name: string; phone: string | null } | null;
     expires_at: string | null;
     used_at: string | null;
@@ -47,7 +49,7 @@ export default function AdminVouchers() {
     const filter = (patch: Record<string, string>) =>
         router.get(route('admin.vouchers'), { ...filters, ...patch }, { preserveState: true, replace: true });
 
-    const create = useForm({ phone: '', type: 'fixed', value: '', validity_days: '' });
+    const create = useForm({ phone: '', type: 'fixed', value: '', validity_days: '', applicable_to_combos: false });
     const submitCreate = (e: React.FormEvent) => {
         e.preventDefault();
         create.post(route('admin.vouchers.store'), { preserveScroll: true, onSuccess: () => create.reset() });
@@ -80,6 +82,16 @@ export default function AdminVouchers() {
                     <Field label="HSD (ngày)">
                         <input type="number" value={create.data.validity_days} onChange={(e) => create.setData('validity_days', e.target.value)} placeholder="mặc định" className={inputCls} />
                     </Field>
+                    {/* AC-8: mặc định voucher không giảm phần combo (combo đã là giá ưu đãi) */}
+                    <label className="flex h-11 cursor-pointer items-center gap-2 rounded-[10px] border border-cardBorder bg-white px-3">
+                        <input
+                            type="checkbox"
+                            checked={create.data.applicable_to_combos}
+                            onChange={(e) => create.setData('applicable_to_combos', e.target.checked)}
+                            className="accent-grass"
+                        />
+                        <span className="text-[13px] font-semibold text-pine">Áp dụng cả combo</span>
+                    </label>
                     <button type="submit" disabled={create.processing} className="h-11 rounded-control bg-grass px-5 text-[14px] font-bold text-white disabled:opacity-60">Tạo voucher</button>
                 </form>
 
@@ -113,7 +125,14 @@ export default function AdminVouchers() {
                                 <tr key={v.id} className="border-t border-[#eef2e3]">
                                     <td className="px-3 py-2.5 font-mono font-bold text-pine">{v.code}</td>
                                     <td className="px-3 py-2.5 text-ink">{v.user ? `${v.user.name} · ${v.user.phone}` : '—'}</td>
-                                    <td className="px-3 py-2.5 font-semibold text-grass">{voucherValueText(v.type, v.value)}</td>
+                                    <td className="px-3 py-2.5 font-semibold text-grass">
+                                        {voucherValueText(v.type, v.value)}
+                                        {v.applicable_to_combos && (
+                                            <span className="ml-1.5 rounded-pill bg-[#e7eed5] px-1.5 py-0.5 font-mono text-[10px] font-bold text-[#3a5a1f]" title="Voucher này giảm được cả phần combo">
+                                                +COMBO
+                                            </span>
+                                        )}
+                                    </td>
                                     <td className="px-3 py-2.5 text-moss">{VOUCHER_SOURCE_LABEL[v.source] ?? VOUCHER_SOURCE_FALLBACK}</td>
                                     <td className="px-3 py-2.5">
                                         <span className="rounded-pill px-2.5 py-1 text-[11px] font-bold" style={STATUS_STYLE[v.status]}>{STATUS_LABEL[v.status]}</span>

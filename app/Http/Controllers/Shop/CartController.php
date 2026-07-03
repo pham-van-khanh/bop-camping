@@ -10,6 +10,7 @@ use App\Models\Product;
 use App\Models\PromotionSetting;
 use App\Models\ServiceLocation;
 use App\Models\Voucher;
+use App\Services\AvailabilityService;
 use App\Services\ComboDetectionService;
 use App\Services\ComboSuggestion;
 use App\Services\Promotion\VoucherService;
@@ -26,6 +27,7 @@ class CartController extends Controller
     public function __construct(
         private ComboDetectionService $detector,
         private VoucherService $voucherService,
+        private AvailabilityService $availability,
     ) {}
 
     public function index(Request $request): Response
@@ -75,9 +77,13 @@ class CartController extends Controller
     {
         $ids = $this->idsFromQuery($request, 'ids');
         $comboIds = $this->idsFromQuery($request, 'combo_ids');
+        // bopcamping-80c (ADR-5): re-check tồn kho theo khoảng ngày TỪNG DÒNG giỏ —
+        // pr[]/cr[] dạng "id:start:end", trả map stock để giỏ cảnh báo ngay khi hết.
+        $prLines = $this->rangesFromQuery($request, 'pr');
+        $crLines = $this->rangesFromQuery($request, 'cr');
 
-        if ($ids->isEmpty() && $comboIds->isEmpty()) {
-            return response()->json(['products' => (object) [], 'combos' => (object) []]);
+        if ($ids->isEmpty() && $comboIds->isEmpty() && $prLines->isEmpty() && $crLines->isEmpty()) {
+            return response()->json(['products' => (object) [], 'combos' => (object) [], 'stock' => (object) []]);
         }
 
         $openCount = ServiceLocation::open()->count();
@@ -117,7 +123,28 @@ class CartController extends Controller
                 ]];
             });
 
-        return response()->json(['products' => $products, 'combos' => $combos]);
+        // Tồn kho theo khoảng ngày từng dòng — vẫn qua AvailabilityService (AC-10).
+        // Key "p:{id}:{start}:{end}" / "c:{id}:{start}:{end}"; dòng ẩn/xoá không trả
+        // (client đã gỡ theo products/combos map ở trên).
+        $stockProducts = Product::active()->whereIn('id', $prLines->pluck('id')->unique())->get()->keyBy('id');
+        $stockCombos = Combo::active()->whereHas('items')->with('items.product')
+            ->whereIn('id', $crLines->pluck('id')->unique())->get()->keyBy('id');
+
+        $stock = [];
+        foreach ($prLines as $r) {
+            if ($p = $stockProducts->get($r['id'])) {
+                $stock["p:{$r['id']}:{$r['start']}:{$r['end']}"] =
+                    $this->availability->availableQuantity($p, Carbon::parse($r['start']), Carbon::parse($r['end']));
+            }
+        }
+        foreach ($crLines as $r) {
+            if ($c = $stockCombos->get($r['id'])) {
+                $stock["c:{$r['id']}:{$r['start']}:{$r['end']}"] =
+                    $this->availability->comboAvailable($c, Carbon::parse($r['start']), Carbon::parse($r['end']));
+            }
+        }
+
+        return response()->json(['products' => $products, 'combos' => $combos, 'stock' => (object) $stock]);
     }
 
     /** @return Collection<int, int> */
@@ -127,6 +154,39 @@ class CartController extends Controller
             ->map(fn ($x) => (int) $x)
             ->filter()
             ->unique()
+            ->take(100)
+            ->values();
+    }
+
+    /**
+     * Parse "id:start:end" từ query — entry sai định dạng/ngày ngược bị bỏ qua.
+     *
+     * @return Collection<int, array{id: int, start: string, end: string}>
+     */
+    private function rangesFromQuery(Request $request, string $key): Collection
+    {
+        return collect($request->query($key, []))
+            ->map(function ($raw) {
+                $parts = explode(':', (string) $raw);
+                if (count($parts) !== 3) {
+                    return null;
+                }
+                [$id, $start, $end] = $parts;
+                if (! ctype_digit($id) || (int) $id < 1) {
+                    return null;
+                }
+                foreach ([$start, $end] as $d) {
+                    if (! preg_match('/^\d{4}-\d{2}-\d{2}$/', $d)) {
+                        return null;
+                    }
+                }
+                if ($end < $start) {
+                    return null;
+                }
+
+                return ['id' => (int) $id, 'start' => $start, 'end' => $end];
+            })
+            ->filter()
             ->take(100)
             ->values();
     }

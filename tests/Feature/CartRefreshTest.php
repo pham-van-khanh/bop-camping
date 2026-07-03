@@ -3,6 +3,8 @@
 namespace Tests\Feature;
 
 use App\Models\Category;
+use App\Models\Combo;
+use App\Models\Order;
 use App\Models\Product;
 use App\Models\ServiceLocation;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -10,6 +12,8 @@ use Tests\TestCase;
 
 /**
  * bopcamping-7sj — làm tươi giỏ: trả giá/vị trí mới nhất, bỏ sản phẩm ẩn/xoá.
+ * bopcamping-80c (ADR-5) — re-check tồn kho theo khoảng ngày từng dòng (pr[]/cr[])
+ * để giỏ cảnh báo món/combo hết hàng ngay, không đợi checkout.
  */
 class CartRefreshTest extends TestCase
 {
@@ -78,9 +82,53 @@ class CartRefreshTest extends TestCase
     /** @test */
     public function empty_ids_returns_empty(): void
     {
-        // 'combos' thêm từ Combo P2 (bopcamping-6he) — giỏ làm tươi được cả dòng combo
+        // 'combos' thêm từ Combo P2 (bopcamping-6he), 'stock' từ bopcamping-80c
         $this->getJson(route('cart.refresh'))
             ->assertOk()
-            ->assertExactJson(['products' => [], 'combos' => []]);
+            ->assertExactJson(['products' => [], 'combos' => [], 'stock' => []]);
+    }
+
+    /**
+     * bopcamping-80c: tồn kho theo khoảng ngày từng dòng — dòng chồng lịch
+     * bị trừ đúng, dòng khoảng khác đủ kho, combo hết vì món con → 0.
+     *
+     * @test
+     */
+    public function stock_reflects_per_line_availability(): void
+    {
+        $p = $this->product('Lều', 'leu-stock', 90000); // kho 5
+
+        $combo = Combo::create(['name' => 'Combo Stock', 'slug' => 'combo-stock', 'combo_price' => 80000]);
+        $combo->items()->create(['product_id' => $p->id, 'quantity' => 2]);
+
+        // Chiếm 4/5 lều trong 10–12/07
+        $order = Order::factory()->create(['start_date' => '2030-07-10', 'end_date' => '2030-07-12']);
+        $order->items()->create([
+            'product_id' => $p->id, 'quantity' => 4,
+            'price_per_day' => 90000, 'days' => 3, 'subtotal' => 4 * 3 * 90000,
+        ]);
+
+        $this->getJson(route('cart.refresh', [
+            'pr' => ["{$p->id}:2030-07-10:2030-07-12", "{$p->id}:2030-07-20:2030-07-22"],
+            'cr' => ["{$combo->id}:2030-07-10:2030-07-12", "{$combo->id}:2030-07-20:2030-07-22"],
+        ]))
+            ->assertOk()
+            ->assertJsonPath("stock.p:{$p->id}:2030-07-10:2030-07-12", 1)
+            ->assertJsonPath("stock.p:{$p->id}:2030-07-20:2030-07-22", 5)
+            // combo cần 2 lều/bộ: còn 1 → 0 bộ; khoảng trống → intdiv(5,2) = 2
+            ->assertJsonPath("stock.c:{$combo->id}:2030-07-10:2030-07-12", 0)
+            ->assertJsonPath("stock.c:{$combo->id}:2030-07-20:2030-07-22", 2);
+    }
+
+    /** @test */
+    public function stock_skips_malformed_entries_and_hidden_items(): void
+    {
+        $hidden = $this->product('Ẩn', 'leu-an', 90000, status: 'hidden');
+
+        $res = $this->getJson(route('cart.refresh', [
+            'pr' => ['abc', '1:2030-13-99', "{$hidden->id}:2030-07-10:2030-07-12", '2:2030-07-12:2030-07-10'],
+        ]))->assertOk();
+
+        $this->assertSame([], (array) $res->json('stock'));
     }
 }

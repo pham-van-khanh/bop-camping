@@ -18,7 +18,7 @@ class OrderController extends Controller
     {
         $status = $request->query('status', 'all');
 
-        $query = Order::with(['items.product', 'vouchers', 'referralUse.referrer'])->latest();
+        $query = Order::with(['items.product', 'items.combo', 'vouchers', 'referralUse.referrer'])->latest();
 
         if ($status !== 'all') {
             $query->where('status', $status);
@@ -47,6 +47,10 @@ class OrderController extends Controller
                 'price_per_day' => (int) $i->price_per_day,
                 'days' => $i->days,
                 'subtotal' => $i->subtotal,
+                // bopcamping-d7l: FE nhóm items combo thành 1 khối theo group uuid (AC-3)
+                'combo_group_uuid' => $i->combo_group_uuid,
+                'combo_name' => $i->combo_id ? ($i->combo?->name ?? 'Combo (đã xoá)') : null,
+                'allocated_price' => $i->allocated_price !== null ? (int) $i->allocated_price : null,
             ]),
             'vouchers' => $o->vouchers->map(fn ($v) => [
                 'code' => $v->code,

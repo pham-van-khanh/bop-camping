@@ -72,6 +72,8 @@ export default function Cart() {
     const [selectedCodes, setSelectedCodes] = useState<string[]>([]);
     const [manualCode, setManualCode] = useState('');
     const [suggestion, setSuggestion] = useState<Suggestion | null>(null);
+    // bopcamping-80c (ADR-5): tồn kho theo khoảng ngày từng dòng, key "p|c:id:start:end"
+    const [stockMap, setStockMap] = useState<Record<string, number>>({});
 
     const { data, setData, post, processing, errors } = useForm<{
         name: string;
@@ -153,6 +155,31 @@ export default function Cart() {
 
     // Giữ voucher_codes của form đồng bộ với lựa chọn.
     useEffect(() => setData('voucher_codes', selectedCodes), [selectedCodes]);
+
+    // Re-check tồn kho từng dòng mỗi khi giỏ đổi (bopcamping-80c) — báo hết hàng
+    // ngay trong giỏ, không đợi tới checkout.
+    useEffect(() => {
+        if (lines.length === 0 || flash.order_code) {
+            setStockMap({});
+            return;
+        }
+        const t = setTimeout(() => {
+            const qs = lines
+                .map((l) => `${isComboLine(l) ? 'cr' : 'pr'}[]=${l.id}:${l.start}:${l.end}`)
+                .join('&');
+            fetch(`${route('cart.refresh')}?${qs}`, { headers: { Accept: 'application/json' } })
+                .then((r) => (r.ok ? r.json() : null))
+                .then((j: { stock?: Record<string, number> } | null) => {
+                    if (j?.stock) setStockMap(j.stock);
+                })
+                .catch(() => {});
+        }, 400);
+        return () => clearTimeout(t);
+    }, [lines, flash.order_code]);
+
+    /** Tồn kho của dòng trong khoảng ngày của nó — null khi chưa có dữ liệu. */
+    const lineStock = (l: CartLine): number | null =>
+        stockMap[`${isComboLine(l) ? 'c' : 'p'}:${l.id}:${l.start}:${l.end}`] ?? null;
 
     // Cart combo detection (PRD 5.4): chạy lại MỖI khi giỏ/voucher đổi (debounce nhẹ).
     // Voucher tham gia vì "convert phải rẻ hơn sau voucher" quyết định có gợi ý hay không.
@@ -417,6 +444,20 @@ export default function Cart() {
                                         <div className="text-[15px] font-bold leading-[1.25] text-ink">{it.name}</div>
                                     </div>
                                     <div className="my-1 font-mono text-[12px] text-[#8a967a]">{rangeText(it.start, it.end)} · {lineDays(it)} ngày</div>
+                                    {/* bopcamping-80c: cảnh báo hết hàng theo khoảng ngày ngay trong giỏ */}
+                                    {(() => {
+                                        const avail = lineStock(it);
+                                        if (avail === null || avail >= it.qty) return null;
+                                        return (
+                                            <div className="mb-1.5 rounded-[8px] px-2.5 py-1.5 text-[12px] font-semibold" style={{ background: '#f6ddd6', color: '#b3493a' }}>
+                                                {avail === 0
+                                                    ? (isComboLine(it)
+                                                        ? 'Combo đã hết trong khoảng này — chọn ngày khác hoặc xoá khỏi giỏ.'
+                                                        : 'Món này đã được thuê hết trong khoảng này — chọn ngày khác hoặc xoá khỏi giỏ.')
+                                                    : `Khoảng này chỉ còn ${avail} bộ — giảm số lượng giúp mình nhé.`}
+                                            </div>
+                                        );
+                                    })()}
                                     {/* Combo: khối mở rộng xem các món con (PRD combo mục 6) */}
                                     {isComboLine(it) && (it.comboItems?.length ?? 0) > 0 && (
                                         <details className="mb-1.5">

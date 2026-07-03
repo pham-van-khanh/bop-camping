@@ -95,4 +95,28 @@ class AdminPromotionTest extends TestCase
         $this->assertNotNull($voucher->expires_at);
         $this->assertSame(45, (int) round(now()->diffInDays($voucher->expires_at, false)));
     }
+
+    /**
+     * AC-8 (bopcamping-1od): admin bật "Áp dụng cả combo" → voucher giảm được
+     * phần combo; không gửi cờ → mặc định false (voucher thường).
+     *
+     * @test
+     */
+    public function admin_can_create_combo_applicable_voucher(): void
+    {
+        $admin = $this->admin();
+        User::create(['name' => 'Khách', 'phone' => '0944444444']);
+
+        $this->actingAs($admin)->post(route('admin.vouchers.store'), [
+            'phone' => '0944444444', 'type' => 'percent', 'value' => 10, 'applicable_to_combos' => true,
+        ])->assertRedirect()->assertSessionHasNoErrors();
+
+        $this->assertTrue((bool) Voucher::latest('id')->first()->applicable_to_combos);
+
+        $this->actingAs($admin)->post(route('admin.vouchers.store'), [
+            'phone' => '0944444444', 'type' => 'percent', 'value' => 10,
+        ])->assertRedirect()->assertSessionHasNoErrors();
+
+        $this->assertFalse((bool) Voucher::latest('id')->first()->applicable_to_combos);
+    }
 }
