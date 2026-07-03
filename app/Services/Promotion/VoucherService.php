@@ -125,7 +125,12 @@ class VoucherService
 
             $quote = $this->quote($base, $vouchers, $settings, $regularBase);
 
-            $order->update(['discount_total' => $order->discount_total + $quote['total']]);
+            // Lưu vết TỪNG voucher với số tiền THỰC áp (bopcamping-3ag) — dòng 0đ tự loại
+            $order->applyDiscountLines(array_map(fn (array $b) => [
+                'source' => 'voucher',
+                'code' => $b['code'],
+                'amount' => (int) $b['applied'],
+            ], $quote['breakdown']));
 
             $appliedByCode = collect($quote['breakdown'])->keyBy('code');
 

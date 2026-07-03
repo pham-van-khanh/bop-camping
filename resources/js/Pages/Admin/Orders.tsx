@@ -21,6 +21,16 @@ type OrderItem = {
 // Nhóm items chi tiết đơn: mỗi combo_group_uuid = 1 khối combo, còn lại là dòng lẻ.
 type ItemGroup = { key: string; combo: string | null; items: OrderItem[] };
 
+// bopcamping-3ag: nguồn giảm giá từng dòng, lưu lúc checkout (đơn cũ = null).
+type DiscountLine = { source: string; amount: number; code?: string };
+
+const DISCOUNT_SOURCE_LABEL: Record<string, string> = {
+    voucher: 'Voucher',
+    referral: 'Mã giới thiệu (đơn đầu)',
+    email_bonus: 'Ưu đãi thêm email (đơn đầu)',
+    cap: 'Điều chỉnh trần giảm giá',
+};
+
 function groupItems(items: OrderItem[]): ItemGroup[] {
     const groups: ItemGroup[] = [];
     const byUuid = new Map<string, ItemGroup>();
@@ -45,6 +55,7 @@ type Order = {
     customer_email: string | null; customer_address: string | null;
     start_date: string; end_date: string; days: number;
     total_price: number; deposit_total: number; discount_total: number; amount_due: number;
+    discount_breakdown: DiscountLine[] | null;
     status: string; note: string | null; created_at: string; items: OrderItem[];
     vouchers: UsedVoucher[]; referral: { referrer_name: string | null; status: string } | null;
 };
@@ -182,7 +193,8 @@ export default function AdminOrders({
                                                             <div className="font-mono font-bold text-ink">{money(order.total_price)}</div>
                                                             <div className="font-mono text-[11px] text-campfire">cọc {money(order.deposit_total)}</div>
                                                             {order.discount_total > 0 && (
-                                                                <div className="font-mono text-[11px] text-grass">voucher −{money(order.discount_total)}</div>
+                                                                /* bopcamping-3ag: không ghi cứng "voucher" — giảm có thể từ email bonus/referral */
+                                                                <div className="font-mono text-[11px] text-grass">giảm −{money(order.discount_total)}</div>
                                                             )}
                                                         </td>
                                                         <td className="px-4 py-3">
@@ -284,10 +296,27 @@ export default function AdminOrders({
 
                                                                         <div className="mb-2 mt-3 text-[12px] font-bold uppercase tracking-[0.04em] text-grass">Ưu đãi đã dùng</div>
                                                                         <div className="rounded-[10px] border border-[#eef2e3] bg-white p-3 text-[12.5px]">
-                                                                            {order.vouchers.length === 0 && !order.referral && (
-                                                                                <span className="text-moss">Không có</span>
+                                                                            {/* bopcamping-3ag: nguồn giảm từng dòng với số tiền THỰC áp */}
+                                                                            {(order.discount_breakdown ?? []).map((d, i) => (
+                                                                                <div key={i} className="flex items-center justify-between gap-2 py-0.5">
+                                                                                    <span className="text-ink">
+                                                                                        {DISCOUNT_SOURCE_LABEL[d.source] ?? d.source}
+                                                                                        {d.code && <span className="ml-1 font-mono font-semibold text-pine">{d.code}</span>}
+                                                                                    </span>
+                                                                                    <span className="font-mono font-bold" style={{ color: d.amount >= 0 ? '#3a5a1f' : '#b3493a' }}>
+                                                                                        {d.amount >= 0 ? `−${money(d.amount)}` : `+${money(-d.amount)}`}
+                                                                                    </span>
+                                                                                </div>
+                                                                            ))}
+                                                                            {/* Đơn cũ (trước khi lưu breakdown): chỉ có tổng, không rõ nguồn */}
+                                                                            {!order.discount_breakdown?.length && order.discount_total > 0 && (
+                                                                                <div className="flex items-center justify-between py-0.5">
+                                                                                    <span className="text-moss">Giảm giá (đơn cũ — không có chi tiết nguồn)</span>
+                                                                                    <span className="font-mono font-bold text-grass">−{money(order.discount_total)}</span>
+                                                                                </div>
                                                                             )}
-                                                                            {order.vouchers.map((v) => (
+                                                                            {/* Voucher gắn đơn nhưng chưa có breakdown (đơn cũ) → hiện giá trị danh nghĩa */}
+                                                                            {!order.discount_breakdown?.length && order.vouchers.map((v) => (
                                                                                 <div key={v.code} className="flex items-center justify-between py-0.5">
                                                                                     <span className="font-mono font-semibold text-ink">{v.code}</span>
                                                                                     <span className="text-moss">{VOUCHER_SOURCE_LABEL[v.source] ?? VOUCHER_SOURCE_FALLBACK} · <strong className="text-grass">{voucherValueText(v.type, v.value)}</strong></span>
@@ -298,6 +327,9 @@ export default function AdminOrders({
                                                                                     <span className="text-ink">🎁 Mã giới thiệu</span>
                                                                                     <span className="text-moss">từ <strong>{order.referral.referrer_name ?? '—'}</strong></span>
                                                                                 </div>
+                                                                            )}
+                                                                            {!order.discount_breakdown?.length && order.vouchers.length === 0 && !order.referral && order.discount_total === 0 && (
+                                                                                <span className="text-moss">Không có</span>
                                                                             )}
                                                                         </div>
 

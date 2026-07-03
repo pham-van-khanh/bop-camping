@@ -47,7 +47,7 @@ class EmailBonusService
         $discount = max(0, min($raw, $cap, $base));
 
         if ($discount > 0) {
-            $order->update(['discount_total' => (int) $order->discount_total + $discount]);
+            $order->applyDiscountLines([['source' => 'email_bonus', 'amount' => $discount]]);
         }
 
         return ['discount' => $discount, 'reason' => 'ok'];

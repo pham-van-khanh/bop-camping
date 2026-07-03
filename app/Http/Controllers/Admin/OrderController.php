@@ -37,6 +37,8 @@ class OrderController extends Controller
             'total_price' => $o->total_price,
             'deposit_total' => $o->deposit_total,
             'discount_total' => $o->discount_total,
+            // bopcamping-3ag: nguồn giảm từng dòng (voucher/referral/email_bonus/cap); đơn cũ null
+            'discount_breakdown' => $o->discount_breakdown,
             'amount_due' => $o->amount_due,
             'status' => $o->status,
             'note' => $o->note,
