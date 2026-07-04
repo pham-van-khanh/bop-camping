@@ -1,4 +1,4 @@
-import { Head, router, usePage } from '@inertiajs/react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 import { Fragment, ReactNode, useMemo, useState } from 'react';
 import SiteLayout from '@/Layouts/SiteLayout';
 import OrderLookupPanel, { type LookupProps } from '@/Components/site/OrderLookupPanel';
@@ -49,6 +49,8 @@ type AccountOrder = {
     groups: OrderGroup[];
     discounts: OrderDiscount[];
     reorder: ReorderPayload | null;
+    review_token: string | null;
+    review_submitted: boolean;
 };
 
 type Voucher = {
@@ -506,6 +508,22 @@ function OrderDetail({
                         >
                             Đặt lại đơn này
                         </button>
+                    )}
+                    {/* Đánh giá — chỉ đơn đã trả (bopcamping-bhr) */}
+                    {order.review_token && (
+                        order.review_submitted ? (
+                            <span className="inline-flex h-10 items-center gap-1.5 rounded-control border border-[#cdd6b6] bg-[#eef2e3] px-4 text-[13px] font-semibold text-grass">
+                                ✓ Đã đánh giá
+                            </span>
+                        ) : (
+                            <Link
+                                href={`/danh-gia/${order.review_token}`}
+                                className="inline-flex h-10 items-center gap-1.5 rounded-control px-4 text-[13px] font-bold text-white transition hover:brightness-105"
+                                style={{ background: '#C97B36' }}
+                            >
+                                ★ Đánh giá chuyến đi
+                            </Link>
+                        )
                     )}
                 </div>
             </div>

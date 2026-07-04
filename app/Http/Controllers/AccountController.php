@@ -109,6 +109,9 @@ class AccountController extends Controller
             'groups' => $this->itemGroups($order),
             'discounts' => $this->discountLines($order),
             'reorder' => $this->reorderPayload($order),
+            // Đánh giá: chỉ đơn ĐÃ TRẢ mới đánh giá được (sinh token on-demand cho đơn vãng lai).
+            'review_token' => $order->status === 'returned' ? $order->ensureReviewToken() : null,
+            'review_submitted' => $order->review_submitted_at !== null,
         ];
     }
 

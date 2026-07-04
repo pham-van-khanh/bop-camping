@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useForm } from '@inertiajs/react';
+import MediaThumb, { type ReviewMedia } from '@/Components/site/MediaThumb';
 
-export type ReviewMedia = { type: 'image' | 'video'; url: string };
+export type { ReviewMedia };
 export type ReviewItem = {
     id: number;
     reviewer_name: string;
@@ -45,26 +46,6 @@ function Stars({ value, onPick, size = 16 }: { value: number; onPick?: (n: numbe
                 );
             })}
         </div>
-    );
-}
-
-function MediaThumb({ m, size, onClick }: { m: ReviewMedia; size: number; onClick?: () => void }) {
-    return (
-        <button
-            type="button"
-            onClick={onClick}
-            className="relative overflow-hidden rounded-[9px] border border-cardBorder"
-            style={{ width: size, height: size }}
-        >
-            {m.type === 'video' ? (
-                <>
-                    <video src={m.url} className="h-full w-full object-cover" muted />
-                    <span className="absolute inset-0 grid place-items-center bg-black/25 text-white">▶</span>
-                </>
-            ) : (
-                <img src={m.url} alt="" className="h-full w-full object-cover" />
-            )}
-        </button>
     );
 }
 

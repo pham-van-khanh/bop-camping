@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Shop;
 use App\Http\Controllers\Controller;
 use App\Models\Order;
 use App\Models\Review;
+use App\Support\MediaType;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -51,6 +52,12 @@ class ReviewInviteController extends Controller
             'items.*.order_item_id' => ['required', 'integer'],
             'items.*.rating' => ['nullable', 'integer', 'min:1', 'max:5'],
             'items.*.content' => ['nullable', 'string', 'max:1500'],
+            'items.*.media' => ['nullable', 'array', 'max:4'],
+            'items.*.media.*' => ['file', MediaType::MIMES_RULE, 'max:30720'], // ≤30MB
+        ], [
+            'items.*.media.max' => 'Mỗi sản phẩm tối đa 4 ảnh/video.',
+            'items.*.media.*.mimetypes' => 'Chỉ nhận ảnh (jpg, png, webp) hoặc video (mp4, webm, mov).',
+            'items.*.media.*.max' => 'Mỗi tệp tối đa 30MB.',
         ]);
 
         $created = 0;
@@ -68,8 +75,8 @@ class ReviewInviteController extends Controller
             $created++;
         }
 
-        // Đánh giá từng sản phẩm trong đơn.
-        foreach ($data['items'] ?? [] as $row) {
+        // Đánh giá từng sản phẩm trong đơn (kèm ảnh/video nếu có).
+        foreach ($data['items'] ?? [] as $idx => $row) {
             if (empty($row['rating'])) {
                 continue;
             }
@@ -77,7 +84,7 @@ class ReviewInviteController extends Controller
             if (! $item) {
                 continue;
             }
-            Review::create([
+            $review = Review::create([
                 'order_item_id' => $item->id,
                 'product_id' => $item->product_id,
                 'user_id' => $order->user_id,
@@ -87,6 +94,14 @@ class ReviewInviteController extends Controller
                 'category' => 'product',
                 'status' => 'pending',
             ]);
+
+            foreach ((array) $request->file("items.{$idx}.media", []) as $j => $file) {
+                $review->images()->create([
+                    'type' => MediaType::detect($file),
+                    'path' => $file->store('user/reviews', 'media'),
+                    'sort_order' => $j,
+                ]);
+            }
             $created++;
         }
 
