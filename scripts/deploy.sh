@@ -149,6 +149,22 @@ success "Repository cloned."
 success "Laravel source verified."
 
 #######################################
+# Composer Install
+#######################################
+
+log "Installing Composer dependencies..."
+
+cd "$NEW_RELEASE"
+
+"$COMPOSER_BIN" install \
+    --no-dev \
+    --prefer-dist \
+    --optimize-autoloader \
+    --no-interaction
+
+success "Composer dependencies installed."
+
+#######################################
 # Finish
 #######################################
 
