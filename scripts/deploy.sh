@@ -196,6 +196,20 @@ ln -sf "$SHARED_DIR/.env" "$NEW_RELEASE/.env"
 success "Shared files linked."
 
 #######################################
+# Link Public Storage
+#######################################
+
+log "Linking public storage..."
+
+cd "$NEW_RELEASE"
+
+# public/ is fresh from git each release, so public/storage never exists yet;
+# recreate the symlink -> ../storage/app/public (storage already points at shared).
+"$PHP_BIN" artisan storage:link
+
+success "Public storage linked."
+
+#######################################
 # Laravel Optimize
 #######################################
 
@@ -235,6 +249,24 @@ log "Switching current release..."
 ln -sfn "$NEW_RELEASE" "$APP_DIR/current"
 
 success "Current release switched."
+
+#######################################
+# Reload PHP-FPM
+#######################################
+# OPcache is ON: PHP-FPM caches the resolved path of `current` in its realpath
+# cache, so it keeps serving the OLD release until that cache expires
+# (~realpath_cache_ttl, default 120s). Reloading makes the switch instant.
+# Non-fatal: if the deploy user lacks sudo NOPASSWD we only warn.
+
+log "Reloading PHP-FPM..."
+
+if sudo -n systemctl reload "$PHP_FPM_SERVICE" 2>/dev/null; then
+    success "PHP-FPM reloaded ($PHP_FPM_SERVICE)."
+else
+    warning "Could not reload $PHP_FPM_SERVICE (deploy user lacks sudo NOPASSWD)."
+    warning "New release will go live once realpath cache expires (~120s)."
+    warning "Configure sudoers to enable an instant switch — see scripts/environments."
+fi
 
 #######################################
 # Restart Queue Workers
