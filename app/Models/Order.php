@@ -35,8 +35,17 @@ class Order extends Model
         'discount_breakdown',
         'status',
         'payment_method',
+        'payment_status',
+        'deposit_refund_status',
+        'deposit_refund_note',
         'note',
     ];
+
+    /** Tình trạng chuyển tiền (marker admin — bopcamping-7be). */
+    public const PAYMENT_STATUSES = ['unpaid', 'deposit', 'full'];
+
+    /** Tình trạng hoàn cọc khi đơn đã trả (bopcamping-7be). */
+    public const REFUND_STATUSES = ['pending', 'refunded'];
 
     protected $casts = [
         'start_date' => 'date',

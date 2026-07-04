@@ -56,9 +56,24 @@ type Order = {
     start_date: string; end_date: string; days: number;
     total_price: number; deposit_total: number; discount_total: number; amount_due: number;
     discount_breakdown: DiscountLine[] | null;
-    status: string; note: string | null; created_at: string; items: OrderItem[];
+    status: string; payment_status: string;
+    deposit_refund_status: string; deposit_refund_note: string | null;
+    note: string | null; created_at: string; items: OrderItem[];
     vouchers: UsedVoucher[]; referral: { referrer_name: string | null; status: string } | null;
 };
+
+// Tình trạng chuyển tiền (marker admin — bopcamping-7be).
+const PAYMENT_OPTIONS: { key: string; label: string; active: { bg: string; color: string } }[] = [
+    { key: 'unpaid',  label: 'Chưa chuyển',    active: { bg: '#f6ddd6', color: '#b3493a' } },
+    { key: 'deposit', label: 'Đã chuyển cọc',  active: { bg: '#fbf2d8', color: '#9a7a2a' } },
+    { key: 'full',    label: 'Chuyển hết',     active: { bg: '#dcebc4', color: '#3a5a1f' } },
+];
+
+// Hoàn cọc — chỉ dùng khi đơn ĐÃ TRẢ (bopcamping-7be).
+const REFUND_OPTIONS: { key: string; label: string; active: { bg: string; color: string } }[] = [
+    { key: 'pending',  label: 'Chưa hoàn cọc', active: { bg: '#f6ddd6', color: '#b3493a' } },
+    { key: 'refunded', label: 'Đã hoàn cọc',   active: { bg: '#dcebc4', color: '#3a5a1f' } },
+];
 type Stats = { total: number; pending: number; confirmed: number; renting: number; returned: number; cancelled: number };
 type InventoryItem = { id: number; name: string; category: string; quantity: number; status: string };
 
@@ -90,6 +105,11 @@ export default function AdminOrders({
 
     const changeStatus = (order: Order, status: string) => {
         router.patch(route('admin.orders.update', order.id), { status }, { preserveScroll: true });
+    };
+
+    const changePayment = (order: Order, payment_status: string) => {
+        if (order.payment_status === payment_status) return;
+        router.patch(route('admin.orders.payment', order.id), { payment_status }, { preserveScroll: true });
     };
 
     const filterTab = (status: string) => {
@@ -333,6 +353,46 @@ export default function AdminOrders({
                                                                             )}
                                                                         </div>
 
+                                                                        {/* Tình trạng chuyển tiền — admin bấm sau khi xác nhận với khách (bopcamping-7be).
+                                                                            Đơn đã trả → khoá (chuyển sang theo dõi hoàn cọc bên dưới). */}
+                                                                        {(() => {
+                                                                            const isReturned = order.status === 'returned';
+                                                                            return (
+                                                                                <>
+                                                                                    <div className="mb-2 mt-3 text-[12px] font-bold uppercase tracking-[0.04em] text-grass">Tình trạng chuyển tiền</div>
+                                                                                    <div className="rounded-[10px] border border-[#eef2e3] bg-white p-3">
+                                                                                        <div className="grid grid-cols-3 gap-2">
+                                                                                            {PAYMENT_OPTIONS.map((opt) => {
+                                                                                                const active = (order.payment_status ?? 'unpaid') === opt.key;
+                                                                                                return (
+                                                                                                    <button
+                                                                                                        key={opt.key}
+                                                                                                        disabled={isReturned}
+                                                                                                        onClick={(e) => { e.stopPropagation(); changePayment(order, opt.key); }}
+                                                                                                        aria-pressed={active}
+                                                                                                        className={`rounded-[9px] border px-2 py-2 text-[12px] font-bold transition ${isReturned ? 'cursor-not-allowed opacity-70' : ''}`}
+                                                                                                        style={active
+                                                                                                            ? { background: opt.active.bg, color: opt.active.color, borderColor: opt.active.color }
+                                                                                                            : { background: '#fff', color: '#8a967a', borderColor: '#e3e8d6' }}
+                                                                                                    >
+                                                                                                        {active && '✓ '}{opt.label}
+                                                                                                    </button>
+                                                                                                );
+                                                                                            })}
+                                                                                        </div>
+                                                                                        <p className="mt-2 text-[11.5px] text-[#a3ad92]">
+                                                                                            {isReturned
+                                                                                                ? 'Đơn đã trả — tình trạng chuyển tiền đã chốt, xem hoàn cọc bên dưới.'
+                                                                                                : <>Bấm để đánh dấu sau khi xác nhận với khách. Cọc {money(order.deposit_total)} · tổng thu {money(order.amount_due)}.</>}
+                                                                                        </p>
+                                                                                    </div>
+
+                                                                                    {/* Hoàn cọc — chỉ khi đơn đã trả */}
+                                                                                    {isReturned && <RefundControl order={order} />}
+                                                                                </>
+                                                                            );
+                                                                        })()}
+
                                                                         {order.note && (
                                                                             <p className="mt-3 rounded-[10px] border border-[#eef2e3] bg-white p-3 text-[12.5px] text-moss">
                                                                                 <span className="font-semibold text-ink">Ghi chú:</span> {order.note}
@@ -382,6 +442,72 @@ export default function AdminOrders({
                         </table>
                     </div>
                 )}
+            </div>
+        </>
+    );
+}
+
+/**
+ * Hoàn cọc cho đơn ĐÃ TRẢ (bopcamping-7be): chọn Đã/Chưa hoàn + ghi lý do trừ cọc
+ * (rách lều, hư hại…). Lưu cả trạng thái lẫn ghi chú trong 1 lần bấm "Lưu".
+ */
+function RefundControl({ order }: { order: Order }) {
+    const [status, setStatus] = useState(order.deposit_refund_status ?? 'pending');
+    const [note, setNote] = useState(order.deposit_refund_note ?? '');
+    const [saving, setSaving] = useState(false);
+
+    const dirty = status !== (order.deposit_refund_status ?? 'pending') || note !== (order.deposit_refund_note ?? '');
+
+    const save = () => {
+        router.patch(
+            route('admin.orders.refund', order.id),
+            { deposit_refund_status: status, deposit_refund_note: note },
+            { preserveScroll: true, onStart: () => setSaving(true), onFinish: () => setSaving(false) },
+        );
+    };
+
+    return (
+        <>
+            <div className="mb-2 mt-3 text-[12px] font-bold uppercase tracking-[0.04em] text-grass">Hoàn cọc</div>
+            <div className="rounded-[10px] border border-[#eef2e3] bg-white p-3">
+                <div className="grid grid-cols-2 gap-2">
+                    {REFUND_OPTIONS.map((opt) => {
+                        const active = status === opt.key;
+                        return (
+                            <button
+                                key={opt.key}
+                                onClick={(e) => { e.stopPropagation(); setStatus(opt.key); }}
+                                aria-pressed={active}
+                                className="rounded-[9px] border px-2 py-2 text-[12px] font-bold transition"
+                                style={active
+                                    ? { background: opt.active.bg, color: opt.active.color, borderColor: opt.active.color }
+                                    : { background: '#fff', color: '#8a967a', borderColor: '#e3e8d6' }}
+                            >
+                                {active && '✓ '}{opt.label}
+                            </button>
+                        );
+                    })}
+                </div>
+                <textarea
+                    value={note}
+                    onChange={(e) => setNote(e.target.value)}
+                    onClick={(e) => e.stopPropagation()}
+                    rows={2}
+                    maxLength={500}
+                    placeholder="Lý do trừ cọc nếu có: rách lều, hư hại thiết bị…"
+                    className="mt-2 w-full resize-y rounded-[9px] border border-[#e3e8d6] bg-[#fafcf7] px-2.5 py-2 text-[12.5px] text-ink outline-none focus:border-grass"
+                />
+                <div className="mt-2 flex items-center justify-between gap-2">
+                    <span className="text-[11.5px] text-[#a3ad92]">Cọc {money(order.deposit_total)} — trả lại khách sau khi kiểm thiết bị.</span>
+                    <button
+                        onClick={(e) => { e.stopPropagation(); if (dirty && !saving) save(); }}
+                        disabled={!dirty || saving}
+                        className="shrink-0 rounded-[9px] px-3.5 py-1.5 text-[12px] font-bold text-white transition disabled:cursor-not-allowed"
+                        style={{ background: dirty && !saving ? '#557A2B' : '#c4cfae' }}
+                    >
+                        {saving ? 'Đang lưu…' : 'Lưu'}
+                    </button>
+                </div>
             </div>
         </>
     );
