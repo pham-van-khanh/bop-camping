@@ -231,6 +231,18 @@ cd "$APP_DIR/current"
 success "Queue restart signal sent."
 
 #######################################
+# Cleanup Releases
+#######################################
+
+log "Cleaning old releases..."
+
+bash "$SCRIPT_DIR/cleanup.sh" \
+    "$APP_DIR" \
+    "$KEEP_RELEASES"
+
+success "Cleanup completed."
+
+#######################################
 # Finish
 #######################################
 
