@@ -20,6 +20,16 @@ on:
     branches:
       - develop
       - feat/scaffold-laravel
+    # Skip a deploy when a push only touches docs / tracking / notes — no point
+    # rebuilding + redeploying production for a beads-sync or README tweak.
+    paths-ignore:
+      - '.beads/**'
+      - '**.md'
+      - 'artifacts/**'
+      - 'docs/**'
+      - 'scratchpad/**'
+  # Manual trigger from the Actions UI (deploys the branch it is run on).
+  workflow_dispatch:
 
 # Never run two deploys for the same branch at once; queue them instead.
 concurrency:
