@@ -165,6 +165,24 @@ cd "$NEW_RELEASE"
 success "Composer dependencies installed."
 
 #######################################
+# Frontend Build
+#######################################
+
+log "Installing Node.js dependencies..."
+
+npm ci --no-audit --no-fund
+
+success "Node.js dependencies installed."
+
+log "Building frontend assets..."
+
+npm run build
+
+success "Frontend assets built."
+
+success "Step completed."
+
+#######################################
 # Link Shared Files
 #######################################
 
