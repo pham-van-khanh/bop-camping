@@ -610,16 +610,21 @@ function ReorderModal({
                     </p>
                 )}
 
-                <div className="mt-4 flex flex-col gap-2 sm:flex-row-reverse">
+                <div className="mt-4 flex flex-col gap-2.5 sm:flex-row-reverse">
                     <button
                         onClick={confirm}
                         disabled={!canConfirm}
-                        className="h-11 flex-1 rounded-control text-[14px] font-bold text-white transition disabled:cursor-not-allowed"
+                        className="flex h-[56px] flex-1 items-center justify-center gap-2 rounded-control text-[17px] font-bold text-white shadow-sm transition disabled:cursor-not-allowed"
                         style={{ background: canConfirm ? '#557A2B' : '#c4cfae' }}
                     >
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
+                            <path d="M3 6h18" />
+                            <path d="M16 10a4 4 0 0 1-8 0" />
+                        </svg>
                         {cartHadItems ? 'Thay giỏ & thêm vào giỏ' : 'Thêm vào giỏ'}
                     </button>
-                    <button onClick={onClose} className="h-11 rounded-control border border-[#cdd6b6] bg-white px-5 text-[14px] font-semibold text-pine sm:flex-none">
+                    <button onClick={onClose} className="h-[56px] rounded-control border border-[#cdd6b6] bg-white px-6 text-[15px] font-semibold text-pine sm:flex-none">
                         Huỷ
                     </button>
                 </div>
