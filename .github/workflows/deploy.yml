@@ -20,6 +20,8 @@ on:
     branches:
       - develop
       - feat/scaffold-laravel
+  # Manual trigger from the Actions UI (deploys the branch it is run on).
+  workflow_dispatch:
 
 # Never run two deploys for the same branch at once; queue them instead.
 concurrency:
