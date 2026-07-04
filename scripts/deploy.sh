@@ -209,6 +209,16 @@ cd "$NEW_RELEASE"
 success "Database migrations completed."
 
 #######################################
+# Switch Current Release
+#######################################
+
+log "Switching current release..."
+
+ln -sfn "$NEW_RELEASE" "$APP_DIR/current"
+
+success "Current release switched."
+
+#######################################
 # Finish
 #######################################
 
