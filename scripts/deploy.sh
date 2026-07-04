@@ -165,6 +165,19 @@ cd "$NEW_RELEASE"
 success "Composer dependencies installed."
 
 #######################################
+# Link Shared Files
+#######################################
+
+log "Linking shared files..."
+
+rm -rf "$NEW_RELEASE/storage"
+ln -s "$SHARED_DIR/storage" "$NEW_RELEASE/storage"
+
+ln -sf "$SHARED_DIR/.env" "$NEW_RELEASE/.env"
+
+success "Shared files linked."
+
+#######################################
 # Finish
 #######################################
 
