@@ -1,5 +1,5 @@
 import { Head, router, usePage } from '@inertiajs/react';
-import { ReactNode, useMemo, useState } from 'react';
+import { Fragment, ReactNode, useMemo, useState } from 'react';
 import SiteLayout from '@/Layouts/SiteLayout';
 import OrderLookupPanel, { type LookupProps } from '@/Components/site/OrderLookupPanel';
 import DateRangeCalendar from '@/Components/site/DateRangeCalendar';
@@ -90,7 +90,7 @@ export default function Account() {
     const [orderTab, setOrderTab] = useState<'active' | 'done'>(activeOrders.length > 0 || doneOrders.length === 0 ? 'active' : 'done');
     const shownOrders = orderTab === 'active' ? activeOrders : doneOrders;
 
-    // Đơn nào đang mở chi tiết (accordion — gọn như màn quản lý admin).
+    // Đơn nào đang mở chi tiết (bấm hàng để bung — như bảng quản lý admin).
     const [expandedId, setExpandedId] = useState<number | null>(null);
     // Modal "Đặt lại": chọn lại ngày trước khi thêm vào giỏ.
     const [reorder, setReorder] = useState<{ order: AccountOrder; start: string | null; end: string | null } | null>(null);
@@ -151,7 +151,7 @@ export default function Account() {
                     <Stat label="Giới thiệu thành công" value={stats.referralCount} hint="bạn đã mời" />
                 </div>
 
-                {/* Đơn thuê — danh sách gọn, bấm để mở chi tiết (accordion) */}
+                {/* Đơn thuê — bảng gọn giống màn quản lý admin, bấm hàng để mở chi tiết */}
                 <section className="mb-[22px]">
                     <h2 className="mb-3 text-[18px] font-bold text-ink">Đơn thuê của bạn</h2>
                     <div className="mb-3 flex flex-wrap items-center gap-2">
@@ -182,18 +182,66 @@ export default function Account() {
                             <div className="mt-1 text-[14px] text-moss">Khám phá thiết bị và đặt thuê cho chuyến đi sắp tới nhé.</div>
                         </div>
                     ) : (
-                        <div className="overflow-hidden rounded-card border border-cardBorder bg-card">
-                            {shownOrders.map((order, i) => (
-                                <OrderRow
-                                    key={order.id}
-                                    order={order}
-                                    first={i === 0}
-                                    expanded={expandedId === order.id}
-                                    onToggle={() => setExpandedId(expandedId === order.id ? null : order.id)}
-                                    onReorder={() => setReorder({ order, start: null, end: null })}
-                                    onViewProgress={() => viewProgress(order)}
-                                />
-                            ))}
+                        <div className="overflow-x-auto rounded-card border border-cardBorder bg-white">
+                            <table className="w-full min-w-[560px] text-[13px]">
+                                <thead>
+                                    <tr className="border-b border-[#eef2e3]" style={{ background: '#f8faf4' }}>
+                                        <th className="px-4 py-3 text-left font-semibold text-moss">Mã đơn</th>
+                                        <th className="px-4 py-3 text-left font-semibold text-moss">Ngày thuê</th>
+                                        <th className="px-4 py-3 text-center font-semibold text-moss">Số món</th>
+                                        <th className="px-4 py-3 text-right font-semibold text-moss">Trả khi nhận</th>
+                                        <th className="px-4 py-3 text-left font-semibold text-moss">Trạng thái</th>
+                                        <th className="px-3 py-3" aria-label="Chi tiết" />
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {shownOrders.map((order) => {
+                                        const style = STATUS_STYLE[order.status] ?? STATUS_STYLE.pending;
+                                        const expanded = expandedId === order.id;
+                                        const itemCount = order.groups.reduce((s, g) => s + g.quantity, 0);
+                                        return (
+                                            <Fragment key={order.id}>
+                                                <tr
+                                                    className="cursor-pointer border-b border-[#f1f4ea] hover:bg-[#fafcf7]"
+                                                    onClick={() => setExpandedId(expanded ? null : order.id)}
+                                                >
+                                                    <td className="px-4 py-3 font-mono font-bold text-grass">{order.code}</td>
+                                                    <td className="whitespace-nowrap px-4 py-3 font-mono text-[12px] text-pine">
+                                                        {order.start_date} → {order.end_date}
+                                                    </td>
+                                                    <td className="px-4 py-3 text-center text-moss">{itemCount}</td>
+                                                    <td className="px-4 py-3 text-right font-mono font-bold text-ink">{money(order.amount_due)}</td>
+                                                    <td className="px-4 py-3">
+                                                        <span className="whitespace-nowrap rounded-pill px-2.5 py-1 text-[11.5px] font-bold" style={{ color: style.color, background: style.bg }}>
+                                                            {STATUS_LABEL[order.status] ?? order.status}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-3 py-3 text-right">
+                                                        <svg
+                                                            width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8a967a" strokeWidth="2.2"
+                                                            strokeLinecap="round" strokeLinejoin="round"
+                                                            className={`inline-block transition-transform ${expanded ? 'rotate-180' : ''}`}
+                                                        >
+                                                            <path d="m6 9 6 6 6-6" />
+                                                        </svg>
+                                                    </td>
+                                                </tr>
+                                                {expanded && (
+                                                    <tr className="border-b border-[#f1f4ea]">
+                                                        <td colSpan={6} className="px-4 pb-4 pt-1" style={{ background: '#fafcf7' }}>
+                                                            <OrderDetail
+                                                                order={order}
+                                                                onReorder={() => setReorder({ order, start: null, end: null })}
+                                                                onViewProgress={() => viewProgress(order)}
+                                                            />
+                                                        </td>
+                                                    </tr>
+                                                )}
+                                            </Fragment>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
                         </div>
                     )}
                     {orders.length >= 20 && (
@@ -315,137 +363,99 @@ export default function Account() {
     );
 }
 
-/** Một dòng đơn: thu gọn hiển thị tóm tắt; bấm để bung chi tiết (accordion). */
-function OrderRow({
+/** Chi tiết đơn (bung dưới hàng bảng): thiết bị + địa chỉ + tiền + thao tác. */
+function OrderDetail({
     order,
-    first,
-    expanded,
-    onToggle,
     onReorder,
     onViewProgress,
 }: {
     order: AccountOrder;
-    first: boolean;
-    expanded: boolean;
-    onToggle: () => void;
     onReorder: () => void;
     onViewProgress: () => void;
 }) {
-    const style = STATUS_STYLE[order.status] ?? STATUS_STYLE.pending;
-    const itemCount = order.groups.reduce((s, g) => s + g.quantity, 0);
-
     return (
-        <div className={first ? '' : 'border-t border-cardBorder'}>
-            {/* Hàng tóm tắt — luôn hiện */}
-            <button
-                onClick={onToggle}
-                aria-expanded={expanded}
-                className="flex w-full items-center gap-3 px-4 py-3 text-left transition hover:bg-[#fafcf7]"
-            >
-                <span className="min-w-0 flex-1">
-                    <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                        <span className="font-mono text-[15px] font-bold tracking-[0.04em] text-grass">{order.code}</span>
-                        <span className="rounded-pill px-2.5 py-0.5 text-[11px] font-bold" style={{ color: style.color, background: style.bg }}>
-                            {STATUS_LABEL[order.status] ?? order.status}
-                        </span>
-                    </span>
-                    <span className="mt-0.5 block text-[12.5px] text-moss">
-                        {order.start_date} → {order.end_date} · {itemCount} món
-                    </span>
-                </span>
-                <span className="shrink-0 text-right">
-                    <span className="block font-mono text-[14px] font-bold text-ink">{money(order.amount_due)}</span>
-                    <span className="block text-[10.5px] text-[#a3ad92]">Trả khi nhận</span>
-                </span>
-                <svg
-                    width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8a967a" strokeWidth="2.2"
-                    strokeLinecap="round" strokeLinejoin="round"
-                    className={`shrink-0 transition-transform ${expanded ? 'rotate-180' : ''}`}
-                >
-                    <path d="m6 9 6 6 6-6" />
-                </svg>
-            </button>
+        <div className="grid gap-4 lg:grid-cols-2">
+            {/* Cột trái: thông tin nhận + thiết bị */}
+            <div>
+                <div className="mb-1 text-[12px] text-moss">Đặt ngày {order.created_at} · {order.days} ngày</div>
+                {order.address && <div className="mb-2.5 text-[13px] text-moss">📍 Giao nhận: {order.address}</div>}
 
-            {/* Chi tiết — chỉ hiện khi mở */}
-            {expanded && (
-                <div className="px-4 pb-4 pt-1" style={{ background: '#fafcf7' }}>
-                    <div className="mb-1 text-[12px] text-moss">Đặt ngày {order.created_at} · {order.days} ngày</div>
-                    {order.address && <div className="mb-2.5 text-[13px] text-moss">📍 Giao nhận: {order.address}</div>}
-
-                    {/* Món trong đơn — combo gộp 1 dòng kèm món con */}
-                    <ul className="mb-2.5 flex flex-col gap-1.5 rounded-[10px] border border-[#eef2e3] bg-white px-3 py-2.5 text-[14px] text-ink">
-                        {order.groups.map((g, i) => (
-                            <li key={i}>
-                                <div className="flex justify-between gap-2">
-                                    <span>
-                                        {g.kind === 'combo' && (
-                                            <span className="mr-1.5 rounded-pill px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.04em]" style={{ background: '#efe4d3', color: '#7f4f24' }}>
-                                                Combo
-                                            </span>
-                                        )}
-                                        {g.name} <span className="text-moss">×{g.quantity}</span>
-                                    </span>
-                                    <span className="font-mono font-semibold text-ink">{money(g.subtotal)}</span>
-                                </div>
-                                {g.kind === 'combo' && g.children && g.children.length > 0 && (
-                                    <div className="mt-0.5 pl-[52px] text-[12px] text-[#8a967a]">
-                                        Gồm: {g.children.map((c) => `${c.name} ×${c.quantity}`).join(' · ')}
-                                    </div>
-                                )}
-                            </li>
-                        ))}
-                    </ul>
-
-                    {/* Tiền — cùng nhãn với checkout & tra cứu */}
-                    <div className="rounded-[10px] border border-[#eef2e3] bg-white px-3 py-2.5 text-[13.5px]">
-                        <div className="flex justify-between py-[3px]">
-                            <span className="text-moss">Phí thuê</span>
-                            <span className="font-mono font-semibold text-ink">{money(order.total_price)}</span>
-                        </div>
-                        {order.discounts.map((d, i) => (
-                            <div key={i} className="flex justify-between py-[3px]">
-                                <span className="text-moss">{d.label}</span>
-                                <span className="font-mono font-semibold text-campfire">
-                                    {d.amount >= 0 ? `−${money(d.amount)}` : `+${money(-d.amount)}`}
+                <div className="mb-2 text-[12px] font-bold uppercase tracking-[0.04em] text-grass">Thiết bị</div>
+                <ul className="flex flex-col gap-1.5 rounded-[10px] border border-[#eef2e3] bg-white px-3 py-2.5 text-[14px] text-ink">
+                    {order.groups.map((g, i) => (
+                        <li key={i}>
+                            <div className="flex justify-between gap-2">
+                                <span>
+                                    {g.kind === 'combo' && (
+                                        <span className="mr-1.5 rounded-pill px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.04em]" style={{ background: '#efe4d3', color: '#7f4f24' }}>
+                                            Combo
+                                        </span>
+                                    )}
+                                    {g.name} <span className="text-moss">×{g.quantity}</span>
                                 </span>
+                                <span className="font-mono font-semibold text-ink">{money(g.subtotal)}</span>
                             </div>
-                        ))}
-                        {order.deposit_total > 0 && (
-                            <div className="flex justify-between py-[3px]">
-                                <span className="text-moss">Tiền cọc (hoàn lại)</span>
-                                <span className="font-mono font-semibold text-campfire">{money(order.deposit_total)}</span>
-                            </div>
-                        )}
-                        <div className="mt-1 flex justify-between border-t border-dashed pt-1.5" style={{ borderColor: '#e3e8d6' }}>
-                            <span className="font-bold text-ink">Trả khi nhận (COD)</span>
-                            <span className="font-mono font-bold text-grass">{money(order.amount_due)}</span>
-                        </div>
+                            {g.kind === 'combo' && g.children && g.children.length > 0 && (
+                                <div className="mt-0.5 pl-[52px] text-[12px] text-[#8a967a]">
+                                    Gồm: {g.children.map((c) => `${c.name} ×${c.quantity}`).join(' · ')}
+                                </div>
+                            )}
+                        </li>
+                    ))}
+                </ul>
+
+                {order.note && (
+                    <p className="mt-3 rounded-[10px] border border-[#eef2e3] bg-white p-3 text-[12.5px] text-moss">
+                        <span className="font-semibold text-ink">Ghi chú:</span> {order.note}
+                    </p>
+                )}
+            </div>
+
+            {/* Cột phải: tiền + thao tác */}
+            <div>
+                <div className="mb-2 text-[12px] font-bold uppercase tracking-[0.04em] text-grass">Thanh toán</div>
+                <div className="rounded-[10px] border border-[#eef2e3] bg-white px-3 py-2.5 text-[13.5px]">
+                    <div className="flex justify-between py-[3px]">
+                        <span className="text-moss">Phí thuê</span>
+                        <span className="font-mono font-semibold text-ink">{money(order.total_price)}</span>
                     </div>
-
-                    {order.note && (
-                        <p className="mt-2 text-[12.5px] text-[#8a967a]">
-                            <span className="font-semibold">Ghi chú:</span> {order.note}
-                        </p>
+                    {order.discounts.map((d, i) => (
+                        <div key={i} className="flex justify-between py-[3px]">
+                            <span className="text-moss">{d.label}</span>
+                            <span className="font-mono font-semibold text-campfire">
+                                {d.amount >= 0 ? `−${money(d.amount)}` : `+${money(-d.amount)}`}
+                            </span>
+                        </div>
+                    ))}
+                    {order.deposit_total > 0 && (
+                        <div className="flex justify-between py-[3px]">
+                            <span className="text-moss">Tiền cọc (hoàn lại)</span>
+                            <span className="font-mono font-semibold text-campfire">{money(order.deposit_total)}</span>
+                        </div>
                     )}
-
-                    <div className="mt-3 flex flex-wrap gap-2">
-                        <button
-                            onClick={onViewProgress}
-                            className="h-10 rounded-control border border-[#cdd6b6] bg-white px-4 text-[13px] font-semibold text-pine transition hover:bg-[#f1f4ea]"
-                        >
-                            Xem tiến trình
-                        </button>
-                        {order.reorder && (
-                            <button
-                                onClick={onReorder}
-                                className="h-10 rounded-control bg-grass px-4 text-[13px] font-bold text-white transition hover:bg-pine"
-                            >
-                                Đặt lại đơn này
-                            </button>
-                        )}
+                    <div className="mt-1 flex justify-between border-t border-dashed pt-1.5" style={{ borderColor: '#e3e8d6' }}>
+                        <span className="font-bold text-ink">Trả khi nhận (COD)</span>
+                        <span className="font-mono font-bold text-grass">{money(order.amount_due)}</span>
                     </div>
                 </div>
-            )}
+
+                <div className="mt-3 flex flex-wrap gap-2">
+                    <button
+                        onClick={onViewProgress}
+                        className="h-10 rounded-control border border-[#cdd6b6] bg-white px-4 text-[13px] font-semibold text-pine transition hover:bg-[#f1f4ea]"
+                    >
+                        Xem tiến trình
+                    </button>
+                    {order.reorder && (
+                        <button
+                            onClick={onReorder}
+                            className="h-10 rounded-control bg-grass px-4 text-[13px] font-bold text-white transition hover:bg-pine"
+                        >
+                            Đặt lại đơn này
+                        </button>
+                    )}
+                </div>
+            </div>
         </div>
     );
 }
@@ -501,7 +511,7 @@ function ReorderModal({
 
     return (
         <div className="fixed inset-0 z-[200] grid place-items-center overflow-y-auto p-4" style={{ background: 'rgba(24,35,15,.45)' }}>
-            <div className="my-auto w-full max-w-[460px] rounded-[18px] border border-cardBorder bg-white p-5">
+            <div className="my-auto w-full max-w-[680px] rounded-[18px] border border-cardBorder bg-white p-5">
                 <div className="mb-1 flex items-start justify-between gap-3">
                     <div className="text-[17px] font-bold text-ink">
                         Đặt lại đơn <span className="font-mono text-grass">{order.code}</span>
@@ -513,7 +523,7 @@ function ReorderModal({
                 <p className="mb-3 text-[13px] text-moss">Chọn lại ngày thuê cho {totalItems} món. Đơn cũ thuê {order.days} ngày.</p>
 
                 {/* Món sẽ đặt lại */}
-                <ul className="mb-3 max-h-[120px] overflow-y-auto rounded-[10px] border border-[#eef2e3] bg-[#fafcf7] px-3 py-2 text-[13px] text-ink">
+                <ul className="mb-3 max-h-[110px] overflow-y-auto rounded-[10px] border border-[#eef2e3] bg-[#fafcf7] px-3 py-2 text-[13px] text-ink">
                     {r.products.map((p) => (
                         <li key={`p-${p.id}`} className="flex justify-between py-0.5"><span>{p.name}</span><span className="text-moss">×{p.qty}</span></li>
                     ))}
@@ -530,16 +540,13 @@ function ReorderModal({
                     </p>
                 )}
 
-                {/* Chọn lại ngày */}
-                <div className="mb-2 text-[11px] font-bold uppercase tracking-[0.05em] text-[#8a967a]">Chọn ngày thuê</div>
-                <div className="rounded-[12px] border border-cardBorder p-2">
-                    <DateRangeCalendar
-                        start={start}
-                        end={end}
-                        unavailable={noUnavailable}
-                        onChange={(s, e) => setState({ order, start: s, end: e })}
-                    />
-                </div>
+                {/* Chọn lại ngày — lịch 2 tháng nằm ngang (component tự bố trí side-by-side khi đủ rộng) */}
+                <DateRangeCalendar
+                    start={start}
+                    end={end}
+                    unavailable={noUnavailable}
+                    onChange={(s, e) => setState({ order, start: s, end: e })}
+                />
                 <div className="mt-2 text-center text-[13px] text-moss">
                     {canConfirm ? <>Thuê <strong className="text-ink">{rangeText(start, end)}</strong> · {days} ngày</> : 'Chạm chọn ngày nhận và ngày trả.'}
                 </div>
@@ -550,16 +557,16 @@ function ReorderModal({
                     </p>
                 )}
 
-                <div className="mt-4 flex flex-col gap-2">
+                <div className="mt-4 flex flex-col gap-2 sm:flex-row-reverse">
                     <button
                         onClick={confirm}
                         disabled={!canConfirm}
-                        className="h-11 rounded-control text-[14px] font-bold text-white transition disabled:cursor-not-allowed"
+                        className="h-11 flex-1 rounded-control text-[14px] font-bold text-white transition disabled:cursor-not-allowed"
                         style={{ background: canConfirm ? '#557A2B' : '#c4cfae' }}
                     >
                         {cartHadItems ? 'Thay giỏ & thêm vào giỏ' : 'Thêm vào giỏ'}
                     </button>
-                    <button onClick={onClose} className="h-11 rounded-control border border-[#cdd6b6] bg-white text-[14px] font-semibold text-pine">
+                    <button onClick={onClose} className="h-11 rounded-control border border-[#cdd6b6] bg-white px-5 text-[14px] font-semibold text-pine sm:flex-none">
                         Huỷ
                     </button>
                 </div>
