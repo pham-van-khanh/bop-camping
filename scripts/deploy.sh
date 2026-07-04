@@ -219,6 +219,18 @@ ln -sfn "$NEW_RELEASE" "$APP_DIR/current"
 success "Current release switched."
 
 #######################################
+# Restart Queue Workers
+#######################################
+
+log "Restarting queue workers..."
+
+cd "$APP_DIR/current"
+
+"$PHP_BIN" artisan queue:restart
+
+success "Queue restart signal sent."
+
+#######################################
 # Finish
 #######################################
 
