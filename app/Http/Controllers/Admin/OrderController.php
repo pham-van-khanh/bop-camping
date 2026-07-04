@@ -42,6 +42,8 @@ class OrderController extends Controller
             'amount_due' => $o->amount_due,
             'status' => $o->status,
             'payment_status' => $o->payment_status,
+            'deposit_refund_status' => $o->deposit_refund_status,
+            'deposit_refund_note' => $o->deposit_refund_note,
             'note' => $o->note,
             'created_at' => $o->created_at->format('d/m/Y H:i'),
             'items' => $o->items->map(fn ($i) => [
@@ -109,9 +111,14 @@ class OrderController extends Controller
     /**
      * Đánh dấu tình trạng chuyển tiền của đơn (bopcamping-7be) — admin bấm sau khi
      * xác nhận với khách. unpaid = chưa chuyển · deposit = đã chuyển cọc · full = chuyển hết.
+     * Đơn ĐÃ TRẢ thì khoá (chuyển sang theo dõi hoàn cọc, không đổi tình trạng chuyển tiền nữa).
      */
     public function updatePayment(Request $request, Order $order): RedirectResponse
     {
+        if ($order->status === 'returned') {
+            return back()->withErrors(['payment_status' => 'Đơn đã trả — không đổi tình trạng chuyển tiền nữa.']);
+        }
+
         $validated = $request->validate([
             'payment_status' => ['required', 'in:'.implode(',', Order::PAYMENT_STATUSES)],
         ]);
@@ -119,5 +126,28 @@ class OrderController extends Controller
         $order->update(['payment_status' => $validated['payment_status']]);
 
         return back()->with('success', "Đơn {$order->code}: đã cập nhật tình trạng chuyển tiền");
+    }
+
+    /**
+     * Đánh dấu hoàn cọc khi đơn ĐÃ TRẢ (bopcamping-7be): refunded = đã hoàn ·
+     * pending = chưa hoàn; kèm lý do trừ/không hoàn đủ cọc (rách lều, hư hại…).
+     */
+    public function updateRefund(Request $request, Order $order): RedirectResponse
+    {
+        if ($order->status !== 'returned') {
+            return back()->withErrors(['deposit_refund_status' => 'Chỉ hoàn cọc cho đơn đã trả.']);
+        }
+
+        $validated = $request->validate([
+            'deposit_refund_status' => ['required', 'in:'.implode(',', Order::REFUND_STATUSES)],
+            'deposit_refund_note' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        $order->update([
+            'deposit_refund_status' => $validated['deposit_refund_status'],
+            'deposit_refund_note' => $validated['deposit_refund_note'] ?? null,
+        ]);
+
+        return back()->with('success', "Đơn {$order->code}: đã cập nhật hoàn cọc");
     }
 }
