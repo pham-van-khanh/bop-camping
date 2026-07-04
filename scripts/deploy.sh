@@ -178,6 +178,25 @@ ln -sf "$SHARED_DIR/.env" "$NEW_RELEASE/.env"
 success "Shared files linked."
 
 #######################################
+# Laravel Optimize
+#######################################
+
+log "Optimizing Laravel..."
+
+cd "$NEW_RELEASE"
+
+"$PHP_BIN" artisan config:clear
+"$PHP_BIN" artisan cache:clear
+"$PHP_BIN" artisan route:clear
+"$PHP_BIN" artisan view:clear
+
+"$PHP_BIN" artisan config:cache
+"$PHP_BIN" artisan route:cache
+"$PHP_BIN" artisan view:cache
+
+success "Laravel optimized."
+
+#######################################
 # Finish
 #######################################
 
