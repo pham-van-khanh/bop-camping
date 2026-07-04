@@ -101,7 +101,13 @@ Full details in `.claude/rules/` (auto-loaded).
 
 ## Workflow
 
-**Branching**: Always branch from `main`. Never commit directly to `main`.
+**Branching (quy ước từ 04/07/2026)** — `feat/scaffold-laravel` là **nhánh chính** (tích hợp); `develop` là **nhánh stg** để test. `main` hiện KHÔNG dùng làm nhánh tích hợp. Luồng chuẩn cho mỗi tính năng:
+
+1. Tạo feature branch **từ `feat/scaffold-laravel`** (vd `feature/<ten-viec>`).
+2. Merge feature branch vào `develop` rồi push — user test trên stg.
+3. Test OK → merge **feature branch** (KHÔNG merge `develop` — trên đó có thể còn feature khác đang test dở) vào `feat/scaffold-laravel` rồi push.
+
+Không commit trực tiếp vào `main`/`feat/scaffold-laravel`/`develop` (ngoại lệ: chore nhỏ như docs, beads-sync vào nhánh chính). Khi `develop` bẩn/lệch, reset về `feat/scaffold-laravel` (force-push) — mọi thứ trên đó đều đã có ở feature branch gốc.
 
 **Planning flow**: PR-FAQ → PRD → ADR → Design Spec → Plan → Implementation Beads
 
