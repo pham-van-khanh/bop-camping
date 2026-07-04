@@ -176,6 +176,32 @@ class AccountOrdersTest extends TestCase
                 ->where('lookup.not_found', true));
     }
 
+    /** @test bopcamping-bhr — nút đánh giá: đơn đã trả có review_token (sinh on-demand). */
+    public function returned_order_exposes_review_token_generated_on_demand(): void
+    {
+        $user = User::factory()->create(['phone' => '0900000210']);
+        $order = $this->order($user, $user->phone); // vãng lai → chưa có token
+        $order->update(['status' => 'returned']);
+        $this->assertNull($order->fresh()->review_token);
+
+        $this->actingAs($user)->get(route('account'))->assertInertia(fn (Assert $p) => $p
+            ->where('orders.0.review_token', fn ($t) => is_string($t) && strlen($t) >= 20)
+            ->where('orders.0.review_submitted', false));
+
+        // Token được lưu lại (on-demand) để link /danh-gia hoạt động.
+        $this->assertNotNull($order->fresh()->review_token);
+    }
+
+    /** @test */
+    public function non_returned_order_has_null_review_token(): void
+    {
+        $user = User::factory()->create(['phone' => '0900000211']);
+        $this->order($user, $user->phone); // pending
+
+        $this->actingAs($user)->get(route('account'))->assertInertia(fn (Assert $p) => $p
+            ->where('orders.0.review_token', null));
+    }
+
     /** @test */
     public function orders_include_paid_orders_and_active_count_excludes_them(): void
     {

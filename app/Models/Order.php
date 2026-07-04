@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Support\Str;
 
 #[ObservedBy([OrderObserver::class])]
 class Order extends Model
@@ -100,6 +101,20 @@ class Order extends Model
     public function getAmountDueAttribute(): int
     {
         return (int) $this->total_price + (int) $this->deposit_total - (int) $this->discount_total;
+    }
+
+    /**
+     * Sinh review_token nếu chưa có, trả về token (bopcamping-bhr).
+     * OrderObserver chỉ sinh token khi đơn trả CÓ email; đơn vãng lai (chỉ SĐT)
+     * không có token → tạo on-demand để khách đánh giá từ trang tài khoản.
+     */
+    public function ensureReviewToken(): string
+    {
+        if (! $this->review_token) {
+            $this->forceFill(['review_token' => Str::random(40)])->saveQuietly();
+        }
+
+        return $this->review_token;
     }
 
     /** Email gửi thông báo được (bỏ email tạm <phone>@bopcamping.local). Null nếu không gửi được. */

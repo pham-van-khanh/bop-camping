@@ -9,7 +9,9 @@ use App\Models\OrderItem;
 use App\Models\Product;
 use App\Models\Review;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
@@ -80,6 +82,29 @@ class ReviewInviteTest extends TestCase
         $this->assertDatabaseHas('reviews', ['category' => 'system', 'rating' => 5, 'status' => 'pending', 'product_id' => null]);
         $this->assertDatabaseHas('reviews', ['category' => 'product', 'rating' => 4, 'status' => 'pending', 'product_id' => $product->id, 'order_item_id' => $item->id]);
         $this->assertNotNull($order->fresh()->review_submitted_at);
+    }
+
+    /** @test bopcamping-bhr — đánh giá sản phẩm qua token kèm ảnh + video. */
+    public function submit_attaches_image_and_video_to_product_review(): void
+    {
+        Storage::fake('media');
+        [$order, $item, $product] = $this->returnedOrderWithToken();
+
+        $this->post('/danh-gia/'.$order->review_token, [
+            'items' => [[
+                'order_item_id' => $item->id,
+                'rating' => 5,
+                'content' => 'Lều đẹp',
+                'media' => [
+                    UploadedFile::fake()->image('leu.jpg'),
+                    UploadedFile::fake()->create('clip.mp4', 800, 'video/mp4'),
+                ],
+            ]],
+        ])->assertRedirect()->assertSessionHas('success');
+
+        $review = Review::where('product_id', $product->id)->firstOrFail();
+        $this->assertSame(2, $review->images()->count());
+        $this->assertSame(['image', 'video'], $review->images()->pluck('type')->all());
     }
 
     /** @test */
