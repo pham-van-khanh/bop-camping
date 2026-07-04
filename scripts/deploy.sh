@@ -197,6 +197,18 @@ cd "$NEW_RELEASE"
 success "Laravel optimized."
 
 #######################################
+# Database Migration
+#######################################
+
+log "Running database migrations..."
+
+cd "$NEW_RELEASE"
+
+"$PHP_BIN" artisan migrate --force
+
+success "Database migrations completed."
+
+#######################################
 # Finish
 #######################################
 
