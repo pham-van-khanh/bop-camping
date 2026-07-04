@@ -24,7 +24,7 @@ const biomes = ['Đồng cỏ', 'Rừng thông', 'Núi cao', 'Bờ biển'];
 
 const steps = [
     { n: 1, t: 'Chọn đồ và ngày', d: 'Lọc theo nhu cầu, chọn ngày nhận và ngày trả. Tụi mình hiện luôn món nào còn trống trong khoảng đó.' },
-    { n: 2, t: 'Đặt giữ chỗ online', d: 'Để lại tên và số điện thoại. Không cần trả trước, cọc và tiền thuê thu khi nhận đồ (COD).' },
+    { n: 2, t: 'Gửi yêu cầu thuê online', d: 'Để lại tên và số điện thoại — tụi mình gọi xác nhận trong 15–30 phút. Không cần trả trước, cọc và tiền thuê thu khi nhận đồ (COD).' },
     { n: 3, t: 'Nhận đồ và lên đường', d: 'Tụi mình giao tận nơi nội thành. Trả đồ đúng hẹn khi về, hoàn cọc ngay.' },
 ];
 

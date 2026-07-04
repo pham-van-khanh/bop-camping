@@ -15,6 +15,8 @@ type OrderData = {
     end_date: string;
     total_price: number;
     deposit_total: number;
+    discount_total: number;
+    amount_due: number;
     status: string;
     status_label: string;
     note: string | null;
@@ -148,10 +150,14 @@ export default function OrderLookup() {
                         <div className="mb-5 flex flex-wrap gap-3.5 text-[14px]">
                             <Box k="Nhận đồ" v={order.start_date} />
                             <Box k="Trả đồ" v={order.end_date} />
-                            <Box k="Tổng COD" v={money(order.total_price)} accent />
-                            {order.deposit_total > 0 && (
-                                <Box k="Tiền cọc" v={money(order.deposit_total)} />
+                            {order.discount_total > 0 && (
+                                <Box k="Đã giảm" v={`−${money(order.discount_total)}`} />
                             )}
+                            {order.deposit_total > 0 && (
+                                <Box k="Tiền cọc (hoàn lại)" v={money(order.deposit_total)} />
+                            )}
+                            {/* Khớp nhãn với checkout/màn thành công: thuê sau giảm + cọc, thu COD khi nhận */}
+                            <Box k="Trả khi nhận (COD)" v={money(order.amount_due)} accent />
                         </div>
 
                         {/* Items */}

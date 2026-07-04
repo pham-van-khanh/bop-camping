@@ -88,7 +88,54 @@ class OrderMailTest extends TestCase
         Mail::assertNotQueued(NewOrderAdminMail::class);
     }
 
-    private function payload(string $phone): array
+    /** bopcamping-kpf — email nhập tay ở checkout. */
+
+    /** @test */
+    public function guest_typed_email_receives_confirmation(): void
+    {
+        Mail::fake();
+
+        $this->post(route('order.store'), $this->payload('0911112222', email: 'vanglai@example.com'))
+            ->assertSessionHas('order_code');
+
+        $this->assertSame('vanglai@example.com', Order::first()->customer_email);
+        Mail::assertQueued(OrderPlacedMail::class, fn (OrderPlacedMail $m) => $m->hasTo('vanglai@example.com'));
+    }
+
+    /** @test */
+    public function typed_email_overrides_verified_account_email(): void
+    {
+        Mail::fake();
+        $user = User::factory()->create([
+            'phone' => '0900000003', 'email' => 'taikhoan@example.com', 'email_verified_at' => now(),
+        ]);
+
+        $this->actingAs($user)->post(route('order.store'), $this->payload($user->phone, email: 'nhaptay@example.com'))
+            ->assertSessionHas('order_code');
+
+        $this->assertSame('nhaptay@example.com', $user->orders()->first()->customer_email);
+        Mail::assertQueued(OrderPlacedMail::class, fn (OrderPlacedMail $m) => $m->hasTo('nhaptay@example.com'));
+        Mail::assertNotQueued(OrderPlacedMail::class, fn (OrderPlacedMail $m) => $m->hasTo('taikhoan@example.com'));
+    }
+
+    /** @test */
+    public function cleared_email_falls_back_to_verified_account_email(): void
+    {
+        Mail::fake();
+        $user = User::factory()->create([
+            'phone' => '0900000004', 'email' => 'taikhoan2@example.com', 'email_verified_at' => now(),
+        ]);
+
+        // FE prefill sẵn email tài khoản; khách xoá trống → '' → null → dùng lại email tài khoản
+        // (đúng copy "Bỏ trống sẽ dùng email tài khoản của bạn").
+        $this->actingAs($user)->post(route('order.store'), $this->payload($user->phone, email: ''))
+            ->assertSessionHas('order_code');
+
+        $this->assertSame('taikhoan2@example.com', $user->orders()->first()->customer_email);
+        Mail::assertQueued(OrderPlacedMail::class, fn (OrderPlacedMail $m) => $m->hasTo('taikhoan2@example.com'));
+    }
+
+    private function payload(string $phone, ?string $email = null): array
     {
         $cat = Category::create(['name' => 'Lều', 'slug' => 'leu-'.uniqid()]);
         $product = Product::create([
@@ -106,6 +153,7 @@ class OrderMailTest extends TestCase
             'name' => 'Khách Đặt',
             'phone' => $phone,
             'address' => 'Số 1 ABC',
+            'email' => $email,
             'items' => [['product_id' => $product->id, 'quantity' => 1, 'start' => $day, 'end' => $day]],
         ];
     }
