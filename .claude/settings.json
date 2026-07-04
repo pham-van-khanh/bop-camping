@@ -4,7 +4,7 @@
   "cleanupPeriodDays": 90,
   "enableAllProjectMcpServers": true,
   "enabledPlugins": {
-    "frontend-design@claude-plugins-official": false
+    "frontend-design@claude-plugins-official": true
   },
   "hooks": {
     "PostToolUse": [
