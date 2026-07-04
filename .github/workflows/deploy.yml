@@ -1,0 +1,72 @@
+name: Deploy
+
+# Auto-deploy on push:
+#   develop               -> staging
+#   feat/scaffold-laravel -> production
+#
+# The runner SSHes into the server and runs the deploy script from a stable
+# clone at $APP_DIR/scm (so the LATEST deploy.sh always runs, avoiding the
+# "current release ships the old deploy script" bootstrap trap). deploy.sh
+# then clones its own fresh release under $APP_DIR/releases.
+#
+# Required repo secrets:
+#   DEPLOY_SSH_HOST  server host / IP
+#   DEPLOY_SSH_PORT  SSH port (e.g. 22)
+#   DEPLOY_SSH_USER  SSH user (e.g. deploy)
+#   DEPLOY_SSH_KEY   private key (PEM) whose public key is in the user's authorized_keys
+
+on:
+  push:
+    branches:
+      - develop
+      - feat/scaffold-laravel
+
+# Never run two deploys for the same branch at once; queue them instead.
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Resolve target environment
+        id: env
+        run: |
+          if [ "${{ github.ref }}" = "refs/heads/feat/scaffold-laravel" ]; then
+            echo "target=production" >> "$GITHUB_OUTPUT"
+            echo "app_dir=/var/www/production" >> "$GITHUB_OUTPUT"
+          else
+            echo "target=staging" >> "$GITHUB_OUTPUT"
+            echo "app_dir=/var/www/staging" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Deploy over SSH
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: ${{ secrets.DEPLOY_SSH_HOST }}
+          port: ${{ secrets.DEPLOY_SSH_PORT }}
+          username: ${{ secrets.DEPLOY_SSH_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          command_timeout: 20m
+          script: |
+            set -Eeuo pipefail
+            APP_DIR="${{ steps.env.outputs.app_dir }}"
+            TARGET="${{ steps.env.outputs.target }}"
+            BRANCH="${{ github.ref_name }}"
+            SCM_DIR="$APP_DIR/scm"
+
+            echo "==> Deploying $BRANCH to $TARGET ($APP_DIR)"
+
+            if [ ! -d "$SCM_DIR/.git" ]; then
+              echo "ERROR: $SCM_DIR is not a git clone. Set it up once:"
+              echo "  git clone <repo> $SCM_DIR"
+              exit 1
+            fi
+
+            cd "$SCM_DIR"
+            git fetch --prune origin "$BRANCH"
+            git checkout "$BRANCH"
+            git reset --hard "origin/$BRANCH"
+
+            bash "$SCM_DIR/scripts/deploy.sh" "$TARGET"
