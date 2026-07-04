@@ -1,11 +1,12 @@
 import { Head, router, usePage } from '@inertiajs/react';
-import { ReactNode, useState } from 'react';
+import { ReactNode, useMemo, useState } from 'react';
 import SiteLayout from '@/Layouts/SiteLayout';
 import OrderLookupPanel, { type LookupProps } from '@/Components/site/OrderLookupPanel';
+import DateRangeCalendar from '@/Components/site/DateRangeCalendar';
 import { COMBO_GRAD } from '@/Components/site/ComboCard';
 import { getCart, setCart, type CartLine, type CartLocation } from '@/lib/cart';
 import { emit, EVENTS } from '@/lib/bus';
-import { money } from '@/lib/format';
+import { dayCount, money, rangeText } from '@/lib/format';
 import { gradFor } from '@/lib/grad';
 import { STATUS_LABEL, STATUS_STYLE } from '@/lib/orderStatus';
 import { VOUCHER_SOURCE_FALLBACK, VOUCHER_SOURCE_LABEL, voucherValueText, type VoucherType } from '@/lib/voucher';
@@ -79,10 +80,6 @@ const BUCKET_TABS: { key: Voucher['bucket']; label: string }[] = [
     { key: 'expired', label: 'Hết hạn' },
 ];
 
-/** yyyy-mm-dd theo giờ máy khách (toISOString là UTC — lệch ngày lúc tối). */
-const isoDate = (d: Date) =>
-    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-
 export default function Account() {
     const { auth, stats, orders, referralCode, vouchers, lookup } = usePage<Props>().props;
     const [copied, setCopied] = useState(false);
@@ -93,8 +90,10 @@ export default function Account() {
     const [orderTab, setOrderTab] = useState<'active' | 'done'>(activeOrders.length > 0 || doneOrders.length === 0 ? 'active' : 'done');
     const shownOrders = orderTab === 'active' ? activeOrders : doneOrders;
 
-    // "Đặt lại" khi giỏ đang có món — hỏi trước khi thay toàn bộ giỏ.
-    const [pendingReorder, setPendingReorder] = useState<AccountOrder | null>(null);
+    // Đơn nào đang mở chi tiết (accordion — gọn như màn quản lý admin).
+    const [expandedId, setExpandedId] = useState<number | null>(null);
+    // Modal "Đặt lại": chọn lại ngày trước khi thêm vào giỏ.
+    const [reorder, setReorder] = useState<{ order: AccountOrder; start: string | null; end: string | null } | null>(null);
 
     const [copiedLink, setCopiedLink] = useState(false);
     const shareLink = typeof window !== 'undefined' ? `${window.location.origin}/?ref=${referralCode}` : `/?ref=${referralCode}`;
@@ -121,55 +120,6 @@ export default function Account() {
 
     const countBy = (bucket: Voucher['bucket']) => vouchers.filter((v) => v.bucket === bucket).length;
     const shown = vouchers.filter((v) => v.bucket === tab);
-
-    /**
-     * Dựng lại giỏ từ đơn cũ: ngày mặc định = ngày mai + giữ nguyên số ngày thuê
-     * (ngày cũ đã qua). Giá/vị trí là bản MỚI NHẤT từ server; trang giỏ còn tự
-     * làm tươi + check tồn kho theo ngày nên khách chỉnh tiếp ở đó.
-     */
-    const buildReorderLines = (o: AccountOrder): CartLine[] => {
-        const startD = new Date();
-        startD.setDate(startD.getDate() + 1);
-        const endD = new Date(startD);
-        endD.setDate(endD.getDate() + Math.max(0, o.days - 1));
-        const start = isoDate(startD);
-        const end = isoDate(endD);
-        const r = o.reorder as ReorderPayload;
-
-        return [
-            ...r.products.map((p) => ({
-                id: p.id, name: p.name, cat: p.cat, grad: gradFor(p.cat),
-                price: p.price, deposit: p.deposit, qty: p.qty, start, end, locations: p.locations,
-            })),
-            ...r.combos.map((c) => ({
-                id: c.id, kind: 'combo' as const, name: c.name, cat: 'combo', grad: COMBO_GRAD,
-                price: c.price, deposit: c.deposit, qty: c.qty, start, end,
-                locations: c.locations, comboItems: c.comboItems,
-            })),
-        ];
-    };
-
-    const commitReorder = (o: AccountOrder) => {
-        setCart(buildReorderLines(o));
-        const skipped = o.reorder?.skipped ?? 0;
-        emit(
-            EVENTS.toast,
-            skipped > 0
-                ? `Đã thêm lại đơn ${o.code} vào giỏ — ${skipped} món không còn cho thuê`
-                : `Đã thêm lại đơn ${o.code} vào giỏ`,
-        );
-        setPendingReorder(null);
-        router.visit('/gio-thue');
-    };
-
-    const startReorder = (o: AccountOrder) => {
-        if (!o.reorder) return;
-        if (getCart().length > 0) {
-            setPendingReorder(o);
-            return;
-        }
-        commitReorder(o);
-    };
 
     /** Nhảy xuống section tra cứu với mã đơn + SĐT của đơn này (xem timeline). */
     const viewProgress = (o: AccountOrder) => {
@@ -201,12 +151,12 @@ export default function Account() {
                     <Stat label="Giới thiệu thành công" value={stats.referralCount} hint="bạn đã mời" />
                 </div>
 
-                {/* Đơn thuê */}
+                {/* Đơn thuê — danh sách gọn, bấm để mở chi tiết (accordion) */}
                 <section className="mb-[22px]">
                     <h2 className="mb-3 text-[18px] font-bold text-ink">Đơn thuê của bạn</h2>
                     <div className="mb-3 flex flex-wrap items-center gap-2">
                         <button
-                            onClick={() => setOrderTab('active')}
+                            onClick={() => { setOrderTab('active'); setExpandedId(null); }}
                             className={`rounded-pill px-3 py-1.5 text-[13px] font-semibold transition ${
                                 orderTab === 'active' ? 'bg-grass text-white' : 'bg-[#eef2e3] text-pine hover:bg-[#e2e8d2]'
                             }`}
@@ -214,7 +164,7 @@ export default function Account() {
                             Đang thuê ({activeOrders.length})
                         </button>
                         <button
-                            onClick={() => setOrderTab('done')}
+                            onClick={() => { setOrderTab('done'); setExpandedId(null); }}
                             className={`rounded-pill px-3 py-1.5 text-[13px] font-semibold transition ${
                                 orderTab === 'done' ? 'bg-grass text-white' : 'bg-[#eef2e3] text-pine hover:bg-[#e2e8d2]'
                             }`}
@@ -232,9 +182,17 @@ export default function Account() {
                             <div className="mt-1 text-[14px] text-moss">Khám phá thiết bị và đặt thuê cho chuyến đi sắp tới nhé.</div>
                         </div>
                     ) : (
-                        <div className="flex flex-col gap-3.5">
-                            {shownOrders.map((order) => (
-                                <OrderCard key={order.id} order={order} onReorder={startReorder} onViewProgress={viewProgress} />
+                        <div className="overflow-hidden rounded-card border border-cardBorder bg-card">
+                            {shownOrders.map((order, i) => (
+                                <OrderRow
+                                    key={order.id}
+                                    order={order}
+                                    first={i === 0}
+                                    expanded={expandedId === order.id}
+                                    onToggle={() => setExpandedId(expandedId === order.id ? null : order.id)}
+                                    onReorder={() => setReorder({ order, start: null, end: null })}
+                                    onViewProgress={() => viewProgress(order)}
+                                />
                             ))}
                         </div>
                     )}
@@ -345,137 +303,268 @@ export default function Account() {
                 </section>
             </main>
 
-            {/* Popup xác nhận thay giỏ khi Đặt lại */}
-            {pendingReorder && (
-                <div className="fixed inset-0 z-[200] grid place-items-center p-5" style={{ background: 'rgba(24,35,15,.45)' }}>
-                    <div className="w-full max-w-[420px] rounded-[18px] border border-cardBorder bg-white p-6">
-                        <div className="mb-1.5 text-[17px] font-bold text-ink">Thay giỏ hiện tại?</div>
-                        <p className="mb-4 text-[14px] leading-[1.55] text-moss">
-                            Giỏ thuê của bạn đang có món. Đặt lại đơn{' '}
-                            <span className="font-mono font-bold text-grass">{pendingReorder.code}</span> sẽ thay toàn bộ giỏ hiện tại.
-                        </p>
-                        <div className="flex flex-col gap-2">
-                            <button
-                                onClick={() => commitReorder(pendingReorder)}
-                                className="h-11 rounded-control bg-grass text-[14px] font-bold text-white transition hover:bg-pine"
-                            >
-                                Thay giỏ & thêm đơn này
-                            </button>
-                            <button
-                                onClick={() => setPendingReorder(null)}
-                                className="h-11 rounded-control border border-[#cdd6b6] bg-white text-[14px] font-semibold text-pine"
-                            >
-                                Giữ giỏ hiện tại
-                            </button>
-                        </div>
-                    </div>
-                </div>
+            {/* Modal Đặt lại — chọn lại ngày trước khi thêm vào giỏ */}
+            {reorder && (
+                <ReorderModal
+                    state={reorder}
+                    setState={setReorder}
+                    onClose={() => setReorder(null)}
+                />
             )}
         </>
     );
 }
 
-function OrderCard({
+/** Một dòng đơn: thu gọn hiển thị tóm tắt; bấm để bung chi tiết (accordion). */
+function OrderRow({
     order,
+    first,
+    expanded,
+    onToggle,
     onReorder,
     onViewProgress,
 }: {
     order: AccountOrder;
-    onReorder: (o: AccountOrder) => void;
-    onViewProgress: (o: AccountOrder) => void;
+    first: boolean;
+    expanded: boolean;
+    onToggle: () => void;
+    onReorder: () => void;
+    onViewProgress: () => void;
 }) {
+    const style = STATUS_STYLE[order.status] ?? STATUS_STYLE.pending;
+    const itemCount = order.groups.reduce((s, g) => s + g.quantity, 0);
+
     return (
-        <article className="rounded-card border border-cardBorder bg-card p-[18px]">
-            <div className="mb-2.5 flex flex-wrap items-center justify-between gap-2">
-                <span className="font-mono text-[17px] font-bold tracking-[0.06em] text-grass">{order.code}</span>
-                <span className="flex items-center gap-2">
-                    <span className="text-[12px] text-[#a3ad92]">Đặt ngày {order.created_at}</span>
-                    <span className="rounded-pill px-3 py-1.5 text-[12px] font-bold" style={STATUS_STYLE[order.status] ?? STATUS_STYLE.pending}>
-                        {STATUS_LABEL[order.status] ?? order.status}
+        <div className={first ? '' : 'border-t border-cardBorder'}>
+            {/* Hàng tóm tắt — luôn hiện */}
+            <button
+                onClick={onToggle}
+                aria-expanded={expanded}
+                className="flex w-full items-center gap-3 px-4 py-3 text-left transition hover:bg-[#fafcf7]"
+            >
+                <span className="min-w-0 flex-1">
+                    <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                        <span className="font-mono text-[15px] font-bold tracking-[0.04em] text-grass">{order.code}</span>
+                        <span className="rounded-pill px-2.5 py-0.5 text-[11px] font-bold" style={{ color: style.color, background: style.bg }}>
+                            {STATUS_LABEL[order.status] ?? order.status}
+                        </span>
+                    </span>
+                    <span className="mt-0.5 block text-[12.5px] text-moss">
+                        {order.start_date} → {order.end_date} · {itemCount} món
                     </span>
                 </span>
-            </div>
+                <span className="shrink-0 text-right">
+                    <span className="block font-mono text-[14px] font-bold text-ink">{money(order.amount_due)}</span>
+                    <span className="block text-[10.5px] text-[#a3ad92]">Trả khi nhận</span>
+                </span>
+                <svg
+                    width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8a967a" strokeWidth="2.2"
+                    strokeLinecap="round" strokeLinejoin="round"
+                    className={`shrink-0 transition-transform ${expanded ? 'rotate-180' : ''}`}
+                >
+                    <path d="m6 9 6 6 6-6" />
+                </svg>
+            </button>
 
-            <div className="mb-1 text-[13px] text-moss">
-                Thuê: {order.start_date} → {order.end_date} · {order.days} ngày
-            </div>
-            {order.address && (
-                <div className="mb-2.5 text-[13px] text-moss">📍 Giao nhận: {order.address}</div>
-            )}
+            {/* Chi tiết — chỉ hiện khi mở */}
+            {expanded && (
+                <div className="px-4 pb-4 pt-1" style={{ background: '#fafcf7' }}>
+                    <div className="mb-1 text-[12px] text-moss">Đặt ngày {order.created_at} · {order.days} ngày</div>
+                    {order.address && <div className="mb-2.5 text-[13px] text-moss">📍 Giao nhận: {order.address}</div>}
 
-            {/* Món trong đơn — combo gộp thành 1 dòng kèm món con */}
-            <ul className="mb-2.5 flex flex-col gap-1.5 text-[14px] text-ink">
-                {order.groups.map((g, i) => (
-                    <li key={i}>
-                        <div className="flex justify-between gap-2">
-                            <span>
-                                {g.kind === 'combo' && (
-                                    <span className="mr-1.5 rounded-pill px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.04em]" style={{ background: '#efe4d3', color: '#7f4f24' }}>
-                                        Combo
+                    {/* Món trong đơn — combo gộp 1 dòng kèm món con */}
+                    <ul className="mb-2.5 flex flex-col gap-1.5 rounded-[10px] border border-[#eef2e3] bg-white px-3 py-2.5 text-[14px] text-ink">
+                        {order.groups.map((g, i) => (
+                            <li key={i}>
+                                <div className="flex justify-between gap-2">
+                                    <span>
+                                        {g.kind === 'combo' && (
+                                            <span className="mr-1.5 rounded-pill px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.04em]" style={{ background: '#efe4d3', color: '#7f4f24' }}>
+                                                Combo
+                                            </span>
+                                        )}
+                                        {g.name} <span className="text-moss">×{g.quantity}</span>
                                     </span>
+                                    <span className="font-mono font-semibold text-ink">{money(g.subtotal)}</span>
+                                </div>
+                                {g.kind === 'combo' && g.children && g.children.length > 0 && (
+                                    <div className="mt-0.5 pl-[52px] text-[12px] text-[#8a967a]">
+                                        Gồm: {g.children.map((c) => `${c.name} ×${c.quantity}`).join(' · ')}
+                                    </div>
                                 )}
-                                {g.name} <span className="text-moss">×{g.quantity}</span>
-                            </span>
-                            <span className="font-mono font-semibold text-ink">{money(g.subtotal)}</span>
+                            </li>
+                        ))}
+                    </ul>
+
+                    {/* Tiền — cùng nhãn với checkout & tra cứu */}
+                    <div className="rounded-[10px] border border-[#eef2e3] bg-white px-3 py-2.5 text-[13.5px]">
+                        <div className="flex justify-between py-[3px]">
+                            <span className="text-moss">Phí thuê</span>
+                            <span className="font-mono font-semibold text-ink">{money(order.total_price)}</span>
                         </div>
-                        {g.kind === 'combo' && g.children && g.children.length > 0 && (
-                            <div className="mt-0.5 pl-[52px] text-[12px] text-[#8a967a]">
-                                Gồm: {g.children.map((c) => `${c.name} ×${c.quantity}`).join(' · ')}
+                        {order.discounts.map((d, i) => (
+                            <div key={i} className="flex justify-between py-[3px]">
+                                <span className="text-moss">{d.label}</span>
+                                <span className="font-mono font-semibold text-campfire">
+                                    {d.amount >= 0 ? `−${money(d.amount)}` : `+${money(-d.amount)}`}
+                                </span>
+                            </div>
+                        ))}
+                        {order.deposit_total > 0 && (
+                            <div className="flex justify-between py-[3px]">
+                                <span className="text-moss">Tiền cọc (hoàn lại)</span>
+                                <span className="font-mono font-semibold text-campfire">{money(order.deposit_total)}</span>
                             </div>
                         )}
-                    </li>
-                ))}
-            </ul>
-
-            {/* Tiền — cùng nhãn với checkout & tra cứu */}
-            <div className="border-t border-cardBorder pt-2 text-[13.5px]">
-                <div className="flex justify-between py-[3px]">
-                    <span className="text-moss">Phí thuê</span>
-                    <span className="font-mono font-semibold text-ink">{money(order.total_price)}</span>
-                </div>
-                {order.discounts.map((d, i) => (
-                    <div key={i} className="flex justify-between py-[3px]">
-                        <span className="text-moss">{d.label}</span>
-                        <span className="font-mono font-semibold text-campfire">
-                            {d.amount >= 0 ? `−${money(d.amount)}` : `+${money(-d.amount)}`}
-                        </span>
+                        <div className="mt-1 flex justify-between border-t border-dashed pt-1.5" style={{ borderColor: '#e3e8d6' }}>
+                            <span className="font-bold text-ink">Trả khi nhận (COD)</span>
+                            <span className="font-mono font-bold text-grass">{money(order.amount_due)}</span>
+                        </div>
                     </div>
-                ))}
-                {order.deposit_total > 0 && (
-                    <div className="flex justify-between py-[3px]">
-                        <span className="text-moss">Tiền cọc (hoàn lại)</span>
-                        <span className="font-mono font-semibold text-campfire">{money(order.deposit_total)}</span>
-                    </div>
-                )}
-                <div className="mt-1 flex justify-between border-t border-dashed pt-1.5" style={{ borderColor: '#e3e8d6' }}>
-                    <span className="font-bold text-ink">Trả khi nhận (COD)</span>
-                    <span className="font-mono font-bold text-grass">{money(order.amount_due)}</span>
-                </div>
-            </div>
 
-            {order.note && (
-                <p className="mt-2 text-[12.5px] text-[#8a967a]">
-                    <span className="font-semibold">Ghi chú:</span> {order.note}
-                </p>
+                    {order.note && (
+                        <p className="mt-2 text-[12.5px] text-[#8a967a]">
+                            <span className="font-semibold">Ghi chú:</span> {order.note}
+                        </p>
+                    )}
+
+                    <div className="mt-3 flex flex-wrap gap-2">
+                        <button
+                            onClick={onViewProgress}
+                            className="h-10 rounded-control border border-[#cdd6b6] bg-white px-4 text-[13px] font-semibold text-pine transition hover:bg-[#f1f4ea]"
+                        >
+                            Xem tiến trình
+                        </button>
+                        {order.reorder && (
+                            <button
+                                onClick={onReorder}
+                                className="h-10 rounded-control bg-grass px-4 text-[13px] font-bold text-white transition hover:bg-pine"
+                            >
+                                Đặt lại đơn này
+                            </button>
+                        )}
+                    </div>
+                </div>
             )}
+        </div>
+    );
+}
 
-            <div className="mt-3 flex flex-wrap gap-2 border-t border-cardBorder pt-3">
-                <button
-                    onClick={() => onViewProgress(order)}
-                    className="h-10 rounded-control border border-[#cdd6b6] bg-white px-4 text-[13px] font-semibold text-pine transition hover:bg-[#f1f4ea]"
-                >
-                    Xem tiến trình
-                </button>
-                {order.reorder && (
-                    <button
-                        onClick={() => onReorder(order)}
-                        className="h-10 rounded-control bg-grass px-4 text-[13px] font-bold text-white transition hover:bg-pine"
-                    >
-                        Đặt lại đơn này
+/**
+ * Modal Đặt lại: khách chọn lại khoảng ngày (ngày đơn cũ đã qua). Giá/vị trí là bản
+ * MỚI NHẤT từ server (payload reorder); trang giỏ còn tự làm tươi + check tồn kho.
+ * Nếu giỏ đang có món → cảnh báo sẽ thay toàn bộ ngay trong modal.
+ */
+function ReorderModal({
+    state,
+    setState,
+    onClose,
+}: {
+    state: { order: AccountOrder; start: string | null; end: string | null };
+    setState: (s: { order: AccountOrder; start: string | null; end: string | null }) => void;
+    onClose: () => void;
+}) {
+    const { order, start, end } = state;
+    const r = order.reorder as ReorderPayload;
+    const noUnavailable = useMemo(() => new Set<string>(), []);
+    const cartHadItems = useMemo(() => getCart().length > 0, []);
+
+    const days = start && end ? dayCount(start, end) : 0;
+    const canConfirm = !!start && !!end;
+
+    const buildLines = (): CartLine[] => [
+        ...r.products.map((p) => ({
+            id: p.id, name: p.name, cat: p.cat, grad: gradFor(p.cat),
+            price: p.price, deposit: p.deposit, qty: p.qty, start: start as string, end: end as string, locations: p.locations,
+        })),
+        ...r.combos.map((c) => ({
+            id: c.id, kind: 'combo' as const, name: c.name, cat: 'combo', grad: COMBO_GRAD,
+            price: c.price, deposit: c.deposit, qty: c.qty, start: start as string, end: end as string,
+            locations: c.locations, comboItems: c.comboItems,
+        })),
+    ];
+
+    const confirm = () => {
+        if (!canConfirm) return;
+        setCart(buildLines());
+        emit(
+            EVENTS.toast,
+            r.skipped > 0
+                ? `Đã thêm lại đơn ${order.code} vào giỏ — ${r.skipped} món không còn cho thuê`
+                : `Đã thêm lại đơn ${order.code} vào giỏ`,
+        );
+        onClose();
+        router.visit('/gio-thue');
+    };
+
+    const totalItems = r.products.reduce((s, p) => s + p.qty, 0) + r.combos.reduce((s, c) => s + c.qty, 0);
+
+    return (
+        <div className="fixed inset-0 z-[200] grid place-items-center overflow-y-auto p-4" style={{ background: 'rgba(24,35,15,.45)' }}>
+            <div className="my-auto w-full max-w-[460px] rounded-[18px] border border-cardBorder bg-white p-5">
+                <div className="mb-1 flex items-start justify-between gap-3">
+                    <div className="text-[17px] font-bold text-ink">
+                        Đặt lại đơn <span className="font-mono text-grass">{order.code}</span>
+                    </div>
+                    <button onClick={onClose} aria-label="Đóng" className="shrink-0 rounded-full p-1 text-[#8a967a] hover:bg-[#f1f4ea]">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="m6 6 12 12M18 6 6 18" /></svg>
                     </button>
+                </div>
+                <p className="mb-3 text-[13px] text-moss">Chọn lại ngày thuê cho {totalItems} món. Đơn cũ thuê {order.days} ngày.</p>
+
+                {/* Món sẽ đặt lại */}
+                <ul className="mb-3 max-h-[120px] overflow-y-auto rounded-[10px] border border-[#eef2e3] bg-[#fafcf7] px-3 py-2 text-[13px] text-ink">
+                    {r.products.map((p) => (
+                        <li key={`p-${p.id}`} className="flex justify-between py-0.5"><span>{p.name}</span><span className="text-moss">×{p.qty}</span></li>
+                    ))}
+                    {r.combos.map((c) => (
+                        <li key={`c-${c.id}`} className="flex justify-between py-0.5">
+                            <span><span className="mr-1 rounded-pill px-1.5 py-0.5 text-[9.5px] font-bold uppercase" style={{ background: '#efe4d3', color: '#7f4f24' }}>Combo</span>{c.name}</span>
+                            <span className="text-moss">×{c.qty}</span>
+                        </li>
+                    ))}
+                </ul>
+                {r.skipped > 0 && (
+                    <p className="mb-3 rounded-[8px] px-3 py-2 text-[12.5px]" style={{ background: '#fbf2d8', color: '#9a7a2a' }}>
+                        {r.skipped} món trong đơn cũ không còn cho thuê — sẽ không được thêm lại.
+                    </p>
                 )}
+
+                {/* Chọn lại ngày */}
+                <div className="mb-2 text-[11px] font-bold uppercase tracking-[0.05em] text-[#8a967a]">Chọn ngày thuê</div>
+                <div className="rounded-[12px] border border-cardBorder p-2">
+                    <DateRangeCalendar
+                        start={start}
+                        end={end}
+                        unavailable={noUnavailable}
+                        onChange={(s, e) => setState({ order, start: s, end: e })}
+                    />
+                </div>
+                <div className="mt-2 text-center text-[13px] text-moss">
+                    {canConfirm ? <>Thuê <strong className="text-ink">{rangeText(start, end)}</strong> · {days} ngày</> : 'Chạm chọn ngày nhận và ngày trả.'}
+                </div>
+
+                {cartHadItems && (
+                    <p className="mt-2 rounded-[8px] px-3 py-2 text-[12.5px]" style={{ background: '#f6ede3', color: '#8a5a2a' }}>
+                        Giỏ hiện tại đang có món — đặt lại sẽ <strong>thay toàn bộ giỏ</strong>.
+                    </p>
+                )}
+
+                <div className="mt-4 flex flex-col gap-2">
+                    <button
+                        onClick={confirm}
+                        disabled={!canConfirm}
+                        className="h-11 rounded-control text-[14px] font-bold text-white transition disabled:cursor-not-allowed"
+                        style={{ background: canConfirm ? '#557A2B' : '#c4cfae' }}
+                    >
+                        {cartHadItems ? 'Thay giỏ & thêm vào giỏ' : 'Thêm vào giỏ'}
+                    </button>
+                    <button onClick={onClose} className="h-11 rounded-control border border-[#cdd6b6] bg-white text-[14px] font-semibold text-pine">
+                        Huỷ
+                    </button>
+                </div>
             </div>
-        </article>
+        </div>
     );
 }
 
