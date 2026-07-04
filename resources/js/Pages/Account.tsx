@@ -182,67 +182,120 @@ export default function Account() {
                             <div className="mt-1 text-[14px] text-moss">Khám phá thiết bị và đặt thuê cho chuyến đi sắp tới nhé.</div>
                         </div>
                     ) : (
-                        <div className="overflow-x-auto rounded-card border border-cardBorder bg-white">
-                            <table className="w-full min-w-[560px] text-[13px]">
-                                <thead>
-                                    <tr className="border-b border-[#eef2e3]" style={{ background: '#f8faf4' }}>
-                                        <th className="px-4 py-3 text-left font-semibold text-moss">Mã đơn</th>
-                                        <th className="px-4 py-3 text-left font-semibold text-moss">Ngày thuê</th>
-                                        <th className="px-4 py-3 text-center font-semibold text-moss">Số món</th>
-                                        <th className="px-4 py-3 text-right font-semibold text-moss">Trả khi nhận</th>
-                                        <th className="px-4 py-3 text-left font-semibold text-moss">Trạng thái</th>
-                                        <th className="px-3 py-3" aria-label="Chi tiết" />
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {shownOrders.map((order) => {
-                                        const style = STATUS_STYLE[order.status] ?? STATUS_STYLE.pending;
-                                        const expanded = expandedId === order.id;
-                                        const itemCount = order.groups.reduce((s, g) => s + g.quantity, 0);
-                                        return (
-                                            <Fragment key={order.id}>
-                                                <tr
-                                                    className="cursor-pointer border-b border-[#f1f4ea] hover:bg-[#fafcf7]"
-                                                    onClick={() => setExpandedId(expanded ? null : order.id)}
-                                                >
-                                                    <td className="px-4 py-3 font-mono font-bold text-grass">{order.code}</td>
-                                                    <td className="whitespace-nowrap px-4 py-3 font-mono text-[12px] text-pine">
-                                                        {order.start_date} → {order.end_date}
-                                                    </td>
-                                                    <td className="px-4 py-3 text-center text-moss">{itemCount}</td>
-                                                    <td className="px-4 py-3 text-right font-mono font-bold text-ink">{money(order.amount_due)}</td>
-                                                    <td className="px-4 py-3">
-                                                        <span className="whitespace-nowrap rounded-pill px-2.5 py-1 text-[11.5px] font-bold" style={{ color: style.color, background: style.bg }}>
-                                                            {STATUS_LABEL[order.status] ?? order.status}
-                                                        </span>
-                                                    </td>
-                                                    <td className="px-3 py-3 text-right">
-                                                        <svg
-                                                            width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8a967a" strokeWidth="2.2"
-                                                            strokeLinecap="round" strokeLinejoin="round"
-                                                            className={`inline-block transition-transform ${expanded ? 'rotate-180' : ''}`}
-                                                        >
-                                                            <path d="m6 9 6 6 6-6" />
-                                                        </svg>
-                                                    </td>
-                                                </tr>
-                                                {expanded && (
-                                                    <tr className="border-b border-[#f1f4ea]">
-                                                        <td colSpan={6} className="px-4 pb-4 pt-1" style={{ background: '#fafcf7' }}>
-                                                            <OrderDetail
-                                                                order={order}
-                                                                onReorder={() => setReorder({ order, start: null, end: null })}
-                                                                onViewProgress={() => viewProgress(order)}
-                                                            />
+                        <>
+                            {/* Desktop (md+): bảng gọn giống màn quản lý admin */}
+                            <div className="hidden overflow-x-auto rounded-card border border-cardBorder bg-white md:block">
+                                <table className="w-full text-[13px]">
+                                    <thead>
+                                        <tr className="border-b border-[#eef2e3]" style={{ background: '#f8faf4' }}>
+                                            <th className="px-4 py-3 text-left font-semibold text-moss">Mã đơn</th>
+                                            <th className="px-4 py-3 text-left font-semibold text-moss">Ngày thuê</th>
+                                            <th className="px-4 py-3 text-center font-semibold text-moss">Số món</th>
+                                            <th className="px-4 py-3 text-right font-semibold text-moss">Trả khi nhận</th>
+                                            <th className="px-4 py-3 text-left font-semibold text-moss">Trạng thái</th>
+                                            <th className="px-3 py-3" aria-label="Chi tiết" />
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {shownOrders.map((order) => {
+                                            const style = STATUS_STYLE[order.status] ?? STATUS_STYLE.pending;
+                                            const expanded = expandedId === order.id;
+                                            const itemCount = order.groups.reduce((s, g) => s + g.quantity, 0);
+                                            return (
+                                                <Fragment key={order.id}>
+                                                    <tr
+                                                        className="cursor-pointer border-b border-[#f1f4ea] hover:bg-[#fafcf7]"
+                                                        onClick={() => setExpandedId(expanded ? null : order.id)}
+                                                    >
+                                                        <td className="px-4 py-3 font-mono font-bold text-grass">{order.code}</td>
+                                                        <td className="whitespace-nowrap px-4 py-3 font-mono text-[12px] text-pine">
+                                                            {order.start_date} → {order.end_date}
+                                                        </td>
+                                                        <td className="px-4 py-3 text-center text-moss">{itemCount}</td>
+                                                        <td className="px-4 py-3 text-right font-mono font-bold text-ink">{money(order.amount_due)}</td>
+                                                        <td className="px-4 py-3">
+                                                            <span className="whitespace-nowrap rounded-pill px-2.5 py-1 text-[11.5px] font-bold" style={{ color: style.color, background: style.bg }}>
+                                                                {STATUS_LABEL[order.status] ?? order.status}
+                                                            </span>
+                                                        </td>
+                                                        <td className="px-3 py-3 text-right">
+                                                            <svg
+                                                                width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8a967a" strokeWidth="2.2"
+                                                                strokeLinecap="round" strokeLinejoin="round"
+                                                                className={`inline-block transition-transform ${expanded ? 'rotate-180' : ''}`}
+                                                            >
+                                                                <path d="m6 9 6 6 6-6" />
+                                                            </svg>
                                                         </td>
                                                     </tr>
-                                                )}
-                                            </Fragment>
-                                        );
-                                    })}
-                                </tbody>
-                            </table>
-                        </div>
+                                                    {expanded && (
+                                                        <tr className="border-b border-[#f1f4ea]">
+                                                            <td colSpan={6} className="px-4 pb-4 pt-1" style={{ background: '#fafcf7' }}>
+                                                                <OrderDetail
+                                                                    order={order}
+                                                                    onReorder={() => setReorder({ order, start: null, end: null })}
+                                                                    onViewProgress={() => viewProgress(order)}
+                                                                />
+                                                            </td>
+                                                        </tr>
+                                                    )}
+                                                </Fragment>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            {/* Mobile: card gọn — bấm bung chi tiết full-width (số tiền không bị cắt) */}
+                            <div className="flex flex-col gap-3 md:hidden">
+                                {shownOrders.map((order) => {
+                                    const style = STATUS_STYLE[order.status] ?? STATUS_STYLE.pending;
+                                    const expanded = expandedId === order.id;
+                                    const itemCount = order.groups.reduce((s, g) => s + g.quantity, 0);
+                                    return (
+                                        <div key={order.id} className="overflow-hidden rounded-card border border-cardBorder bg-card">
+                                            <button
+                                                onClick={() => setExpandedId(expanded ? null : order.id)}
+                                                aria-expanded={expanded}
+                                                className="flex w-full items-center gap-3 px-4 py-3 text-left"
+                                            >
+                                                <span className="min-w-0 flex-1">
+                                                    <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                                                        <span className="font-mono text-[15px] font-bold tracking-[0.04em] text-grass">{order.code}</span>
+                                                        <span className="rounded-pill px-2.5 py-0.5 text-[11px] font-bold" style={{ color: style.color, background: style.bg }}>
+                                                            {STATUS_LABEL[order.status] ?? order.status}
+                                                        </span>
+                                                    </span>
+                                                    <span className="mt-0.5 block text-[12.5px] text-moss">
+                                                        {order.start_date} → {order.end_date} · {itemCount} món
+                                                    </span>
+                                                </span>
+                                                <span className="shrink-0 text-right">
+                                                    <span className="block font-mono text-[14px] font-bold text-ink">{money(order.amount_due)}</span>
+                                                    <span className="block text-[10.5px] text-[#a3ad92]">Trả khi nhận</span>
+                                                </span>
+                                                <svg
+                                                    width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8a967a" strokeWidth="2.2"
+                                                    strokeLinecap="round" strokeLinejoin="round"
+                                                    className={`shrink-0 transition-transform ${expanded ? 'rotate-180' : ''}`}
+                                                >
+                                                    <path d="m6 9 6 6 6-6" />
+                                                </svg>
+                                            </button>
+                                            {expanded && (
+                                                <div className="border-t border-cardBorder px-4 pb-4 pt-3" style={{ background: '#fafcf7' }}>
+                                                    <OrderDetail
+                                                        order={order}
+                                                        onReorder={() => setReorder({ order, start: null, end: null })}
+                                                        onViewProgress={() => viewProgress(order)}
+                                                    />
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </>
                     )}
                     {orders.length >= 20 && (
                         <p className="mt-2 text-[12px] text-[#a3ad92]">
