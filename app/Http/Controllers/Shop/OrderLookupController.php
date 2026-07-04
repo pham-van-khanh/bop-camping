@@ -53,6 +53,8 @@ class OrderLookupController extends Controller
             'end_date' => $o->end_date->format('d/m/Y'),
             'total_price' => $o->total_price,
             'deposit_total' => $o->deposit_total,
+            'discount_total' => $o->discount_total,
+            'amount_due' => $o->amount_due,
             'status' => $o->status,
             'status_label' => $this->statusLabel($o->status),
             'note' => $o->note,
@@ -87,7 +89,7 @@ class OrderLookupController extends Controller
         // Đơn bị huỷ — timeline riêng
         if ($o->status === 'cancelled') {
             return [
-                ['title' => 'Đã đặt giữ chỗ', 'note' => $o->created_at->format('d/m · H:i'), 'state' => 'done'],
+                ['title' => 'Đã gửi yêu cầu thuê', 'note' => $o->created_at->format('d/m · H:i'), 'state' => 'done'],
                 ['title' => 'Đã huỷ đơn',      'note' => 'Đơn thuê đã bị huỷ',                'state' => 'current'],
             ];
         }
@@ -99,7 +101,7 @@ class OrderLookupController extends Controller
         };
 
         return [
-            ['title' => 'Đã đặt giữ chỗ',    'note' => $o->created_at->format('d/m · H:i'),         'state' => $state(0)],
+            ['title' => 'Đã gửi yêu cầu thuê', 'note' => $o->created_at->format('d/m · H:i'),         'state' => $state(0)],
             ['title' => 'Đã xác nhận',        'note' => 'Shop đã liên hệ xác nhận đơn',               'state' => $state(1)],
             ['title' => 'Đang thuê',           'note' => 'Đã giao đồ · chúc chuyến đi vui 🏕',         'state' => $state(2)],
             ['title' => 'Đã trả · hoàn cọc',  'note' => 'Dự kiến '.$o->end_date->format('d/m/Y'),  'state' => $state(3)],

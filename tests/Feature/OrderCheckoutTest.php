@@ -107,4 +107,50 @@ class OrderCheckoutTest extends TestCase
 
         $this->assertSame(2, Order::count());
     }
+
+    /** bopcamping-kpf — email tuỳ chọn ở checkout: khách vãng lai nhận mail xác nhận. */
+
+    /** @test */
+    public function guest_email_is_saved_on_order(): void
+    {
+        $p = $this->product();
+
+        $this->post(route('order.store'), [
+            'name' => 'Khách Email',
+            'phone' => '0912345678',
+            'email' => 'khach@gmail.com',
+            'items' => [['product_id' => $p->id, 'quantity' => 1, 'start' => '2030-07-01', 'end' => '2030-07-02']],
+        ])->assertSessionHas('order_code');
+
+        $this->assertSame('khach@gmail.com', Order::first()->customer_email);
+    }
+
+    /** @test */
+    public function invalid_email_is_rejected(): void
+    {
+        $p = $this->product();
+
+        $this->post(route('order.store'), [
+            'name' => 'Khách',
+            'phone' => '0912345678',
+            'email' => 'not-an-email',
+            'items' => [['product_id' => $p->id, 'quantity' => 1, 'start' => '2030-07-01', 'end' => '2030-07-02']],
+        ])->assertSessionHasErrors('email');
+
+        $this->assertSame(0, Order::count());
+    }
+
+    /** @test */
+    public function order_without_email_keeps_customer_email_null_for_guest(): void
+    {
+        $p = $this->product();
+
+        $this->post(route('order.store'), [
+            'name' => 'Khách',
+            'phone' => '0912345678',
+            'items' => [['product_id' => $p->id, 'quantity' => 1, 'start' => '2030-07-01', 'end' => '2030-07-02']],
+        ])->assertSessionHas('order_code');
+
+        $this->assertNull(Order::first()->customer_email);
+    }
 }

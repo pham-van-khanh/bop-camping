@@ -46,6 +46,7 @@ class OrderController extends Controller
         $validated = $request->validate([
             'name' => ['required', 'string', 'min:2', 'max:100'],
             'phone' => ['required', 'string', 'regex:/^0[0-9]{8,10}$/'],
+            'email' => ['nullable', 'email', 'max:255'],
             'address' => ['nullable', 'string', 'max:255'],
             'note' => ['nullable', 'string', 'max:500'],
             'items' => ['nullable', 'array'],
@@ -64,6 +65,7 @@ class OrderController extends Controller
         ], [
             'name.required' => 'Vui lòng nhập họ tên.',
             'phone.required' => 'Vui lòng nhập số điện thoại.',
+            'email.email' => 'Email không hợp lệ.',
         ]);
 
         $itemLines = $validated['items'] ?? [];
@@ -155,9 +157,13 @@ class OrderController extends Controller
             $startDate = Carbon::parse(min($starts));
             $endDate = Carbon::parse(max($ends));
 
-            // Email gửi xác nhận: lấy từ tài khoản đã đăng nhập (bỏ email tạm .local).
-            $user = Auth::user();
-            $customerEmail = ($user && ! str_ends_with($user->email, '@bopcamping.local')) ? $user->email : null;
+            // Email gửi xác nhận: ưu tiên email khách nhập ở checkout (khách vãng lai cũng
+            // nhận được mail); bỏ trống thì lấy từ tài khoản đăng nhập (bỏ email tạm .local).
+            $customerEmail = $validated['email'] ?? null;
+            if (! $customerEmail) {
+                $user = Auth::user();
+                $customerEmail = ($user && ! str_ends_with($user->email, '@bopcamping.local')) ? $user->email : null;
+            }
 
             $order = Order::create([
                 'user_id' => Auth::id(),
@@ -262,7 +268,8 @@ class OrderController extends Controller
         }
 
         // Mail đều là ShouldQueue → đẩy vào queue (worker gửi nền), checkout không treo vì SMTP.
-        // Mail xác nhận đặt đơn (chỉ khi có email thật — khách đăng nhập đã verify).
+        // Mail xác nhận đặt đơn — gửi tới email khách nhập ở checkout (chưa verify, khách
+        // vãng lai cũng nhận) hoặc email tài khoản; notifiableEmail() chỉ lọc email tạm .local.
         if ($email = $order->notifiableEmail()) {
             Mail::to($email)->send(new OrderPlacedMail($order));
         }

@@ -72,12 +72,19 @@ export default function Cart() {
     const [selectedCodes, setSelectedCodes] = useState<string[]>([]);
     const [manualCode, setManualCode] = useState('');
     const [suggestion, setSuggestion] = useState<Suggestion | null>(null);
+    // Xác nhận điều khoản (checkout-thue-do-camping.md mục 6) — 1 checkbox gộp + popup tóm tắt.
+    const [agreed, setAgreed] = useState(false);
+    const [policyModal, setPolicyModal] = useState<'terms' | 'deposit' | null>(null);
     // bopcamping-80c (ADR-5): tồn kho theo khoảng ngày từng dòng, key "p|c:id:start:end"
     const [stockMap, setStockMap] = useState<Record<string, number>>({});
+
+    // Email tạm @bopcamping.local (chưa verify) không dùng để prefill.
+    const userEmail = user?.email && !user.email.endsWith('@bopcamping.local') ? user.email : '';
 
     const { data, setData, post, processing, errors } = useForm<{
         name: string;
         phone: string;
+        email: string;
         address: string;
         note: string;
         referral_code: string;
@@ -87,6 +94,7 @@ export default function Cart() {
     }>({
         name: user?.name ?? '',
         phone: user?.phone ?? '',
+        email: userEmail,
         address: '',
         note: '',
         referral_code: firstOrderEligible ? (referralRef ?? '') : '',
@@ -305,7 +313,9 @@ export default function Cart() {
         [totals.rent, promo, refereeValue, selectedVouchers],
     );
 
-    const payable = Math.max(0, totals.rent - estimate.total) + totals.deposit;
+    // "Tổng tiền thuê" = phí thuê sau ưu đãi; "Tổng cần thanh toán" = + cọc (COD khi nhận).
+    const rentalAfterDiscount = Math.max(0, totals.rent - estimate.total);
+    const payable = rentalAfterDiscount + totals.deposit;
 
     // Sau khi làm tươi, giỏ có thể không còn cùng 1 vị trí (admin đổi vị trí sản phẩm) → chặn đặt.
     const locationConflict = useMemo(() => cartHasLocationConflict(lines), [lines]);
@@ -315,9 +325,19 @@ export default function Cart() {
         && data.address.trim().length >= 4
         && lines.length > 0
         && !locationConflict
+        && agreed
         && !processing;
 
-    const set = (k: 'name' | 'phone' | 'address' | 'note') =>
+    /** Gợi ý dưới nút khi chưa đặt được — theo thứ tự ưu tiên. */
+    const submitHint = locationConflict
+        ? 'Giỏ đang có thiết bị khác vị trí — gỡ bớt để đặt đơn.'
+        : (data.name.trim().length < 2 || data.phone.trim().length < 8 || data.address.trim().length < 4)
+          ? 'Điền tên, số điện thoại và địa chỉ để đặt đơn.'
+          : !agreed
+            ? 'Tick xác nhận điều khoản để đặt đơn.'
+            : '';
+
+    const set = (k: 'name' | 'phone' | 'email' | 'address' | 'note') =>
         (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setData(k, e.target.value);
 
     const submit = () => post(route('order.store'));
@@ -326,14 +346,14 @@ export default function Cart() {
     if (flash.order_code) {
         return (
             <>
-                <Head title="Đã đặt giữ chỗ" />
+                <Head title="Đã gửi yêu cầu thuê" />
                 <main className="mx-auto max-w-[1060px] px-5 pb-12 pt-[30px]">
                     <div className="mx-auto mt-2.5 max-w-[600px] rounded-[20px] border border-cardBorder bg-card text-center" style={{ padding: 'clamp(28px,4vw,44px)' }}>
                         <div className="mx-auto mb-[18px] grid h-[68px] w-[68px] place-items-center rounded-full" style={{ background: '#dcebc4' }}>
                             <svg width="34" height="34" viewBox="0 0 24 24" fill="none"><path d="m5 13 4 4L19 7" stroke="#3a5a1f" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" /></svg>
                         </div>
-                        <h1 className="mb-2 text-[26px] font-extrabold text-ink">Đã đặt giữ chỗ!</h1>
-                        <p className="mb-[18px] text-moss">Tụi mình sẽ gọi xác nhận trong ít phút. Mã đơn của bạn:</p>
+                        <h1 className="mb-2 text-[26px] font-extrabold text-ink">Đã gửi yêu cầu thuê!</h1>
+                        <p className="mb-[18px] text-moss">Tụi mình sẽ gọi xác nhận trong 15–30 phút (giờ hành chính). Mã đơn của bạn:</p>
                         <div className="mb-[22px] inline-block rounded-control border border-dashed px-[26px] py-3 font-mono text-[24px] font-bold tracking-[0.1em] text-grass" style={{ background: '#eef2e3', borderColor: '#b9c79a' }}>
                             {flash.order_code}
                         </div>
@@ -494,6 +514,45 @@ export default function Cart() {
                             <Link href="/thiet-bi" className="inline-block text-[14px] font-bold text-grass">+ Thêm thiết bị khác</Link>
                             <Link href="/combos" className="inline-block text-[14px] font-bold text-grass">+ Xem combo tiết kiệm</Link>
                         </div>
+
+                        {/* Sau khi đặt yêu cầu (design doc mục 4) */}
+                        <div className="mt-5 rounded-[14px] border border-cardBorder bg-card p-4">
+                            <div className="mb-2.5 text-[13px] font-bold text-ink">Sau khi đặt yêu cầu</div>
+                            <ol className="flex flex-col gap-2">
+                                {[
+                                    'Tụi mình gọi điện xác nhận thông tin đơn thuê.',
+                                    'Chốt thời gian và địa điểm nhận – trả thiết bị.',
+                                    'Báo tổng chi phí (gồm phí giao nhận nếu có).',
+                                    'Chuẩn bị và bàn giao thiết bị theo lịch hẹn.',
+                                ].map((step, i) => (
+                                    <li key={i} className="flex items-start gap-2.5 text-[13px] leading-[1.5] text-[#3f4a32]">
+                                        <span className="mt-px grid h-[20px] w-[20px] flex-none place-items-center rounded-full bg-[#eef2e3] font-mono text-[11px] font-bold text-grass">{i + 1}</span>
+                                        {step}
+                                    </li>
+                                ))}
+                            </ol>
+                        </div>
+
+                        {/* Cam kết (design doc mục 5) */}
+                        <div className="mt-3 rounded-[14px] border border-cardBorder bg-card p-4">
+                            <div className="mb-2.5 text-[13px] font-bold text-ink">Cam kết của BỐP</div>
+                            <div className="grid gap-x-4 gap-y-1.5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
+                                {[
+                                    'Vệ sinh sạch sẽ trước khi bàn giao',
+                                    'Kiểm tra kỹ từng thiết bị trước khi giao',
+                                    'Giao đầy đủ phụ kiện theo sản phẩm',
+                                    'Hỗ trợ trong suốt thời gian thuê',
+                                ].map((c, i) => (
+                                    <div key={i} className="flex items-start gap-2 text-[12.5px] leading-[1.5] text-[#3f4a32]">
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" className="mt-0.5 flex-none">
+                                            <circle cx="12" cy="12" r="10" fill="#dcebc4" />
+                                            <path d="m8 12.5 2.6 2.6L16 9.5" stroke="#3a5a1f" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                                        </svg>
+                                        {c}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
                     </div>
 
                     {/* Checkout */}
@@ -509,6 +568,15 @@ export default function Cart() {
                                 <input value={data.phone} onChange={set('phone')} placeholder="Số điện thoại" inputMode="tel"
                                     className={`${inputCls} ${errors.phone ? 'border-red-400' : 'border-cardBorder'}`} />
                                 {errors.phone && <p className="mt-1 text-[12px] text-red-500">{errors.phone}</p>}
+                            </div>
+                            <div>
+                                <input value={data.email} onChange={set('email')} placeholder="Email (không bắt buộc)" inputMode="email"
+                                    className={`${inputCls} ${errors.email ? 'border-red-400' : 'border-cardBorder'}`} />
+                                {errors.email
+                                    ? <p className="mt-1 text-[12px] text-red-500">{errors.email}</p>
+                                    : <p className="mt-1 text-[11.5px] text-[#a3ad92]">
+                                        {userEmail ? 'Bỏ trống sẽ dùng email tài khoản của bạn.' : 'Để nhận email xác nhận đơn thuê.'}
+                                    </p>}
                             </div>
                             <div>
                                 <input value={data.address} onChange={set('address')} placeholder="Địa chỉ giao nhận"
@@ -566,8 +634,9 @@ export default function Cart() {
                             </div>
                         )}
 
-                        {/* Tóm tắt đơn */}
+                        {/* Chi tiết thanh toán (checkout-thue-do-camping.md mục 2) */}
                         <div className="border-t border-cardBorder pt-3.5">
+                            <div className="mb-1.5 text-[11px] font-bold uppercase tracking-[0.05em] text-[#8a967a]">Chi tiết thanh toán</div>
                             <Row k="Phí thuê" v={money(totals.rent)} mono />
                             {estimate.lines.map((l, i) => (
                                 <Row key={i} k={l.label} v={`−${money(l.amount)}`} mono accentWarm />
@@ -575,36 +644,97 @@ export default function Cart() {
                             {estimate.capped && (
                                 <p className="py-1 text-right text-[11px] text-[#a3ad92]">Đã áp mức giảm tối đa cho đơn này</p>
                             )}
-                            <Row k="Tạm tính (sau giảm)" v={money(Math.max(0, totals.rent - estimate.total))} mono />
-                            <Row k="Tổng cọc (hoàn khi trả)" v={money(totals.deposit)} mono accentWarm />
-                            <div className="mt-1.5 flex justify-between border-t border-dashed pt-2.5 text-[16px]" style={{ borderColor: '#d6ddc4' }}>
-                                <span className="font-bold text-ink">Trả khi nhận</span>
-                                <span className="font-mono text-[18px] font-bold text-grass">{money(payable)}</span>
+                            <div className="flex justify-between border-t border-dashed py-[7px] text-[14px]" style={{ borderColor: '#e3e8d6' }}>
+                                <span className="font-semibold text-ink">Tổng tiền thuê</span>
+                                <span className="font-mono font-bold text-ink">{money(rentalAfterDiscount)}</span>
                             </div>
-                            {estimate.total > 0 && (
-                                <p className="mt-1 text-right text-[11px] text-[#a3ad92]">Giảm là tạm tính — xác nhận khi đặt đơn.</p>
-                            )}
+                            <div className="flex justify-between py-[5px] text-[14px]">
+                                <span className="inline-flex items-center gap-1.5 text-moss">
+                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" className="flex-none">
+                                        <path d="M12 3 5 5.5v5.2c0 4.6 3 8.4 7 9.8 4-1.4 7-5.2 7-9.8V5.5L12 3Z" fill="#C97B36" opacity=".9" />
+                                        <path d="m9.2 11.8 2 2 3.6-4" stroke="#fff" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+                                    </svg>
+                                    Tiền cọc (hoàn lại)
+                                </span>
+                                <span className="font-mono font-semibold text-campfire">{money(totals.deposit)}</span>
+                            </div>
+                            <p className="mb-1 pl-[19px] text-[11.5px] leading-[1.45] text-[#a3ad92]">Hoàn lại sau khi trả hàng và kiểm tra thiết bị.</p>
+                            <div className="mt-1.5 flex items-baseline justify-between border-t border-dashed pt-2.5" style={{ borderColor: '#d6ddc4' }}>
+                                <span className="text-[15px] font-extrabold text-ink">Tổng cần thanh toán</span>
+                                <span className="font-mono text-[19px] font-bold text-grass">{money(payable)}</span>
+                            </div>
+                            <p className="mt-0.5 text-right text-[11.5px] text-[#8a967a]">
+                                Tiền mặt (COD) khi nhận đồ{estimate.total > 0 ? ' · giảm là tạm tính, chốt khi đặt đơn' : ''}
+                            </p>
                         </div>
 
-                        <div className="my-3.5 flex items-center gap-2.5 rounded-[11px] px-3.5 py-[11px] text-[13px]" style={{ background: '#eef2e3', color: '#3a5a1f' }}>
-                            <span className="grid h-[22px] w-[22px] flex-none place-items-center rounded-[6px] bg-grass text-[11px] font-bold text-white">COD</span>
-                            <span>Thanh toán tiền mặt khi nhận đồ. Tiền cọc hoàn lại đầy đủ khi trả đủ và nguyên vẹn.</span>
-                        </div>
+                        {/* Lưu ý (rút gọn từ design doc mục 3) */}
+                        <ul className="my-3.5 flex flex-col gap-1 rounded-[11px] px-3.5 py-[11px] text-[12.5px] leading-[1.5]" style={{ background: '#eef2e3', color: '#3a5a1f' }}>
+                            <li>· Phí giao nhận (nếu có) sẽ được báo khi gọi xác nhận đơn.</li>
+                            <li>· Cần gia hạn thời gian thuê, liên hệ trước thời gian trả hàng.</li>
+                        </ul>
+                        {/* Xác nhận điều khoản (1 checkbox gộp, mở popup tóm tắt) */}
+                        <label className="mb-3 flex cursor-pointer items-start gap-2.5 text-[12.5px] leading-[1.55] text-[#3f4a32]">
+                            <input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)}
+                                className="mt-0.5 h-4 w-4 flex-none accent-grass" />
+                            <span>
+                                Tôi đồng ý với{' '}
+                                <button type="button" onClick={(e) => { e.preventDefault(); setPolicyModal('terms'); }}
+                                    className="font-semibold text-grass underline underline-offset-2">Điều khoản thuê</button>
+                                {' '}và{' '}
+                                <button type="button" onClick={(e) => { e.preventDefault(); setPolicyModal('deposit'); }}
+                                    className="font-semibold text-grass underline underline-offset-2">Chính sách hoàn cọc</button>
+                                , và hiểu rằng đơn thuê chỉ được xác nhận sau khi nhân viên liên hệ qua điện thoại.
+                            </span>
+                        </label>
                         <button onClick={submit} disabled={!canSubmit}
                             className="h-[52px] w-full rounded-control text-[16px] font-bold text-white transition disabled:cursor-not-allowed"
                             style={{ background: canSubmit ? '#557A2B' : '#c4cfae' }}>
-                            {processing ? 'Đang xử lý…' : 'Đặt giữ chỗ · COD'}
+                            {processing ? 'Đang xử lý…' : 'Đặt yêu cầu thuê'}
                         </button>
-                        {!canSubmit && !processing && (
-                            <div className="mt-2 text-center text-[12px] text-[#8a967a]">
-                                {locationConflict
-                                    ? 'Giỏ đang có thiết bị khác vị trí — gỡ bớt để đặt đơn.'
-                                    : 'Điền tên, số điện thoại và địa chỉ để đặt đơn.'}
-                            </div>
-                        )}
+                        <div className="mt-2 text-center text-[12px] text-[#8a967a]">
+                            {!canSubmit && !processing
+                                ? submitHint
+                                : 'Tụi mình sẽ gọi xác nhận trong 15–30 phút (giờ hành chính).'}
+                        </div>
                     </div>
                 </div>
             </main>
+
+            {/* Popup tóm tắt Điều khoản thuê / Chính sách hoàn cọc */}
+            {policyModal && (
+                <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/45 px-4" onClick={() => setPolicyModal(null)}>
+                    <div className="max-h-[80vh] w-full max-w-[440px] overflow-y-auto rounded-[18px] bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
+                        <h2 className="mb-3 text-[17px] font-extrabold text-ink">
+                            {policyModal === 'terms' ? 'Điều khoản thuê (tóm tắt)' : 'Chính sách hoàn cọc (tóm tắt)'}
+                        </h2>
+                        <ul className="mb-5 flex flex-col gap-2 text-[13.5px] leading-[1.6] text-[#3f4a32]">
+                            {(policyModal === 'terms'
+                                ? [
+                                    'Giá thuê tính theo ngày, bao gồm cả ngày nhận và ngày trả.',
+                                    'Khách kiểm tra thiết bị khi nhận; hỏng hóc, mất mát phát sinh trong thời gian thuê do khách chịu trách nhiệm.',
+                                    'Trả thiết bị đúng hẹn. Cần gia hạn, vui lòng liên hệ trước thời gian trả — phí gia hạn tính theo ngày.',
+                                    'Thanh toán tiền mặt (COD) khi nhận đồ. Phí giao nhận (nếu có) báo khi gọi xác nhận.',
+                                ]
+                                : [
+                                    'Tiền cọc được hoàn đầy đủ sau khi trả hàng và kiểm tra thiết bị nguyên vẹn.',
+                                    'Thiết bị hỏng hoặc thiếu phụ kiện: trừ chi phí sửa chữa / thay thế vào tiền cọc theo thoả thuận khi kiểm tra.',
+                                    'Hoàn cọc bằng tiền mặt ngay khi nhận lại đồ, hoặc chuyển khoản trong vòng 24h.',
+                                ]
+                            ).map((t, i) => (
+                                <li key={i} className="flex items-start gap-2">
+                                    <span className="mt-[7px] h-1.5 w-1.5 flex-none rounded-full bg-grass" />
+                                    {t}
+                                </li>
+                            ))}
+                        </ul>
+                        <button onClick={() => setPolicyModal(null)}
+                            className="h-[44px] w-full rounded-control bg-grass text-[14px] font-bold text-white transition hover:bg-pine">
+                            Đã hiểu
+                        </button>
+                    </div>
+                </div>
+            )}
         </>
     );
 }
