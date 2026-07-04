@@ -16,29 +16,116 @@ if [[ -z "$ENVIRONMENT" ]]; then
     exit 1
 fi
 
-case "$ENVIRONMENT" in
-    production)
-        APP_DIR="/var/www/production"
-        BRANCH="feat/scaffold-laravel"
-        ;;
-    staging)
-        APP_DIR="/var/www/staging"
-        BRANCH="develop"
-        ;;
-    *)
-        error "Unknown environment: $ENVIRONMENT"
-        exit 1
-        ;;
-esac
+#######################################
+# Load Configuration
+#######################################
+
+CONFIG_FILE="$SCRIPT_DIR/environments/${ENVIRONMENT}.conf"
+
+if [[ ! -f "$CONFIG_FILE" ]]; then
+    error "Environment config not found: $CONFIG_FILE"
+    exit 1
+fi
+
+source "$CONFIG_FILE"
+
+#######################################
+# Derived Variables
+#######################################
 
 RELEASES_DIR="$APP_DIR/releases"
 SHARED_DIR="$APP_DIR/shared"
 
-TIMESTAMP=$(date +%Y%m%d%H%M%S)
+TIMESTAMP=$(date +"%Y%m%d%H%M%S")
 NEW_RELEASE="$RELEASES_DIR/$TIMESTAMP"
 
-log "Environment : $ENVIRONMENT"
-log "Branch      : $BRANCH"
-log "Release     : $TIMESTAMP"
+#######################################
+# Deployment Information
+#######################################
 
-success "Initialization completed."
+log "==========================================="
+log "Laravel Deployment"
+log "==========================================="
+log "Environment : $ENV_NAME"
+log "Repository  : $REPOSITORY"
+log "Branch      : $BRANCH"
+log "App Dir     : $APP_DIR"
+log "Release     : $TIMESTAMP"
+log "==========================================="
+
+#######################################
+# Pre-flight Check
+#######################################
+
+log "Running pre-flight checks..."
+
+[[ -d "$APP_DIR" ]] || {
+    error "Application directory not found: $APP_DIR"
+    exit 1
+}
+
+[[ -d "$RELEASES_DIR" ]] || {
+    error "Releases directory not found: $RELEASES_DIR"
+    exit 1
+}
+
+[[ -d "$SHARED_DIR" ]] || {
+    error "Shared directory not found: $SHARED_DIR"
+    exit 1
+}
+
+command -v "$PHP_BIN" >/dev/null 2>&1 || {
+    error "PHP executable not found: $PHP_BIN"
+    exit 1
+}
+
+command -v git >/dev/null 2>&1 || {
+    error "Git is not installed."
+    exit 1
+}
+
+command -v "$COMPOSER_BIN" >/dev/null 2>&1 || {
+    error "Composer executable not found: $COMPOSER_BIN"
+    exit 1
+}
+
+command -v "$NPM_BIN" >/dev/null 2>&1 || {
+    error "NPM executable not found: $NPM_BIN"
+    exit 1
+}
+
+success "Pre-flight checks passed."
+
+#######################################
+# Create Release Directory
+#######################################
+
+log "Creating release directory..."
+
+if [[ -d "$NEW_RELEASE" ]]; then
+    error "Release already exists: $NEW_RELEASE"
+    exit 1
+fi
+
+mkdir -p "$NEW_RELEASE"
+
+success "Release directory created:"
+log "$NEW_RELEASE"
+
+#######################################
+# Verify Release
+#######################################
+
+[[ -d "$NEW_RELEASE" ]] || {
+    error "Failed to create release directory."
+    exit 1
+}
+
+success "Release directory verified."
+
+#######################################
+# Finish
+#######################################
+
+success "Deployment initialization completed."
+success "Ready for next deployment steps."
