@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Services\Promotion\EmailBonusService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
+use Inertia\Testing\AssertableInertia;
 use Tests\TestCase;
 
 /**
@@ -82,6 +83,40 @@ class EmailBonusTest extends TestCase
             'phone' => $user->phone,
             'items' => [['product_id' => $product->id, 'quantity' => 1, 'start' => $day, 'end' => $day]],
         ])->assertSessionHas('order_discount', 5000); // 5% của 100k
+    }
+
+    /** bopcamping-7w8 — checkout BÁO TRƯỚC ưu đãi email trong prop emailBonus. */
+
+    /** @test */
+    public function cart_marks_email_bonus_eligible_for_verified_first_order(): void
+    {
+        $user = $this->verifiedUser();
+
+        $this->actingAs($user)->get(route('cart'))->assertInertia(fn (AssertableInertia $p) => $p
+            ->where('emailBonus.eligible', true)
+            ->where('emailBonus.canEarn', false)
+            ->where('emailBonus.value', 5));
+    }
+
+    /** @test */
+    public function cart_prompts_email_when_first_order_user_has_no_verified_email(): void
+    {
+        $user = User::create(['name' => 'Chỉ SĐT', 'phone' => '0900000402']); // email tạm .local
+
+        $this->actingAs($user)->get(route('cart'))->assertInertia(fn (AssertableInertia $p) => $p
+            ->where('emailBonus.eligible', false)
+            ->where('emailBonus.canEarn', true));
+    }
+
+    /** @test */
+    public function cart_hides_email_bonus_after_first_order(): void
+    {
+        $user = $this->verifiedUser();
+        $this->order($user, 100000); // đã có đơn → không còn đơn đầu
+
+        $this->actingAs($user)->get(route('cart'))->assertInertia(fn (AssertableInertia $p) => $p
+            ->where('emailBonus.eligible', false)
+            ->where('emailBonus.canEarn', false));
     }
 
     // ---- Helpers -------------------------------------------------------------

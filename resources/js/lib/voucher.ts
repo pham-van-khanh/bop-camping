@@ -37,6 +37,14 @@ export type AvailableVoucher = {
 const rawDiscount = (type: VoucherType, value: number, base: number): number =>
     type === 'percent' ? Math.floor((base * value) / 100) : Math.round(value);
 
+/** Ưu đãi thêm email cho đơn đầu (EmailBonusService) — props từ CartController. */
+export type EmailBonusInfo = {
+    type: VoucherType;
+    value: number;
+    eligible: boolean; // đơn này sẽ được giảm (đơn đầu + email đã xác thực)
+    canEarn: boolean; // còn suất đơn đầu nhưng tài khoản chưa có email xác thực
+};
+
 /**
  * Ước tính giảm giá ở client (tạm tính — server là nguồn chân lý khi đặt đơn).
  * Mirror VAN AN TOÀN: tổng giảm ≤ maxDiscountPercent% giá trị thuê.
@@ -45,13 +53,17 @@ export function estimateDiscount(params: {
     rentalTotal: number;
     promo: PromoInfo;
     refereeValue: number | null; // giảm referee đơn đầu (đã tính), null nếu không áp
+    emailBonusValue?: number | null; // giảm email-bonus đơn đầu (đã tính), null nếu không áp
     selectedVouchers: AvailableVoucher[];
 }): { total: number; capped: boolean; lines: { label: string; amount: number }[] } {
-    const { rentalTotal, promo, refereeValue, selectedVouchers } = params;
+    const { rentalTotal, promo, refereeValue, emailBonusValue, selectedVouchers } = params;
     const lines: { label: string; amount: number }[] = [];
 
     if (refereeValue && refereeValue > 0) {
         lines.push({ label: 'Ưu đãi đơn đầu (mã giới thiệu)', amount: refereeValue });
+    }
+    if (emailBonusValue && emailBonusValue > 0) {
+        lines.push({ label: 'Ưu đãi thêm email (đơn đầu)', amount: emailBonusValue });
     }
     for (const v of selectedVouchers) {
         lines.push({ label: `Voucher ${voucherValueText(v.type, v.value)}`, amount: rawDiscount(v.type, v.value, rentalTotal) });
