@@ -269,16 +269,56 @@ else
 fi
 
 #######################################
+# Health Check (auto-rollback on failure)
+#######################################
+
+log "Running health check on the new release..."
+
+# Temporarily disable the ERR trap: a failed health check is handled here
+# (rollback), it is not an unexpected script error.
+set +e
+bash "$SCRIPT_DIR/health-check.sh" \
+    "$HEALTH_URL" \
+    "${HEALTH_HOST:-}" \
+    "${HEALTH_RETRIES:-5}" \
+    "${HEALTH_DELAY:-3}"
+HEALTH_STATUS=$?
+set -e
+
+if [[ "$HEALTH_STATUS" -ne 0 ]]; then
+    error "Health check failed — rolling back to the previous release."
+
+    set +e
+    bash "$SCRIPT_DIR/rollback.sh" "$ENVIRONMENT"
+    ROLLBACK_STATUS=$?
+    set -e
+
+    if [[ "$ROLLBACK_STATUS" -ne 0 ]]; then
+        error "Rollback also failed — MANUAL INTERVENTION REQUIRED."
+    else
+        warning "Rolled back to previous release. New release NOT live."
+    fi
+
+    exit 1
+fi
+
+success "Health check passed — new release is healthy."
+
+#######################################
 # Restart Queue Workers
 #######################################
 
-log "Restarting queue workers..."
+if [[ "${QUEUE_RESTART:-false}" == "true" ]]; then
+    log "Restarting queue workers..."
 
-cd "$APP_DIR/current"
+    cd "$APP_DIR/current"
 
-"$PHP_BIN" artisan queue:restart
+    "$PHP_BIN" artisan queue:restart
 
-success "Queue restart signal sent."
+    success "Queue restart signal sent."
+else
+    log "Queue restart disabled (QUEUE_RESTART != true), skipping."
+fi
 
 #######################################
 # Cleanup Releases
