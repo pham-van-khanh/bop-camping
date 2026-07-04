@@ -35,8 +35,12 @@ class Order extends Model
         'discount_breakdown',
         'status',
         'payment_method',
+        'payment_status',
         'note',
     ];
+
+    /** Tình trạng chuyển tiền (marker admin — bopcamping-7be). */
+    public const PAYMENT_STATUSES = ['unpaid', 'deposit', 'full'];
 
     protected $casts = [
         'start_date' => 'date',

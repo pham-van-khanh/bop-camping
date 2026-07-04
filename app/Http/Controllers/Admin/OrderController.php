@@ -41,6 +41,7 @@ class OrderController extends Controller
             'discount_breakdown' => $o->discount_breakdown,
             'amount_due' => $o->amount_due,
             'status' => $o->status,
+            'payment_status' => $o->payment_status,
             'note' => $o->note,
             'created_at' => $o->created_at->format('d/m/Y H:i'),
             'items' => $o->items->map(fn ($i) => [
@@ -103,5 +104,20 @@ class OrderController extends Controller
         $order->update(['status' => $validated['status']]);
 
         return back()->with('success', "Đơn {$order->code} → {$validated['status']}");
+    }
+
+    /**
+     * Đánh dấu tình trạng chuyển tiền của đơn (bopcamping-7be) — admin bấm sau khi
+     * xác nhận với khách. unpaid = chưa chuyển · deposit = đã chuyển cọc · full = chuyển hết.
+     */
+    public function updatePayment(Request $request, Order $order): RedirectResponse
+    {
+        $validated = $request->validate([
+            'payment_status' => ['required', 'in:'.implode(',', Order::PAYMENT_STATUSES)],
+        ]);
+
+        $order->update(['payment_status' => $validated['payment_status']]);
+
+        return back()->with('success', "Đơn {$order->code}: đã cập nhật tình trạng chuyển tiền");
     }
 }

@@ -56,9 +56,16 @@ type Order = {
     start_date: string; end_date: string; days: number;
     total_price: number; deposit_total: number; discount_total: number; amount_due: number;
     discount_breakdown: DiscountLine[] | null;
-    status: string; note: string | null; created_at: string; items: OrderItem[];
+    status: string; payment_status: string; note: string | null; created_at: string; items: OrderItem[];
     vouchers: UsedVoucher[]; referral: { referrer_name: string | null; status: string } | null;
 };
+
+// Tình trạng chuyển tiền (marker admin — bopcamping-7be).
+const PAYMENT_OPTIONS: { key: string; label: string; active: { bg: string; color: string } }[] = [
+    { key: 'unpaid',  label: 'Chưa chuyển',    active: { bg: '#f6ddd6', color: '#b3493a' } },
+    { key: 'deposit', label: 'Đã chuyển cọc',  active: { bg: '#fbf2d8', color: '#9a7a2a' } },
+    { key: 'full',    label: 'Chuyển hết',     active: { bg: '#dcebc4', color: '#3a5a1f' } },
+];
 type Stats = { total: number; pending: number; confirmed: number; renting: number; returned: number; cancelled: number };
 type InventoryItem = { id: number; name: string; category: string; quantity: number; status: string };
 
@@ -90,6 +97,11 @@ export default function AdminOrders({
 
     const changeStatus = (order: Order, status: string) => {
         router.patch(route('admin.orders.update', order.id), { status }, { preserveScroll: true });
+    };
+
+    const changePayment = (order: Order, payment_status: string) => {
+        if (order.payment_status === payment_status) return;
+        router.patch(route('admin.orders.payment', order.id), { payment_status }, { preserveScroll: true });
     };
 
     const filterTab = (status: string) => {
@@ -331,6 +343,30 @@ export default function AdminOrders({
                                                                             {!order.discount_breakdown?.length && order.vouchers.length === 0 && !order.referral && order.discount_total === 0 && (
                                                                                 <span className="text-moss">Không có</span>
                                                                             )}
+                                                                        </div>
+
+                                                                        {/* Tình trạng chuyển tiền — admin bấm sau khi xác nhận với khách (bopcamping-7be) */}
+                                                                        <div className="mb-2 mt-3 text-[12px] font-bold uppercase tracking-[0.04em] text-grass">Tình trạng chuyển tiền</div>
+                                                                        <div className="rounded-[10px] border border-[#eef2e3] bg-white p-3">
+                                                                            <div className="grid grid-cols-3 gap-2">
+                                                                                {PAYMENT_OPTIONS.map((opt) => {
+                                                                                    const active = (order.payment_status ?? 'unpaid') === opt.key;
+                                                                                    return (
+                                                                                        <button
+                                                                                            key={opt.key}
+                                                                                            onClick={(e) => { e.stopPropagation(); changePayment(order, opt.key); }}
+                                                                                            aria-pressed={active}
+                                                                                            className="rounded-[9px] border px-2 py-2 text-[12px] font-bold transition"
+                                                                                            style={active
+                                                                                                ? { background: opt.active.bg, color: opt.active.color, borderColor: opt.active.color }
+                                                                                                : { background: '#fff', color: '#8a967a', borderColor: '#e3e8d6' }}
+                                                                                        >
+                                                                                            {active && '✓ '}{opt.label}
+                                                                                        </button>
+                                                                                    );
+                                                                                })}
+                                                                            </div>
+                                                                            <p className="mt-2 text-[11.5px] text-[#a3ad92]">Bấm để đánh dấu sau khi xác nhận với khách. Cọc {money(order.deposit_total)} · tổng thu {money(order.amount_due)}.</p>
                                                                         </div>
 
                                                                         {order.note && (
