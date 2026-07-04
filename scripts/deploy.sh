@@ -124,8 +124,32 @@ log "$NEW_RELEASE"
 success "Release directory verified."
 
 #######################################
+# Clone Repository
+#######################################
+
+log "Cloning repository..."
+
+git clone \
+    --branch "$BRANCH" \
+    --depth 1 \
+    "$REPOSITORY" \
+    "$NEW_RELEASE"
+
+success "Repository cloned."
+
+#######################################
+# Verify Source
+#######################################
+
+[[ -f "$NEW_RELEASE/artisan" ]] || {
+    error "Laravel source is invalid."
+    exit 1
+}
+
+success "Laravel source verified."
+
+#######################################
 # Finish
 #######################################
 
-success "Deployment initialization completed."
-success "Ready for next deployment steps."
+success "Step completed."
