@@ -51,6 +51,11 @@ class CartController extends Controller
             ? ! Order::where('user_id', $user->id)->exists()
             : false;
 
+        // Ưu đãi thêm email (đơn đầu) — mirror điều kiện của EmailBonusService để
+        // checkout BÁO TRƯỚC mức giảm (server vẫn là nguồn chân lý khi tạo đơn).
+        $hasVerifiedEmail = $user && $user->email_verified_at && ! $user->hasPlaceholderEmail();
+        $emailBonusOn = (bool) $settings->email_bonus_enabled;
+
         return Inertia::render('Cart', [
             'availableVouchers' => $vouchers,
             'referralRef' => $request->session()->get('referral_ref', ''),
@@ -62,6 +67,14 @@ class CartController extends Controller
                 'minOrderAmount' => (float) $settings->min_order_amount,
                 'refereeDiscountType' => $settings->referee_discount_type,
                 'refereeDiscountValue' => (float) $settings->referee_discount_value,
+            ],
+            'emailBonus' => [
+                'type' => $settings->email_bonus_discount_type,
+                'value' => (float) $settings->email_bonus_discount_value,
+                // Đơn này SẼ được giảm — hiện dòng ước tính trong Chi tiết thanh toán.
+                'eligible' => $emailBonusOn && $firstOrderEligible && $hasVerifiedEmail,
+                // Chưa có email xác thực nhưng còn suất đơn đầu — nhắc để khách biết quyền lợi.
+                'canEarn' => $emailBonusOn && $firstOrderEligible && $user !== null && ! $hasVerifiedEmail,
             ],
         ]);
     }

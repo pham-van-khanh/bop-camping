@@ -6,7 +6,6 @@ const NAV = [
     { label: 'Trang chủ', href: '/' },
     { label: 'Thuê đồ', href: '/thiet-bi' },
     { label: 'Combo', href: '/combos' },
-    { label: 'Tra cứu đơn', href: '/tra-cuu' },
 ];
 
 function isActive(current: string, href: string) {
@@ -19,8 +18,11 @@ export default function Header({ cartCount = 0, userName }: { cartCount?: number
     const { post, processing } = useForm({});
     const [menuOpen, setMenuOpen] = useState(false);
 
-    // Thêm mục "Tài khoản" khi đã đăng nhập
-    const nav = userName ? [...NAV, { label: 'Tài khoản', href: '/tai-khoan' }] : NAV;
+    // Đăng nhập: tra cứu đơn nằm trong "Tài khoản" (bopcamping-7w8) — không hiện mục riêng.
+    // Khách vãng lai: giữ "Tra cứu đơn" ở nav vì không vào được trang tài khoản.
+    const nav = userName
+        ? [...NAV, { label: 'Tài khoản', href: '/tai-khoan' }]
+        : [...NAV, { label: 'Tra cứu đơn', href: '/tra-cuu' }];
 
     // Đóng menu mobile khi đổi trang / nhấn Esc.
     useEffect(() => setMenuOpen(false), [url]);

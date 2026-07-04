@@ -7,18 +7,9 @@ import ProductReviews, { type ReviewItem, type ReviewSummary } from '@/Component
 import { dayCount, fromISO, money, rangeText, toISO } from '@/lib/format';
 import { addLine, clearCart, locationConflict, type CartLine, type CartLocation } from '@/lib/cart';
 import { emit, EVENTS } from '@/lib/bus';
+import { gradFor } from '@/lib/grad';
 import type { PageProps } from '@/types';
 import type { ProductResource } from '@/types/product';
-
-const GRAD: Record<string, string> = {
-    'leu-cam-trai':      'linear-gradient(150deg,#3a5a40,#588157)',
-    'tui-ngu':           'linear-gradient(150deg,#4a4e69,#9a8c98)',
-    'bep-nau-an':        'linear-gradient(150deg,#7f4f24,#b6873a)',
-    'ban-ghe-da-ngoai':  'linear-gradient(150deg,#4a6741,#7a9b6b)',
-    'den-chieu-sang':    'linear-gradient(150deg,#3d405b,#6e7db0)',
-    'ba-lo-tui':         'linear-gradient(150deg,#5c4033,#8b6355)',
-};
-const gradFor = (slug: string) => GRAD[slug] ?? 'linear-gradient(150deg,#4a6741,#7a9b6b)';
 
 /** Phụ kiện "thường thuê cùng" (Case 2, US-03) — admin gán tay ở form sản phẩm. */
 type AccessoryItem = {

@@ -10,7 +10,7 @@ import {
 } from '@/lib/cart';
 import { money, rangeText } from '@/lib/format';
 import { emit, on, EVENTS } from '@/lib/bus';
-import { estimateDiscount, voucherValueText, type AvailableVoucher, type PromoInfo } from '@/lib/voucher';
+import { estimateDiscount, voucherValueText, type AvailableVoucher, type EmailBonusInfo, type PromoInfo } from '@/lib/voucher';
 import type { PageProps } from '@/types';
 
 type CheckoutItem = { product_id: number; quantity: number; start: string; end: string };
@@ -61,10 +61,11 @@ type Props = PageProps<{
     referralRef: string;
     firstOrderEligible: boolean;
     promo: PromoInfo;
+    emailBonus: EmailBonusInfo;
 }>;
 
 export default function Cart() {
-    const { auth, flash, availableVouchers, referralRef, firstOrderEligible, promo } = usePage<Props>().props;
+    const { auth, flash, availableVouchers, referralRef, firstOrderEligible, promo, emailBonus } = usePage<Props>().props;
     const user = auth.user;
     const promoOn = !!user && promo.enabled;
 
@@ -308,9 +309,18 @@ export default function Cart() {
         [availableVouchers, selectedCodes],
     );
 
+    // Ưu đãi thêm email (đơn đầu) — điều kiện đã được server chốt (emailBonus.eligible),
+    // client chỉ quy ra số tiền để BÁO TRƯỚC trong Chi tiết thanh toán.
+    const emailBonusValue = useMemo(() => {
+        if (!emailBonus.eligible || totals.rent <= 0) return null;
+        return emailBonus.type === 'percent'
+            ? Math.floor((totals.rent * emailBonus.value) / 100)
+            : Math.round(emailBonus.value);
+    }, [emailBonus, totals.rent]);
+
     const estimate = useMemo(
-        () => estimateDiscount({ rentalTotal: totals.rent, promo, refereeValue, selectedVouchers }),
-        [totals.rent, promo, refereeValue, selectedVouchers],
+        () => estimateDiscount({ rentalTotal: totals.rent, promo, refereeValue, emailBonusValue, selectedVouchers }),
+        [totals.rent, promo, refereeValue, emailBonusValue, selectedVouchers],
     );
 
     // "Tổng tiền thuê" = phí thuê sau ưu đãi; "Tổng cần thanh toán" = + cọc (COD khi nhận).
@@ -590,6 +600,13 @@ export default function Cart() {
                         {/* Khuyến mãi */}
                         {!user && (
                             <p className="mb-3.5 text-[13px] text-moss">Đăng nhập để dùng mã giới thiệu và voucher của bạn.</p>
+                        )}
+                        {emailBonus.canEarn && (
+                            <p className="mb-3 rounded-[10px] px-3 py-2 text-[12.5px] leading-[1.5]" style={{ background: '#fbf2d8', color: '#9a7a2a' }}>
+                                💡 Tài khoản có email xác thực được giảm{' '}
+                                <strong>{emailBonus.type === 'percent' ? `${emailBonus.value}%` : money(emailBonus.value)}</strong>{' '}
+                                ngay đơn thuê đầu tiên — lần đăng nhập tới hãy thêm email nhé.
+                            </p>
                         )}
                         {promoOn && firstOrderEligible && (
                             <div className="mb-3">

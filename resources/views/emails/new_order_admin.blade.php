@@ -39,7 +39,7 @@
             </table>
 
             <div style="margin:16px 0 0;background:#eef2e3;border-radius:12px;padding:12px 16px;display:flex;justify-content:space-between;">
-                <span style="font-weight:800;">Trả khi nhận</span>
+                <span style="font-weight:800;">Trả khi nhận: </span>
                 <span style="font-weight:800;">{{ number_format($order->amount_due, 0, ',', '.') }}đ</span>
             </div>
 
