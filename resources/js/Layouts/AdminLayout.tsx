@@ -17,6 +17,16 @@ const NAV = [
         ),
     },
     {
+        href: '/admin/stats',
+        name: 'admin.stats',
+        label: 'Thống kê',
+        icon: (
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                <path d="M4 20V10M10 20V4M16 20v-7M22 20H2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+        ),
+    },
+    {
         href: '/admin/orders',
         name: 'admin.orders',
         label: 'Đơn thuê',
@@ -142,7 +152,7 @@ const NAV = [
 ];
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
-    const { auth, pending_reviews } = usePage<PageProps>().props;
+    const { auth, pending_reviews, pending_orders } = usePage<PageProps>().props;
     const currentRoute = usePage().url;
 
     const logout = () => {
@@ -188,6 +198,11 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                                 {item.name === 'admin.reviews' && !!pending_reviews && (
                                     <span className={`grid h-5 min-w-5 place-items-center rounded-full px-1.5 font-mono text-[11px] font-bold ${active ? 'bg-white text-grass' : 'bg-campfire text-white'}`}>
                                         {pending_reviews}
+                                    </span>
+                                )}
+                                {item.name === 'admin.orders' && !!pending_orders && (
+                                    <span className={`grid h-5 min-w-5 place-items-center rounded-full px-1.5 font-mono text-[11px] font-bold ${active ? 'bg-white text-grass' : 'bg-campfire text-white'}`}>
+                                        {pending_orders}
                                     </span>
                                 )}
                             </Link>

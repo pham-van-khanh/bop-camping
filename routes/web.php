@@ -13,6 +13,7 @@ use App\Http\Controllers\Admin\PromotionController as AdminPromotionController;
 use App\Http\Controllers\Admin\ReferralController as AdminReferralController;
 use App\Http\Controllers\Admin\ReviewController as AdminReviewController;
 use App\Http\Controllers\Admin\ServiceLocationController as AdminServiceLocationController;
+use App\Http\Controllers\Admin\StatsController as AdminStatsController;
 use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\Admin\VoucherController as AdminVoucherController;
 use App\Http\Controllers\ProfileController;
@@ -66,6 +67,13 @@ Route::post('/admin/logout', [AdminAuthController::class, 'logout'])->name('admi
 Route::middleware(['admin'])->prefix('admin')->name('admin.')->group(function () {
     Route::get('/', fn () => redirect()->route('admin.dashboard'));
     Route::get('/dashboard', [AdminDashboardController::class, 'index'])->name('dashboard');
+
+    // Thống kê + thu chi + chi phí phát sinh (bopcamping-h1s)
+    Route::get('/stats', [AdminStatsController::class, 'index'])->name('stats');
+    Route::post('/expenses', [AdminStatsController::class, 'storeExpense'])->name('expenses.store')->middleware('throttle:60,1');
+    Route::put('/expenses/{expense}', [AdminStatsController::class, 'updateExpense'])->name('expenses.update')->middleware('throttle:60,1');
+    Route::delete('/expenses/{expense}', [AdminStatsController::class, 'destroyExpense'])->name('expenses.destroy');
+
     Route::get('/orders', [AdminOrderController::class, 'index'])->name('orders');
     Route::patch('/orders/{order}', [AdminOrderController::class, 'updateStatus'])->name('orders.update');
     // Đánh dấu tình trạng chuyển tiền (đã chuyển cọc / chuyển hết / chưa chuyển) — bopcamping-7be
