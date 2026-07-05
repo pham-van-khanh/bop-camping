@@ -18,7 +18,7 @@ use Inertia\Response;
 
 class ProductController extends Controller
 {
-    public function index(): Response
+    public function index(Request $request): Response
     {
         // Tên các combo active chứa từng sản phẩm — FE cảnh báo khi ẩn/xoá (US-07)
         $comboNamesByProduct = Combo::query()
@@ -28,9 +28,16 @@ class ProductController extends Controller
             ->groupBy('product_id')
             ->map(fn ($rows) => $rows->pluck('name')->values());
 
+        // Lọc: tìm theo tên + lọc theo danh mục (giữ query khi phân trang).
+        $search = trim((string) $request->query('search', ''));
+        $categoryId = (int) $request->query('category', 0);
+
         $products = Product::with(['category', 'serviceLocations', 'accessories', 'images' => fn ($q) => $q->orderBy('sort_order')])
+            ->when($search !== '', fn ($q) => $q->where('name', 'like', '%'.$search.'%'))
+            ->when($categoryId > 0, fn ($q) => $q->where('category_id', $categoryId))
             ->orderBy('name')
             ->paginate(50)
+            ->withQueryString()
             ->through(fn (Product $p) => [
                 'id' => $p->id,
                 'name' => $p->name,
@@ -65,6 +72,7 @@ class ProductController extends Controller
                 'area' => $l->area,
                 'status' => $l->status,
             ])->values(),
+            'filters' => ['search' => $search, 'category' => $categoryId ?: null],
         ]);
     }
 

@@ -54,13 +54,37 @@ export default function AdminProducts({
     categories,
     service_locations,
     accessory_options,
+    filters,
 }: {
     products: Paginator<Product>;
     categories: CategoryOption[];
     service_locations: ServiceLocationOption[];
     accessory_options: AccessoryOption[];
+    filters: { search: string; category: number | null };
 }) {
     const { flash } = usePage<PageProps>().props;
+
+    // Lọc sản phẩm: tìm theo tên (debounce) + lọc danh mục. Giữ state qua phân trang.
+    const [search, setSearch] = useState(filters.search ?? '');
+    const [category, setCategory] = useState<number | null>(filters.category ?? null);
+
+    const applyFilters = (next: { search?: string; category?: number | null }) => {
+        const s = next.search !== undefined ? next.search : search;
+        const c = next.category !== undefined ? next.category : category;
+        router.get(
+            route('admin.products'),
+            { search: s || undefined, category: c || undefined },
+            { preserveState: true, replace: true, preserveScroll: true },
+        );
+    };
+
+    // Debounce ô tìm: chỉ gọi server sau khi ngừng gõ 350ms.
+    const searchDebounce = useRef<ReturnType<typeof setTimeout>>();
+    const onSearchChange = (value: string) => {
+        setSearch(value);
+        clearTimeout(searchDebounce.current);
+        searchDebounce.current = setTimeout(() => applyFilters({ search: value }), 350);
+    };
 
     const [modalMode, setModalMode] = useState<'create' | 'edit' | null>(null);
     const [editing, setEditing] = useState<Product | null>(null);
@@ -270,15 +294,58 @@ export default function AdminProducts({
                     </button>
                 </div>
 
+                {/* Bộ lọc: tìm theo tên + lọc danh mục */}
+                <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center">
+                    <div className="relative flex-1">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#8a967a]">
+                            <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="2" />
+                            <path d="m20 20-3-3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                        </svg>
+                        <input
+                            value={search}
+                            onChange={(e) => onSearchChange(e.target.value)}
+                            placeholder="Tìm theo tên sản phẩm…"
+                            className="h-11 w-full rounded-[11px] border border-cardBorder bg-white pl-9 pr-9 text-[14px] text-ink outline-none focus:border-grass"
+                        />
+                        {search && (
+                            <button
+                                onClick={() => { setSearch(''); applyFilters({ search: '' }); }}
+                                aria-label="Xoá tìm kiếm"
+                                className="absolute right-2.5 top-1/2 grid h-6 w-6 -translate-y-1/2 place-items-center rounded-full text-[15px] text-[#8a967a] hover:bg-[#f1f4ea]"
+                            >
+                                ×
+                            </button>
+                        )}
+                    </div>
+                    <select
+                        value={category ?? ''}
+                        onChange={(e) => { const c = e.target.value ? Number(e.target.value) : null; setCategory(c); applyFilters({ category: c }); }}
+                        className="h-11 rounded-[11px] border border-cardBorder bg-white px-3 text-[14px] text-ink outline-none focus:border-grass sm:w-56"
+                    >
+                        <option value="">Tất cả danh mục</option>
+                        {categories.map((c) => (
+                            <option key={c.id} value={c.id}>{c.name}</option>
+                        ))}
+                    </select>
+                </div>
+
                 {/* Table */}
                 <div className="overflow-hidden rounded-[16px] border border-cardBorder bg-white">
                     {products.data.length === 0 ? (
                         <div className="py-16 text-center text-moss">
                             <div className="mb-2 text-[32px]">⛺️</div>
-                            <div className="text-[14px]">Chưa có sản phẩm nào</div>
-                            <button onClick={openCreate} className="mt-3 text-[13px] font-semibold text-grass underline">
-                                Thêm sản phẩm đầu tiên
-                            </button>
+                            <div className="text-[14px]">
+                                {filters.search || filters.category ? 'Không tìm thấy sản phẩm phù hợp' : 'Chưa có sản phẩm nào'}
+                            </div>
+                            {filters.search || filters.category ? (
+                                <button onClick={() => { setSearch(''); setCategory(null); applyFilters({ search: '', category: null }); }} className="mt-3 text-[13px] font-semibold text-grass underline">
+                                    Xoá bộ lọc
+                                </button>
+                            ) : (
+                                <button onClick={openCreate} className="mt-3 text-[13px] font-semibold text-grass underline">
+                                    Thêm sản phẩm đầu tiên
+                                </button>
+                            )}
                         </div>
                     ) : (
                         <table className="w-full text-[13px]">
@@ -458,14 +525,14 @@ export default function AdminProducts({
                         <div className="flex gap-2">
                             <button
                                 disabled={products.current_page <= 1}
-                                onClick={() => router.get(route('admin.products'), { page: products.current_page - 1 }, { preserveScroll: true })}
+                                onClick={() => router.get(route('admin.products'), { page: products.current_page - 1, search: search || undefined, category: category || undefined }, { preserveScroll: true })}
                                 className="rounded-[8px] border border-cardBorder px-3 py-1.5 font-semibold text-pine transition hover:border-grass disabled:opacity-40"
                             >
                                 Trước
                             </button>
                             <button
                                 disabled={products.current_page >= products.last_page}
-                                onClick={() => router.get(route('admin.products'), { page: products.current_page + 1 }, { preserveScroll: true })}
+                                onClick={() => router.get(route('admin.products'), { page: products.current_page + 1, search: search || undefined, category: category || undefined }, { preserveScroll: true })}
                                 className="rounded-[8px] border border-cardBorder px-3 py-1.5 font-semibold text-pine transition hover:border-grass disabled:opacity-40"
                             >
                                 Sau
