@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\Order;
 use App\Models\PromotionSetting;
 use App\Models\ReferralCode;
 use App\Models\Review;
@@ -66,6 +67,10 @@ class HandleInertiaRequests extends Middleware
             // Số đánh giá chờ duyệt — badge sidebar admin (chỉ tính cho admin).
             'pending_reviews' => fn () => $request->user()?->is_admin
                 ? Review::where('status', 'pending')->count()
+                : null,
+            // Số đơn mới (chờ xác nhận) — badge sidebar admin ở mục Đơn thuê.
+            'pending_orders' => fn () => $request->user()?->is_admin
+                ? Order::where('status', 'pending')->count()
                 : null,
             // SEO mặc định site-wide (controller có thể ghi đè bằng prop 'seo'); blade dựng meta head.
             'seo' => [

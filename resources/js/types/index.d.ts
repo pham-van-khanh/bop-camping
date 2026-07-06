@@ -39,4 +39,5 @@ export type PageProps<
     referral: Referral | null;
     emailBonus: EmailBonus;
     pending_reviews?: number | null;
+    pending_orders?: number | null;
 };
