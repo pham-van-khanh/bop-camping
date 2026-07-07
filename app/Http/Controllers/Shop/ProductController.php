@@ -7,6 +7,7 @@ use App\Models\Banner;
 use App\Models\CampingSpot;
 use App\Models\Category;
 use App\Models\Combo;
+use App\Models\Faq;
 use App\Models\Product;
 use App\Models\Review;
 use App\Models\ServiceLocation;
@@ -70,6 +71,8 @@ class ProductController extends Controller
         return Inertia::render('Welcome', [
             'featured' => $featured,
             'featured_combos' => $featuredCombos,
+            // FAQ hiển thị ở trang chủ (ADR home_faq_contact) — chỉ câu đang bật, theo thứ tự
+            'faqs' => Faq::active()->ordered()->get(['id', 'question', 'answer']),
             // Banner quản lý ở admin: hero (slideshow) + promo (dải khuyến mãi)
             'hero_banners' => Banner::active()->placement('hero')->ordered()->get()->map(fn (Banner $b) => [
                 'src' => $b->imageUrl(),

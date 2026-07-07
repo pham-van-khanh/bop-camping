@@ -32,7 +32,7 @@ export default function Footer() {
                         <span>Hướng dẫn thuê</span>
                         <span>Chính sách cọc</span>
                         <Link href="/tra-cuu" className="hover:text-grass">Tra cứu đơn</Link>
-                        <span>Câu hỏi thường gặp</span>
+                        <Link href="/#faq" className="hover:text-grass">Câu hỏi thường gặp</Link>
                     </div>
                 </div>
 

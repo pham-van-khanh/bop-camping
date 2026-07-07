@@ -7,6 +7,7 @@ use App\Http\Controllers\Admin\CampingSpotController as AdminCampingSpotControll
 use App\Http\Controllers\Admin\CategoryController as AdminCategoryController;
 use App\Http\Controllers\Admin\ComboController as AdminComboController;
 use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
+use App\Http\Controllers\Admin\FaqController as AdminFaqController;
 use App\Http\Controllers\Admin\OrderController as AdminOrderController;
 use App\Http\Controllers\Admin\ProductController as AdminProductController;
 use App\Http\Controllers\Admin\PromotionController as AdminPromotionController;
@@ -133,6 +134,12 @@ Route::middleware(['admin'])->prefix('admin')->name('admin.')->group(function ()
     Route::delete('/banners/{banner}', [AdminBannerController::class, 'destroy'])->name('banners.destroy')->middleware('throttle:30,1');
 
     // Điểm cắm trại (Cẩm nang) — CRUD + media
+    // FAQ trang chủ — CRUD (ADR home_faq_contact)
+    Route::get('/faqs', [AdminFaqController::class, 'index'])->name('faqs');
+    Route::post('/faqs', [AdminFaqController::class, 'store'])->name('faqs.store')->middleware('throttle:30,1');
+    Route::put('/faqs/{faq}', [AdminFaqController::class, 'update'])->name('faqs.update')->middleware('throttle:30,1');
+    Route::delete('/faqs/{faq}', [AdminFaqController::class, 'destroy'])->name('faqs.destroy');
+
     Route::get('/camping-spots', [AdminCampingSpotController::class, 'index'])->name('camping-spots');
     Route::post('/camping-spots', [AdminCampingSpotController::class, 'store'])->name('camping-spots.store')->middleware('throttle:30,1');
     Route::put('/camping-spots/{campingSpot}', [AdminCampingSpotController::class, 'update'])->name('camping-spots.update')->middleware('throttle:30,1');

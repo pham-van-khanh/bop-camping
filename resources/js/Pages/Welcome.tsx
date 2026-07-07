@@ -7,6 +7,7 @@ import BiomeHero from '@/Components/site/BiomeHero';
 import ProductCard from '@/Components/site/ProductCard';
 import SystemReviews, { type SystemReview } from '@/Components/site/SystemReviews';
 import ComboCard, { type ComboCardData } from '@/Components/site/ComboCard';
+import FaqSection, { type FaqItem } from '@/Components/site/FaqSection';
 import HomeServingPanel, { type ServiceLocation, type SuggestedSpot } from '@/Components/site/HomeServingPanel';
 import CampingGuideModal, { type ProvinceGroup } from '@/Components/site/CampingGuideModal';
 import type { ProductResource } from '@/types/product';
@@ -34,6 +35,7 @@ type PromoBanner = { id: number; image: string; title: string | null; subtitle: 
 interface Props {
     featured: ProductResource[];
     featured_combos: ComboCardData[];
+    faqs: FaqItem[];
     system_reviews: SystemReview[];
     review_stat: { avg: number; count: number };
     service_locations: ServiceLocation[];
@@ -43,7 +45,7 @@ interface Props {
     promo_banners: PromoBanner[];
 }
 
-export default function Home({ featured, featured_combos, system_reviews, review_stat, service_locations, suggested_spots, camping_provinces, hero_banners, promo_banners }: Props) {
+export default function Home({ featured, featured_combos, faqs, system_reviews, review_stat, service_locations, suggested_spots, camping_provinces, hero_banners, promo_banners }: Props) {
     const [guideOpen, setGuideOpen] = useState(false);
     const openCities = service_locations.filter((l) => l.status === 'open');
     const cities = openCities.map((l) => l.name).join(' hoặc ') || 'Vinh hoặc Hà Nội';
@@ -233,6 +235,9 @@ export default function Home({ featured, featured_combos, system_reviews, review
                     ))}
                 </div>
             </section>
+
+            {/* Câu hỏi thường gặp (admin quản lý) — ẩn khi chưa có FAQ nào */}
+            <FaqSection faqs={faqs} />
 
             {/* CTA */}
             <section className="mx-auto my-[46px] max-w-[1200px] px-5">
