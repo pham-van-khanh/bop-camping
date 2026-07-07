@@ -40,6 +40,7 @@ export interface SiteInfo {
     hotline_secondary: string | null;
     zalo_1: SiteZalo;
     zalo_2: SiteZalo;
+    zalo_main: SiteZalo;
     facebook_url: string | null;
     tiktok_url: string | null;
     working_hours: string | null;

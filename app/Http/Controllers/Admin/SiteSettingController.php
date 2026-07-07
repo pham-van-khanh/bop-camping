@@ -36,6 +36,7 @@ class SiteSettingController extends Controller
             'zalo2_label' => 'nullable|string|max:60',
             'zalo2_phone' => 'nullable|string|max:20',
             'zalo2_url' => 'nullable|url|max:255',
+            'zalo_main' => 'nullable|integer|in:1,2',
             'facebook_url' => 'nullable|url|max:255',
             'tiktok_url' => 'nullable|url|max:255',
             'working_hours' => 'nullable|string|max:100',

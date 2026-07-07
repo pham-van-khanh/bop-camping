@@ -12,6 +12,7 @@ type Settings = {
     zalo2_label: string | null;
     zalo2_phone: string | null;
     zalo2_url: string | null;
+    zalo_main: number;
     facebook_url: string | null;
     tiktok_url: string | null;
     working_hours: string | null;
@@ -37,6 +38,7 @@ export default function AdminSiteSettings() {
         zalo2_label: settings.zalo2_label ?? '',
         zalo2_phone: settings.zalo2_phone ?? '',
         zalo2_url: settings.zalo2_url ?? '',
+        zalo_main: String(settings.zalo_main ?? 1),
         facebook_url: settings.facebook_url ?? '',
         tiktok_url: settings.tiktok_url ?? '',
         working_hours: settings.working_hours ?? '',
@@ -99,6 +101,35 @@ export default function AdminSiteSettings() {
                             {field('zalo2_label', 'Tên hiển thị #2', 'Hỗ trợ thêm')}
                             {field('zalo2_phone', 'SĐT Zalo #2', '0373655008')}
                             {field('zalo2_url', 'Link Zalo #2 (tuỳ chọn)', 'https://zalo.me/...')}
+                        </div>
+
+                        {/* Zalo chính hiển thị ở trang chủ (bopcamping-12w) */}
+                        <div className="mt-4 border-t border-[#eef2e3] pt-4">
+                            <label className="mb-1.5 block text-[13px] font-semibold text-pine">Zalo chính (hiện nút "Nhắn Zalo" ở trang chủ)</label>
+                            <p className="mb-2 text-[12px] text-moss">Trang chủ chỉ hiện 1 số này; footer vẫn liệt kê cả hai.</p>
+                            <div className="flex flex-wrap gap-3">
+                                {([1, 2] as const).map((n) => (
+                                    <label
+                                        key={n}
+                                        className={`flex cursor-pointer items-center gap-2 rounded-[10px] border px-3.5 py-2.5 text-[13px] transition ${
+                                            data.zalo_main === String(n) ? 'border-grass bg-[#eef5e1] font-semibold text-grass' : 'border-cardBorder text-pine'
+                                        }`}
+                                    >
+                                        <input
+                                            type="radio"
+                                            name="zalo_main"
+                                            value={n}
+                                            checked={data.zalo_main === String(n)}
+                                            onChange={() => setData('zalo_main', String(n))}
+                                            className="accent-grass"
+                                        />
+                                        {n === 1
+                                            ? (data.zalo1_label || 'Zalo #1') + (data.zalo1_phone ? ` · ${data.zalo1_phone}` : '')
+                                            : (data.zalo2_label || 'Zalo #2') + (data.zalo2_phone ? ` · ${data.zalo2_phone}` : '')}
+                                    </label>
+                                ))}
+                            </div>
+                            {errors.zalo_main && <p className="mt-1 text-[12px] text-[#b3493a]">{errors.zalo_main}</p>}
                         </div>
                     </section>
 

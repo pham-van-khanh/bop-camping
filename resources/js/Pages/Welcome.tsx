@@ -2,7 +2,6 @@ import { Head, Link, usePage } from '@inertiajs/react';
 import { motion } from 'framer-motion';
 import { ReactNode, useState } from 'react';
 import SiteLayout from '@/Layouts/SiteLayout';
-import ZaloContactStrip from '@/Components/site/ZaloContactStrip';
 import type { PageProps } from '@/types';
 import HeroSlideshow from '@/Components/site/HeroSlideshow';
 import BiomeHero from '@/Components/site/BiomeHero';
@@ -112,12 +111,25 @@ export default function Home({ featured, featured_combos, faqs, system_reviews, 
                         >
                             Tra cứu đơn của tôi
                         </Link>
+                        {/* Nhắn Zalo — Zalo chính (admin chọn); ẩn khi chưa cấu hình */}
+                        {site.zalo_main?.url && (
+                            <a
+                                href={site.zalo_main.url}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="inline-flex h-[54px] items-center gap-2 rounded-[13px] px-6 font-bold text-white transition hover:-translate-y-0.5"
+                                style={{ background: '#0068FF', boxShadow: '0 16px 34px -12px rgba(0,0,0,.6)' }}
+                            >
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="flex-none">
+                                    <rect x="2.5" y="2.5" width="19" height="19" rx="5" fill="#fff" />
+                                    <path d="M8 8.4h5.4L8.2 15h5.6" stroke="#0068FF" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+                                </svg>
+                                Nhắn Zalo
+                            </a>
+                        )}
                     </div>
                 </motion.div>
             </HeroSlideshow>
-
-            {/* Liên hệ nhanh qua Zalo — ngay dưới hero (admin quản lý; ẩn khi chưa có Zalo) */}
-            <ZaloContactStrip accounts={[site.zalo_1, site.zalo_2]} />
 
             {/* Một bộ đồ, đi khắp địa hình (cảnh 3D đổi biôm) */}
             <section className="mx-auto grid max-w-[1200px] items-center gap-10 px-5 pb-2.5 pt-12" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(330px, 1fr))' }}>

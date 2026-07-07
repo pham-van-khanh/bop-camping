@@ -23,6 +23,7 @@ class SiteSettingSeeder extends Seeder
             'zalo2_label' => 'Hỗ trợ thêm',
             'zalo2_phone' => '0373655008',
             'zalo2_url' => null,
+            'zalo_main' => 1,
             'facebook_url' => null,
             'tiktok_url' => null,
             'working_hours' => '8:00 – 21:00 hằng ngày',

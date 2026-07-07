@@ -65,6 +65,7 @@ class SiteSettingTest extends TestCase
             'hotline_secondary' => '0373655008',
             'zalo1_label' => 'Tư vấn', 'zalo1_phone' => '0976544370',
             'zalo2_label' => 'Hỗ trợ', 'zalo2_phone' => '0373655008',
+            'zalo_main' => 1,
             'facebook_url' => 'https://facebook.com/bopcamping',
             'tiktok_url' => null,
             'working_hours' => '8:00 – 21:00 hằng ngày',
@@ -78,6 +79,10 @@ class SiteSettingTest extends TestCase
                 ->where('site.zalo_1.label', 'Tư vấn')
                 ->where('site.zalo_1.url', 'https://zalo.me/0976544370')
                 ->where('site.zalo_2.url', 'https://zalo.me/0373655008')
+                // Zalo chính = #1 → trang chủ dùng số này
+                ->where('site.zalo_main.label', 'Tư vấn')
+                ->where('site.zalo_main.phone', '0976544370')
+                ->where('site.zalo_main.url', 'https://zalo.me/0976544370')
                 ->where('site.facebook_url', 'https://facebook.com/bopcamping')
                 ->where('site.tiktok_url', null)
                 ->where('site.working_hours', '8:00 – 21:00 hằng ngày')
@@ -86,6 +91,37 @@ class SiteSettingTest extends TestCase
                 ->where('site.addresses.0.name', 'Vinh')
                 ->where('site.addresses.0.area', 'Nghệ An')
                 ->where('site.addresses.1.name', 'Hà Nội'));
+    }
+
+    /**
+     * Admin chọn Zalo chính = #2 → shared prop zalo_main trả tài khoản #2
+     * (footer vẫn có cả hai — kiểm ở component). bopcamping-12w.
+     *
+     * @test
+     */
+    public function main_zalo_follows_admin_choice(): void
+    {
+        $s = SiteSetting::current();
+        $s->update([
+            'zalo1_label' => 'Tư vấn', 'zalo1_phone' => '0976544370',
+            'zalo2_label' => 'Hỗ trợ', 'zalo2_phone' => '0373655008',
+            'zalo_main' => 2,
+        ]);
+
+        $this->assertSame(2, $s->mainZaloIndex());
+        $this->assertSame('https://zalo.me/0373655008', $s->mainZalo()['url']);
+
+        $this->get('/')->assertInertia(fn (Assert $page) => $page
+            ->where('site.zalo_main.phone', '0373655008')
+            ->where('site.zalo_main.label', 'Hỗ trợ'));
+    }
+
+    /** @test */
+    public function main_zalo_index_defaults_to_one_for_bad_value(): void
+    {
+        $s = SiteSetting::current();
+        $s->update(['zalo_main' => 1]);
+        $this->assertSame(1, $s->mainZaloIndex());
     }
 
     /** @test */
@@ -102,6 +138,7 @@ class SiteSettingTest extends TestCase
             'zalo1_phone' => '0976544370',
             'zalo2_label' => 'Hỗ trợ thêm',
             'zalo2_phone' => '0373655008',
+            'zalo_main' => 2,
             'facebook_url' => 'https://facebook.com/bopcamping',
             'tiktok_url' => 'https://tiktok.com/@bopcamping',
             'working_hours' => '8:00 – 21:00 hằng ngày',
@@ -110,6 +147,15 @@ class SiteSettingTest extends TestCase
         $s = SiteSetting::current();
         $this->assertSame('0976544370', $s->hotline_primary);
         $this->assertSame('https://tiktok.com/@bopcamping', $s->tiktok_url);
+        $this->assertSame(2, (int) $s->zalo_main);
+    }
+
+    /** @test */
+    public function update_rejects_invalid_zalo_main(): void
+    {
+        $this->actingAs($this->admin())->put(route('admin.settings.update'), [
+            'zalo_main' => 5,
+        ])->assertSessionHasErrors('zalo_main');
     }
 
     /** @test */

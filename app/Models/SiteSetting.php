@@ -35,4 +35,26 @@ class SiteSetting extends Model
 
         return $phone ? 'https://zalo.me/'.$phone : null;
     }
+
+    /** Chỉ số tài khoản Zalo chính (1|2) — mặc định 1 nếu giá trị lạ. */
+    public function mainZaloIndex(): int
+    {
+        return (int) $this->zalo_main === 2 ? 2 : 1;
+    }
+
+    /**
+     * Tài khoản Zalo chính hiển thị ở trang chủ (bopcamping-12w).
+     *
+     * @return array{label: string|null, phone: string|null, url: string|null}
+     */
+    public function mainZalo(): array
+    {
+        $n = $this->mainZaloIndex();
+
+        return [
+            'label' => $this->{"zalo{$n}_label"},
+            'phone' => $this->{"zalo{$n}_phone"},
+            'url' => $this->zaloUrl($n),
+        ];
+    }
 }

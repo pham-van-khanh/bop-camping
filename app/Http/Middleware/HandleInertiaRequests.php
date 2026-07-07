@@ -98,6 +98,8 @@ class HandleInertiaRequests extends Middleware
             'hotline_secondary' => $s->hotline_secondary,
             'zalo_1' => ['label' => $s->zalo1_label, 'phone' => $s->zalo1_phone, 'url' => $s->zaloUrl(1)],
             'zalo_2' => ['label' => $s->zalo2_label, 'phone' => $s->zalo2_phone, 'url' => $s->zaloUrl(2)],
+            // Zalo chính (admin chọn) — trang chủ chỉ hiện 1 số này
+            'zalo_main' => $s->mainZalo(),
             'facebook_url' => $s->facebook_url,
             'tiktok_url' => $s->tiktok_url,
             'working_hours' => $s->working_hours,
