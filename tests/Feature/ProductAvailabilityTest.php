@@ -39,7 +39,7 @@ class ProductAvailabilityTest extends TestCase
     /** @test */
     public function returns_full_quantity_when_no_orders(): void
     {
-        $this->getJson('/thiet-bi/'.$this->chair->id.'/kha-dung?start=2030-07-10&end=2030-07-12')
+        $this->getJson('/thiet-bi/'.$this->chair->slug.'/kha-dung?start=2030-07-10&end=2030-07-12')
             ->assertOk()
             ->assertExactJson(['available' => 6]);
     }
@@ -74,17 +74,17 @@ class ProductAvailabilityTest extends TestCase
             'subtotal' => 480000,
         ]);
 
-        $this->getJson('/thiet-bi/'.$this->chair->id.'/kha-dung?start=2030-07-10&end=2030-07-12')
+        $this->getJson('/thiet-bi/'.$this->chair->slug.'/kha-dung?start=2030-07-10&end=2030-07-12')
             ->assertOk()
             ->assertExactJson(['available' => 2]);
 
         // Chồng một phần cũng bị trừ
-        $this->getJson('/thiet-bi/'.$this->chair->id.'/kha-dung?start=2030-07-12&end=2030-07-14')
+        $this->getJson('/thiet-bi/'.$this->chair->slug.'/kha-dung?start=2030-07-12&end=2030-07-14')
             ->assertOk()
             ->assertExactJson(['available' => 2]);
 
         // Khoảng không chồng → đủ 6
-        $this->getJson('/thiet-bi/'.$this->chair->id.'/kha-dung?start=2030-07-13&end=2030-07-15')
+        $this->getJson('/thiet-bi/'.$this->chair->slug.'/kha-dung?start=2030-07-13&end=2030-07-15')
             ->assertOk()
             ->assertExactJson(['available' => 6]);
     }
@@ -92,10 +92,10 @@ class ProductAvailabilityTest extends TestCase
     /** @test */
     public function validates_date_params(): void
     {
-        $this->getJson('/thiet-bi/'.$this->chair->id.'/kha-dung')->assertStatus(422);
-        $this->getJson('/thiet-bi/'.$this->chair->id.'/kha-dung?start=xx&end=2030-07-12')->assertStatus(422);
+        $this->getJson('/thiet-bi/'.$this->chair->slug.'/kha-dung')->assertStatus(422);
+        $this->getJson('/thiet-bi/'.$this->chair->slug.'/kha-dung?start=xx&end=2030-07-12')->assertStatus(422);
         // end trước start
-        $this->getJson('/thiet-bi/'.$this->chair->id.'/kha-dung?start=2030-07-12&end=2030-07-10')->assertStatus(422);
+        $this->getJson('/thiet-bi/'.$this->chair->slug.'/kha-dung?start=2030-07-12&end=2030-07-10')->assertStatus(422);
     }
 
     /** @test */
@@ -103,7 +103,7 @@ class ProductAvailabilityTest extends TestCase
     {
         $this->chair->update(['status' => 'hidden']);
 
-        $this->getJson('/thiet-bi/'.$this->chair->id.'/kha-dung?start=2030-07-10&end=2030-07-12')
+        $this->getJson('/thiet-bi/'.$this->chair->slug.'/kha-dung?start=2030-07-10&end=2030-07-12')
             ->assertNotFound();
     }
 }

@@ -45,7 +45,7 @@ export default function ProductCard({ p, compact = false, index = 0 }: { p: Prod
             transition={{ duration: 0.5, delay: Math.min(index, 6) * 0.05, ease: [0.2, 0.7, 0.2, 1] }}
         >
             <Link
-                href={`/thiet-bi/${p.id}`}
+                href={`/thiet-bi/${p.slug}`}
                 className="group flex h-full flex-col overflow-hidden rounded-card border border-cardBorder bg-card transition duration-200 hover:-translate-y-1 hover:shadow-cardhover"
             >
                 <div className="relative h-[170px]" style={{ background: bg }}>

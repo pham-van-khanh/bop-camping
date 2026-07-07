@@ -32,13 +32,13 @@ Route::get('/', [ProductController::class, 'home'])->name('home');
 
 // Mặt tiền khách
 Route::get('/thiet-bi', [ProductController::class, 'index'])->name('products');
-Route::get('/thiet-bi/{product}', [ProductController::class, 'show'])->whereNumber('product')->name('products.show');
+Route::get('/thiet-bi/{product:slug}', [ProductController::class, 'show'])->name('products.show');
 // Tồn kho theo khoảng ngày (bopcamping-1z1) — fetch từ trang chi tiết khi chọn ngày
-Route::get('/thiet-bi/{product}/kha-dung', [ProductController::class, 'availability'])->whereNumber('product')->name('products.availability')->middleware('throttle:60,1');
+Route::get('/thiet-bi/{product:slug}/kha-dung', [ProductController::class, 'availability'])->name('products.availability')->middleware('throttle:60,1');
 // Tồn kho gợi ý "thường thuê cùng" + combo banner theo khoảng ngày (Combo P3, AC-9)
-Route::get('/thiet-bi/{product}/goi-y-kha-dung', [ProductController::class, 'suggestionAvailability'])->whereNumber('product')->name('products.suggestions')->middleware('throttle:60,1');
+Route::get('/thiet-bi/{product:slug}/goi-y-kha-dung', [ProductController::class, 'suggestionAvailability'])->name('products.suggestions')->middleware('throttle:60,1');
 // Khách vãng lai cũng gửi được — mọi đánh giá vào 'pending' chờ admin duyệt
-Route::post('/thiet-bi/{product}/danh-gia', [ReviewController::class, 'store'])->whereNumber('product')->name('reviews.store')
+Route::post('/thiet-bi/{product:slug}/danh-gia', [ReviewController::class, 'store'])->name('reviews.store')
     ->middleware('throttle:10,1');
 // Combo thuê trọn bộ (bopcamping-6he)
 Route::get('/combos', [ComboController::class, 'index'])->name('combos');

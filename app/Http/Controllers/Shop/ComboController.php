@@ -126,6 +126,7 @@ class ComboController extends Controller
                 ->take(4)
                 ->map(fn (Product $p) => [
                     'id' => $p->id,
+                    'slug' => $p->slug,
                     'name' => $p->name,
                     'price_per_day' => (int) $p->price_per_day,
                     'thumbnail' => $p->thumbnail ? Storage::disk('media')->url($p->thumbnail) : null,
@@ -160,6 +161,7 @@ class ComboController extends Controller
             'savings_percent' => $combo->savingsPercent(),
             'items' => $combo->items->map(fn (ComboItem $item) => [
                 'product_id' => $item->product_id,
+                'slug' => $item->product?->slug,
                 'name' => $item->product?->name,
                 'quantity' => $item->quantity,
                 'price_per_day' => (int) ($item->product?->price_per_day ?? 0),

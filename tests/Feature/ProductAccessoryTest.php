@@ -75,7 +75,7 @@ class ProductAccessoryTest extends TestCase
             $this->chair->id => ['sort_order' => 1],
         ]);
 
-        $this->get('/thiet-bi/'.$this->tent->id)
+        $this->get('/thiet-bi/'.$this->tent->slug)
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
                 ->component('ProductDetail')
@@ -91,7 +91,7 @@ class ProductAccessoryTest extends TestCase
     {
         $this->mat->update(['status' => 'hidden']);
 
-        $this->get('/thiet-bi/'.$this->tent->id)
+        $this->get('/thiet-bi/'.$this->tent->slug)
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
                 ->count('accessories', 1)
@@ -109,7 +109,7 @@ class ProductAccessoryTest extends TestCase
         $this->bookedOrder($this->chair, '2030-07-10', '2030-07-12', qty: 6); // ghế kín lịch
         $this->bookedOrder($this->mat, '2030-07-10', '2030-07-12', qty: 1);   // đệm còn 1
 
-        $this->getJson('/thiet-bi/'.$this->tent->id.'/goi-y-kha-dung?start=2030-07-10&end=2030-07-12')
+        $this->getJson('/thiet-bi/'.$this->tent->slug.'/goi-y-kha-dung?start=2030-07-10&end=2030-07-12')
             ->assertOk()
             ->assertJson([
                 'accessories' => [
@@ -120,7 +120,7 @@ class ProductAccessoryTest extends TestCase
             ]);
 
         // Chồng một phần (ngày cuối trùng ngày đầu đơn cũ) vẫn bị trừ
-        $this->getJson('/thiet-bi/'.$this->tent->id.'/goi-y-kha-dung?start=2030-07-08&end=2030-07-10')
+        $this->getJson('/thiet-bi/'.$this->tent->slug.'/goi-y-kha-dung?start=2030-07-08&end=2030-07-10')
             ->assertOk()
             ->assertJson(['accessories' => [
                 ['id' => $this->chair->id, 'available' => 0],
@@ -128,7 +128,7 @@ class ProductAccessoryTest extends TestCase
             ]]);
 
         // Khoảng không chồng → đủ kho
-        $this->getJson('/thiet-bi/'.$this->tent->id.'/goi-y-kha-dung?start=2030-07-13&end=2030-07-15')
+        $this->getJson('/thiet-bi/'.$this->tent->slug.'/goi-y-kha-dung?start=2030-07-13&end=2030-07-15')
             ->assertOk()
             ->assertJson(['accessories' => [
                 ['id' => $this->chair->id, 'available' => 6],
@@ -141,19 +141,19 @@ class ProductAccessoryTest extends TestCase
     {
         $this->mat->update(['status' => 'hidden']);
 
-        $this->getJson('/thiet-bi/'.$this->tent->id.'/goi-y-kha-dung?start=2030-07-10&end=2030-07-12')
+        $this->getJson('/thiet-bi/'.$this->tent->slug.'/goi-y-kha-dung?start=2030-07-10&end=2030-07-12')
             ->assertOk()
             ->assertJsonCount(1, 'accessories')
             ->assertJson(['accessories' => [['id' => $this->chair->id, 'available' => 6]]]);
 
-        $this->getJson('/thiet-bi/'.$this->tent->id.'/goi-y-kha-dung')->assertStatus(422);
-        $this->getJson('/thiet-bi/'.$this->tent->id.'/goi-y-kha-dung?start=xx&end=2030-07-12')->assertStatus(422);
+        $this->getJson('/thiet-bi/'.$this->tent->slug.'/goi-y-kha-dung')->assertStatus(422);
+        $this->getJson('/thiet-bi/'.$this->tent->slug.'/goi-y-kha-dung?start=xx&end=2030-07-12')->assertStatus(422);
         // end trước start
-        $this->getJson('/thiet-bi/'.$this->tent->id.'/goi-y-kha-dung?start=2030-07-12&end=2030-07-10')->assertStatus(422);
+        $this->getJson('/thiet-bi/'.$this->tent->slug.'/goi-y-kha-dung?start=2030-07-12&end=2030-07-10')->assertStatus(422);
 
         // Sản phẩm ẩn → 404 như trang chi tiết
         $this->tent->update(['status' => 'hidden']);
-        $this->getJson('/thiet-bi/'.$this->tent->id.'/goi-y-kha-dung?start=2030-07-10&end=2030-07-12')->assertNotFound();
+        $this->getJson('/thiet-bi/'.$this->tent->slug.'/goi-y-kha-dung?start=2030-07-10&end=2030-07-12')->assertNotFound();
     }
 
     /**
@@ -174,7 +174,7 @@ class ProductAccessoryTest extends TestCase
         $comboB->items()->create(['product_id' => $this->tent->id, 'quantity' => 1]);
         $comboB->items()->create(['product_id' => $this->mat->id, 'quantity' => 1]);
 
-        $this->get('/thiet-bi/'.$this->tent->id)
+        $this->get('/thiet-bi/'.$this->tent->slug)
             ->assertInertia(fn (Assert $page) => $page
                 ->where('combo_banner.id', $comboA->id)
                 ->where('combo_banner.slug', 'combo-a')
@@ -183,17 +183,17 @@ class ProductAccessoryTest extends TestCase
 
         // Combo tiết kiệm nhất bị ẩn → rơi về combo còn lại
         $comboA->update(['is_active' => false]);
-        $this->get('/thiet-bi/'.$this->tent->id)
+        $this->get('/thiet-bi/'.$this->tent->slug)
             ->assertInertia(fn (Assert $page) => $page->where('combo_banner.id', $comboB->id));
 
         // Không còn combo active nào chứa sản phẩm → không có banner
         $comboB->update(['is_active' => false]);
-        $this->get('/thiet-bi/'.$this->tent->id)
+        $this->get('/thiet-bi/'.$this->tent->slug)
             ->assertInertia(fn (Assert $page) => $page->where('combo_banner', null));
 
         // Sản phẩm không thuộc combo nào (ghế) → null ngay cả khi combo khác đang active
         $comboA->update(['is_active' => true]);
-        $this->get('/thiet-bi/'.$this->mat->id)
+        $this->get('/thiet-bi/'.$this->mat->slug)
             ->assertInertia(fn (Assert $page) => $page->where('combo_banner', null));
     }
 
@@ -212,12 +212,12 @@ class ProductAccessoryTest extends TestCase
         // Xem trang GHẾ (thuộc combo): lều kín lịch 10–12 → combo hết theo
         $this->bookedOrder($this->tent, '2030-07-10', '2030-07-12', qty: 3);
 
-        $this->getJson('/thiet-bi/'.$this->chair->id.'/goi-y-kha-dung?start=2030-07-10&end=2030-07-12')
+        $this->getJson('/thiet-bi/'.$this->chair->slug.'/goi-y-kha-dung?start=2030-07-10&end=2030-07-12')
             ->assertOk()
             ->assertJson(['combo_available' => 0]);
 
         // Khoảng trống → min(3 lều, intdiv(6 ghế, 2)) = 3
-        $this->getJson('/thiet-bi/'.$this->chair->id.'/goi-y-kha-dung?start=2030-07-13&end=2030-07-15')
+        $this->getJson('/thiet-bi/'.$this->chair->slug.'/goi-y-kha-dung?start=2030-07-13&end=2030-07-15')
             ->assertOk()
             ->assertJson(['combo_available' => 3]);
     }
