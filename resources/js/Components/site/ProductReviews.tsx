@@ -14,7 +14,7 @@ export type ReviewItem = {
 export type ReviewSummary = { count: number; avg: number };
 
 type Props = {
-    productId: number;
+    productSlug: string;
     productName: string;
     reviews: ReviewItem[];
     summary: ReviewSummary;
@@ -49,7 +49,7 @@ function Stars({ value, onPick, size = 16 }: { value: number; onPick?: (n: numbe
     );
 }
 
-export default function ProductReviews({ productId, productName, reviews, summary, isLoggedIn }: Props) {
+export default function ProductReviews({ productSlug, productName, reviews, summary, isLoggedIn }: Props) {
     const [idx, setIdx] = useState(0);
     const [modal, setModal] = useState<ReviewItem | null>(null);
     const [paused, setPaused] = useState(false);
@@ -134,7 +134,7 @@ export default function ProductReviews({ productId, productName, reviews, summar
             </div>
 
             {/* ===== Form viết (ai cũng gửi được, đánh giá vào pending chờ duyệt) ===== */}
-            <ReviewForm productId={productId} isLoggedIn={isLoggedIn} />
+            <ReviewForm productSlug={productSlug} isLoggedIn={isLoggedIn} />
 
             {modal && <ReviewModalView review={modal} productName={productName} onClose={() => setModal(null)} />}
         </div>
@@ -142,7 +142,7 @@ export default function ProductReviews({ productId, productName, reviews, summar
 }
 
 /** Form viết đánh giá: (tên nếu khách vãng lai) + sao + nội dung + upload ≤4 ảnh/video. */
-function ReviewForm({ productId, isLoggedIn }: { productId: number; isLoggedIn: boolean }) {
+function ReviewForm({ productSlug, isLoggedIn }: { productSlug: string; isLoggedIn: boolean }) {
     const fileRef = useRef<HTMLInputElement>(null);
     const [done, setDone] = useState(false);
     const { data, setData, post, processing, errors, reset } = useForm<{ reviewer_name: string; rating: number; content: string; media: File[] }>({
@@ -166,7 +166,7 @@ function ReviewForm({ productId, isLoggedIn }: { productId: number; isLoggedIn: 
     const removeAt = (i: number) => setData('media', data.media.filter((_, j) => j !== i));
 
     const submit = () => {
-        post(route('reviews.store', productId), {
+        post(route('reviews.store', productSlug), {
             forceFormData: true,
             preserveScroll: true,
             onSuccess: () => { setDone(true); reset(); },

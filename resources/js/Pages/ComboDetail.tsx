@@ -9,6 +9,7 @@ import { emit, EVENTS } from '@/lib/bus';
 
 type ComboItemRow = {
     product_id: number;
+    slug: string | null;
     name: string | null;
     quantity: number;
     price_per_day: number;
@@ -37,7 +38,7 @@ type AvailabilityResult = {
     available: number;
     insufficient: { product_id: number; name: string; available: number; required: number }[];
     next_window: { start: string; end: string } | null;
-    substitutes: { id: number; name: string; price_per_day: number; thumbnail: string | null }[];
+    substitutes: { id: number; slug: string; name: string; price_per_day: number; thumbnail: string | null }[];
 };
 
 interface Props {
@@ -207,7 +208,7 @@ export default function ComboDetail({ combo }: Props) {
                                 {combo.items.map((it) => (
                                     <Link
                                         key={it.product_id}
-                                        href={`/thiet-bi/${it.product_id}`}
+                                        href={`/thiet-bi/${it.slug}`}
                                         className="flex items-center gap-3 rounded-[11px] border border-cardBorder bg-white px-3 py-2.5 transition hover:border-grass"
                                     >
                                         {it.thumbnail ? (
@@ -334,7 +335,7 @@ export default function ComboDetail({ combo }: Props) {
                                                     {avail.substitutes.map((s) => (
                                                         <Link
                                                             key={s.id}
-                                                            href={`/thiet-bi/${s.id}`}
+                                                            href={`/thiet-bi/${s.slug}`}
                                                             className="flex items-center gap-2 rounded-[9px] bg-white px-2.5 py-1.5 text-[12.5px] font-semibold text-pine transition hover:text-grass"
                                                         >
                                                             {s.thumbnail
