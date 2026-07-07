@@ -19,18 +19,29 @@ function SocialIcon({ kind }: { kind: 'facebook' | 'tiktok' | 'zalo' }) {
     );
 }
 
+/** Cột "Thiết bị" — 4 nhóm chính, bấm vào lọc đúng danh mục ở trang thiết bị. */
+const CATEGORIES = [
+    { label: 'Lều trại', slug: 'leu-cam-trai' },
+    { label: 'Túi ngủ & nệm', slug: 'tui-ngu' },
+    { label: 'Bếp & nấu nướng', slug: 'bep-nau-an' },
+    { label: 'Đèn & ánh sáng', slug: 'den-chieu-sang' },
+];
+
 export default function Footer() {
     const { site } = usePage<PageProps>().props;
     const hotlines = [site?.hotline_primary, site?.hotline_secondary].filter(Boolean) as string[];
     const socials = [
         { kind: 'facebook' as const, url: site?.facebook_url, label: 'Facebook' },
         { kind: 'tiktok' as const, url: site?.tiktok_url, label: 'TikTok' },
-        { kind: 'zalo' as const, url: site?.zalo_1?.url, label: 'Zalo' },
+        { kind: 'zalo' as const, url: site?.zalo_main?.url, label: 'Zalo' },
     ].filter((s) => !!s.url);
+    // "Giao nhận tại Vinh & Hà Nội" — ghép tên các vị trí đang mở (từ Điểm cắm trại)
+    const deliveryCities = (site?.addresses ?? []).map((a) => a.name).join(' & ');
 
     return (
         <footer className="mt-5 border-t border-[#c2dcec]" style={{ background: 'rgba(214,236,247,.55)' }}>
             <div className="mx-auto grid max-w-[1200px] gap-7 px-5 pb-[30px] pt-10" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
+                {/* Brand */}
                 <div>
                     <div className="mb-3 flex items-center gap-2.5">
                         <span className="grid h-8 w-8 place-items-center rounded-[9px] bg-grass">
@@ -38,12 +49,11 @@ export default function Footer() {
                         </span>
                         <span className="text-base font-extrabold text-pine">BỐP CAMPING</span>
                     </div>
-                    <p className="m-0 mb-4 max-w-[240px] text-[13.5px] leading-[1.6] text-[#8a967a]">
+                    <p className="m-0 max-w-[240px] text-[13.5px] leading-[1.6] text-[#8a967a]">
                         Cho thuê thiết bị cắm trại theo ngày. Giao nhận tận nơi, cọc linh hoạt, trả tiền khi nhận.
                     </p>
-                    {/* Social — chỉ hiện icon có link */}
                     {socials.length > 0 && (
-                        <div className="flex gap-2.5">
+                        <div className="mt-4 flex gap-2.5">
                             {socials.map((s) => (
                                 <a
                                     key={s.kind}
@@ -61,27 +71,28 @@ export default function Footer() {
                     )}
                 </div>
 
+                {/* Thiết bị — lọc theo danh mục */}
                 <div>
-                    <div className="mb-3 text-[11px] font-bold uppercase tracking-[0.05em] text-[#a3ad92]">Thuê đồ</div>
+                    <div className="mb-3 text-[11px] font-bold uppercase tracking-[0.05em] text-[#a3ad92]">Thiết bị</div>
                     <div className="flex flex-col gap-[9px] text-[14px] text-moss">
-                        <Link href="/thiet-bi" className="hover:text-grass">Tất cả thiết bị</Link>
-                        <Link href="/combos" className="hover:text-grass">Combo tiết kiệm</Link>
+                        {CATEGORIES.map((c) => (
+                            <Link key={c.slug} href={`/thiet-bi?cat=${c.slug}`} className="hover:text-grass">{c.label}</Link>
+                        ))}
+                    </div>
+                </div>
+
+                {/* Hỗ trợ */}
+                <div>
+                    <div className="mb-3 text-[11px] font-bold uppercase tracking-[0.05em] text-[#a3ad92]">Hỗ trợ</div>
+                    <div className="flex flex-col gap-[9px] text-[14px] text-moss">
+                        <Link href="/#faq" className="hover:text-grass">Hướng dẫn thuê</Link>
+                        <Link href="/#faq" className="hover:text-grass">Chính sách cọc</Link>
                         <Link href="/tra-cuu" className="hover:text-grass">Tra cứu đơn</Link>
                         <Link href="/#faq" className="hover:text-grass">Câu hỏi thường gặp</Link>
                     </div>
                 </div>
 
-                <div>
-                    <div className="mb-3 text-[11px] font-bold uppercase tracking-[0.05em] text-[#a3ad92]">Liên hệ Zalo</div>
-                    <div className="flex flex-col gap-[9px] text-[14px] text-moss">
-                        {[site?.zalo_1, site?.zalo_2].filter((z) => z?.url).map((z, i) => (
-                            <a key={i} href={z!.url as string} target="_blank" rel="noreferrer" className="hover:text-grass">
-                                {z!.label || 'Zalo'}{z!.phone ? ` · ${z!.phone}` : ''}
-                            </a>
-                        ))}
-                    </div>
-                </div>
-
+                {/* Liên hệ */}
                 <div>
                     <div className="mb-3 text-[11px] font-bold uppercase tracking-[0.05em] text-[#a3ad92]">Liên hệ</div>
                     {hotlines.map((h) => (
@@ -90,12 +101,8 @@ export default function Footer() {
                         </a>
                     ))}
                     <div className="mt-1.5 text-[13.5px] leading-[1.6] text-moss">
-                        {site?.working_hours && <>{site.working_hours}<br /></>}
-                        {(site?.addresses ?? []).map((a) => (
-                            <span key={a.name} className="block">
-                                {a.name}{a.area ? ` – ${a.area}` : ''}
-                            </span>
-                        ))}
+                        {site?.working_hours && <div>{site.working_hours}</div>}
+                        {deliveryCities && <div>Giao nhận tại {deliveryCities}</div>}
                     </div>
                 </div>
             </div>
