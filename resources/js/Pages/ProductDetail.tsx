@@ -14,6 +14,7 @@ import type { ProductResource } from '@/types/product';
 /** Phụ kiện "thường thuê cùng" (Case 2, US-03) — admin gán tay ở form sản phẩm. */
 type AccessoryItem = {
     id: number;
+    slug: string;
     name: string;
     price_per_day: number;
     deposit: number;
@@ -75,7 +76,7 @@ export default function ProductDetail({ product, unavailable_dates, accessories,
         }
         const seq = ++fetchSeq.current;
         setChecking(true);
-        fetch(`/thiet-bi/${product.id}/kha-dung?start=${start}&end=${end}`, { headers: { Accept: 'application/json' } })
+        fetch(`/thiet-bi/${product.slug}/kha-dung?start=${start}&end=${end}`, { headers: { Accept: 'application/json' } })
             .then((r) => (r.ok ? r.json() : null))
             .then((j: { available: number } | null) => {
                 if (seq !== fetchSeq.current) return;
@@ -84,7 +85,7 @@ export default function ProductDetail({ product, unavailable_dates, accessories,
             })
             .catch(() => seq === fetchSeq.current && setAvail(null))
             .finally(() => seq === fetchSeq.current && setChecking(false));
-    }, [start, end, product.id]);
+    }, [start, end, product.slug]);
 
     // Tồn kho gợi ý (phụ kiện + combo banner) theo khoảng ngày — AC-9.
     useEffect(() => {
@@ -94,7 +95,7 @@ export default function ProductDetail({ product, unavailable_dates, accessories,
             return;
         }
         const seq = ++sugSeq.current;
-        fetch(`/thiet-bi/${product.id}/goi-y-kha-dung?start=${start}&end=${end}`, { headers: { Accept: 'application/json' } })
+        fetch(`/thiet-bi/${product.slug}/goi-y-kha-dung?start=${start}&end=${end}`, { headers: { Accept: 'application/json' } })
             .then((r) => (r.ok ? r.json() : null))
             .then((j: { accessories: { id: number; available: number }[]; combo_available: number | null } | null) => {
                 if (seq !== sugSeq.current) return;
@@ -113,7 +114,7 @@ export default function ProductDetail({ product, unavailable_dates, accessories,
                 setAccAvail(null);
                 setComboAvail(null);
             });
-    }, [start, end, product.id, accessories.length, combo_banner?.id]);
+    }, [start, end, product.slug, accessories.length, combo_banner?.id]);
 
     const baseGrad = gradFor(product.category.slug);
     // Build gallery: real images first, then fallback gradient variants
@@ -300,7 +301,7 @@ export default function ProductDetail({ product, unavailable_dates, accessories,
 
                         {/* đánh giá sản phẩm (carousel + form + modal) */}
                         <ProductReviews
-                            productId={product.id}
+                            productSlug={product.slug}
                             productName={product.name}
                             reviews={reviews}
                             summary={review_summary}
@@ -456,7 +457,7 @@ export default function ProductDetail({ product, unavailable_dates, accessories,
                                                 <div className="h-12 w-12 flex-none rounded-[10px]" style={{ background: gradFor(a.category.slug) }} />
                                             )}
                                             <div className="min-w-[140px] flex-1">
-                                                <Link href={`/thiet-bi/${a.id}`} className="text-[14px] font-bold text-ink hover:text-grass">{a.name}</Link>
+                                                <Link href={`/thiet-bi/${a.slug}`} className="text-[14px] font-bold text-ink hover:text-grass">{a.name}</Link>
                                                 <div className="text-[11.5px] text-moss">
                                                     {a.category.name}
                                                     {scarce && <span className="text-campfire"> · chỉ còn {accCap(a)} bộ trong khoảng này</span>}

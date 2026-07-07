@@ -187,9 +187,9 @@ class ProductController extends Controller
     }
 
     /** GET /thiet-bi/{product} — chi tiết sản phẩm */
-    public function show(Request $request, int $product): Response
+    public function show(Request $request, string $product): Response
     {
-        $p = Product::active()->with('category', 'images', 'serviceLocations')->findOrFail($product);
+        $p = Product::active()->with('category', 'images', 'serviceLocations')->where('slug', $product)->firstOrFail();
 
         $from = Carbon::today();
         $to = Carbon::today()->addDays(90);
@@ -213,6 +213,7 @@ class ProductController extends Controller
             'accessories' => $this->activeAccessories($p)
                 ->map(fn (Product $a) => [
                     'id' => $a->id,
+                    'slug' => $a->slug,
                     'name' => $a->name,
                     'price_per_day' => (int) $a->price_per_day,
                     'deposit' => (int) ($a->deposit ?? 0),
@@ -253,14 +254,14 @@ class ProductController extends Controller
      * đã chiếm kho mà khách vẫn thấy đủ. Endpoint đi qua AvailabilityService
      * (single source of truth) — FE fetch mỗi khi chọn xong khoảng ngày.
      */
-    public function availability(Request $request, int $product): JsonResponse
+    public function availability(Request $request, string $product): JsonResponse
     {
         $data = $request->validate([
             'start' => ['required', 'date_format:Y-m-d'],
             'end' => ['required', 'date_format:Y-m-d', 'after_or_equal:start'],
         ]);
 
-        $p = Product::active()->findOrFail($product);
+        $p = Product::active()->where('slug', $product)->firstOrFail();
 
         return response()->json([
             'available' => $this->availability->availableQuantity(
@@ -276,14 +277,14 @@ class ProductController extends Controller
      * ngày của các gợi ý trên trang sản phẩm: từng phụ kiện (AC-9) + combo banner.
      * Cùng đi qua AvailabilityService như mọi check tồn kho khác (AC-10).
      */
-    public function suggestionAvailability(Request $request, int $product): JsonResponse
+    public function suggestionAvailability(Request $request, string $product): JsonResponse
     {
         $data = $request->validate([
             'start' => ['required', 'date_format:Y-m-d'],
             'end' => ['required', 'date_format:Y-m-d', 'after_or_equal:start'],
         ]);
 
-        $p = Product::active()->findOrFail($product);
+        $p = Product::active()->where('slug', $product)->firstOrFail();
         $start = Carbon::parse($data['start']);
         $end = Carbon::parse($data['end']);
 

@@ -172,7 +172,7 @@ class ProductPageTest extends TestCase
         $cat = $this->category();
         $p = $this->product($cat, ['name' => 'Lều Chi Tiết', 'quantity' => 2]);
 
-        $response = $this->get("/thiet-bi/{$p->id}");
+        $response = $this->get("/thiet-bi/{$p->slug}");
 
         $response->assertStatus(200);
         $response->assertInertia(fn ($page) => $page->component('ProductDetail')
@@ -189,7 +189,7 @@ class ProductPageTest extends TestCase
         $cat = $this->category();
         $p = $this->product($cat, ['status' => 'hidden']);
 
-        $response = $this->get("/thiet-bi/{$p->id}");
+        $response = $this->get("/thiet-bi/{$p->slug}");
 
         $response->assertStatus(404);
     }
@@ -230,7 +230,7 @@ class ProductPageTest extends TestCase
             'subtotal' => 360000,
         ]);
 
-        $response = $this->get("/thiet-bi/{$p->id}");
+        $response = $this->get("/thiet-bi/{$p->slug}");
 
         $response->assertInertia(fn ($page) => $page->where('unavailable_dates', fn ($dates) => collect($dates)->contains($start->toDateString())
                 && collect($dates)->contains($end->toDateString())
@@ -244,7 +244,7 @@ class ProductPageTest extends TestCase
         $cat = $this->category('Túi ngủ', 'tui-ngu');
         $p = $this->product($cat);
 
-        $response = $this->get("/thiet-bi/{$p->id}");
+        $response = $this->get("/thiet-bi/{$p->slug}");
 
         $response->assertInertia(fn ($page) => $page->where('product.category.slug', 'tui-ngu')
             ->has('product.images')
@@ -264,7 +264,7 @@ class ProductPageTest extends TestCase
         $p->images()->create(['path' => 'products/a.jpg', 'sort_order' => 1, 'type' => 'image']);
         $p->images()->create(['path' => 'products/clip.mp4', 'sort_order' => 2, 'type' => 'video']);
 
-        $response = $this->get("/thiet-bi/{$p->id}");
+        $response = $this->get("/thiet-bi/{$p->slug}");
 
         $response->assertInertia(fn ($page) => $page
             ->where('product.images.0.type', 'image')

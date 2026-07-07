@@ -16,9 +16,9 @@ class ReviewController extends Controller
      * Ai cũng gửi được (khách vãng lai nhập tên); mọi đánh giá vào trạng thái pending chờ admin duyệt.
      * Nếu là khách đã thuê & trả món này thì gắn luôn order_item để hiện "X ngày" trong meta.
      */
-    public function store(Request $request, int $product): RedirectResponse
+    public function store(Request $request, string $product): RedirectResponse
     {
-        $p = Product::active()->findOrFail($product);
+        $p = Product::active()->where('slug', $product)->firstOrFail();
         $user = $request->user();
 
         $rules = [
