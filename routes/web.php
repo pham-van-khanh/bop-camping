@@ -14,6 +14,7 @@ use App\Http\Controllers\Admin\PromotionController as AdminPromotionController;
 use App\Http\Controllers\Admin\ReferralController as AdminReferralController;
 use App\Http\Controllers\Admin\ReviewController as AdminReviewController;
 use App\Http\Controllers\Admin\ServiceLocationController as AdminServiceLocationController;
+use App\Http\Controllers\Admin\SiteSettingController as AdminSiteSettingController;
 use App\Http\Controllers\Admin\StatsController as AdminStatsController;
 use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\Admin\VoucherController as AdminVoucherController;
@@ -134,6 +135,10 @@ Route::middleware(['admin'])->prefix('admin')->name('admin.')->group(function ()
     Route::delete('/banners/{banner}', [AdminBannerController::class, 'destroy'])->name('banners.destroy')->middleware('throttle:30,1');
 
     // Điểm cắm trại (Cẩm nang) — CRUD + media
+    // Cài đặt shop — thông tin liên hệ/mạng xã hội (ADR home_faq_contact)
+    Route::get('/settings', [AdminSiteSettingController::class, 'edit'])->name('settings');
+    Route::put('/settings', [AdminSiteSettingController::class, 'update'])->name('settings.update')->middleware('throttle:30,1');
+
     // FAQ trang chủ — CRUD (ADR home_faq_contact)
     Route::get('/faqs', [AdminFaqController::class, 'index'])->name('faqs');
     Route::post('/faqs', [AdminFaqController::class, 'store'])->name('faqs.store')->middleware('throttle:30,1');

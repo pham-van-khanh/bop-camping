@@ -161,6 +161,17 @@ const NAV = [
             </svg>
         ),
     },
+    {
+        href: '/admin/settings',
+        name: 'admin.settings',
+        label: 'Cài đặt shop',
+        icon: (
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                <circle cx="12" cy="12" r="3.2" stroke="currentColor" strokeWidth="1.7" />
+                <path d="M12 3v2.5M12 18.5V21M4.2 7.5l2.2 1.3M17.6 15.2l2.2 1.3M4.2 16.5l2.2-1.3M17.6 8.8l2.2-1.3" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+            </svg>
+        ),
+    },
 ];
 
 export default function AdminLayout({ children }: { children: ReactNode }) {

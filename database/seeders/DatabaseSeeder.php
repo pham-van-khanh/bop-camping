@@ -30,6 +30,7 @@ class DatabaseSeeder extends Seeder
             CampingSpotSeeder::class,
             BannerSeeder::class,
             FaqSeeder::class,
+            SiteSettingSeeder::class,
         ]);
     }
 }
