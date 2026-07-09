@@ -4,7 +4,7 @@ import SiteLayout from '@/Layouts/SiteLayout';
 import DateRangeCalendar from '@/Components/site/DateRangeCalendar';
 import { COMBO_GRAD } from '@/Components/site/ComboCard';
 import ProductReviews, { type ReviewItem, type ReviewSummary } from '@/Components/site/ProductReviews';
-import { dayCount, fromISO, money, rangeText, toISO } from '@/lib/format';
+import { dayCount, ddmm, fromISO, money, rangeText, toISO } from '@/lib/format';
 import { addLine, clearCart, locationConflict, type CartLine, type CartLocation } from '@/lib/cart';
 import { emit, EVENTS } from '@/lib/bus';
 import { gradFor } from '@/lib/grad';
@@ -52,6 +52,8 @@ export default function ProductDetail({ product, unavailable_dates, accessories,
     const [lightboxOpen, setLightboxOpen] = useState(false);
     const [start, setStart] = useState<string | null>(null);
     const [end, setEnd] = useState<string | null>(null);
+    // 1.7: lịch mặc định thu gọn — bấm ô "Chọn ngày thuê" mới sổ ra.
+    const [calOpen, setCalOpen] = useState(false);
     const [qty, setQty] = useState(1);
     // Popup khi thêm món khác vị trí với giỏ hiện tại (1 món lẻ hoặc cả loạt phụ kiện).
     const [conflict, setConflict] = useState<{ pending: CartLine[]; cartLocations: CartLocation[] } | null>(null);
@@ -148,7 +150,12 @@ export default function ProductDetail({ product, unavailable_dates, accessories,
     // Gộp "Toàn hệ thống" chỉ khi có ≥2 vị trí; 1 vị trí thì hiện thẳng tên nơi đó.
     const showAllBadge = !!product.all_locations && locations.length > 1;
 
-    const onChange = (s: string | null, e: string | null) => { setStart(s); setEnd(e); };
+    const onChange = (s: string | null, e: string | null) => {
+        setStart(s);
+        setEnd(e);
+        // Chọn đủ khoảng (có ngày kết thúc) → tự thu lịch lại cho gọn.
+        if (s && e) setCalOpen(false);
+    };
 
     const buildLine = (): CartLine => ({
         id:      product.id,
@@ -426,7 +433,39 @@ export default function ProductDetail({ product, unavailable_dates, accessories,
                             </button>
                         )}
 
-                        <DateRangeCalendar start={start} end={end} unavailable={unavailable} onChange={onChange} />
+                        {/* 1.7: lịch dạng thu gọn — bấm để sổ, chọn xong tự đóng */}
+                        <button
+                            onClick={() => setCalOpen((o) => !o)}
+                            aria-expanded={calOpen}
+                            className="flex w-full items-center justify-between gap-3 rounded-[14px] border border-cardBorder bg-white px-4 py-3.5 text-left transition hover:border-grass"
+                        >
+                            <span className="flex items-center gap-2.5">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" className="flex-none text-grass">
+                                    <rect x="3" y="5" width="18" height="16" rx="3" stroke="currentColor" strokeWidth="1.8" />
+                                    <path d="M3 9h18M8 3v4M16 3v4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                                </svg>
+                                <span>
+                                    <span className="block text-[12px] text-[#8a967a]">Ngày thuê</span>
+                                    <span className="block font-mono text-[14.5px] font-bold text-ink">
+                                        {start && end ? rangeText(start, end) : start ? `${ddmm(start)} → chọn ngày trả` : 'Chọn ngày thuê'}
+                                    </span>
+                                </span>
+                            </span>
+                            <svg
+                                width="15"
+                                height="15"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                className={`flex-none text-moss transition-transform ${calOpen ? 'rotate-180' : ''}`}
+                            >
+                                <path d="m6 9 6 6 6-6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                        </button>
+                        {calOpen && (
+                            <div className="mt-2.5">
+                                <DateRangeCalendar start={start} end={end} unavailable={unavailable} onChange={onChange} />
+                            </div>
+                        )}
 
                         {/* range + qty + availability */}
                         <div className="mt-4 rounded-[14px] border border-cardBorder bg-white p-4">
