@@ -7,6 +7,7 @@ use App\Http\Controllers\Admin\CampingSpotController as AdminCampingSpotControll
 use App\Http\Controllers\Admin\CategoryController as AdminCategoryController;
 use App\Http\Controllers\Admin\ComboController as AdminComboController;
 use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
+use App\Http\Controllers\Admin\EditorImageController as AdminEditorImageController;
 use App\Http\Controllers\Admin\FaqController as AdminFaqController;
 use App\Http\Controllers\Admin\OrderController as AdminOrderController;
 use App\Http\Controllers\Admin\ProductController as AdminProductController;
@@ -87,6 +88,9 @@ Route::middleware(['admin'])->prefix('admin')->name('admin.')->group(function ()
     Route::post('/categories', [AdminCategoryController::class, 'store'])->name('categories.store');
     Route::put('/categories/{category}', [AdminCategoryController::class, 'update'])->name('categories.update');
     Route::delete('/categories/{category}', [AdminCategoryController::class, 'destroy'])->name('categories.destroy');
+
+    // Upload ảnh chèn vào nội dung rich text (TipTap) — dùng chung cho mọi màn soạn thảo
+    Route::post('/editor/images', [AdminEditorImageController::class, 'store'])->name('editor.images.store')->middleware('throttle:60,1');
 
     Route::get('/products', [AdminProductController::class, 'index'])->name('products');
     Route::post('/products', [AdminProductController::class, 'store'])->name('products.store');
