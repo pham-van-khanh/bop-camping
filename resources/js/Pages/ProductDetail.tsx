@@ -2,6 +2,7 @@ import { Head, Link, usePage } from '@inertiajs/react';
 import { ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import SiteLayout from '@/Layouts/SiteLayout';
 import DateRangeCalendar from '@/Components/site/DateRangeCalendar';
+import ProductCard from '@/Components/site/ProductCard';
 import { COMBO_GRAD } from '@/Components/site/ComboCard';
 import ProductReviews, { type ReviewItem, type ReviewSummary } from '@/Components/site/ProductReviews';
 import { dayCount, ddmm, fromISO, money, rangeText, toISO } from '@/lib/format';
@@ -44,9 +45,11 @@ interface Props {
     reviews: ReviewItem[];
     review_summary: ReviewSummary;
     can_review: boolean;
+    // "You may also like" (1.6) — admin tự chọn, chỉ sản phẩm active
+    related_products: ProductResource[];
 }
 
-export default function ProductDetail({ product, unavailable_dates, accessories, combo_banner, reviews, review_summary, can_review }: Props) {
+export default function ProductDetail({ product, unavailable_dates, accessories, combo_banner, reviews, review_summary, can_review, related_products }: Props) {
     const { auth } = usePage<PageProps>().props;
     const [activeImg, setActiveImg] = useState(0);
     const [lightboxOpen, setLightboxOpen] = useState(false);
@@ -626,6 +629,19 @@ export default function ProductDetail({ product, unavailable_dates, accessories,
                         isLoggedIn={!!auth.user}
                     />
                 </section>
+
+                {/* 1.6: "You may also like" — admin chọn ở form sản phẩm, dưới cùng trang */}
+                {related_products.length > 0 && (
+                    <section className="mt-12">
+                        <div className="mb-1 font-mono text-[12px] font-bold tracking-[0.14em] text-campfire">GỢI Ý CHO BẠN</div>
+                        <h2 className="mb-4 text-[20px] font-extrabold tracking-tight text-ink">Có thể bạn cũng thích</h2>
+                        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                            {related_products.map((p, i) => (
+                                <ProductCard key={p.id} p={p} index={i} />
+                            ))}
+                        </div>
+                    </section>
+                )}
             </main>
 
             {/* Lightbox: xem ảnh/video cỡ lớn, không bị cắt */}
