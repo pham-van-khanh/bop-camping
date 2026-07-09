@@ -347,6 +347,21 @@ export default function ProductDetail({ product, unavailable_dates, accessories,
                                 {gallery.map((g, i) => renderThumb(g, i, 'h-[70px]'))}
                             </div>
                         )}
+
+                        {/* 1.2: thông số key–value (admin nhập) — card dưới khối ảnh */}
+                        {(product.specs?.length ?? 0) > 0 && (
+                            <div className="mt-5 rounded-[16px] border border-cardBorder bg-white px-5 py-4">
+                                <div className="mb-2 font-mono text-[12px] font-bold tracking-[0.14em] text-campfire">THÔNG SỐ</div>
+                                <dl className="divide-y divide-[#f1f4ea]">
+                                    {product.specs!.map((row, i) => (
+                                        <div key={i} className="flex items-baseline justify-between gap-4 py-2.5">
+                                            <dt className="text-[13.5px] text-moss">{row.key}</dt>
+                                            <dd className="text-right text-[14px] font-semibold text-ink">{row.value}</dd>
+                                        </div>
+                                    ))}
+                                </dl>
+                            </div>
+                        )}
                     </div>
 
                     {/* info */}
@@ -396,7 +411,19 @@ export default function ProductDetail({ product, unavailable_dates, accessories,
                         )}
 
                         {product.description && (
-                            <p className="mb-[18px] text-[15px] leading-[1.6] text-[#3f4a32]">{product.description}</p>
+                            <p className="mb-2 text-[15px] leading-[1.6] text-[#3f4a32]">{product.description}</p>
+                        )}
+                        {/* 1.3: có nội dung chi tiết → nút cuộn xuống khối #chi-tiet */}
+                        {product.setup_content && (
+                            <button
+                                onClick={() => document.getElementById('chi-tiet')?.scrollIntoView({ behavior: 'smooth' })}
+                                className="mb-[18px] inline-flex items-center gap-1 text-[13.5px] font-bold text-grass transition hover:text-pine"
+                            >
+                                Xem thêm
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
+                                    <path d="M12 5v14m0 0-6-6m6 6 6-6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+                                </svg>
+                            </button>
                         )}
 
                         <DateRangeCalendar start={start} end={end} unavailable={unavailable} onChange={onChange} />
@@ -455,6 +482,19 @@ export default function ProductDetail({ product, unavailable_dates, accessories,
                         </div>
                     </div>
                 </div>
+
+                {/* 1.4: nội dung chi tiết (setup, ảnh minh hoạ) — HTML TipTap đã sanitize server */}
+                {product.setup_content && (
+                    <section id="chi-tiet" className="mt-12 scroll-mt-24">
+                        <div className="mb-1 font-mono text-[12px] font-bold tracking-[0.14em] text-campfire">CHI TIẾT SẢN PHẨM</div>
+                        <h2 className="mb-4 text-[20px] font-extrabold tracking-tight text-ink">Về {product.name}</h2>
+                        <div
+                            className="editor-content max-w-[820px] rounded-[16px] border border-cardBorder bg-white px-6 py-5 sm:px-8"
+                            // An toàn: HTML đã qua EditorHtml::clean (HTMLPurifier) phía server
+                            dangerouslySetInnerHTML={{ __html: product.setup_content }}
+                        />
+                    </section>
+                )}
 
                 {/* Case 2 (US-03): "Thường thuê cùng" — AC-9: đã chọn ngày thì chỉ hiện món còn hàng */}
                 {accessories.length > 0 && (
