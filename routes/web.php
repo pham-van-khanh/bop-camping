@@ -7,12 +7,16 @@ use App\Http\Controllers\Admin\CampingSpotController as AdminCampingSpotControll
 use App\Http\Controllers\Admin\CategoryController as AdminCategoryController;
 use App\Http\Controllers\Admin\ComboController as AdminComboController;
 use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
+use App\Http\Controllers\Admin\EditorImageController as AdminEditorImageController;
+use App\Http\Controllers\Admin\FaqController as AdminFaqController;
 use App\Http\Controllers\Admin\OrderController as AdminOrderController;
+use App\Http\Controllers\Admin\ProductContentController as AdminProductContentController;
 use App\Http\Controllers\Admin\ProductController as AdminProductController;
 use App\Http\Controllers\Admin\PromotionController as AdminPromotionController;
 use App\Http\Controllers\Admin\ReferralController as AdminReferralController;
 use App\Http\Controllers\Admin\ReviewController as AdminReviewController;
 use App\Http\Controllers\Admin\ServiceLocationController as AdminServiceLocationController;
+use App\Http\Controllers\Admin\SiteSettingController as AdminSiteSettingController;
 use App\Http\Controllers\Admin\StatsController as AdminStatsController;
 use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\Admin\VoucherController as AdminVoucherController;
@@ -86,10 +90,16 @@ Route::middleware(['admin'])->prefix('admin')->name('admin.')->group(function ()
     Route::put('/categories/{category}', [AdminCategoryController::class, 'update'])->name('categories.update');
     Route::delete('/categories/{category}', [AdminCategoryController::class, 'destroy'])->name('categories.destroy');
 
+    // Upload ảnh chèn vào nội dung rich text (TipTap) — dùng chung cho mọi màn soạn thảo
+    Route::post('/editor/images', [AdminEditorImageController::class, 'store'])->name('editor.images.store')->middleware('throttle:60,1');
+
     Route::get('/products', [AdminProductController::class, 'index'])->name('products');
     Route::post('/products', [AdminProductController::class, 'store'])->name('products.store');
     Route::put('/products/{product}', [AdminProductController::class, 'update'])->name('products.update');
     Route::delete('/products/{product}', [AdminProductController::class, 'destroy'])->name('products.destroy');
+    // Nội dung chi tiết (setup/mô tả lớn) — màn soạn thảo riêng, editor full-width (Epic 1)
+    Route::get('/products/{product}/noi-dung', [AdminProductContentController::class, 'edit'])->name('products.content.edit');
+    Route::put('/products/{product}/noi-dung', [AdminProductContentController::class, 'update'])->name('products.content.update')->middleware('throttle:30,1');
     Route::post('/products/{product}/images', [AdminProductController::class, 'storeImage'])->name('products.images.store')->middleware('throttle:60,1');
     Route::delete('/products/{product}/images/{image}', [AdminProductController::class, 'destroyImage'])->name('products.images.destroy');
 
@@ -133,6 +143,16 @@ Route::middleware(['admin'])->prefix('admin')->name('admin.')->group(function ()
     Route::delete('/banners/{banner}', [AdminBannerController::class, 'destroy'])->name('banners.destroy')->middleware('throttle:30,1');
 
     // Điểm cắm trại (Cẩm nang) — CRUD + media
+    // Cài đặt shop — thông tin liên hệ/mạng xã hội (ADR home_faq_contact)
+    Route::get('/settings', [AdminSiteSettingController::class, 'edit'])->name('settings');
+    Route::put('/settings', [AdminSiteSettingController::class, 'update'])->name('settings.update')->middleware('throttle:30,1');
+
+    // FAQ trang chủ — CRUD (ADR home_faq_contact)
+    Route::get('/faqs', [AdminFaqController::class, 'index'])->name('faqs');
+    Route::post('/faqs', [AdminFaqController::class, 'store'])->name('faqs.store')->middleware('throttle:30,1');
+    Route::put('/faqs/{faq}', [AdminFaqController::class, 'update'])->name('faqs.update')->middleware('throttle:30,1');
+    Route::delete('/faqs/{faq}', [AdminFaqController::class, 'destroy'])->name('faqs.destroy');
+
     Route::get('/camping-spots', [AdminCampingSpotController::class, 'index'])->name('camping-spots');
     Route::post('/camping-spots', [AdminCampingSpotController::class, 'store'])->name('camping-spots.store')->middleware('throttle:30,1');
     Route::put('/camping-spots/{campingSpot}', [AdminCampingSpotController::class, 'update'])->name('camping-spots.update')->middleware('throttle:30,1');

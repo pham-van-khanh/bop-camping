@@ -6,6 +6,8 @@ use App\Models\Order;
 use App\Models\PromotionSetting;
 use App\Models\ReferralCode;
 use App\Models\Review;
+use App\Models\ServiceLocation;
+use App\Models\SiteSetting;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -72,10 +74,36 @@ class HandleInertiaRequests extends Middleware
             'pending_orders' => fn () => $request->user()?->is_admin
                 ? Order::where('status', 'pending')->count()
                 : null,
+            // Thông tin liên hệ/mạng xã hội (footer + dải Zalo đọc chung) — lazy, 1 row.
+            'site' => fn () => $this->sharedSite(),
             // SEO mặc định site-wide (controller có thể ghi đè bằng prop 'seo'); blade dựng meta head.
             'seo' => [
                 'url' => $request->url(),
             ],
+        ];
+    }
+
+    /**
+     * Thông tin liên hệ dùng chung cho footer + dải Zalo. Zalo url đã resolve sẵn
+     * (áp zalo.me/<sđt> khi trống); địa chỉ lấy từ ServiceLocation đang mở.
+     *
+     * @return array<string, mixed>
+     */
+    private function sharedSite(): array
+    {
+        $s = SiteSetting::current();
+
+        return [
+            'hotline_primary' => $s->hotline_primary,
+            'hotline_secondary' => $s->hotline_secondary,
+            'zalo_1' => ['label' => $s->zalo1_label, 'phone' => $s->zalo1_phone, 'url' => $s->zaloUrl(1)],
+            'zalo_2' => ['label' => $s->zalo2_label, 'phone' => $s->zalo2_phone, 'url' => $s->zaloUrl(2)],
+            'facebook_url' => $s->facebook_url,
+            'tiktok_url' => $s->tiktok_url,
+            'working_hours' => $s->working_hours,
+            'addresses' => ServiceLocation::open()->ordered()->get(['name', 'area'])
+                ->map(fn (ServiceLocation $l) => ['name' => $l->name, 'area' => $l->area])
+                ->values(),
         ];
     }
 

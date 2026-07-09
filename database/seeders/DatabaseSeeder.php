@@ -29,6 +29,8 @@ class DatabaseSeeder extends Seeder
             AdminUserSeeder::class,
             CampingSpotSeeder::class,
             BannerSeeder::class,
+            FaqSeeder::class,
+            SiteSettingSeeder::class,
         ]);
     }
 }

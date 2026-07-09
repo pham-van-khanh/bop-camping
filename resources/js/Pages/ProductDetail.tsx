@@ -2,9 +2,10 @@ import { Head, Link, usePage } from '@inertiajs/react';
 import { ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import SiteLayout from '@/Layouts/SiteLayout';
 import DateRangeCalendar from '@/Components/site/DateRangeCalendar';
+import ProductCard from '@/Components/site/ProductCard';
 import { COMBO_GRAD } from '@/Components/site/ComboCard';
 import ProductReviews, { type ReviewItem, type ReviewSummary } from '@/Components/site/ProductReviews';
-import { dayCount, fromISO, money, rangeText, toISO } from '@/lib/format';
+import { dayCount, ddmm, fromISO, money, rangeText, toISO } from '@/lib/format';
 import { addLine, clearCart, locationConflict, type CartLine, type CartLocation } from '@/lib/cart';
 import { emit, EVENTS } from '@/lib/bus';
 import { gradFor } from '@/lib/grad';
@@ -44,14 +45,18 @@ interface Props {
     reviews: ReviewItem[];
     review_summary: ReviewSummary;
     can_review: boolean;
+    // "You may also like" (1.6) — admin tự chọn, chỉ sản phẩm active
+    related_products: ProductResource[];
 }
 
-export default function ProductDetail({ product, unavailable_dates, accessories, combo_banner, reviews, review_summary, can_review }: Props) {
+export default function ProductDetail({ product, unavailable_dates, accessories, combo_banner, reviews, review_summary, can_review, related_products }: Props) {
     const { auth } = usePage<PageProps>().props;
     const [activeImg, setActiveImg] = useState(0);
     const [lightboxOpen, setLightboxOpen] = useState(false);
     const [start, setStart] = useState<string | null>(null);
     const [end, setEnd] = useState<string | null>(null);
+    // 1.7: lịch mặc định thu gọn — bấm ô "Chọn ngày thuê" mới sổ ra.
+    const [calOpen, setCalOpen] = useState(false);
     const [qty, setQty] = useState(1);
     // Popup khi thêm món khác vị trí với giỏ hiện tại (1 món lẻ hoặc cả loạt phụ kiện).
     const [conflict, setConflict] = useState<{ pending: CartLine[]; cartLocations: CartLocation[] } | null>(null);
@@ -148,7 +153,12 @@ export default function ProductDetail({ product, unavailable_dates, accessories,
     // Gộp "Toàn hệ thống" chỉ khi có ≥2 vị trí; 1 vị trí thì hiện thẳng tên nơi đó.
     const showAllBadge = !!product.all_locations && locations.length > 1;
 
-    const onChange = (s: string | null, e: string | null) => { setStart(s); setEnd(e); };
+    const onChange = (s: string | null, e: string | null) => {
+        setStart(s);
+        setEnd(e);
+        // Chọn đủ khoảng (có ngày kết thúc) → tự thu lịch lại cho gọn.
+        if (s && e) setCalOpen(false);
+    };
 
     const buildLine = (): CartLine => ({
         id:      product.id,
@@ -238,76 +248,130 @@ export default function ProductDetail({ product, unavailable_dates, accessories,
 
     const activeSlide = gallery[activeImg] ?? gallery[0];
 
+    // 1.8: chuyển ảnh chính bằng nút ‹ › (vòng tròn), sync với thumbnail active.
+    const goImg = (dir: number) => setActiveImg((i) => (i + dir + gallery.length) % gallery.length);
+
+    // Phím ← → chuyển ảnh, Esc đóng — khi đang mở lightbox.
+    useEffect(() => {
+        if (!lightboxOpen) return;
+        const onKey = (e: KeyboardEvent) => {
+            if (e.key === 'ArrowLeft') goImg(-1);
+            else if (e.key === 'ArrowRight') goImg(1);
+            else if (e.key === 'Escape') setLightboxOpen(false);
+        };
+        window.addEventListener('keydown', onKey);
+        return () => window.removeEventListener('keydown', onKey);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [lightboxOpen, gallery.length]);
+
+    // Thumbnail dùng ở cả cột dọc (desktop) lẫn hàng ngang (mobile).
+    const renderThumb = (g: (typeof gallery)[number], i: number, heightClass: string) => (
+        <button
+            key={i}
+            onClick={() => setActiveImg(i)}
+            aria-label={`Ảnh ${i + 1}`}
+            className={`relative ${heightClass} w-full overflow-hidden rounded-[11px] transition`}
+            style={{ outline: i === activeImg ? '2px solid #557A2B' : '1px solid #E3E8D6', outlineOffset: i === activeImg ? 1 : 0 }}
+        >
+            {g.type === 'img' ? (
+                <img src={g.src} alt="" className="h-full w-full object-cover" />
+            ) : g.type === 'video' ? (
+                <>
+                    <video src={g.src} className="h-full w-full object-cover" muted />
+                    <span className="absolute inset-0 grid place-items-center bg-black/25 text-[10px] text-white">▶</span>
+                </>
+            ) : (
+                <div className="h-full w-full" style={{ background: g.bg }} />
+            )}
+        </button>
+    );
+
     return (
         <>
             <Head title={product.name} />
             <main className="mx-auto max-w-[1120px] px-5 pb-12 pt-6">
                 <Link href="/thiet-bi" className="mb-2.5 inline-block py-2 text-[14px] font-semibold text-moss hover:text-grass">← Quay lại danh sách</Link>
-                <div className="grid items-start gap-[34px]" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))' }}>
-                    {/* gallery */}
+                <div className="grid items-start gap-[34px] lg:grid-cols-[minmax(0,1fr)_400px]">
+                    {/* gallery: thumbnails cột dọc trái (desktop) + ảnh chính (1.1) */}
                     <div>
-                        <div
-                            className="relative h-[360px] overflow-hidden rounded-card"
-                            style={activeSlide.type === 'grad' ? { background: activeSlide.bg } : { background: baseGrad }}
-                        >
-                            {activeSlide.type === 'img' && (
-                                <img
-                                    src={activeSlide.src}
-                                    alt={product.name}
-                                    onClick={() => setLightboxOpen(true)}
-                                    className="absolute inset-0 h-full w-full cursor-zoom-in object-cover"
-                                />
+                        <div className="flex gap-2.5">
+                            {/* Thumbnails dọc — chỉ desktop/tablet; mobile dùng hàng ngang phía dưới */}
+                            {gallery.length > 1 && (
+                                <div className="hidden w-[76px] flex-none flex-col gap-2.5 md:flex">
+                                    {gallery.map((g, i) => renderThumb(g, i, 'h-[64px]'))}
+                                </div>
                             )}
-                            {activeSlide.type === 'video' && (
-                                <video key={activeSlide.src} src={activeSlide.src} controls autoPlay muted loop playsInline className="absolute inset-0 h-full w-full object-cover" />
-                            )}
-                            {(activeSlide.type === 'img' || activeSlide.type === 'video') && (
-                                <button
-                                    onClick={(e) => { e.stopPropagation(); setLightboxOpen(true); }}
-                                    aria-label="Xem cỡ lớn"
-                                    className="absolute right-3 top-3 z-10 grid h-9 w-9 place-items-center rounded-full bg-black/45 text-white transition hover:bg-black/65"
-                                >
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                                        <path d="M9 3H4a1 1 0 0 0-1 1v5M15 3h5a1 1 0 0 1 1 1v5M9 21H4a1 1 0 0 1-1-1v-5M15 21h5a1 1 0 0 0 1-1v-5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                                    </svg>
-                                </button>
-                            )}
-                            <div className="pointer-events-none absolute inset-0" style={{ background: 'radial-gradient(220px 150px at 76% 20%, rgba(255,255,255,.34), transparent 60%)' }} />
-                            <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[90px]" style={{ background: 'linear-gradient(180deg,rgba(24,35,15,0),rgba(24,35,15,.4))' }} />
-                            <span className="pointer-events-none absolute bottom-4 left-[18px] font-mono text-[13px] tracking-[0.06em] text-white">{product.category.name}</span>
+                            <div
+                                className="relative h-[420px] min-w-0 flex-1 overflow-hidden rounded-card"
+                                style={activeSlide.type === 'grad' ? { background: activeSlide.bg } : { background: '#eef2e3' }}
+                            >
+                                {activeSlide.type === 'img' && (
+                                    <img
+                                        src={activeSlide.src}
+                                        alt={product.name}
+                                        onClick={() => setLightboxOpen(true)}
+                                        // 1.8: object-contain — hiện trọn sản phẩm, không bị crop
+                                        className="absolute inset-0 h-full w-full cursor-zoom-in object-contain"
+                                    />
+                                )}
+                                {activeSlide.type === 'video' && (
+                                    <video key={activeSlide.src} src={activeSlide.src} controls autoPlay muted loop playsInline className="absolute inset-0 h-full w-full object-contain" />
+                                )}
+                                {(activeSlide.type === 'img' || activeSlide.type === 'video') && (
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); setLightboxOpen(true); }}
+                                        aria-label="Xem cỡ lớn"
+                                        className="absolute right-3 top-3 z-10 grid h-9 w-9 place-items-center rounded-full bg-black/45 text-white transition hover:bg-black/65"
+                                    >
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                                            <path d="M9 3H4a1 1 0 0 0-1 1v5M15 3h5a1 1 0 0 1 1 1v5M9 21H4a1 1 0 0 1-1-1v-5M15 21h5a1 1 0 0 0 1-1v-5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                                        </svg>
+                                    </button>
+                                )}
+                                {/* 1.8: nút chuyển ảnh ‹ › */}
+                                {gallery.length > 1 && (
+                                    <>
+                                        <button
+                                            onClick={() => goImg(-1)}
+                                            aria-label="Ảnh trước"
+                                            className="absolute left-3 top-1/2 z-10 grid h-10 w-10 -translate-y-1/2 place-items-center rounded-full bg-black/30 text-[20px] text-white transition hover:bg-black/55"
+                                        >
+                                            ‹
+                                        </button>
+                                        <button
+                                            onClick={() => goImg(1)}
+                                            aria-label="Ảnh sau"
+                                            className="absolute right-3 top-1/2 z-10 grid h-10 w-10 -translate-y-1/2 place-items-center rounded-full bg-black/30 text-[20px] text-white transition hover:bg-black/55"
+                                        >
+                                            ›
+                                        </button>
+                                    </>
+                                )}
+                                <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[70px]" style={{ background: 'linear-gradient(180deg,rgba(24,35,15,0),rgba(24,35,15,.35))' }} />
+                                <span className="pointer-events-none absolute bottom-4 left-[18px] font-mono text-[13px] tracking-[0.06em] text-white">{product.category.name}</span>
+                            </div>
                         </div>
-                        <div className="mt-2.5 grid grid-cols-4 gap-2.5">
-                            {gallery.map((g, i) => (
-                                <button
-                                    key={i}
-                                    onClick={() => setActiveImg(i)}
-                                    aria-label={`Ảnh ${i + 1}`}
-                                    className="relative h-[70px] overflow-hidden rounded-[11px] transition"
-                                    style={{ outline: i === activeImg ? '2px solid #557A2B' : '1px solid #E3E8D6', outlineOffset: i === activeImg ? 1 : 0 }}
-                                >
-                                    {g.type === 'img' ? (
-                                        <img src={g.src} alt="" className="h-full w-full object-cover" />
-                                    ) : g.type === 'video' ? (
-                                        <>
-                                            <video src={g.src} className="h-full w-full object-cover" muted />
-                                            <span className="absolute inset-0 grid place-items-center bg-black/25 text-[10px] text-white">▶</span>
-                                        </>
-                                    ) : (
-                                        <div className="h-full w-full" style={{ background: g.bg }} />
-                                    )}
-                                </button>
-                            ))}
-                        </div>
+                        {/* Thumbnails hàng ngang — chỉ mobile */}
+                        {gallery.length > 1 && (
+                            <div className="mt-2.5 grid grid-cols-4 gap-2.5 md:hidden">
+                                {gallery.map((g, i) => renderThumb(g, i, 'h-[70px]'))}
+                            </div>
+                        )}
 
-                        {/* đánh giá sản phẩm (carousel + form + modal) */}
-                        <ProductReviews
-                            productSlug={product.slug}
-                            productName={product.name}
-                            reviews={reviews}
-                            summary={review_summary}
-                            canReview={can_review}
-                            isLoggedIn={!!auth.user}
-                        />
+                        {/* 1.2: thông số key–value (admin nhập) — card dưới khối ảnh */}
+                        {(product.specs?.length ?? 0) > 0 && (
+                            <div className="mt-5 rounded-[16px] border border-cardBorder bg-white px-5 py-4">
+                                <div className="mb-2 font-mono text-[12px] font-bold tracking-[0.14em] text-campfire">THÔNG SỐ</div>
+                                <dl className="divide-y divide-[#f1f4ea]">
+                                    {product.specs!.map((row, i) => (
+                                        <div key={i} className="flex items-baseline justify-between gap-4 py-2.5">
+                                            <dt className="text-[13.5px] text-moss">{row.key}</dt>
+                                            <dd className="text-right text-[14px] font-semibold text-ink">{row.value}</dd>
+                                        </div>
+                                    ))}
+                                </dl>
+                            </div>
+                        )}
                     </div>
 
                     {/* info */}
@@ -357,10 +421,54 @@ export default function ProductDetail({ product, unavailable_dates, accessories,
                         )}
 
                         {product.description && (
-                            <p className="mb-[18px] text-[15px] leading-[1.6] text-[#3f4a32]">{product.description}</p>
+                            <p className="mb-2 text-[15px] leading-[1.6] text-[#3f4a32]">{product.description}</p>
+                        )}
+                        {/* 1.3: có nội dung chi tiết → nút cuộn xuống khối #chi-tiet */}
+                        {product.setup_content && (
+                            <button
+                                onClick={() => document.getElementById('chi-tiet')?.scrollIntoView({ behavior: 'smooth' })}
+                                className="mb-[18px] inline-flex items-center gap-1 text-[13.5px] font-bold text-grass transition hover:text-pine"
+                            >
+                                Xem thêm
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
+                                    <path d="M12 5v14m0 0-6-6m6 6 6-6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+                                </svg>
+                            </button>
                         )}
 
-                        <DateRangeCalendar start={start} end={end} unavailable={unavailable} onChange={onChange} />
+                        {/* 1.7: lịch dạng thu gọn — bấm để sổ, chọn xong tự đóng */}
+                        <button
+                            onClick={() => setCalOpen((o) => !o)}
+                            aria-expanded={calOpen}
+                            className="flex w-full items-center justify-between gap-3 rounded-[14px] border border-cardBorder bg-white px-4 py-3.5 text-left transition hover:border-grass"
+                        >
+                            <span className="flex items-center gap-2.5">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" className="flex-none text-grass">
+                                    <rect x="3" y="5" width="18" height="16" rx="3" stroke="currentColor" strokeWidth="1.8" />
+                                    <path d="M3 9h18M8 3v4M16 3v4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                                </svg>
+                                <span>
+                                    <span className="block text-[12px] text-[#8a967a]">Ngày thuê</span>
+                                    <span className="block font-mono text-[14.5px] font-bold text-ink">
+                                        {start && end ? rangeText(start, end) : start ? `${ddmm(start)} → chọn ngày trả` : 'Chọn ngày thuê'}
+                                    </span>
+                                </span>
+                            </span>
+                            <svg
+                                width="15"
+                                height="15"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                className={`flex-none text-moss transition-transform ${calOpen ? 'rotate-180' : ''}`}
+                            >
+                                <path d="m6 9 6 6 6-6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                        </button>
+                        {calOpen && (
+                            <div className="mt-2.5">
+                                <DateRangeCalendar start={start} end={end} unavailable={unavailable} onChange={onChange} />
+                            </div>
+                        )}
 
                         {/* range + qty + availability */}
                         <div className="mt-4 rounded-[14px] border border-cardBorder bg-white p-4">
@@ -416,6 +524,19 @@ export default function ProductDetail({ product, unavailable_dates, accessories,
                         </div>
                     </div>
                 </div>
+
+                {/* 1.4: nội dung chi tiết (setup, ảnh minh hoạ) — HTML TipTap đã sanitize server */}
+                {product.setup_content && (
+                    <section id="chi-tiet" className="mt-12 scroll-mt-24">
+                        <div className="mb-1 font-mono text-[12px] font-bold tracking-[0.14em] text-campfire">CHI TIẾT SẢN PHẨM</div>
+                        <h2 className="mb-4 text-[20px] font-extrabold tracking-tight text-ink">Về {product.name}</h2>
+                        <div
+                            className="editor-content max-w-[820px] rounded-[16px] border border-cardBorder bg-white px-6 py-5 sm:px-8"
+                            // An toàn: HTML đã qua EditorHtml::clean (HTMLPurifier) phía server
+                            dangerouslySetInnerHTML={{ __html: product.setup_content }}
+                        />
+                    </section>
+                )}
 
                 {/* Case 2 (US-03): "Thường thuê cùng" — AC-9: đã chọn ngày thì chỉ hiện món còn hàng */}
                 {accessories.length > 0 && (
@@ -494,6 +615,31 @@ export default function ProductDetail({ product, unavailable_dates, accessories,
                                 </div>
                             </div>
                         )}
+                    </section>
+                )}
+
+                {/* 1.5: đánh giá chuyển xuống cuối trang (carousel + form + modal) */}
+                <section className="mt-12">
+                    <ProductReviews
+                        productSlug={product.slug}
+                        productName={product.name}
+                        reviews={reviews}
+                        summary={review_summary}
+                        canReview={can_review}
+                        isLoggedIn={!!auth.user}
+                    />
+                </section>
+
+                {/* 1.6: "You may also like" — admin chọn ở form sản phẩm, dưới cùng trang */}
+                {related_products.length > 0 && (
+                    <section className="mt-12">
+                        <div className="mb-1 font-mono text-[12px] font-bold tracking-[0.14em] text-campfire">GỢI Ý CHO BẠN</div>
+                        <h2 className="mb-4 text-[20px] font-extrabold tracking-tight text-ink">Có thể bạn cũng thích</h2>
+                        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                            {related_products.map((p, i) => (
+                                <ProductCard key={p.id} p={p} index={i} />
+                            ))}
+                        </div>
                     </section>
                 )}
             </main>

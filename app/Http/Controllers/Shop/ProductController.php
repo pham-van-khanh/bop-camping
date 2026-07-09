@@ -7,6 +7,7 @@ use App\Models\Banner;
 use App\Models\CampingSpot;
 use App\Models\Category;
 use App\Models\Combo;
+use App\Models\Faq;
 use App\Models\Product;
 use App\Models\Review;
 use App\Models\ServiceLocation;
@@ -70,6 +71,8 @@ class ProductController extends Controller
         return Inertia::render('Welcome', [
             'featured' => $featured,
             'featured_combos' => $featuredCombos,
+            // FAQ hiển thị ở trang chủ (ADR home_faq_contact) — chỉ câu đang bật, theo thứ tự
+            'faqs' => Faq::active()->ordered()->get(['id', 'question', 'answer']),
             // Banner quản lý ở admin: hero (slideshow) + promo (dải khuyến mãi)
             'hero_banners' => Banner::active()->placement('hero')->ordered()->get()->map(fn (Banner $b) => [
                 'src' => $b->imageUrl(),
@@ -207,7 +210,18 @@ class ProductController extends Controller
         $bannerCombo = $this->bannerCombo($p);
 
         return Inertia::render('ProductDetail', [
-            'product' => $this->shape($p),
+            // specs/setup_content chỉ cần ở trang chi tiết — merge ngoài shape()
+            // để card danh sách (shape dùng chung) không phải chở thêm payload.
+            'product' => array_merge($this->shape($p), [
+                'specs' => $p->specs ?? [],
+                'setup_content' => $p->setup_content,
+            ]),
+            // "You may also like" (Epic 1, 1.6) — admin tự chọn, chỉ sản phẩm đang bán
+            'related_products' => $p->related()->where('status', 'active')
+                ->with('category', 'images', 'serviceLocations')
+                ->get()
+                ->map(fn (Product $r) => $this->shape($r))
+                ->values(),
             'unavailable_dates' => $unavailableDates,
             // Case 2 (US-03): "thường thuê cùng" — FE lọc còn hàng theo khoảng ngày (AC-9)
             'accessories' => $this->activeAccessories($p)

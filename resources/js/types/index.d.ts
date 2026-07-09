@@ -29,6 +29,23 @@ export interface EmailBonus {
     value: number;
 }
 
+export interface SiteZalo {
+    label: string | null;
+    phone: string | null;
+    url: string | null;
+}
+
+export interface SiteInfo {
+    hotline_primary: string | null;
+    hotline_secondary: string | null;
+    zalo_1: SiteZalo;
+    zalo_2: SiteZalo;
+    facebook_url: string | null;
+    tiktok_url: string | null;
+    working_hours: string | null;
+    addresses: { name: string; area: string | null }[];
+}
+
 export type PageProps<
     T extends Record<string, unknown> = Record<string, unknown>,
 > = T & {
@@ -38,6 +55,7 @@ export type PageProps<
     flash: Flash;
     referral: Referral | null;
     emailBonus: EmailBonus;
+    site: SiteInfo;
     pending_reviews?: number | null;
     pending_orders?: number | null;
 };

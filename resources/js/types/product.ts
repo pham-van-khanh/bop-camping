@@ -16,4 +16,7 @@ export interface ProductResource {
     all_locations?: boolean;
     // only present in show response
     unavailable_dates?: string[];
+    // Trang chi tiết (Epic 1): thông số key–value + nội dung setup (HTML đã sanitize)
+    specs?: { key: string; value: string }[];
+    setup_content?: string | null;
 }
