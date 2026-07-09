@@ -210,7 +210,18 @@ class ProductController extends Controller
         $bannerCombo = $this->bannerCombo($p);
 
         return Inertia::render('ProductDetail', [
-            'product' => $this->shape($p),
+            // specs/setup_content chỉ cần ở trang chi tiết — merge ngoài shape()
+            // để card danh sách (shape dùng chung) không phải chở thêm payload.
+            'product' => array_merge($this->shape($p), [
+                'specs' => $p->specs ?? [],
+                'setup_content' => $p->setup_content,
+            ]),
+            // "You may also like" (Epic 1, 1.6) — admin tự chọn, chỉ sản phẩm đang bán
+            'related_products' => $p->related()->where('status', 'active')
+                ->with('category', 'images', 'serviceLocations')
+                ->get()
+                ->map(fn (Product $r) => $this->shape($r))
+                ->values(),
             'unavailable_dates' => $unavailableDates,
             // Case 2 (US-03): "thường thuê cùng" — FE lọc còn hàng theo khoảng ngày (AC-9)
             'accessories' => $this->activeAccessories($p)
