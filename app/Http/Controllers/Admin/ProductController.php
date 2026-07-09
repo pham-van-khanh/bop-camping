@@ -32,7 +32,7 @@ class ProductController extends Controller
         $search = trim((string) $request->query('search', ''));
         $categoryId = (int) $request->query('category', 0);
 
-        $products = Product::with(['category', 'serviceLocations', 'accessories', 'images' => fn ($q) => $q->orderBy('sort_order')])
+        $products = Product::with(['category', 'serviceLocations', 'accessories', 'related', 'images' => fn ($q) => $q->orderBy('sort_order')])
             ->when($search !== '', fn ($q) => $q->where('name', 'like', '%'.$search.'%'))
             ->when($categoryId > 0, fn ($q) => $q->where('category_id', $categoryId))
             ->orderBy('name')
@@ -43,6 +43,8 @@ class ProductController extends Controller
                 'name' => $p->name,
                 'slug' => $p->slug,
                 'description' => $p->description,
+                'specs' => $p->specs ?? [],
+                'has_setup_content' => $p->setup_content !== null,
                 'price_per_day' => $p->price_per_day,
                 'quantity' => $p->quantity,
                 'deposit' => $p->deposit,
@@ -51,6 +53,7 @@ class ProductController extends Controller
                 'category' => $p->category ? ['id' => $p->category->id, 'name' => $p->category->name] : null,
                 'service_location_ids' => $p->serviceLocations->pluck('id')->values(),
                 'accessory_ids' => $p->accessories->pluck('id')->values(),
+                'related_ids' => $p->related->pluck('id')->values(),
                 'combo_names' => $comboNamesByProduct->get($p->id) ?? [],
                 'images' => $p->images->map(fn (ProductImage $img) => [
                     'id' => $img->id,
@@ -91,6 +94,11 @@ class ProductController extends Controller
             'service_location_ids.*' => 'integer|exists:service_locations,id',
             'accessory_ids' => 'sometimes|nullable|array|max:20',
             'accessory_ids.*' => 'integer|distinct|exists:products,id',
+            'specs' => 'sometimes|nullable|array|max:30',
+            'specs.*.key' => 'required|string|max:100',
+            'specs.*.value' => 'required|string|max:500',
+            'related_ids' => 'sometimes|nullable|array|max:12',
+            'related_ids.*' => 'integer|distinct|exists:products,id',
         ], [
             'name.required' => 'Tên sản phẩm không được bỏ trống.',
             'category_id.required' => 'Vui lòng chọn danh mục.',
@@ -103,6 +111,9 @@ class ProductController extends Controller
             'service_location_ids.required' => 'Vui lòng chọn ít nhất 1 vị trí phục vụ.',
             'service_location_ids.min' => 'Vui lòng chọn ít nhất 1 vị trí phục vụ.',
             'accessory_ids.*.exists' => 'Sản phẩm gợi ý không hợp lệ.',
+            'specs.*.key.required' => 'Tên thông số không được bỏ trống.',
+            'specs.*.value.required' => 'Giá trị thông số không được bỏ trống.',
+            'related_ids.*.exists' => 'Sản phẩm gợi ý không hợp lệ.',
         ]);
 
         $slug = Slug::unique(Product::class, $data['name']);
@@ -117,6 +128,7 @@ class ProductController extends Controller
             'name' => $data['name'],
             'slug' => $slug,
             'description' => $data['description'] ?? null,
+            'specs' => $this->cleanSpecs($data),
             'price_per_day' => (int) $data['price_per_day'],
             'quantity' => (int) $data['quantity'],
             'deposit' => isset($data['deposit']) ? (int) $data['deposit'] : null,
@@ -125,7 +137,8 @@ class ProductController extends Controller
         ]);
 
         $product->serviceLocations()->sync($data['service_location_ids']);
-        $this->syncAccessories($product, $data);
+        $this->syncSortedRelation($product, $data, 'accessory_ids', 'accessories');
+        $this->syncSortedRelation($product, $data, 'related_ids', 'related');
 
         return back()->with('success', 'Đã thêm sản phẩm.');
     }
@@ -145,6 +158,11 @@ class ProductController extends Controller
             'service_location_ids.*' => 'integer|exists:service_locations,id',
             'accessory_ids' => 'sometimes|nullable|array|max:20',
             'accessory_ids.*' => 'integer|distinct|exists:products,id',
+            'specs' => 'sometimes|nullable|array|max:30',
+            'specs.*.key' => 'required|string|max:100',
+            'specs.*.value' => 'required|string|max:500',
+            'related_ids' => 'sometimes|nullable|array|max:12',
+            'related_ids.*' => 'integer|distinct|exists:products,id',
         ], [
             'name.required' => 'Tên sản phẩm không được bỏ trống.',
             'category_id.required' => 'Vui lòng chọn danh mục.',
@@ -157,6 +175,9 @@ class ProductController extends Controller
             'service_location_ids.required' => 'Vui lòng chọn ít nhất 1 vị trí phục vụ.',
             'service_location_ids.min' => 'Vui lòng chọn ít nhất 1 vị trí phục vụ.',
             'accessory_ids.*.exists' => 'Sản phẩm gợi ý không hợp lệ.',
+            'specs.*.key.required' => 'Tên thông số không được bỏ trống.',
+            'specs.*.value.required' => 'Giá trị thông số không được bỏ trống.',
+            'related_ids.*.exists' => 'Sản phẩm gợi ý không hợp lệ.',
         ]);
 
         $slug = Slug::unique(Product::class, $data['name'], $product->id);
@@ -176,6 +197,7 @@ class ProductController extends Controller
             'name' => $data['name'],
             'slug' => $slug,
             'description' => $data['description'] ?? null,
+            'specs' => array_key_exists('specs', $data) ? $this->cleanSpecs($data) : $product->specs,
             'price_per_day' => (int) $data['price_per_day'],
             'quantity' => (int) $data['quantity'],
             'deposit' => isset($data['deposit']) ? (int) $data['deposit'] : null,
@@ -184,7 +206,8 @@ class ProductController extends Controller
         ]);
 
         $product->serviceLocations()->sync($data['service_location_ids']);
-        $this->syncAccessories($product, $data);
+        $this->syncSortedRelation($product, $data, 'accessory_ids', 'accessories');
+        $this->syncSortedRelation($product, $data, 'related_ids', 'related');
 
         // US-07: sản phẩm vừa bị ẩn → combo chứa nó không được bán tiếp
         if ($wasActive && $product->status === 'hidden') {
@@ -195,24 +218,40 @@ class ProductController extends Controller
     }
 
     /**
-     * US-08 — sync "thường thuê cùng": sort_order = vị trí trong mảng gửi lên.
+     * Sync quan hệ sản phẩm-sản phẩm có thứ tự ("thường thuê cùng" US-08,
+     * "you may also like" Epic 1): sort_order = vị trí trong mảng gửi lên.
      * Không gửi key = giữ nguyên; gửi rỗng ('' từ FormData) = xoá hết.
      * Tự gợi ý chính mình bị loại lặng lẽ.
      */
-    private function syncAccessories(Product $product, array $data): void
+    private function syncSortedRelation(Product $product, array $data, string $key, string $relation): void
     {
-        if (! array_key_exists('accessory_ids', $data)) {
+        if (! array_key_exists($key, $data)) {
             return;
         }
 
-        $product->accessories()->sync(
-            collect($data['accessory_ids'] ?? [])
+        $product->{$relation}()->sync(
+            collect($data[$key] ?? [])
                 ->map(fn ($id) => (int) $id)
                 ->reject(fn (int $id) => $id === $product->id)
                 ->values()
                 ->mapWithKeys(fn (int $id, int $i) => [$id => ['sort_order' => $i]])
                 ->all()
         );
+    }
+
+    /** Chuẩn hoá specs từ form: trim, bỏ dòng key rỗng; không còn dòng nào -> null. */
+    private function cleanSpecs(array $data): ?array
+    {
+        $rows = collect($data['specs'] ?? [])
+            ->map(fn (array $row) => [
+                'key' => trim((string) $row['key']),
+                'value' => trim((string) $row['value']),
+            ])
+            ->filter(fn (array $row) => $row['key'] !== '')
+            ->values()
+            ->all();
+
+        return $rows === [] ? null : $rows;
     }
 
     public function destroy(Product $product): RedirectResponse

@@ -10,6 +10,7 @@ use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\Admin\EditorImageController as AdminEditorImageController;
 use App\Http\Controllers\Admin\FaqController as AdminFaqController;
 use App\Http\Controllers\Admin\OrderController as AdminOrderController;
+use App\Http\Controllers\Admin\ProductContentController as AdminProductContentController;
 use App\Http\Controllers\Admin\ProductController as AdminProductController;
 use App\Http\Controllers\Admin\PromotionController as AdminPromotionController;
 use App\Http\Controllers\Admin\ReferralController as AdminReferralController;
@@ -96,6 +97,9 @@ Route::middleware(['admin'])->prefix('admin')->name('admin.')->group(function ()
     Route::post('/products', [AdminProductController::class, 'store'])->name('products.store');
     Route::put('/products/{product}', [AdminProductController::class, 'update'])->name('products.update');
     Route::delete('/products/{product}', [AdminProductController::class, 'destroy'])->name('products.destroy');
+    // Nội dung chi tiết (setup/mô tả lớn) — màn soạn thảo riêng, editor full-width (Epic 1)
+    Route::get('/products/{product}/noi-dung', [AdminProductContentController::class, 'edit'])->name('products.content.edit');
+    Route::put('/products/{product}/noi-dung', [AdminProductContentController::class, 'update'])->name('products.content.update')->middleware('throttle:30,1');
     Route::post('/products/{product}/images', [AdminProductController::class, 'storeImage'])->name('products.images.store')->middleware('throttle:60,1');
     Route::delete('/products/{product}/images/{image}', [AdminProductController::class, 'destroyImage'])->name('products.images.destroy');
 
