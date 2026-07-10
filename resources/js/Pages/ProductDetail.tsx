@@ -2,6 +2,7 @@ import { Head, Link, usePage } from '@inertiajs/react';
 import { ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import SiteLayout from '@/Layouts/SiteLayout';
 import DateRangeCalendar from '@/Components/site/DateRangeCalendar';
+import MagazineContent from '@/Components/site/MagazineContent';
 import ProductCard from '@/Components/site/ProductCard';
 import { COMBO_GRAD } from '@/Components/site/ComboCard';
 import ProductReviews, { type ReviewItem, type ReviewSummary } from '@/Components/site/ProductReviews';
@@ -251,6 +252,19 @@ export default function ProductDetail({ product, unavailable_dates, accessories,
     // 1.8: chuyển ảnh chính bằng nút ‹ › (vòng tròn), sync với thumbnail active.
     const goImg = (dir: number) => setActiveImg((i) => (i + dir + gallery.length) % gallery.length);
 
+    // Feedback #1: cột thumbnails dài quá khổ ảnh → cuộn được; đổi ảnh active
+    // (click, nút ‹ ›, phím) thì tự trượt để thumbnail active luôn lộ ra.
+    const thumbColRef = useRef<HTMLDivElement>(null);
+    useEffect(() => {
+        const col = thumbColRef.current;
+        const btn = col?.children[activeImg] as HTMLElement | undefined;
+        if (!col || !btn) return;
+        const top = btn.offsetTop;
+        const bottom = top + btn.offsetHeight;
+        if (top < col.scrollTop) col.scrollTo({ top: top - 6, behavior: 'smooth' });
+        else if (bottom > col.scrollTop + col.clientHeight) col.scrollTo({ top: bottom - col.clientHeight + 6, behavior: 'smooth' });
+    }, [activeImg]);
+
     // Phím ← → chuyển ảnh, Esc đóng — khi đang mở lightbox.
     useEffect(() => {
         if (!lightboxOpen) return;
@@ -295,10 +309,15 @@ export default function ProductDetail({ product, unavailable_dates, accessories,
                     {/* gallery: thumbnails cột dọc trái (desktop) + ảnh chính (1.1) */}
                     <div>
                         <div className="flex gap-2.5">
-                            {/* Thumbnails dọc — chỉ desktop/tablet; mobile dùng hàng ngang phía dưới */}
+                            {/* Thumbnails dọc — chỉ desktop/tablet; mobile dùng hàng ngang phía dưới.
+                                Nhiều ảnh quá khổ → cuộn dọc (slide), auto trượt theo ảnh active. */}
                             {gallery.length > 1 && (
-                                <div className="hidden w-[76px] flex-none flex-col gap-2.5 md:flex">
-                                    {gallery.map((g, i) => renderThumb(g, i, 'h-[64px]'))}
+                                <div
+                                    ref={thumbColRef}
+                                    className="relative hidden max-h-[420px] w-[76px] flex-none flex-col gap-2.5 overflow-y-auto md:flex"
+                                    style={{ scrollbarWidth: 'none' }}
+                                >
+                                    {gallery.map((g, i) => renderThumb(g, i, 'h-[64px] flex-none'))}
                                 </div>
                             )}
                             <div
@@ -464,9 +483,31 @@ export default function ProductDetail({ product, unavailable_dates, accessories,
                                 <path d="m6 9 6 6 6-6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
                             </svg>
                         </button>
+                        {/* Feedback #2: lịch mở dạng popup (680px để 2 tháng nằm ngang, mobile tự xếp dọc) */}
                         {calOpen && (
-                            <div className="mt-2.5">
-                                <DateRangeCalendar start={start} end={end} unavailable={unavailable} onChange={onChange} />
+                            <div
+                                className="fixed inset-0 z-[150] flex items-center justify-center bg-black/45 px-4"
+                                onClick={() => setCalOpen(false)}
+                            >
+                                <div
+                                    className="max-h-[90vh] w-full max-w-[680px] overflow-y-auto rounded-[18px] bg-white p-5 shadow-xl"
+                                    onClick={(e) => e.stopPropagation()}
+                                >
+                                    <div className="mb-3 flex items-start justify-between gap-3">
+                                        <div>
+                                            <h2 className="text-[17px] font-extrabold text-ink">Chọn ngày thuê</h2>
+                                            <p className="mt-0.5 text-[12.5px] text-moss">Bấm ngày nhận rồi bấm ngày trả — chọn xong lịch tự đóng.</p>
+                                        </div>
+                                        <button
+                                            onClick={() => setCalOpen(false)}
+                                            aria-label="Đóng"
+                                            className="grid h-9 w-9 flex-none place-items-center rounded-full bg-[#f1f4ea] text-[18px] text-pine transition hover:bg-[#e3e8d6]"
+                                        >
+                                            ×
+                                        </button>
+                                    </div>
+                                    <DateRangeCalendar start={start} end={end} unavailable={unavailable} onChange={onChange} />
+                                </div>
                             </div>
                         )}
 
@@ -522,99 +563,93 @@ export default function ProductDetail({ product, unavailable_dates, accessories,
                                 </button>
                             </div>
                         </div>
+
+                        {/* Case 2 (US-03) + feedback #3: "Thường thuê cùng" nằm ngay dưới nút
+                            Thêm vào giỏ — khách khỏi phải kéo xuống tìm. AC-9 giữ nguyên. */}
+                        {accessories.length > 0 && (
+                            <section className="mt-5">
+                                <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
+                                    <div className="font-mono text-[12px] font-bold tracking-[0.14em] text-campfire">THƯỜNG THUÊ CÙNG</div>
+                                    {(!start || !end) && (
+                                        <span className="text-[11.5px] text-moss">Chọn ngày để kiểm tra món còn trống</span>
+                                    )}
+                                </div>
+
+                                {visibleAccessories.length === 0 ? (
+                                    <div className="rounded-[14px] border border-cardBorder bg-white px-4 py-4 text-[13px] text-moss">
+                                        Các món gợi ý đều đã kín lịch trong khoảng {rangeText(start, end)} — đổi ngày để xem lại nhé.
+                                    </div>
+                                ) : (
+                                    <div className="overflow-hidden rounded-[14px] border border-cardBorder bg-white">
+                                        {visibleAccessories.map((a, i) => {
+                                            const on = accChecked.has(a.id);
+                                            const cap = Math.max(1, accCap(a));
+                                            const q = qtyOf(a);
+                                            // Có khoảng ngày + số thực từ server → báo khan hàng nếu bị đơn khác chiếm bớt
+                                            const scarce = start && end && accAvail !== null && accCap(a) < a.quantity;
+                                            return (
+                                                <div key={a.id} className={`flex flex-wrap items-center gap-2.5 px-3 py-2.5 ${i > 0 ? 'border-t border-[#f1f4ea]' : ''}`}>
+                                                    <button
+                                                        onClick={() => toggleAcc(a.id)}
+                                                        aria-label={on ? `Bỏ chọn ${a.name}` : `Chọn ${a.name}`}
+                                                        className={`grid h-5 w-5 flex-none place-items-center rounded-[6px] border text-[11px] font-bold transition ${
+                                                            on ? 'border-grass bg-grass text-white' : 'border-[#c4cca8] bg-white text-transparent'
+                                                        }`}
+                                                    >
+                                                        ✓
+                                                    </button>
+                                                    {a.thumbnail ? (
+                                                        <img src={a.thumbnail} alt={a.name} className="h-10 w-10 flex-none rounded-[9px] object-cover" />
+                                                    ) : (
+                                                        <div className="h-10 w-10 flex-none rounded-[9px]" style={{ background: gradFor(a.category.slug) }} />
+                                                    )}
+                                                    <div className="min-w-[110px] flex-1">
+                                                        <Link href={`/thiet-bi/${a.slug}`} className="text-[13px] font-bold leading-tight text-ink hover:text-grass">{a.name}</Link>
+                                                        <div className="text-[11px] text-moss">
+                                                            <span className="font-mono font-bold text-grass">{money(a.price_per_day)}</span>/ngày
+                                                            {scarce && <span className="text-campfire"> · còn {accCap(a)} bộ</span>}
+                                                        </div>
+                                                    </div>
+                                                    <div className={`flex items-center overflow-hidden rounded-[8px] border border-cardBorder ${on ? '' : 'opacity-40'}`}>
+                                                        <button onClick={() => bumpAccQty(a, -1)} disabled={!on} className="h-7 w-[26px] bg-[#f1f4ea] text-[14px] text-grass">−</button>
+                                                        <span className="w-[28px] text-center font-mono text-[12px] font-bold">{q}</span>
+                                                        <button onClick={() => bumpAccQty(a, 1)} disabled={!on || q >= cap} className="h-7 w-[26px] bg-[#f1f4ea] text-[14px] text-grass disabled:opacity-50">+</button>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+
+                                        <div className="flex flex-wrap items-center justify-between gap-2.5 border-t border-[#eef2e3] px-3 py-3" style={{ background: '#f8faf4' }}>
+                                            <div>
+                                                <div className="text-[11.5px] text-[#8a967a]">Phần thêm {days > 0 ? `(${days} ngày)` : ''}</div>
+                                                <div className="font-mono text-[15px] font-bold text-grass">
+                                                    {days > 0 ? money(accPerDay * days) : <>{money(accPerDay)}<span className="font-sans text-[11px] font-normal text-[#8a967a]">/ngày</span></>}
+                                                </div>
+                                                {accDeposit > 0 && <div className="font-mono text-[10.5px] text-campfire">+ cọc {money(accDeposit)}</div>}
+                                            </div>
+                                            <button
+                                                onClick={addAccessories}
+                                                disabled={!start || !end || selectedAccessories.length === 0}
+                                                className="h-[40px] rounded-control px-4 text-[12.5px] font-bold text-white transition disabled:cursor-not-allowed"
+                                                style={{ background: start && end && selectedAccessories.length > 0 ? '#557A2B' : '#c4cfae' }}
+                                            >
+                                                {start && end ? `Thêm ${selectedAccessories.length} món vào giỏ` : 'Chọn ngày để thêm'}
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+                            </section>
+                        )}
                     </div>
                 </div>
 
-                {/* 1.4: nội dung chi tiết (setup, ảnh minh hoạ) — HTML TipTap đã sanitize server */}
+                {/* 1.4 + feedback #4: nội dung chi tiết full-width, bố cục magazine
+                    text/ảnh xen kẽ trái–phải (HTML TipTap đã sanitize server) */}
                 {product.setup_content && (
                     <section id="chi-tiet" className="mt-12 scroll-mt-24">
                         <div className="mb-1 font-mono text-[12px] font-bold tracking-[0.14em] text-campfire">CHI TIẾT SẢN PHẨM</div>
-                        <h2 className="mb-4 text-[20px] font-extrabold tracking-tight text-ink">Về {product.name}</h2>
-                        <div
-                            className="editor-content max-w-[820px] rounded-[16px] border border-cardBorder bg-white px-6 py-5 sm:px-8"
-                            // An toàn: HTML đã qua EditorHtml::clean (HTMLPurifier) phía server
-                            dangerouslySetInnerHTML={{ __html: product.setup_content }}
-                        />
-                    </section>
-                )}
-
-                {/* Case 2 (US-03): "Thường thuê cùng" — AC-9: đã chọn ngày thì chỉ hiện món còn hàng */}
-                {accessories.length > 0 && (
-                    <section className="mt-12">
-                        <div className="mb-1 font-mono text-[12px] font-bold tracking-[0.14em] text-campfire">THƯỜNG THUÊ CÙNG</div>
-                        <div className="mb-4 flex flex-wrap items-end justify-between gap-2">
-                            <h2 className="text-[20px] font-extrabold tracking-tight text-ink">Món hay đi kèm {product.name}</h2>
-                            {(!start || !end) && (
-                                <span className="text-[12.5px] text-moss">Chọn ngày thuê ở trên để kiểm tra món còn trống</span>
-                            )}
-                        </div>
-
-                        {visibleAccessories.length === 0 ? (
-                            <div className="rounded-[14px] border border-cardBorder bg-white px-4 py-5 text-[13.5px] text-moss">
-                                Các món gợi ý đều đã kín lịch trong khoảng {rangeText(start, end)} — đổi ngày để xem lại nhé.
-                            </div>
-                        ) : (
-                            <div className="overflow-hidden rounded-[16px] border border-cardBorder bg-white">
-                                {visibleAccessories.map((a, i) => {
-                                    const on = accChecked.has(a.id);
-                                    const cap = Math.max(1, accCap(a));
-                                    const q = qtyOf(a);
-                                    // Có khoảng ngày + số thực từ server → báo khan hàng nếu bị đơn khác chiếm bớt
-                                    const scarce = start && end && accAvail !== null && accCap(a) < a.quantity;
-                                    return (
-                                        <div key={a.id} className={`flex flex-wrap items-center gap-3 px-4 py-3 ${i > 0 ? 'border-t border-[#f1f4ea]' : ''}`}>
-                                            <button
-                                                onClick={() => toggleAcc(a.id)}
-                                                aria-label={on ? `Bỏ chọn ${a.name}` : `Chọn ${a.name}`}
-                                                className={`grid h-[22px] w-[22px] flex-none place-items-center rounded-[7px] border text-[13px] font-bold transition ${
-                                                    on ? 'border-grass bg-grass text-white' : 'border-[#c4cca8] bg-white text-transparent'
-                                                }`}
-                                            >
-                                                ✓
-                                            </button>
-                                            {a.thumbnail ? (
-                                                <img src={a.thumbnail} alt={a.name} className="h-12 w-12 flex-none rounded-[10px] object-cover" />
-                                            ) : (
-                                                <div className="h-12 w-12 flex-none rounded-[10px]" style={{ background: gradFor(a.category.slug) }} />
-                                            )}
-                                            <div className="min-w-[140px] flex-1">
-                                                <Link href={`/thiet-bi/${a.slug}`} className="text-[14px] font-bold text-ink hover:text-grass">{a.name}</Link>
-                                                <div className="text-[11.5px] text-moss">
-                                                    {a.category.name}
-                                                    {scarce && <span className="text-campfire"> · chỉ còn {accCap(a)} bộ trong khoảng này</span>}
-                                                </div>
-                                            </div>
-                                            <div className="font-mono text-[14px] font-bold text-grass">
-                                                {money(a.price_per_day)}<span className="font-sans text-[11px] font-normal text-[#8a967a]">/ngày</span>
-                                            </div>
-                                            <div className={`flex items-center overflow-hidden rounded-[9px] border border-cardBorder ${on ? '' : 'opacity-40'}`}>
-                                                <button onClick={() => bumpAccQty(a, -1)} disabled={!on} className="h-8 w-[30px] bg-[#f1f4ea] text-[16px] text-grass">−</button>
-                                                <span className="w-[32px] text-center font-mono text-[13px] font-bold">{q}</span>
-                                                <button onClick={() => bumpAccQty(a, 1)} disabled={!on || q >= cap} className="h-8 w-[30px] bg-[#f1f4ea] text-[16px] text-grass disabled:opacity-50">+</button>
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-
-                                <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[#eef2e3] px-4 py-3.5" style={{ background: '#f8faf4' }}>
-                                    <div>
-                                        <div className="text-[12px] text-[#8a967a]">Phần thêm {days > 0 ? `(${days} ngày)` : ''}</div>
-                                        <div className="font-mono text-[17px] font-bold text-grass">
-                                            {days > 0 ? money(accPerDay * days) : <>{money(accPerDay)}<span className="font-sans text-[12px] font-normal text-[#8a967a]">/ngày</span></>}
-                                        </div>
-                                        {accDeposit > 0 && <div className="font-mono text-[11px] text-campfire">+ cọc {money(accDeposit)}</div>}
-                                    </div>
-                                    <button
-                                        onClick={addAccessories}
-                                        disabled={!start || !end || selectedAccessories.length === 0}
-                                        className="h-[44px] rounded-control px-5 text-[13.5px] font-bold text-white transition disabled:cursor-not-allowed"
-                                        style={{ background: start && end && selectedAccessories.length > 0 ? '#557A2B' : '#c4cfae' }}
-                                    >
-                                        {start && end ? `Thêm ${selectedAccessories.length} món vào giỏ` : 'Chọn ngày để thêm'}
-                                    </button>
-                                </div>
-                            </div>
-                        )}
+                        <h2 className="mb-6 text-[20px] font-extrabold tracking-tight text-ink">Về {product.name}</h2>
+                        <MagazineContent html={product.setup_content} />
                     </section>
                 )}
 
