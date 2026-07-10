@@ -252,15 +252,21 @@ export default function ProductDetail({ product, unavailable_dates, accessories,
     // 1.8: chuyển ảnh chính bằng nút ‹ › (vòng tròn), sync với thumbnail active.
     const goImg = (dir: number) => setActiveImg((i) => (i + dir + gallery.length) % gallery.length);
 
-    // Feedback #1: cột thumbnails dài quá khổ ảnh → cuộn được; đổi ảnh active
-    // (click, nút ‹ ›, phím) thì tự trượt sao cho thumbnail active nằm GIỮA cột
-    // — các ảnh phía dưới/trên tự lộ ra, khách không phải cuộn tay.
+    // Feedback #1: dải thumbnails cuộn được (dọc trên desktop, ngang trên mobile);
+    // đổi ảnh active (click, nút ‹ ›, phím) thì tự trượt đưa thumbnail đó vào GIỮA
+    // — các ảnh kế tiếp tự lộ ra, khách không phải cuộn tay.
     const thumbColRef = useRef<HTMLDivElement>(null);
+    const thumbRowRef = useRef<HTMLDivElement>(null);
     useEffect(() => {
-        const col = thumbColRef.current;
-        const btn = col?.children[activeImg] as HTMLElement | undefined;
-        if (!col || !btn) return;
-        col.scrollTo({ top: btn.offsetTop - (col.clientHeight - btn.offsetHeight) / 2, behavior: 'smooth' });
+        [thumbColRef.current, thumbRowRef.current].forEach((col) => {
+            const btn = col?.children[activeImg] as HTMLElement | undefined;
+            if (!col || !btn) return;
+            col.scrollTo({
+                top: btn.offsetTop - (col.clientHeight - btn.offsetHeight) / 2,
+                left: btn.offsetLeft - (col.clientWidth - btn.offsetWidth) / 2,
+                behavior: 'smooth',
+            });
+        });
     }, [activeImg]);
 
     // Phím ← → chuyển ảnh, Esc đóng — khi đang mở lightbox.
@@ -276,13 +282,13 @@ export default function ProductDetail({ product, unavailable_dates, accessories,
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [lightboxOpen, gallery.length]);
 
-    // Thumbnail dùng ở cả cột dọc (desktop) lẫn hàng ngang (mobile).
-    const renderThumb = (g: (typeof gallery)[number], i: number, heightClass: string) => (
+    // Thumbnail dùng ở cả cột dọc (desktop) lẫn hàng ngang (mobile) — truyền size class.
+    const renderThumb = (g: (typeof gallery)[number], i: number, sizeClass: string) => (
         <button
             key={i}
             onClick={() => setActiveImg(i)}
             aria-label={`Ảnh ${i + 1}`}
-            className={`relative ${heightClass} w-full overflow-hidden rounded-[11px] transition`}
+            className={`relative ${sizeClass} overflow-hidden rounded-[11px] transition`}
             style={{ outline: i === activeImg ? '2px solid #557A2B' : '1px solid #E3E8D6', outlineOffset: i === activeImg ? 1 : 0 }}
         >
             {g.type === 'img' ? (
@@ -303,7 +309,8 @@ export default function ProductDetail({ product, unavailable_dates, accessories,
             <Head title={product.name} />
             <main className="mx-auto max-w-[1120px] px-5 pb-12 pt-6">
                 <Link href="/thiet-bi" className="mb-2.5 inline-block py-2 text-[14px] font-semibold text-moss hover:text-grass">← Quay lại danh sách</Link>
-                <div className="grid items-start gap-[34px] lg:grid-cols-[minmax(0,1fr)_400px]">
+                {/* grid-cols-1 = minmax(0,1fr): chặn hàng thumbs ngang kéo giãn track làm tràn trang mobile */}
+                <div className="grid grid-cols-1 items-start gap-[34px] lg:grid-cols-[minmax(0,1fr)_400px]">
                     {/* gallery: thumbnails cột dọc trái (desktop) + ảnh chính (1.1) */}
                     <div>
                         <div className="flex gap-2.5">
@@ -315,7 +322,7 @@ export default function ProductDetail({ product, unavailable_dates, accessories,
                                     className="relative hidden max-h-[420px] w-[76px] flex-none flex-col gap-2.5 overflow-y-auto md:flex"
                                     style={{ scrollbarWidth: 'none' }}
                                 >
-                                    {gallery.map((g, i) => renderThumb(g, i, 'h-[64px] flex-none'))}
+                                    {gallery.map((g, i) => renderThumb(g, i, 'h-[64px] w-full flex-none'))}
                                 </div>
                             )}
                             <div
@@ -368,10 +375,15 @@ export default function ProductDetail({ product, unavailable_dates, accessories,
                                 <span className="pointer-events-none absolute bottom-4 left-[18px] font-mono text-[13px] tracking-[0.06em] text-white">{product.category.name}</span>
                             </div>
                         </div>
-                        {/* Thumbnails hàng ngang — chỉ mobile */}
+                        {/* Thumbnails hàng ngang — chỉ mobile: 1 hàng trượt ngang,
+                            bấm ảnh gần cuối tự kéo sang để lộ các ảnh sau */}
                         {gallery.length > 1 && (
-                            <div className="mt-2.5 grid grid-cols-4 gap-2.5 md:hidden">
-                                {gallery.map((g, i) => renderThumb(g, i, 'h-[70px]'))}
+                            <div
+                                ref={thumbRowRef}
+                                className="relative mt-2.5 flex gap-2.5 overflow-x-auto md:hidden"
+                                style={{ scrollbarWidth: 'none' }}
+                            >
+                                {gallery.map((g, i) => renderThumb(g, i, 'h-[64px] w-[72px] flex-none'))}
                             </div>
                         )}
 
