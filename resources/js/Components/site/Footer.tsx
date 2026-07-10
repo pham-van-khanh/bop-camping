@@ -66,6 +66,7 @@ export default function Footer() {
                     <div className="flex flex-col gap-[9px] text-[14px] text-moss">
                         <Link href="/thiet-bi" className="hover:text-grass">Tất cả thiết bị</Link>
                         <Link href="/combos" className="hover:text-grass">Combo tiết kiệm</Link>
+                        <Link href="/gioi-thieu" className="hover:text-grass">Giới thiệu</Link>
                         <Link href="/tra-cuu" className="hover:text-grass">Tra cứu đơn</Link>
                         <Link href="/#faq" className="hover:text-grass">Câu hỏi thường gặp</Link>
                     </div>
