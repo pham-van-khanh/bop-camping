@@ -5,40 +5,12 @@ namespace App\Http\Controllers\Shop;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Services\Auth\OtpService;
-use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
 class GuestAuthController extends Controller
 {
-    /**
-     * Tra thông tin theo SĐT khi đăng nhập. SĐT là khoá định danh; tên để khách đổi tuỳ ý.
-     * KHÔNG trả email thật ra client (tránh dò số gom email) — chỉ trả bản CHE để khách
-     * nhận ra tài khoản; khi đăng nhập, server tự dùng email đã lưu. Admin không lộ qua đây.
-     */
-    public function lookup(Request $request): JsonResponse
-    {
-        $phone = (string) $request->query('phone', '');
-        if (! preg_match('/^0[0-9]{8,10}$/', $phone)) {
-            return response()->json(['exists' => false]);
-        }
-
-        $user = User::where('phone', $phone)->where('is_admin', false)->first();
-        if (! $user) {
-            return response()->json(['exists' => false]);
-        }
-
-        // Chỉ có email đã xác thực mới cho đăng nhập nhanh bằng SĐT (email tạm/chưa verify → null).
-        $hasVerifiedEmail = $user->email_verified_at && ! $user->hasPlaceholderEmail();
-
-        return response()->json([
-            'exists' => true,
-            'name' => $user->name,
-            'email_mask' => $hasVerifiedEmail ? $this->maskEmail($user->email) : null,
-        ]);
-    }
-
     /**
      * Bước 1 — Đăng nhập bằng SĐT (+ tên tuỳ ý, + email TUỲ CHỌN).
      * - SĐT là khoá định danh duy nhất; KHÔNG ràng buộc tên — khách đổi tên thoải mái.
@@ -127,16 +99,6 @@ class GuestAuthController extends Controller
         }
 
         return $existing?->name ?? $phone;
-    }
-
-    /** Che email để hiển thị: giữ 2 ký tự đầu phần tên + tên miền, vd quen@x.com → qu**@x.com. */
-    private function maskEmail(string $email): string
-    {
-        [$local, $domain] = array_pad(explode('@', $email, 2), 2, '');
-        $keep = mb_strlen($local) <= 2 ? 1 : 2;
-        $masked = mb_substr($local, 0, $keep).str_repeat('*', max(2, mb_strlen($local) - $keep));
-
-        return $domain === '' ? $masked : $masked.'@'.$domain;
     }
 
     /**

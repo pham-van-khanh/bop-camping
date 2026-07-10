@@ -200,7 +200,8 @@ class ComboController extends Controller
                 'combo_price' => $comboPrice,
                 'deposit' => isset($data['deposit']) ? (int) $data['deposit'] : null,
                 'suitable_for' => $data['suitable_for'] ?? null,
-                'is_active' => $data['is_active'] ?? true,
+                // Giữ nguyên trạng thái khi update mà request bỏ qua field (tránh bật lại combo đang ẩn).
+                'is_active' => array_key_exists('is_active', $data) ? (bool) $data['is_active'] : ($ignore?->is_active ?? true),
                 'sort_order' => $data['sort_order'] ?? 0,
             ],
             'items' => $items->all(),

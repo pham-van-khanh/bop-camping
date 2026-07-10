@@ -26,14 +26,16 @@ class FaqController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
-        Faq::create($this->validated($request));
+        Faq::create($this->validated($request, true));
 
         return back()->with('success', 'Đã thêm câu hỏi.');
     }
 
     public function update(Request $request, Faq $faq): RedirectResponse
     {
-        $faq->update($this->validated($request));
+        // Giữ nguyên trạng thái hiện tại nếu request không gửi is_active (tránh
+        // vô tình bật lại FAQ đang ẩn khi client bỏ qua field).
+        $faq->update($this->validated($request, $faq->is_active));
 
         return back()->with('success', 'Đã cập nhật câu hỏi.');
     }
@@ -46,7 +48,7 @@ class FaqController extends Controller
     }
 
     /** @return array<string, mixed> */
-    private function validated(Request $request): array
+    private function validated(Request $request, bool $activeDefault): array
     {
         $data = $request->validate([
             'question' => 'required|string|min:3|max:255',
@@ -62,7 +64,7 @@ class FaqController extends Controller
             'question' => $data['question'],
             'answer' => $data['answer'],
             'sort_order' => (int) ($data['sort_order'] ?? 0),
-            'is_active' => (bool) ($data['is_active'] ?? true),
+            'is_active' => array_key_exists('is_active', $data) ? (bool) $data['is_active'] : $activeDefault,
         ];
     }
 }

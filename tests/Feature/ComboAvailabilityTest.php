@@ -10,6 +10,7 @@ use App\Models\Product;
 use App\Services\AvailabilityService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 /**
@@ -149,6 +150,34 @@ class ComboAvailabilityTest extends TestCase
 
         $this->assertSame(1, $this->service->availableQuantity($this->tent, $start, $end));
         $this->assertSame(1, $this->service->comboAvailable($this->combo, $start, $end));
+    }
+
+    /**
+     * bopcamping-6jt — combosAvailable() gộp booked của MỌI combo vào 1 query
+     * (chống N+1 ở trang danh sách combo / gợi ý giỏ), vẫn ra kết quả đúng.
+     *
+     * @test
+     */
+    public function combos_available_batches_booked_into_one_query(): void
+    {
+        // Combo thứ 2 (1 lều) để chứng minh số query KHÔNG tăng theo số combo/món.
+        $combo2 = Combo::create(['name' => 'Combo 2', 'slug' => 'combo-2', 'combo_price' => 120000]);
+        $combo2->items()->create(['product_id' => $this->tent->id, 'quantity' => 1]);
+
+        $combos = Combo::with('items.product')->get(); // 2 combo, 3 dòng item, 2 product
+        $start = Carbon::parse('2026-07-10');
+        $end = Carbon::parse('2026-07-12');
+
+        DB::enableQueryLog();
+        $avail = $this->service->combosAvailable($combos, $start, $end);
+        $bookedQueries = collect(DB::getQueryLog())
+            ->filter(fn (array $q) => str_contains($q['query'], 'order_items'))
+            ->count();
+        DB::disableQueryLog();
+
+        $this->assertSame(1, $bookedQueries, 'Chỉ được 1 query đếm booked cho mọi combo (không N+1).');
+        $this->assertSame(2, $avail[$this->combo->id]); // lều 3/1, đệm 4/2 → min 2
+        $this->assertSame(3, $avail[$combo2->id]);       // chỉ lều 3/1 → 3
     }
 
     // -------------------------------------------------------------------------

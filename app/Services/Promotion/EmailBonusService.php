@@ -39,12 +39,12 @@ class EmailBonusService
             return $fail('not_first_order');
         }
 
-        $base = (int) $order->total_price;
-        $raw = $settings->email_bonus_discount_type === 'percent'
-            ? (int) floor($base * (float) $settings->email_bonus_discount_value / 100)
-            : (int) round((float) $settings->email_bonus_discount_value);
-        $cap = (int) floor($base * (float) $settings->max_discount_percent_per_order / 100);
-        $discount = max(0, min($raw, $cap, $base));
+        $discount = DiscountCalculator::compute(
+            (int) $order->total_price,
+            (string) $settings->email_bonus_discount_type,
+            (float) $settings->email_bonus_discount_value,
+            (float) $settings->max_discount_percent_per_order,
+        );
 
         if ($discount > 0) {
             $order->applyDiscountLines([['source' => 'email_bonus', 'amount' => $discount]]);

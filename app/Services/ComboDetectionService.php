@@ -42,14 +42,28 @@ class ComboDetectionService
             return null;
         }
 
-        return Combo::active()
+        $candidates = Combo::active()
             ->whereHas('items')
             ->with('items.product')
             ->get()
             ->map(fn (Combo $combo) => $this->evaluate($combo, $have))
             ->filter()
-            // Gợi ý combo hết hàng = trải nghiệm ngược (AC-6) — lọc sau cùng vì tốn query
-            ->filter(fn (ComboSuggestion $s) => $this->availability->isComboAvailable($s->combo, $start, $end))
+            ->values();
+
+        if ($candidates->isEmpty()) {
+            return null;
+        }
+
+        // Gợi ý combo hết hàng = trải nghiệm ngược (AC-6). Lọc tồn kho các combo ứng viên
+        // trong 1 query gộp (chống N+1) thay vì gọi isComboAvailable từng combo.
+        $availability = $this->availability->combosAvailable(
+            $candidates->map(fn (ComboSuggestion $s) => $s->combo),
+            $start,
+            $end,
+        );
+
+        return $candidates
+            ->filter(fn (ComboSuggestion $s) => ($availability[$s->combo->id] ?? 0) >= 1)
             ->sortBy([
                 fn (ComboSuggestion $a, ComboSuggestion $b) => (int) ($a->type === 'upsell') <=> (int) ($b->type === 'upsell'),
                 fn (ComboSuggestion $a, ComboSuggestion $b) => $b->savings <=> $a->savings,

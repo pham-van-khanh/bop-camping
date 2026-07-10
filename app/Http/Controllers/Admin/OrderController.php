@@ -24,7 +24,7 @@ class OrderController extends Controller
             $query->where('status', $status);
         }
 
-        $orders = $query->get()->map(fn ($o) => [
+        $orders = $query->paginate(50)->withQueryString()->through(fn ($o) => [
             'id' => $o->id,
             'code' => $o->code,
             'customer_name' => $o->customer_name,

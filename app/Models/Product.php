@@ -128,7 +128,7 @@ class Product extends Model
         return round((float) $this->reviews()->where('status', 'approved')->avg('rating'), 1);
     }
 
-    public function scopeActive($query)
+    public function scopeActive(Builder $query): Builder
     {
         return $query->where('status', 'active');
     }

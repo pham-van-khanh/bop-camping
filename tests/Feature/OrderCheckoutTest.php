@@ -5,7 +5,9 @@ namespace Tests\Feature;
 use App\Models\Category;
 use App\Models\Order;
 use App\Models\Product;
+use App\Services\AvailabilityService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Tests\TestCase;
 
 /**
@@ -106,6 +108,38 @@ class OrderCheckoutTest extends TestCase
         ])->assertSessionHas('order_code');
 
         $this->assertSame(2, Order::count());
+    }
+
+    /**
+     * bopcamping race-fix — tồn kho được kiểm LẠI (authoritative) sau pre-check.
+     *
+     * Van chống race: OrderController phải recheck tồn kho DƯỚI lockForUpdate bên
+     * trong transaction, không chỉ dựa vào pre-check ngoài transaction. Stub trả
+     * "còn hàng" ở lần gọi đầu (pre-check) và "hết" ở lần sau (recheck) — nếu ai đó
+     * gỡ bước recheck, đơn sẽ được tạo và test này đỏ. (Bản thân lock được kiểm bằng
+     * đọc code; concurrency thật không mô phỏng được trong PHPUnit.)
+     */
+    public function test_rechecks_availability_after_precheck(): void
+    {
+        $p = $this->product(qty: 5);
+
+        $this->app->instance(AvailabilityService::class, new class extends AvailabilityService
+        {
+            public int $calls = 0;
+
+            public function availableQuantity(Product $product, Carbon $start, Carbon $end): int
+            {
+                return ++$this->calls === 1 ? 99 : 0; // pre-check qua, recheck chặn
+            }
+        });
+
+        $this->post(route('order.store'), [
+            'name' => 'Khách',
+            'phone' => '0912345678',
+            'items' => [['product_id' => $p->id, 'quantity' => 1, 'start' => '2030-07-01', 'end' => '2030-07-03']],
+        ])->assertSessionHasErrors('items');
+
+        $this->assertSame(0, Order::count()); // recheck chặn + rollback → không tạo đơn
     }
 
     /** bopcamping-kpf — email tuỳ chọn ở checkout: khách vãng lai nhận mail xác nhận. */

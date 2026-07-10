@@ -101,6 +101,23 @@ class FaqTest extends TestCase
     }
 
     /** @test */
+    public function update_without_is_active_preserves_current_state(): void
+    {
+        // FAQ đang ẩn; request update KHÔNG gửi is_active → phải giữ ẩn (không tự bật lại).
+        $hidden = $this->faq('Ẩn', 'x', active: false);
+
+        $this->actingAs($this->admin())->put(route('admin.faqs.update', $hidden), [
+            'question' => 'Ẩn đã sửa',
+            'answer' => 'x2',
+            'sort_order' => 0,
+        ])->assertRedirect()->assertSessionHasNoErrors();
+
+        $hidden->refresh();
+        $this->assertSame('Ẩn đã sửa', $hidden->question);
+        $this->assertFalse($hidden->is_active, 'FAQ đang ẩn không được tự bật lại khi update thiếu is_active.');
+    }
+
+    /** @test */
     public function admin_can_delete_faq(): void
     {
         $faq = $this->faq('Xoá tôi', 'x');

@@ -41,7 +41,7 @@ class AdminOrderPaymentMarkTest extends TestCase
 
         $this->actingAs($admin)->get(route('admin.orders'))->assertInertia(fn (Assert $page) => $page
             ->component('Admin/Orders')
-            ->where('orders.0.payment_status', 'unpaid'));
+            ->where('orders.data.0.payment_status', 'unpaid'));
     }
 
     /** @test */
@@ -149,7 +149,7 @@ class AdminOrderPaymentMarkTest extends TestCase
         $admin = User::factory()->create(['is_admin' => true]);
 
         $this->actingAs($admin)->get(route('admin.orders'))->assertInertia(fn (Assert $page) => $page
-            ->where('orders.0.deposit_refund_status', 'refunded')
-            ->where('orders.0.deposit_refund_note', 'Hỏng bếp'));
+            ->where('orders.data.0.deposit_refund_status', 'refunded')
+            ->where('orders.data.0.deposit_refund_note', 'Hỏng bếp'));
     }
 }

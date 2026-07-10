@@ -5,11 +5,13 @@ namespace App\Models;
 use App\Observers\OrderObserver;
 use Database\Factories\OrderFactory;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 
 #[ObservedBy([OrderObserver::class])]
@@ -133,6 +135,19 @@ class Order extends Model
     public static function activeStatuses(): array
     {
         return ['pending', 'confirmed', 'renting'];
+    }
+
+    /**
+     * Đơn "đang chiếm kho" chồng lịch với [start, end] — ĐỊNH NGHĨA DUY NHẤT của
+     * quy tắc "đơn nào tính tồn kho + điều kiện chồng lịch" (AC-10). Mọi phép tính
+     * tồn kho (availableQuantity, bookedQuantities, unavailableDates) đều đi qua đây.
+     * Chồng nhau khi: start_A <= end_B AND start_B <= end_A (biên bao gồm).
+     */
+    public function scopeActiveOverlapping(Builder $query, Carbon $start, Carbon $end): Builder
+    {
+        return $query->whereIn('status', self::activeStatuses())
+            ->where('start_date', '<=', $end)
+            ->where('end_date', '>=', $start);
     }
 
     /**

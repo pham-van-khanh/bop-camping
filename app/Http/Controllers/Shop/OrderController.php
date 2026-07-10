@@ -18,10 +18,12 @@ use App\Services\Referral\ReferralService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 class OrderController extends Controller
 {
@@ -131,27 +133,27 @@ class OrderController extends Controller
         $comboProducts = $combos->flatMap(fn (Combo $c) => $c->items->map(fn ($i) => $i->product))
             ->filter()
             ->keyBy('id');
-        foreach ($needed as $key => $qty) {
-            [$productId, $start, $end] = explode('|', $key);
-            $product = $products->get((int) $productId) ?? $comboProducts->get((int) $productId);
-            if (! $product) {
-                $errors[] = "Sản phẩm #$productId không tồn tại.";
 
-                continue;
-            }
-
-            $available = $this->availability->availableQuantity($product, Carbon::parse($start), Carbon::parse($end));
-            if ($available < $qty) {
-                $errors[] = "\"{$product->name}\" chỉ còn {$available} bộ trong khoảng thời gian này.";
-            }
-        }
-
-        if (! empty($errors)) {
-            return back()->withErrors(['items' => implode(' ', $errors)])->withInput();
+        // Kiểm kho sơ bộ (chưa khoá) để báo lỗi thân thiện trước khi mở transaction.
+        // Recheck authoritative dưới lockForUpdate nằm TRONG transaction bên dưới.
+        if ($shortfalls = $this->availabilityErrors($needed, $products, $comboProducts)) {
+            return back()->withErrors(['items' => implode(' ', $shortfalls)])->withInput();
         }
 
         // Tạo đơn trong transaction
-        $order = DB::transaction(function () use ($validated, $itemLines, $comboLines, $products, $combos) {
+        $order = DB::transaction(function () use ($validated, $itemLines, $comboLines, $products, $combos, $needed, $comboProducts) {
+            // Van an toàn chống race/oversell: khoá các dòng sản phẩm liên quan rồi
+            // kiểm kho LẠI (authoritative) — 2 đơn cùng giành nốt hàng cuối thì đơn
+            // thứ hai bị chặn ở đây và rollback. lockForUpdate là no-op trên SQLite.
+            $lockIds = collect(array_keys($needed))
+                ->map(fn ($k) => (int) explode('|', $k)[0])
+                ->unique()->sort()->values()->all();
+            Product::whereIn('id', $lockIds)->lockForUpdate()->get();
+
+            if ($shortfalls = $this->availabilityErrors($needed, $products, $comboProducts)) {
+                throw ValidationException::withMessages(['items' => implode(' ', $shortfalls)]);
+            }
+
             $starts = array_merge(array_column($itemLines, 'start'), array_column($comboLines, 'start'));
             $ends = array_merge(array_column($itemLines, 'end'), array_column($comboLines, 'end'));
             $startDate = Carbon::parse(min($starts));
@@ -237,34 +239,38 @@ class OrderController extends Controller
         });
 
         // Khuyến mãi (chỉ cho khách đã đăng nhập) — referee giảm đơn đầu + voucher.
+        // Bọc trong 1 transaction để 4 bước ghi giảm giá là nguyên tử: lỗi giữa chừng
+        // không để lại đơn với discount_breakdown lệch discount_total.
         if ($order->user_id) {
-            $settings = PromotionSetting::current();
+            DB::transaction(function () use ($order, $validated) {
+                $settings = PromotionSetting::current();
 
-            // (1) Mã giới thiệu cho đơn đầu của referee.
-            $this->referrals->applyRefereeFirstOrderDiscount(
-                $order,
-                $validated['referral_code'] ?? null,
-                $settings,
-            );
-            $order->refresh();
+                // (1) Mã giới thiệu cho đơn đầu của referee.
+                $this->referrals->applyRefereeFirstOrderDiscount(
+                    $order,
+                    $validated['referral_code'] ?? null,
+                    $settings,
+                );
+                $order->refresh();
 
-            // (1.5) Ưu đãi thêm email cho đơn đầu (khuyến khích khách bổ sung email — email không bắt buộc).
-            $this->emailBonus->applyFirstOrderDiscount($order, $settings);
-            $order->refresh();
+                // (1.5) Ưu đãi thêm email cho đơn đầu (khuyến khích khách bổ sung email — email không bắt buộc).
+                $this->emailBonus->applyFirstOrderDiscount($order, $settings);
+                $order->refresh();
 
-            // (2) Voucher (stacking + trần) áp lên phần còn lại.
-            $this->vouchers->apply($order, $validated['voucher_codes'] ?? [], $settings);
-            $order->refresh();
+                // (2) Voucher (stacking + trần) áp lên phần còn lại.
+                $this->vouchers->apply($order, $validated['voucher_codes'] ?? [], $settings);
+                $order->refresh();
 
-            // (3) VAN AN TOÀN tổng thể: tổng giảm không vượt trần % giá trị đơn.
-            $cap = (int) floor((int) $order->total_price * (float) $settings->max_discount_percent_per_order / 100);
-            $clamped = min((int) $order->discount_total, $cap, (int) $order->total_price);
-            if ($clamped !== (int) $order->discount_total) {
-                // Ghi dòng điều chỉnh ÂM để sum(breakdown) luôn khớp discount_total (bopcamping-3ag)
-                $order->applyDiscountLines([
-                    ['source' => 'cap', 'amount' => $clamped - (int) $order->discount_total],
-                ]);
-            }
+                // (3) VAN AN TOÀN tổng thể: tổng giảm không vượt trần % giá trị đơn.
+                $cap = (int) floor((int) $order->total_price * (float) $settings->max_discount_percent_per_order / 100);
+                $clamped = min((int) $order->discount_total, $cap, (int) $order->total_price);
+                if ($clamped !== (int) $order->discount_total) {
+                    // Ghi dòng điều chỉnh ÂM để sum(breakdown) luôn khớp discount_total (bopcamping-3ag)
+                    $order->applyDiscountLines([
+                        ['source' => 'cap', 'amount' => $clamped - (int) $order->discount_total],
+                    ]);
+                }
+            });
         }
 
         // Mail đều là ShouldQueue → đẩy vào queue (worker gửi nền), checkout không treo vì SMTP.
@@ -287,5 +293,36 @@ class OrderController extends Controller
             'order_discount' => $order->discount_total,
             'order_items' => count($itemLines) + count($comboLines),
         ]);
+    }
+
+    /**
+     * Kiểm kho cho mọi (sản phẩm | khoảng ngày) đã gộp — trả danh sách thông báo
+     * thiếu hàng (rỗng nghĩa là đủ). Dùng cả cho pre-check lẫn recheck-dưới-lock,
+     * đảm bảo cùng một nguồn công thức (AvailabilityService).
+     *
+     * @param  array<string, int>  $needed  "productId|start|end" => qty
+     * @param  Collection<int, Product>  $products
+     * @param  Collection<int, Product>  $comboProducts
+     * @return array<int, string>
+     */
+    private function availabilityErrors(array $needed, Collection $products, Collection $comboProducts): array
+    {
+        $errors = [];
+        foreach ($needed as $key => $qty) {
+            [$productId, $start, $end] = explode('|', $key);
+            $product = $products->get((int) $productId) ?? $comboProducts->get((int) $productId);
+            if (! $product) {
+                $errors[] = "Sản phẩm #$productId không tồn tại.";
+
+                continue;
+            }
+
+            $available = $this->availability->availableQuantity($product, Carbon::parse($start), Carbon::parse($end));
+            if ($available < $qty) {
+                $errors[] = "\"{$product->name}\" chỉ còn {$available} bộ trong khoảng thời gian này.";
+            }
+        }
+
+        return $errors;
     }
 }

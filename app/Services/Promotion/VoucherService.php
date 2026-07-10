@@ -33,11 +33,11 @@ class VoucherService
 
         $lines = $vouchers->map(function (Voucher $v) use ($base, $regularBase) {
             $vBase = $v->applicable_to_combos ? $base : $regularBase;
-            $raw = $v->type === 'percent'
-                ? (int) floor($vBase * (float) $v->value / 100)
-                : (int) round((float) $v->value);
 
-            return ['code' => $v->code, 'raw' => max(0, min($raw, $vBase))];
+            return [
+                'code' => $v->code,
+                'raw' => DiscountCalculator::rawDiscount($vBase, (string) $v->type, (float) $v->value),
+            ];
         })->values();
 
         $rawTotal = (int) $lines->sum('raw');

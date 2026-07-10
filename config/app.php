@@ -65,7 +65,10 @@ return [
     |
     */
 
-    'timezone' => 'UTC',
+    // Shop hoạt động tại VN (UTC+7). Đặt timezone theo giờ VN để now()/today()
+    // và validate 'after_or_equal:today' đúng ngày người dùng (tránh khung 0–7h
+    // sáng vẫn đặt được ngày hôm qua). Cho phép .env override khi cần.
+    'timezone' => env('APP_TIMEZONE', 'Asia/Ho_Chi_Minh'),
 
     /*
     |--------------------------------------------------------------------------

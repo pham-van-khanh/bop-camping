@@ -172,8 +172,8 @@ class DiscountBreakdownTest extends TestCase
         $admin = User::factory()->create(['is_admin' => true]);
 
         $this->actingAs($admin)->get(route('admin.orders'))->assertInertia(fn (Assert $page) => $page
-            ->where('orders.0.discount_breakdown.0.source', 'email_bonus')
-            ->where('orders.0.discount_breakdown.0.amount', 15000));
+            ->where('orders.data.0.discount_breakdown.0.source', 'email_bonus')
+            ->where('orders.data.0.discount_breakdown.0.amount', 15000));
     }
 
     /** Đơn cũ (trước fix) không có breakdown → payload null, FE hiện fallback. */
@@ -190,8 +190,8 @@ class DiscountBreakdownTest extends TestCase
         $admin = User::factory()->create(['is_admin' => true]);
 
         $this->actingAs($admin)->get(route('admin.orders'))->assertInertia(fn (Assert $page) => $page
-            ->where('orders.0.discount_total', 51000)
-            ->where('orders.0.discount_breakdown', null));
+            ->where('orders.data.0.discount_total', 51000)
+            ->where('orders.data.0.discount_breakdown', null));
     }
 
     // -------------------------------------------------------------------------

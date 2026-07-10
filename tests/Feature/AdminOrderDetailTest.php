@@ -51,12 +51,12 @@ class AdminOrderDetailTest extends TestCase
 
         $this->actingAs($admin)->get(route('admin.orders'))->assertInertia(fn (Assert $page) => $page
             ->component('Admin/Orders')
-            ->where('orders.0.customer_email', 'kh@example.com')
-            ->where('orders.0.customer_address', '12 ABC')
-            ->where('orders.0.amount_due', 470000) // 300k + 200k − 30k
-            ->where('orders.0.vouchers.0.code', 'VC-USED')
-            ->where('orders.0.vouchers.0.value', 30000)
-            ->where('orders.0.referral.referrer_name', 'Người Mời')
+            ->where('orders.data.0.customer_email', 'kh@example.com')
+            ->where('orders.data.0.customer_address', '12 ABC')
+            ->where('orders.data.0.amount_due', 470000) // 300k + 200k − 30k
+            ->where('orders.data.0.vouchers.0.code', 'VC-USED')
+            ->where('orders.data.0.vouchers.0.value', 30000)
+            ->where('orders.data.0.referral.referrer_name', 'Người Mời')
         );
     }
 
@@ -90,13 +90,13 @@ class AdminOrderDetailTest extends TestCase
         $admin = User::factory()->create(['is_admin' => true]);
 
         $this->actingAs($admin)->get(route('admin.orders'))->assertInertia(fn (Assert $page) => $page
-            ->where('orders.0.items.0.combo_group_uuid', $uuid)
-            ->where('orders.0.items.0.combo_name', 'Combo Test')
-            ->where('orders.0.items.0.allocated_price', 80000)
-            ->where('orders.0.items.1.combo_group_uuid', $uuid)
-            ->where('orders.0.items.2.combo_group_uuid', null)
-            ->where('orders.0.items.2.combo_name', null)
-            ->where('orders.0.items.2.allocated_price', null)
+            ->where('orders.data.0.items.0.combo_group_uuid', $uuid)
+            ->where('orders.data.0.items.0.combo_name', 'Combo Test')
+            ->where('orders.data.0.items.0.allocated_price', 80000)
+            ->where('orders.data.0.items.1.combo_group_uuid', $uuid)
+            ->where('orders.data.0.items.2.combo_group_uuid', null)
+            ->where('orders.data.0.items.2.combo_name', null)
+            ->where('orders.data.0.items.2.allocated_price', null)
         );
     }
 }

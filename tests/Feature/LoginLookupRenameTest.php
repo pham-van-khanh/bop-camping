@@ -8,53 +8,14 @@ use Illuminate\Support\Facades\Mail;
 use Tests\TestCase;
 
 /**
- * bopcamping-8pe — đăng nhập: tra SĐT tự điền email + bỏ ràng buộc tên (đổi tên tuỳ ý).
+ * bopcamping-8pe — đăng nhập: SĐT là khoá định danh + bỏ ràng buộc tên (đổi tên tuỳ ý).
+ * (Endpoint tra SĐT→tên đã bỏ — bopcamping-4bi chống dò danh bạ; server tự dùng email đã lưu.)
  */
 class LoginLookupRenameTest extends TestCase
 {
     use RefreshDatabase;
 
-    // ── Lookup tự điền email ──────────────────────────────────────────────────
-
-    /** @test */
-    public function lookup_returns_masked_email_not_the_real_one(): void
-    {
-        User::factory()->create([
-            'name' => 'Khách Quen', 'phone' => '0912345678',
-            'email' => 'quen@example.com', 'email_verified_at' => now(),
-        ]);
-
-        $res = $this->getJson(route('guest.lookup', ['phone' => '0912345678']))
-            ->assertOk()
-            ->assertJson(['exists' => true, 'name' => 'Khách Quen', 'email_mask' => 'qu**@example.com']);
-
-        // KHÔNG được lộ email thật ra client.
-        $this->assertStringNotContainsString('quen@example.com', $res->getContent());
-    }
-
-    /** @test */
-    public function lookup_returns_not_found_for_unknown_or_invalid_phone(): void
-    {
-        $this->getJson(route('guest.lookup', ['phone' => '0900000000']))
-            ->assertOk()->assertJson(['exists' => false]);
-
-        $this->getJson(route('guest.lookup', ['phone' => 'abc']))
-            ->assertOk()->assertJson(['exists' => false]);
-    }
-
-    /** @test */
-    public function lookup_masks_nothing_for_placeholder_email_and_hides_admins(): void
-    {
-        // User tạo nhanh chỉ bằng SĐT → email tạm .local, không cho đăng nhập nhanh.
-        User::create(['name' => 'Khách Cũ', 'phone' => '0911111111']);
-        $this->getJson(route('guest.lookup', ['phone' => '0911111111']))
-            ->assertOk()->assertJson(['exists' => true, 'email_mask' => null]);
-
-        // Admin không lộ qua cổng khách.
-        User::factory()->create(['phone' => '0922222222', 'email' => 'ad@x.com', 'is_admin' => true]);
-        $this->getJson(route('guest.lookup', ['phone' => '0922222222']))
-            ->assertOk()->assertJson(['exists' => false]);
-    }
+    // ── Đăng nhập nhanh bằng SĐT (email đã lưu dùng ở server) ─────────────────
 
     /** @test */
     public function returning_user_logs_in_with_phone_only_using_stored_email(): void

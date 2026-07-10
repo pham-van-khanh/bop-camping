@@ -175,6 +175,25 @@ class AdminComboTest extends TestCase
     }
 
     /** @test */
+    public function update_without_is_active_preserves_hidden_state(): void
+    {
+        // Combo đang ẩn; request update KHÔNG gửi is_active → phải giữ ẩn.
+        $combo = $this->makeCombo(active: false);
+
+        $payload = $this->validPayload(['name' => 'Combo Cặp Đôi (vẫn ẩn)']);
+        unset($payload['is_active']);
+
+        $this->actingAs($this->admin())
+            ->put(route('admin.combos.update', $combo), $payload)
+            ->assertRedirect()
+            ->assertSessionHasNoErrors();
+
+        $combo->refresh();
+        $this->assertSame('Combo Cặp Đôi (vẫn ẩn)', $combo->name);
+        $this->assertFalse($combo->is_active, 'Combo đang ẩn không được tự bật lại khi update thiếu is_active.');
+    }
+
+    /** @test */
     public function admin_can_delete_combo_and_items_cascade(): void
     {
         $combo = $this->makeCombo();

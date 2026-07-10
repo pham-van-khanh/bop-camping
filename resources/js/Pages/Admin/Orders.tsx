@@ -94,10 +94,19 @@ const TABS = [
     { key: 'cancelled', label: 'Đã huỷ' },
 ];
 
+type Paginator<T> = {
+    data: T[];
+    current_page: number;
+    last_page: number;
+    from: number | null;
+    to: number | null;
+    total: number;
+};
+
 export default function AdminOrders({
     orders, stats, inventory, filters,
 }: {
-    orders: Order[]; stats: Stats; inventory: InventoryItem[];
+    orders: Paginator<Order>; stats: Stats; inventory: InventoryItem[];
     filters: { status: string };
 }) {
     const [expandedId, setExpandedId] = useState<number | null>(null);
@@ -174,7 +183,7 @@ export default function AdminOrders({
                         </div>
 
                         {/* Orders table */}
-                        {orders.length === 0 ? (
+                        {orders.data.length === 0 ? (
                             <div className="rounded-[16px] border border-cardBorder bg-white py-14 text-center text-moss">
                                 Không có đơn nào
                             </div>
@@ -192,7 +201,7 @@ export default function AdminOrders({
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {orders.map((order) => {
+                                        {orders.data.map((order) => {
                                             const style = STATUS_STYLE[order.status] ?? STATUS_STYLE.pending;
                                             const nexts = NEXT_STATUSES[order.status] ?? [];
                                             const isExpanded = expandedId === order.id;
@@ -408,6 +417,29 @@ export default function AdminOrders({
                                         })}
                                     </tbody>
                                 </table>
+                            </div>
+                        )}
+
+                        {/* Phân trang (bopcamping-aqg) — giữ filter trạng thái khi chuyển trang */}
+                        {orders.last_page > 1 && (
+                            <div className="mt-4 flex items-center justify-between text-[12.5px] text-moss">
+                                <span className="font-mono">{orders.from}–{orders.to} / {orders.total}</span>
+                                <div className="flex gap-2">
+                                    <button
+                                        disabled={orders.current_page <= 1}
+                                        onClick={() => router.get(route('admin.orders'), { page: orders.current_page - 1, status: filters.status === 'all' ? undefined : filters.status }, { preserveScroll: true })}
+                                        className="rounded-[8px] border border-cardBorder px-3 py-1.5 font-semibold text-pine transition hover:border-grass disabled:opacity-40"
+                                    >
+                                        Trước
+                                    </button>
+                                    <button
+                                        disabled={orders.current_page >= orders.last_page}
+                                        onClick={() => router.get(route('admin.orders'), { page: orders.current_page + 1, status: filters.status === 'all' ? undefined : filters.status }, { preserveScroll: true })}
+                                        className="rounded-[8px] border border-cardBorder px-3 py-1.5 font-semibold text-pine transition hover:border-grass disabled:opacity-40"
+                                    >
+                                        Sau
+                                    </button>
+                                </div>
                             </div>
                         )}
                     </>

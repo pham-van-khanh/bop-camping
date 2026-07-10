@@ -35,12 +35,15 @@ class ComboController extends Controller
     {
         [$start, $end] = $this->parseRange($request);
 
-        $combos = $this->sellable()->get()->map(function (Combo $combo) use ($start, $end) {
+        $sellable = $this->sellable()->get();
+        // Tồn kho tất cả combo trong 1 query gộp (chống N+1) — null khi khách chưa chọn ngày.
+        $availability = ($start && $end)
+            ? $this->availability->combosAvailable($sellable, $start, $end)
+            : [];
+
+        $combos = $sellable->map(function (Combo $combo) use ($start, $end, $availability) {
             $shaped = $this->shape($combo);
-            // Còn/hết theo khoảng ngày đã chọn — null khi khách chưa chọn ngày
-            $shaped['available'] = ($start && $end)
-                ? $this->availability->comboAvailable($combo, $start, $end)
-                : null;
+            $shaped['available'] = ($start && $end) ? ($availability[$combo->id] ?? 0) : null;
 
             return $shaped;
         });

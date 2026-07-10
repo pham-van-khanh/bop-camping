@@ -27,50 +27,7 @@ export default function LoginModal() {
         code: '',
     });
 
-    // Tài khoản khớp SĐT (email che để hiện cho khách nhận ra — email thật nằm ở server).
-    const [account, setAccount] = useState<{ name: string; emailMask: string } | null>(null);
-    const [useOtherEmail, setUseOtherEmail] = useState(false);
-    const autoFilledName = useRef('');
-    const lastLookup = useRef('');
-
     useEffect(() => on(EVENTS.openLogin, () => setOpen(true)), []);
-
-    // Nhập SĐT đã tồn tại → tự nhận tài khoản: hiện email đã che + tên hiện tại (khách khỏi gõ lại).
-    useEffect(() => {
-        const phone = data.phone.trim();
-        if (!/^0[0-9]{8,10}$/.test(phone)) {
-            setAccount(null);
-            return;
-        }
-        if (phone === lastLookup.current) return;
-        const t = setTimeout(async () => {
-            lastLookup.current = phone;
-            try {
-                const res = await fetch(`${route('guest.lookup')}?phone=${encodeURIComponent(phone)}`, {
-                    headers: { Accept: 'application/json' },
-                });
-                if (!res.ok) return;
-                const j: { exists: boolean; name?: string | null; email_mask?: string | null } = await res.json();
-                // Khách quen có email đã xác thực → đăng nhập nhanh bằng SĐT (email server tự dùng).
-                setAccount(j.exists && j.email_mask ? { name: j.name ?? '', emailMask: j.email_mask } : null);
-                if (j.exists) setUseOtherEmail(false);
-                // Điền sẵn tên hiện tại (chỉ khi khách chưa tự gõ) để khách thấy & đổi nếu muốn.
-                if (j.exists && j.name) {
-                    setData((prev) =>
-                        prev.name === '' || prev.name === autoFilledName.current
-                            ? ((autoFilledName.current = j.name as string), { ...prev, name: j.name as string })
-                            : prev,
-                    );
-                }
-            } catch {
-                /* lỗi mạng → bỏ qua, khách tự nhập */
-            }
-        }, 450);
-        return () => clearTimeout(t);
-    }, [data.phone]);
-
-    // Dùng email tài khoản (đã che) khi có account & khách không chọn nhập email khác.
-    const usingAccountEmail = !!account && !useOtherEmail;
 
     // Prefill mã giới thiệu từ link (?ref=) khi có.
     useEffect(() => {
@@ -128,10 +85,6 @@ export default function LoginModal() {
         setResendIn(0);
         reset();
         clearErrors();
-        autoFilledName.current = '';
-        lastLookup.current = '';
-        setAccount(null);
-        setUseOtherEmail(false);
         if (referral?.code) setData('ref', referral.code);
     };
 
@@ -146,7 +99,7 @@ export default function LoginModal() {
     const phoneValid = /^0[0-9]{8,10}$/.test(data.phone.trim());
     const emailTyped = data.email.trim() !== '';
     const emailOk = !emailTyped || /\S+@\S+\.\S+/.test(data.email);
-    const formValid = phoneValid && (usingAccountEmail || emailOk);
+    const formValid = phoneValid && emailOk;
     const codeValid = /^[0-9]{6}$/.test(data.code);
     const bonusText = emailBonus?.enabled
         ? emailBonus.type === 'percent' ? `giảm ${emailBonus.value}%` : `giảm ${money(emailBonus.value)}`
@@ -202,37 +155,21 @@ export default function LoginModal() {
                                         error={errors.phone}
                                         autoFocus
                                     />
-                                    {usingAccountEmail ? (
-                                        <div className="flex flex-col gap-1.5">
-                                            <div className="flex items-center gap-2 rounded-[11px] border border-cardBorder bg-white px-3.5 py-2.5">
-                                                <span aria-hidden>📧</span>
-                                                <span className="truncate font-mono text-[14px] tracking-[0.02em] text-ink">{account?.emailMask}</span>
-                                            </div>
-                                            <button
-                                                type="button"
-                                                onClick={() => { setUseOtherEmail(true); setData('email', ''); }}
-                                                className="self-start text-[13px] font-semibold text-grass hover:text-pine"
-                                            >
-                                                Dùng email khác
-                                            </button>
-                                        </div>
-                                    ) : (
-                                        <div>
-                                            <Field
-                                                value={data.email}
-                                                onChange={(v) => setData('email', v)}
-                                                onEnter={() => formValid && !processing && requestOtp()}
-                                                placeholder="Email (không bắt buộc)"
-                                                inputMode="email"
-                                                error={errors.email}
-                                            />
-                                            {bonusText && (
-                                                <p className="mt-1.5 text-[12.5px] text-grass">
-                                                    🎁 Để trống nếu chưa có email. Thêm email để được <strong>{bonusText}</strong> cho đơn hàng đầu tiên!
-                                                </p>
-                                            )}
-                                        </div>
-                                    )}
+                                    <div>
+                                        <Field
+                                            value={data.email}
+                                            onChange={(v) => setData('email', v)}
+                                            onEnter={() => formValid && !processing && requestOtp()}
+                                            placeholder="Email (không bắt buộc)"
+                                            inputMode="email"
+                                            error={errors.email}
+                                        />
+                                        {bonusText && (
+                                            <p className="mt-1.5 text-[12.5px] text-grass">
+                                                🎁 Để trống nếu chưa có email. Thêm email để được <strong>{bonusText}</strong> cho đơn hàng đầu tiên!
+                                            </p>
+                                        )}
+                                    </div>
                                     <Field
                                         value={data.name}
                                         onChange={(v) => setData('name', v)}

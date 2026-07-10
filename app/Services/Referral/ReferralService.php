@@ -8,6 +8,7 @@ use App\Models\Referral;
 use App\Models\ReferralCode;
 use App\Models\User;
 use App\Models\Voucher;
+use App\Services\Promotion\DiscountCalculator;
 use App\Support\ReferralCode as ReferralCodeGenerator;
 use Illuminate\Support\Facades\DB;
 
@@ -64,12 +65,12 @@ class ReferralService
             'first_order_id' => $order->id,
         ]);
 
-        $base = (int) $order->total_price;
-        $raw = $settings->referee_discount_type === 'percent'
-            ? (int) floor($base * (float) $settings->referee_discount_value / 100)
-            : (int) round((float) $settings->referee_discount_value);
-        $cap = (int) floor($base * (float) $settings->max_discount_percent_per_order / 100);
-        $discount = max(0, min($raw, $cap, $base));
+        $discount = DiscountCalculator::compute(
+            (int) $order->total_price,
+            (string) $settings->referee_discount_type,
+            (float) $settings->referee_discount_value,
+            (float) $settings->max_discount_percent_per_order,
+        );
 
         if ($discount > 0) {
             $order->applyDiscountLines([
@@ -91,15 +92,19 @@ class ReferralService
             return;
         }
 
-        $referral = Referral::where('status', 'pending')
-            ->where(fn ($q) => $q->where('first_order_id', $order->id)->orWhere('referee_id', $order->user_id))
-            ->first();
+        DB::transaction(function () use ($order, $settings) {
+            // Khoá dòng referral pending trong transaction: nếu một tiến trình khác
+            // (double-click "đã trả", job retry...) đã convert trước thì lần này
+            // SELECT ... status='pending' FOR UPDATE không khớp → thoát, không thưởng 2 lần.
+            $referral = Referral::where('status', 'pending')
+                ->where(fn ($q) => $q->where('first_order_id', $order->id)->orWhere('referee_id', $order->user_id))
+                ->lockForUpdate()
+                ->first();
 
-        if (! $referral) {
-            return;
-        }
+            if (! $referral) {
+                return;
+            }
 
-        DB::transaction(function () use ($referral, $order, $settings) {
             $referral->update([
                 'status' => 'converted',
                 'converted_at' => now(),
