@@ -253,16 +253,14 @@ export default function ProductDetail({ product, unavailable_dates, accessories,
     const goImg = (dir: number) => setActiveImg((i) => (i + dir + gallery.length) % gallery.length);
 
     // Feedback #1: cột thumbnails dài quá khổ ảnh → cuộn được; đổi ảnh active
-    // (click, nút ‹ ›, phím) thì tự trượt để thumbnail active luôn lộ ra.
+    // (click, nút ‹ ›, phím) thì tự trượt sao cho thumbnail active nằm GIỮA cột
+    // — các ảnh phía dưới/trên tự lộ ra, khách không phải cuộn tay.
     const thumbColRef = useRef<HTMLDivElement>(null);
     useEffect(() => {
         const col = thumbColRef.current;
         const btn = col?.children[activeImg] as HTMLElement | undefined;
         if (!col || !btn) return;
-        const top = btn.offsetTop;
-        const bottom = top + btn.offsetHeight;
-        if (top < col.scrollTop) col.scrollTo({ top: top - 6, behavior: 'smooth' });
-        else if (bottom > col.scrollTop + col.clientHeight) col.scrollTo({ top: bottom - col.clientHeight + 6, behavior: 'smooth' });
+        col.scrollTo({ top: btn.offsetTop - (col.clientHeight - btn.offsetHeight) / 2, behavior: 'smooth' });
     }, [activeImg]);
 
     // Phím ← → chuyển ảnh, Esc đóng — khi đang mở lightbox.
@@ -581,6 +579,8 @@ export default function ProductDetail({ product, unavailable_dates, accessories,
                                     </div>
                                 ) : (
                                     <div className="overflow-hidden rounded-[14px] border border-cardBorder bg-white">
+                                        {/* Danh sách món trong thanh cuộn — cột phải không bị kéo dài vô hạn */}
+                                        <div className="max-h-[290px] overflow-y-auto">
                                         {visibleAccessories.map((a, i) => {
                                             const on = accChecked.has(a.id);
                                             const cap = Math.max(1, accCap(a));
@@ -618,6 +618,7 @@ export default function ProductDetail({ product, unavailable_dates, accessories,
                                                 </div>
                                             );
                                         })}
+                                        </div>
 
                                         <div className="flex flex-wrap items-center justify-between gap-2.5 border-t border-[#eef2e3] px-3 py-3" style={{ background: '#f8faf4' }}>
                                             <div>
