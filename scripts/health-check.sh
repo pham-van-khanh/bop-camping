@@ -26,7 +26,9 @@ fi
 
 log "Health check: $URL${HOST_HEADER:+ (Host: $HOST_HEADER)}"
 
-curl_args=(-s -o /dev/null -w "%{http_code}" --max-time 10)
+# -k: this is a loopback probe; the cert (issued for the public domain) will
+# not match 127.0.0.1, and we only care whether the app answers 200.
+curl_args=(-s -k -o /dev/null -w "%{http_code}" --max-time 10)
 if [[ -n "$HOST_HEADER" ]]; then
     curl_args+=(-H "Host: $HOST_HEADER")
 fi
