@@ -41,18 +41,24 @@ log "Looking for a previous release to roll back to..."
 CURRENT_RELEASE="$(readlink -f "$CURRENT_LINK" 2>/dev/null || true)"
 
 PREVIOUS=""
-# Releases newest-first; pick the newest one that is NOT the current target.
+# Releases newest-first; pick the newest COMPLETE release that is NOT the
+# current target. A release missing artisan (e.g. an interrupted deploy) is
+# skipped — rolling back into it would point nginx at a non-existent
+# index.php and 404 the whole site.
 while read -r rel; do
     [[ -z "$rel" ]] && continue
     rel_path="$RELEASES_DIR/${rel%/}"
-    if [[ "$(readlink -f "$rel_path")" != "$CURRENT_RELEASE" ]]; then
-        PREVIOUS="$rel_path"
-        break
+    [[ "$(readlink -f "$rel_path")" == "$CURRENT_RELEASE" ]] && continue
+    if [[ ! -f "$rel_path/artisan" || ! -f "$rel_path/public/index.php" ]]; then
+        warning "Skipping incomplete release: $(basename "$rel_path")"
+        continue
     fi
+    PREVIOUS="$rel_path"
+    break
 done < <(cd "$RELEASES_DIR" && ls -1dt -- */ 2>/dev/null || true)
 
 if [[ -z "$PREVIOUS" || ! -d "$PREVIOUS" ]]; then
-    error "No previous release found — cannot roll back."
+    error "No complete previous release found — cannot roll back."
     exit 1
 fi
 
