@@ -31,6 +31,7 @@ class DatabaseSeeder extends Seeder
             BannerSeeder::class,
             FaqSeeder::class,
             SiteSettingSeeder::class,
+            StaticPageSeeder::class,
         ]);
     }
 }

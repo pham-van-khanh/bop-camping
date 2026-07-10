@@ -17,6 +17,7 @@ use App\Http\Controllers\Admin\ReferralController as AdminReferralController;
 use App\Http\Controllers\Admin\ReviewController as AdminReviewController;
 use App\Http\Controllers\Admin\ServiceLocationController as AdminServiceLocationController;
 use App\Http\Controllers\Admin\SiteSettingController as AdminSiteSettingController;
+use App\Http\Controllers\Admin\StaticPageController as AdminStaticPageController;
 use App\Http\Controllers\Admin\StatsController as AdminStatsController;
 use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\Admin\VoucherController as AdminVoucherController;
@@ -29,6 +30,7 @@ use App\Http\Controllers\Shop\OrderLookupController;
 use App\Http\Controllers\Shop\ProductController;
 use App\Http\Controllers\Shop\ReviewController;
 use App\Http\Controllers\Shop\ReviewInviteController;
+use App\Http\Controllers\Shop\StaticPageController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -57,6 +59,8 @@ Route::post('/gio-thue/goi-y-combo', [CartController::class, 'suggestion'])->nam
 Route::post('/gio-thue/goi-y-combo/da-chuyen', [CartController::class, 'suggestionConverted'])->name('cart.suggestion.converted')->middleware('throttle:30,1');
 Route::post('/dat-hang', [OrderController::class, 'store'])->name('order.store')->middleware('throttle:20,1');
 Route::get('/tra-cuu', [OrderLookupController::class, 'index'])->name('lookup');
+// Trang giới thiệu — nội dung sửa trong admin "Trang nội dung" (Epic 4)
+Route::get('/gioi-thieu', [StaticPageController::class, 'about'])->name('about');
 // Đánh giá sau chuyến đi qua link token (không cần đăng nhập)
 Route::get('/danh-gia/{token}', [ReviewInviteController::class, 'show'])->name('review.invite');
 Route::post('/danh-gia/{token}', [ReviewInviteController::class, 'store'])->name('review.invite.store')->middleware('throttle:10,1');
@@ -143,6 +147,11 @@ Route::middleware(['admin'])->prefix('admin')->name('admin.')->group(function ()
     Route::delete('/banners/{banner}', [AdminBannerController::class, 'destroy'])->name('banners.destroy')->middleware('throttle:30,1');
 
     // Điểm cắm trại (Cẩm nang) — CRUD + media
+    // Trang nội dung (giới thiệu...) — title + ảnh bìa + nội dung TipTap (Epic 4)
+    Route::get('/pages', [AdminStaticPageController::class, 'index'])->name('pages');
+    Route::get('/pages/{staticPage}', [AdminStaticPageController::class, 'edit'])->name('pages.edit');
+    Route::put('/pages/{staticPage}', [AdminStaticPageController::class, 'update'])->name('pages.update')->middleware('throttle:30,1');
+
     // Cài đặt shop — thông tin liên hệ/mạng xã hội (ADR home_faq_contact)
     Route::get('/settings', [AdminSiteSettingController::class, 'edit'])->name('settings');
     Route::put('/settings', [AdminSiteSettingController::class, 'update'])->name('settings.update')->middleware('throttle:30,1');

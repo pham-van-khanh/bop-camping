@@ -162,6 +162,17 @@ const NAV = [
         ),
     },
     {
+        href: '/admin/pages',
+        name: 'admin.pages',
+        label: 'Trang nội dung',
+        icon: (
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                <path d="M7 3h7l5 5v13H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" />
+                <path d="M14 3v5h5M9 12h6M9 16h6" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+            </svg>
+        ),
+    },
+    {
         href: '/admin/settings',
         name: 'admin.settings',
         label: 'Cài đặt shop',
