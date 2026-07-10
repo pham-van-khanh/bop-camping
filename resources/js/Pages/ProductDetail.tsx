@@ -2,9 +2,11 @@ import { Head, Link, usePage } from '@inertiajs/react';
 import { ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import SiteLayout from '@/Layouts/SiteLayout';
 import DateRangeCalendar from '@/Components/site/DateRangeCalendar';
+import MagazineContent from '@/Components/site/MagazineContent';
+import ProductCard from '@/Components/site/ProductCard';
 import { COMBO_GRAD } from '@/Components/site/ComboCard';
 import ProductReviews, { type ReviewItem, type ReviewSummary } from '@/Components/site/ProductReviews';
-import { dayCount, fromISO, money, rangeText, toISO } from '@/lib/format';
+import { dayCount, ddmm, fromISO, money, rangeText, toISO } from '@/lib/format';
 import { addLine, clearCart, locationConflict, type CartLine, type CartLocation } from '@/lib/cart';
 import { emit, EVENTS } from '@/lib/bus';
 import { gradFor } from '@/lib/grad';
@@ -44,14 +46,18 @@ interface Props {
     reviews: ReviewItem[];
     review_summary: ReviewSummary;
     can_review: boolean;
+    // "You may also like" (1.6) — admin tự chọn, chỉ sản phẩm active
+    related_products: ProductResource[];
 }
 
-export default function ProductDetail({ product, unavailable_dates, accessories, combo_banner, reviews, review_summary, can_review }: Props) {
+export default function ProductDetail({ product, unavailable_dates, accessories, combo_banner, reviews, review_summary, can_review, related_products }: Props) {
     const { auth } = usePage<PageProps>().props;
     const [activeImg, setActiveImg] = useState(0);
     const [lightboxOpen, setLightboxOpen] = useState(false);
     const [start, setStart] = useState<string | null>(null);
     const [end, setEnd] = useState<string | null>(null);
+    // 1.7: lịch mặc định thu gọn — bấm ô "Chọn ngày thuê" mới sổ ra.
+    const [calOpen, setCalOpen] = useState(false);
     const [qty, setQty] = useState(1);
     // Popup khi thêm món khác vị trí với giỏ hiện tại (1 món lẻ hoặc cả loạt phụ kiện).
     const [conflict, setConflict] = useState<{ pending: CartLine[]; cartLocations: CartLocation[] } | null>(null);
@@ -148,7 +154,12 @@ export default function ProductDetail({ product, unavailable_dates, accessories,
     // Gộp "Toàn hệ thống" chỉ khi có ≥2 vị trí; 1 vị trí thì hiện thẳng tên nơi đó.
     const showAllBadge = !!product.all_locations && locations.length > 1;
 
-    const onChange = (s: string | null, e: string | null) => { setStart(s); setEnd(e); };
+    const onChange = (s: string | null, e: string | null) => {
+        setStart(s);
+        setEnd(e);
+        // Chọn đủ khoảng (có ngày kết thúc) → tự thu lịch lại cho gọn.
+        if (s && e) setCalOpen(false);
+    };
 
     const buildLine = (): CartLine => ({
         id:      product.id,
@@ -238,76 +249,146 @@ export default function ProductDetail({ product, unavailable_dates, accessories,
 
     const activeSlide = gallery[activeImg] ?? gallery[0];
 
+    // 1.8: chuyển ảnh chính bằng nút ‹ › (vòng tròn), sync với thumbnail active.
+    const goImg = (dir: number) => setActiveImg((i) => (i + dir + gallery.length) % gallery.length);
+
+    // Feedback #1: cột thumbnails dài quá khổ ảnh → cuộn được; đổi ảnh active
+    // (click, nút ‹ ›, phím) thì tự trượt sao cho thumbnail active nằm GIỮA cột
+    // — các ảnh phía dưới/trên tự lộ ra, khách không phải cuộn tay.
+    const thumbColRef = useRef<HTMLDivElement>(null);
+    useEffect(() => {
+        const col = thumbColRef.current;
+        const btn = col?.children[activeImg] as HTMLElement | undefined;
+        if (!col || !btn) return;
+        col.scrollTo({ top: btn.offsetTop - (col.clientHeight - btn.offsetHeight) / 2, behavior: 'smooth' });
+    }, [activeImg]);
+
+    // Phím ← → chuyển ảnh, Esc đóng — khi đang mở lightbox.
+    useEffect(() => {
+        if (!lightboxOpen) return;
+        const onKey = (e: KeyboardEvent) => {
+            if (e.key === 'ArrowLeft') goImg(-1);
+            else if (e.key === 'ArrowRight') goImg(1);
+            else if (e.key === 'Escape') setLightboxOpen(false);
+        };
+        window.addEventListener('keydown', onKey);
+        return () => window.removeEventListener('keydown', onKey);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [lightboxOpen, gallery.length]);
+
+    // Thumbnail dùng ở cả cột dọc (desktop) lẫn hàng ngang (mobile).
+    const renderThumb = (g: (typeof gallery)[number], i: number, heightClass: string) => (
+        <button
+            key={i}
+            onClick={() => setActiveImg(i)}
+            aria-label={`Ảnh ${i + 1}`}
+            className={`relative ${heightClass} w-full overflow-hidden rounded-[11px] transition`}
+            style={{ outline: i === activeImg ? '2px solid #557A2B' : '1px solid #E3E8D6', outlineOffset: i === activeImg ? 1 : 0 }}
+        >
+            {g.type === 'img' ? (
+                <img src={g.src} alt="" className="h-full w-full object-cover" />
+            ) : g.type === 'video' ? (
+                <>
+                    <video src={g.src} className="h-full w-full object-cover" muted />
+                    <span className="absolute inset-0 grid place-items-center bg-black/25 text-[10px] text-white">▶</span>
+                </>
+            ) : (
+                <div className="h-full w-full" style={{ background: g.bg }} />
+            )}
+        </button>
+    );
+
     return (
         <>
             <Head title={product.name} />
             <main className="mx-auto max-w-[1120px] px-5 pb-12 pt-6">
                 <Link href="/thiet-bi" className="mb-2.5 inline-block py-2 text-[14px] font-semibold text-moss hover:text-grass">← Quay lại danh sách</Link>
-                <div className="grid items-start gap-[34px]" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))' }}>
-                    {/* gallery */}
+                <div className="grid items-start gap-[34px] lg:grid-cols-[minmax(0,1fr)_400px]">
+                    {/* gallery: thumbnails cột dọc trái (desktop) + ảnh chính (1.1) */}
                     <div>
-                        <div
-                            className="relative h-[360px] overflow-hidden rounded-card"
-                            style={activeSlide.type === 'grad' ? { background: activeSlide.bg } : { background: baseGrad }}
-                        >
-                            {activeSlide.type === 'img' && (
-                                <img
-                                    src={activeSlide.src}
-                                    alt={product.name}
-                                    onClick={() => setLightboxOpen(true)}
-                                    className="absolute inset-0 h-full w-full cursor-zoom-in object-cover"
-                                />
-                            )}
-                            {activeSlide.type === 'video' && (
-                                <video key={activeSlide.src} src={activeSlide.src} controls autoPlay muted loop playsInline className="absolute inset-0 h-full w-full object-cover" />
-                            )}
-                            {(activeSlide.type === 'img' || activeSlide.type === 'video') && (
-                                <button
-                                    onClick={(e) => { e.stopPropagation(); setLightboxOpen(true); }}
-                                    aria-label="Xem cỡ lớn"
-                                    className="absolute right-3 top-3 z-10 grid h-9 w-9 place-items-center rounded-full bg-black/45 text-white transition hover:bg-black/65"
+                        <div className="flex gap-2.5">
+                            {/* Thumbnails dọc — chỉ desktop/tablet; mobile dùng hàng ngang phía dưới.
+                                Nhiều ảnh quá khổ → cuộn dọc (slide), auto trượt theo ảnh active. */}
+                            {gallery.length > 1 && (
+                                <div
+                                    ref={thumbColRef}
+                                    className="relative hidden max-h-[420px] w-[76px] flex-none flex-col gap-2.5 overflow-y-auto md:flex"
+                                    style={{ scrollbarWidth: 'none' }}
                                 >
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                                        <path d="M9 3H4a1 1 0 0 0-1 1v5M15 3h5a1 1 0 0 1 1 1v5M9 21H4a1 1 0 0 1-1-1v-5M15 21h5a1 1 0 0 0 1-1v-5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                                    </svg>
-                                </button>
+                                    {gallery.map((g, i) => renderThumb(g, i, 'h-[64px] flex-none'))}
+                                </div>
                             )}
-                            <div className="pointer-events-none absolute inset-0" style={{ background: 'radial-gradient(220px 150px at 76% 20%, rgba(255,255,255,.34), transparent 60%)' }} />
-                            <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[90px]" style={{ background: 'linear-gradient(180deg,rgba(24,35,15,0),rgba(24,35,15,.4))' }} />
-                            <span className="pointer-events-none absolute bottom-4 left-[18px] font-mono text-[13px] tracking-[0.06em] text-white">{product.category.name}</span>
+                            <div
+                                className="relative h-[420px] min-w-0 flex-1 overflow-hidden rounded-card"
+                                style={activeSlide.type === 'grad' ? { background: activeSlide.bg } : { background: '#eef2e3' }}
+                            >
+                                {activeSlide.type === 'img' && (
+                                    <img
+                                        src={activeSlide.src}
+                                        alt={product.name}
+                                        onClick={() => setLightboxOpen(true)}
+                                        // 1.8: object-contain — hiện trọn sản phẩm, không bị crop
+                                        className="absolute inset-0 h-full w-full cursor-zoom-in object-contain"
+                                    />
+                                )}
+                                {activeSlide.type === 'video' && (
+                                    <video key={activeSlide.src} src={activeSlide.src} controls autoPlay muted loop playsInline className="absolute inset-0 h-full w-full object-contain" />
+                                )}
+                                {(activeSlide.type === 'img' || activeSlide.type === 'video') && (
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); setLightboxOpen(true); }}
+                                        aria-label="Xem cỡ lớn"
+                                        className="absolute right-3 top-3 z-10 grid h-9 w-9 place-items-center rounded-full bg-black/45 text-white transition hover:bg-black/65"
+                                    >
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                                            <path d="M9 3H4a1 1 0 0 0-1 1v5M15 3h5a1 1 0 0 1 1 1v5M9 21H4a1 1 0 0 1-1-1v-5M15 21h5a1 1 0 0 0 1-1v-5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                                        </svg>
+                                    </button>
+                                )}
+                                {/* 1.8: nút chuyển ảnh ‹ › */}
+                                {gallery.length > 1 && (
+                                    <>
+                                        <button
+                                            onClick={() => goImg(-1)}
+                                            aria-label="Ảnh trước"
+                                            className="absolute left-3 top-1/2 z-10 grid h-10 w-10 -translate-y-1/2 place-items-center rounded-full bg-black/30 text-[20px] text-white transition hover:bg-black/55"
+                                        >
+                                            ‹
+                                        </button>
+                                        <button
+                                            onClick={() => goImg(1)}
+                                            aria-label="Ảnh sau"
+                                            className="absolute right-3 top-1/2 z-10 grid h-10 w-10 -translate-y-1/2 place-items-center rounded-full bg-black/30 text-[20px] text-white transition hover:bg-black/55"
+                                        >
+                                            ›
+                                        </button>
+                                    </>
+                                )}
+                                <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[70px]" style={{ background: 'linear-gradient(180deg,rgba(24,35,15,0),rgba(24,35,15,.35))' }} />
+                                <span className="pointer-events-none absolute bottom-4 left-[18px] font-mono text-[13px] tracking-[0.06em] text-white">{product.category.name}</span>
+                            </div>
                         </div>
-                        <div className="mt-2.5 grid grid-cols-4 gap-2.5">
-                            {gallery.map((g, i) => (
-                                <button
-                                    key={i}
-                                    onClick={() => setActiveImg(i)}
-                                    aria-label={`Ảnh ${i + 1}`}
-                                    className="relative h-[70px] overflow-hidden rounded-[11px] transition"
-                                    style={{ outline: i === activeImg ? '2px solid #557A2B' : '1px solid #E3E8D6', outlineOffset: i === activeImg ? 1 : 0 }}
-                                >
-                                    {g.type === 'img' ? (
-                                        <img src={g.src} alt="" className="h-full w-full object-cover" />
-                                    ) : g.type === 'video' ? (
-                                        <>
-                                            <video src={g.src} className="h-full w-full object-cover" muted />
-                                            <span className="absolute inset-0 grid place-items-center bg-black/25 text-[10px] text-white">▶</span>
-                                        </>
-                                    ) : (
-                                        <div className="h-full w-full" style={{ background: g.bg }} />
-                                    )}
-                                </button>
-                            ))}
-                        </div>
+                        {/* Thumbnails hàng ngang — chỉ mobile */}
+                        {gallery.length > 1 && (
+                            <div className="mt-2.5 grid grid-cols-4 gap-2.5 md:hidden">
+                                {gallery.map((g, i) => renderThumb(g, i, 'h-[70px]'))}
+                            </div>
+                        )}
 
-                        {/* đánh giá sản phẩm (carousel + form + modal) */}
-                        <ProductReviews
-                            productSlug={product.slug}
-                            productName={product.name}
-                            reviews={reviews}
-                            summary={review_summary}
-                            canReview={can_review}
-                            isLoggedIn={!!auth.user}
-                        />
+                        {/* 1.2: thông số key–value (admin nhập) — card dưới khối ảnh */}
+                        {(product.specs?.length ?? 0) > 0 && (
+                            <div className="mt-5 rounded-[16px] border border-cardBorder bg-white px-5 py-4">
+                                <div className="mb-2 font-mono text-[12px] font-bold tracking-[0.14em] text-campfire">THÔNG SỐ</div>
+                                <dl className="divide-y divide-[#f1f4ea]">
+                                    {product.specs!.map((row, i) => (
+                                        <div key={i} className="flex items-baseline justify-between gap-4 py-2.5">
+                                            <dt className="text-[13.5px] text-moss">{row.key}</dt>
+                                            <dd className="text-right text-[14px] font-semibold text-ink">{row.value}</dd>
+                                        </div>
+                                    ))}
+                                </dl>
+                            </div>
+                        )}
                     </div>
 
                     {/* info */}
@@ -357,10 +438,76 @@ export default function ProductDetail({ product, unavailable_dates, accessories,
                         )}
 
                         {product.description && (
-                            <p className="mb-[18px] text-[15px] leading-[1.6] text-[#3f4a32]">{product.description}</p>
+                            <p className="mb-2 text-[15px] leading-[1.6] text-[#3f4a32]">{product.description}</p>
+                        )}
+                        {/* 1.3: có nội dung chi tiết → nút cuộn xuống khối #chi-tiet */}
+                        {product.setup_content && (
+                            <button
+                                onClick={() => document.getElementById('chi-tiet')?.scrollIntoView({ behavior: 'smooth' })}
+                                className="mb-[18px] inline-flex items-center gap-1 text-[13.5px] font-bold text-grass transition hover:text-pine"
+                            >
+                                Xem thêm
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
+                                    <path d="M12 5v14m0 0-6-6m6 6 6-6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+                                </svg>
+                            </button>
                         )}
 
-                        <DateRangeCalendar start={start} end={end} unavailable={unavailable} onChange={onChange} />
+                        {/* 1.7: lịch dạng thu gọn — bấm để sổ, chọn xong tự đóng */}
+                        <button
+                            onClick={() => setCalOpen((o) => !o)}
+                            aria-expanded={calOpen}
+                            className="flex w-full items-center justify-between gap-3 rounded-[14px] border border-cardBorder bg-white px-4 py-3.5 text-left transition hover:border-grass"
+                        >
+                            <span className="flex items-center gap-2.5">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" className="flex-none text-grass">
+                                    <rect x="3" y="5" width="18" height="16" rx="3" stroke="currentColor" strokeWidth="1.8" />
+                                    <path d="M3 9h18M8 3v4M16 3v4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                                </svg>
+                                <span>
+                                    <span className="block text-[12px] text-[#8a967a]">Ngày thuê</span>
+                                    <span className="block font-mono text-[14.5px] font-bold text-ink">
+                                        {start && end ? rangeText(start, end) : start ? `${ddmm(start)} → chọn ngày trả` : 'Chọn ngày thuê'}
+                                    </span>
+                                </span>
+                            </span>
+                            <svg
+                                width="15"
+                                height="15"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                className={`flex-none text-moss transition-transform ${calOpen ? 'rotate-180' : ''}`}
+                            >
+                                <path d="m6 9 6 6 6-6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                        </button>
+                        {/* Feedback #2: lịch mở dạng popup (680px để 2 tháng nằm ngang, mobile tự xếp dọc) */}
+                        {calOpen && (
+                            <div
+                                className="fixed inset-0 z-[150] flex items-center justify-center bg-black/45 px-4"
+                                onClick={() => setCalOpen(false)}
+                            >
+                                <div
+                                    className="max-h-[90vh] w-full max-w-[680px] overflow-y-auto rounded-[18px] bg-white p-5 shadow-xl"
+                                    onClick={(e) => e.stopPropagation()}
+                                >
+                                    <div className="mb-3 flex items-start justify-between gap-3">
+                                        <div>
+                                            <h2 className="text-[17px] font-extrabold text-ink">Chọn ngày thuê</h2>
+                                            <p className="mt-0.5 text-[12.5px] text-moss">Bấm ngày nhận rồi bấm ngày trả — chọn xong lịch tự đóng.</p>
+                                        </div>
+                                        <button
+                                            onClick={() => setCalOpen(false)}
+                                            aria-label="Đóng"
+                                            className="grid h-9 w-9 flex-none place-items-center rounded-full bg-[#f1f4ea] text-[18px] text-pine transition hover:bg-[#e3e8d6]"
+                                        >
+                                            ×
+                                        </button>
+                                    </div>
+                                    <DateRangeCalendar start={start} end={end} unavailable={unavailable} onChange={onChange} />
+                                </div>
+                            </div>
+                        )}
 
                         {/* range + qty + availability */}
                         <div className="mt-4 rounded-[14px] border border-cardBorder bg-white p-4">
@@ -414,86 +561,121 @@ export default function ProductDetail({ product, unavailable_dates, accessories,
                                 </button>
                             </div>
                         </div>
+
+                        {/* Case 2 (US-03) + feedback #3: "Thường thuê cùng" nằm ngay dưới nút
+                            Thêm vào giỏ — khách khỏi phải kéo xuống tìm. AC-9 giữ nguyên. */}
+                        {accessories.length > 0 && (
+                            <section className="mt-5">
+                                <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
+                                    <div className="font-mono text-[12px] font-bold tracking-[0.14em] text-campfire">THƯỜNG THUÊ CÙNG</div>
+                                    {(!start || !end) && (
+                                        <span className="text-[11.5px] text-moss">Chọn ngày để kiểm tra món còn trống</span>
+                                    )}
+                                </div>
+
+                                {visibleAccessories.length === 0 ? (
+                                    <div className="rounded-[14px] border border-cardBorder bg-white px-4 py-4 text-[13px] text-moss">
+                                        Các món gợi ý đều đã kín lịch trong khoảng {rangeText(start, end)} — đổi ngày để xem lại nhé.
+                                    </div>
+                                ) : (
+                                    <div className="overflow-hidden rounded-[14px] border border-cardBorder bg-white">
+                                        {/* Danh sách món trong thanh cuộn — cột phải không bị kéo dài vô hạn */}
+                                        <div className="max-h-[290px] overflow-y-auto">
+                                        {visibleAccessories.map((a, i) => {
+                                            const on = accChecked.has(a.id);
+                                            const cap = Math.max(1, accCap(a));
+                                            const q = qtyOf(a);
+                                            // Có khoảng ngày + số thực từ server → báo khan hàng nếu bị đơn khác chiếm bớt
+                                            const scarce = start && end && accAvail !== null && accCap(a) < a.quantity;
+                                            return (
+                                                <div key={a.id} className={`flex flex-wrap items-center gap-2.5 px-3 py-2.5 ${i > 0 ? 'border-t border-[#f1f4ea]' : ''}`}>
+                                                    <button
+                                                        onClick={() => toggleAcc(a.id)}
+                                                        aria-label={on ? `Bỏ chọn ${a.name}` : `Chọn ${a.name}`}
+                                                        className={`grid h-5 w-5 flex-none place-items-center rounded-[6px] border text-[11px] font-bold transition ${
+                                                            on ? 'border-grass bg-grass text-white' : 'border-[#c4cca8] bg-white text-transparent'
+                                                        }`}
+                                                    >
+                                                        ✓
+                                                    </button>
+                                                    {a.thumbnail ? (
+                                                        <img src={a.thumbnail} alt={a.name} className="h-10 w-10 flex-none rounded-[9px] object-cover" />
+                                                    ) : (
+                                                        <div className="h-10 w-10 flex-none rounded-[9px]" style={{ background: gradFor(a.category.slug) }} />
+                                                    )}
+                                                    <div className="min-w-[110px] flex-1">
+                                                        <Link href={`/thiet-bi/${a.slug}`} className="text-[13px] font-bold leading-tight text-ink hover:text-grass">{a.name}</Link>
+                                                        <div className="text-[11px] text-moss">
+                                                            <span className="font-mono font-bold text-grass">{money(a.price_per_day)}</span>/ngày
+                                                            {scarce && <span className="text-campfire"> · còn {accCap(a)} bộ</span>}
+                                                        </div>
+                                                    </div>
+                                                    <div className={`flex items-center overflow-hidden rounded-[8px] border border-cardBorder ${on ? '' : 'opacity-40'}`}>
+                                                        <button onClick={() => bumpAccQty(a, -1)} disabled={!on} className="h-7 w-[26px] bg-[#f1f4ea] text-[14px] text-grass">−</button>
+                                                        <span className="w-[28px] text-center font-mono text-[12px] font-bold">{q}</span>
+                                                        <button onClick={() => bumpAccQty(a, 1)} disabled={!on || q >= cap} className="h-7 w-[26px] bg-[#f1f4ea] text-[14px] text-grass disabled:opacity-50">+</button>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                        </div>
+
+                                        <div className="flex flex-wrap items-center justify-between gap-2.5 border-t border-[#eef2e3] px-3 py-3" style={{ background: '#f8faf4' }}>
+                                            <div>
+                                                <div className="text-[11.5px] text-[#8a967a]">Phần thêm {days > 0 ? `(${days} ngày)` : ''}</div>
+                                                <div className="font-mono text-[15px] font-bold text-grass">
+                                                    {days > 0 ? money(accPerDay * days) : <>{money(accPerDay)}<span className="font-sans text-[11px] font-normal text-[#8a967a]">/ngày</span></>}
+                                                </div>
+                                                {accDeposit > 0 && <div className="font-mono text-[10.5px] text-campfire">+ cọc {money(accDeposit)}</div>}
+                                            </div>
+                                            <button
+                                                onClick={addAccessories}
+                                                disabled={!start || !end || selectedAccessories.length === 0}
+                                                className="h-[40px] rounded-control px-4 text-[12.5px] font-bold text-white transition disabled:cursor-not-allowed"
+                                                style={{ background: start && end && selectedAccessories.length > 0 ? '#557A2B' : '#c4cfae' }}
+                                            >
+                                                {start && end ? `Thêm ${selectedAccessories.length} món vào giỏ` : 'Chọn ngày để thêm'}
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+                            </section>
+                        )}
                     </div>
                 </div>
 
-                {/* Case 2 (US-03): "Thường thuê cùng" — AC-9: đã chọn ngày thì chỉ hiện món còn hàng */}
-                {accessories.length > 0 && (
+                {/* 1.4 + feedback #4: nội dung chi tiết full-width, bố cục magazine
+                    text/ảnh xen kẽ trái–phải (HTML TipTap đã sanitize server) */}
+                {product.setup_content && (
+                    <section id="chi-tiet" className="mt-12 scroll-mt-24">
+                        <div className="mb-1 font-mono text-[12px] font-bold tracking-[0.14em] text-campfire">CHI TIẾT SẢN PHẨM</div>
+                        <h2 className="mb-6 text-[20px] font-extrabold tracking-tight text-ink">Về {product.name}</h2>
+                        <MagazineContent html={product.setup_content} />
+                    </section>
+                )}
+
+                {/* 1.5: đánh giá chuyển xuống cuối trang (carousel + form + modal) */}
+                <section className="mt-12">
+                    <ProductReviews
+                        productSlug={product.slug}
+                        productName={product.name}
+                        reviews={reviews}
+                        summary={review_summary}
+                        canReview={can_review}
+                        isLoggedIn={!!auth.user}
+                    />
+                </section>
+
+                {/* 1.6: "You may also like" — admin chọn ở form sản phẩm, dưới cùng trang */}
+                {related_products.length > 0 && (
                     <section className="mt-12">
-                        <div className="mb-1 font-mono text-[12px] font-bold tracking-[0.14em] text-campfire">THƯỜNG THUÊ CÙNG</div>
-                        <div className="mb-4 flex flex-wrap items-end justify-between gap-2">
-                            <h2 className="text-[20px] font-extrabold tracking-tight text-ink">Món hay đi kèm {product.name}</h2>
-                            {(!start || !end) && (
-                                <span className="text-[12.5px] text-moss">Chọn ngày thuê ở trên để kiểm tra món còn trống</span>
-                            )}
+                        <div className="mb-1 font-mono text-[12px] font-bold tracking-[0.14em] text-campfire">GỢI Ý CHO BẠN</div>
+                        <h2 className="mb-4 text-[20px] font-extrabold tracking-tight text-ink">Có thể bạn cũng thích</h2>
+                        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                            {related_products.map((p, i) => (
+                                <ProductCard key={p.id} p={p} index={i} />
+                            ))}
                         </div>
-
-                        {visibleAccessories.length === 0 ? (
-                            <div className="rounded-[14px] border border-cardBorder bg-white px-4 py-5 text-[13.5px] text-moss">
-                                Các món gợi ý đều đã kín lịch trong khoảng {rangeText(start, end)} — đổi ngày để xem lại nhé.
-                            </div>
-                        ) : (
-                            <div className="overflow-hidden rounded-[16px] border border-cardBorder bg-white">
-                                {visibleAccessories.map((a, i) => {
-                                    const on = accChecked.has(a.id);
-                                    const cap = Math.max(1, accCap(a));
-                                    const q = qtyOf(a);
-                                    // Có khoảng ngày + số thực từ server → báo khan hàng nếu bị đơn khác chiếm bớt
-                                    const scarce = start && end && accAvail !== null && accCap(a) < a.quantity;
-                                    return (
-                                        <div key={a.id} className={`flex flex-wrap items-center gap-3 px-4 py-3 ${i > 0 ? 'border-t border-[#f1f4ea]' : ''}`}>
-                                            <button
-                                                onClick={() => toggleAcc(a.id)}
-                                                aria-label={on ? `Bỏ chọn ${a.name}` : `Chọn ${a.name}`}
-                                                className={`grid h-[22px] w-[22px] flex-none place-items-center rounded-[7px] border text-[13px] font-bold transition ${
-                                                    on ? 'border-grass bg-grass text-white' : 'border-[#c4cca8] bg-white text-transparent'
-                                                }`}
-                                            >
-                                                ✓
-                                            </button>
-                                            {a.thumbnail ? (
-                                                <img src={a.thumbnail} alt={a.name} className="h-12 w-12 flex-none rounded-[10px] object-cover" />
-                                            ) : (
-                                                <div className="h-12 w-12 flex-none rounded-[10px]" style={{ background: gradFor(a.category.slug) }} />
-                                            )}
-                                            <div className="min-w-[140px] flex-1">
-                                                <Link href={`/thiet-bi/${a.slug}`} className="text-[14px] font-bold text-ink hover:text-grass">{a.name}</Link>
-                                                <div className="text-[11.5px] text-moss">
-                                                    {a.category.name}
-                                                    {scarce && <span className="text-campfire"> · chỉ còn {accCap(a)} bộ trong khoảng này</span>}
-                                                </div>
-                                            </div>
-                                            <div className="font-mono text-[14px] font-bold text-grass">
-                                                {money(a.price_per_day)}<span className="font-sans text-[11px] font-normal text-[#8a967a]">/ngày</span>
-                                            </div>
-                                            <div className={`flex items-center overflow-hidden rounded-[9px] border border-cardBorder ${on ? '' : 'opacity-40'}`}>
-                                                <button onClick={() => bumpAccQty(a, -1)} disabled={!on} className="h-8 w-[30px] bg-[#f1f4ea] text-[16px] text-grass">−</button>
-                                                <span className="w-[32px] text-center font-mono text-[13px] font-bold">{q}</span>
-                                                <button onClick={() => bumpAccQty(a, 1)} disabled={!on || q >= cap} className="h-8 w-[30px] bg-[#f1f4ea] text-[16px] text-grass disabled:opacity-50">+</button>
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-
-                                <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[#eef2e3] px-4 py-3.5" style={{ background: '#f8faf4' }}>
-                                    <div>
-                                        <div className="text-[12px] text-[#8a967a]">Phần thêm {days > 0 ? `(${days} ngày)` : ''}</div>
-                                        <div className="font-mono text-[17px] font-bold text-grass">
-                                            {days > 0 ? money(accPerDay * days) : <>{money(accPerDay)}<span className="font-sans text-[12px] font-normal text-[#8a967a]">/ngày</span></>}
-                                        </div>
-                                        {accDeposit > 0 && <div className="font-mono text-[11px] text-campfire">+ cọc {money(accDeposit)}</div>}
-                                    </div>
-                                    <button
-                                        onClick={addAccessories}
-                                        disabled={!start || !end || selectedAccessories.length === 0}
-                                        className="h-[44px] rounded-control px-5 text-[13.5px] font-bold text-white transition disabled:cursor-not-allowed"
-                                        style={{ background: start && end && selectedAccessories.length > 0 ? '#557A2B' : '#c4cfae' }}
-                                    >
-                                        {start && end ? `Thêm ${selectedAccessories.length} món vào giỏ` : 'Chọn ngày để thêm'}
-                                    </button>
-                                </div>
-                            </div>
-                        )}
                     </section>
                 )}
             </main>

@@ -9,11 +9,14 @@ type ProductImage = { id: number; path: string; sort_order: number; type: 'image
 type CategoryOption = { id: number; name: string };
 type ServiceLocationOption = { id: number; name: string; area: string | null; status: 'open' | 'coming' };
 type AccessoryOption = { id: number; name: string; status: 'active' | 'hidden' };
+type SpecRow = { key: string; value: string };
 type Product = {
     id: number;
     name: string;
     slug: string;
     description: string | null;
+    specs: SpecRow[];
+    has_setup_content: boolean;
     price_per_day: number;
     quantity: number;
     deposit: number | null;
@@ -22,6 +25,7 @@ type Product = {
     category: { id: number; name: string } | null;
     service_location_ids: number[];
     accessory_ids: number[];
+    related_ids: number[];
     combo_names: string[];
     images: ProductImage[];
 };
@@ -30,6 +34,8 @@ type ProductFormData = {
     name: string;
     category_id: number | '';
     description: string;
+    // Thông số key–value (Epic 1, 1.2) — thứ tự dòng = thứ tự hiển thị
+    specs: SpecRow[];
     price_per_day: number | '';
     quantity: number | '';
     deposit: number | null;   // null (không phải '') để JSON request xử lý đúng nullable
@@ -38,6 +44,8 @@ type ProductFormData = {
     service_location_ids: number[];
     // "Thường thuê cùng" (US-08) — thứ tự trong mảng = thứ tự hiển thị ở trang sản phẩm
     accessory_ids: number[];
+    // "Có thể bạn cũng thích" (Epic 1, 1.6) — admin tự chọn, tối đa 12
+    related_ids: number[];
 };
 
 type Paginator<T> = {
@@ -109,6 +117,7 @@ export default function AdminProducts({
         name: '',
         category_id: '',
         description: '',
+        specs: [],
         price_per_day: '',
         quantity: '',
         deposit: null,
@@ -116,12 +125,14 @@ export default function AdminProducts({
         thumbnail: null,
         service_location_ids: [],
         accessory_ids: [],
+        related_ids: [],
     });
 
     const blank = (): ProductFormData => ({
         name: '',
         category_id: categories[0]?.id ?? '',
         description: '',
+        specs: [],
         price_per_day: '',
         quantity: '',
         deposit: null,
@@ -130,6 +141,7 @@ export default function AdminProducts({
         // Mặc định gắn tất cả vị trí đang mở khi thêm mới.
         service_location_ids: [...openLocationIds],
         accessory_ids: [],
+        related_ids: [],
     });
 
     const toggleLocation = (id: number) => {
@@ -137,19 +149,29 @@ export default function AdminProducts({
         form.setData('service_location_ids', cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]);
     };
 
-    /* --- "Thường thuê cùng" (US-08): thứ tự click = thứ tự hiển thị --- */
-    const [accSearch, setAccSearch] = useState('');
-    const accessoryName = (id: number) => accessory_options.find((o) => o.id === id)?.name ?? `#${id}`;
-
+    /* --- "Thường thuê cùng" (US-08) + "Có thể bạn cũng thích" (Epic 1):
+           thứ tự click = thứ tự hiển thị, dùng chung SortedProductPicker --- */
     const toggleAccessory = (id: number) => {
         const cur = form.data.accessory_ids;
         form.setData('accessory_ids', cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]);
     };
 
+    const toggleRelated = (id: number) => {
+        const cur = form.data.related_ids;
+        form.setData('related_ids', cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]);
+    };
+
+    /* --- Thông số key–value (Epic 1, 1.2) --- */
+    const setSpec = (i: number, field: keyof SpecRow, value: string) => {
+        const next = form.data.specs.map((row, idx) => (idx === i ? { ...row, [field]: value } : row));
+        form.setData('specs', next);
+    };
+    const addSpecRow = () => form.setData('specs', [...form.data.specs, { key: '', value: '' }]);
+    const removeSpecRow = (i: number) => form.setData('specs', form.data.specs.filter((_, idx) => idx !== i));
+
     const openCreate = () => {
         form.setData(blank());
         form.clearErrors();
-        setAccSearch('');
         setEditing(null);
         setModalMode('create');
     };
@@ -159,6 +181,7 @@ export default function AdminProducts({
             name: p.name,
             category_id: p.category?.id ?? '',
             description: p.description ?? '',
+            specs: p.specs ?? [],
             price_per_day: p.price_per_day,
             quantity: p.quantity,
             deposit: p.deposit ?? null,
@@ -166,9 +189,9 @@ export default function AdminProducts({
             thumbnail: null,
             service_location_ids: p.service_location_ids ?? [],
             accessory_ids: p.accessory_ids ?? [],
+            related_ids: p.related_ids ?? [],
         });
         form.clearErrors();
-        setAccSearch('');
         setEditing(p);
         setModalMode('edit');
     };
@@ -182,31 +205,27 @@ export default function AdminProducts({
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
 
-        // Transform: đảm bảo kiểu đúng trước khi gửi.
+        // Transform: đảm bảo kiểu đúng trước khi gửi (form.transform chỉ giữ 1 callback
+        // — gom hết vào một chỗ, đừng gọi transform 2 lần kẻo cái sau đè cái trước).
         // deposit null → gửi null (JSON) hoặc '' (FormData, sau đó ConvertEmptyStringsToNull → null).
         // price_per_day / quantity là '' nghĩa là user chưa điền → backend trả required error đúng.
+        // FormData không gửi được mảng rỗng → gửi '' để backend hiểu là "xoá hết"
+        // (khác với không gửi key = giữ nguyên).
         form.transform((data) => ({
             ...data,
             // Đảm bảo category_id luôn là số (không phải string rỗng)
             category_id: data.category_id === '' ? '' : Number(data.category_id),
+            accessory_ids: data.accessory_ids.length ? data.accessory_ids : '',
+            related_ids: data.related_ids.length ? data.related_ids : '',
+            specs: data.specs.length ? data.specs : '',
+            // PHP không nạp $_FILES cho PUT → POST kèm _method spoofing khi sửa.
+            ...(modalMode === 'edit' ? { _method: 'put' } : {}),
         }));
 
         const opts = { forceFormData: true, onSuccess: closeModal };
-        // FormData không gửi được mảng rỗng → gửi '' để backend hiểu là "xoá hết gợi ý"
-        // (khác với không gửi key = giữ nguyên).
         if (modalMode === 'create') {
-            form.transform((data) => ({
-                ...data,
-                accessory_ids: data.accessory_ids.length ? data.accessory_ids : '',
-            }));
             form.post(route('admin.products.store'), opts);
         } else if (editing) {
-            // PHP không nạp $_FILES cho PUT → POST kèm _method spoofing để upload ảnh khi sửa hoạt động.
-            form.transform((data) => ({
-                ...data,
-                _method: 'put',
-                accessory_ids: data.accessory_ids.length ? data.accessory_ids : '',
-            }));
             form.post(route('admin.products.update', editing.id), opts);
         }
     };
@@ -422,6 +441,16 @@ export default function AdminProducts({
                                                         className="flex items-center justify-end gap-2"
                                                         onClick={(e) => e.stopPropagation()}
                                                     >
+                                                        <button
+                                                            onClick={() => router.get(route('admin.products.content.edit', p.id))}
+                                                            title="Soạn nội dung chi tiết (setup, ảnh minh hoạ)"
+                                                            className="relative rounded-[8px] border border-cardBorder px-3 py-1.5 text-[12px] font-semibold text-pine transition hover:border-grass hover:text-grass"
+                                                        >
+                                                            Nội dung
+                                                            {p.has_setup_content && (
+                                                                <span className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full bg-grass ring-2 ring-white" title="Đã có nội dung" />
+                                                            )}
+                                                        </button>
                                                         <button
                                                             onClick={() => openEdit(p)}
                                                             className="rounded-[8px] border border-cardBorder px-3 py-1.5 text-[12px] font-semibold text-pine transition hover:border-grass hover:text-grass"
@@ -649,75 +678,26 @@ export default function AdminProducts({
                             </div>
 
                             {/* Thường thuê cùng (US-08) — gợi ý hiện ở trang sản phẩm (Case 2) */}
-                            <div>
-                                <label className="mb-1.5 block text-[13px] font-semibold text-pine">
-                                    Thường thuê cùng
-                                    <span className="ml-1 font-normal text-moss">(thứ tự chọn = thứ tự hiển thị)</span>
-                                </label>
+                            <SortedProductPicker
+                                label="Thường thuê cùng"
+                                options={accessory_options}
+                                selectedIds={form.data.accessory_ids}
+                                excludeId={editing?.id}
+                                onToggle={toggleAccessory}
+                                errors={form.errors}
+                                errorPrefix="accessory_ids"
+                            />
 
-                                {/* Chip các món đã chọn, đúng thứ tự */}
-                                {form.data.accessory_ids.length > 0 && (
-                                    <div className="mb-2 flex flex-wrap gap-1.5">
-                                        {form.data.accessory_ids.map((id, i) => (
-                                            <span key={id} className="flex items-center gap-1.5 rounded-pill bg-[#eef5e1] py-1 pl-2.5 pr-1.5 text-[12px] font-semibold text-grass">
-                                                <span className="font-mono text-[10.5px] text-moss">{i + 1}.</span>
-                                                {accessoryName(id)}
-                                                <button
-                                                    type="button"
-                                                    onClick={() => toggleAccessory(id)}
-                                                    className="grid h-4 w-4 place-items-center rounded-full bg-[#c4cfae] text-[10px] font-bold text-white hover:bg-[#b3493a]"
-                                                    title="Bỏ khỏi gợi ý"
-                                                >
-                                                    ×
-                                                </button>
-                                            </span>
-                                        ))}
-                                    </div>
-                                )}
-
-                                <input
-                                    type="text"
-                                    value={accSearch}
-                                    onChange={(e) => setAccSearch(e.target.value)}
-                                    placeholder="Tìm sản phẩm để thêm gợi ý…"
-                                    className="w-full rounded-[10px] border border-cardBorder px-3.5 py-2 text-[13px] outline-none transition focus:border-grass"
-                                />
-                                <div className="mt-1.5 max-h-[160px] overflow-y-auto rounded-[10px] border border-cardBorder">
-                                    {accessory_options
-                                        .filter((o) => o.id !== editing?.id)
-                                        .filter((o) => o.name.toLowerCase().includes(accSearch.toLowerCase()))
-                                        .map((o) => {
-                                            const on = form.data.accessory_ids.includes(o.id);
-                                            return (
-                                                <button
-                                                    type="button"
-                                                    key={o.id}
-                                                    onClick={() => toggleAccessory(o.id)}
-                                                    className={`flex w-full items-center gap-2 border-b border-[#f1f4ea] px-3 py-2 text-left text-[12.5px] transition last:border-b-0 ${
-                                                        on ? 'bg-[#f4f8ec] font-semibold text-grass' : 'text-pine hover:bg-[#fafcf7]'
-                                                    }`}
-                                                >
-                                                    <span
-                                                        className={`grid h-[15px] w-[15px] flex-none place-items-center rounded-[4px] border text-[10px] font-bold ${
-                                                            on ? 'border-grass bg-grass text-white' : 'border-[#c4cca8] text-transparent'
-                                                        }`}
-                                                    >
-                                                        ✓
-                                                    </span>
-                                                    <span className="flex-1">{o.name}</span>
-                                                    {o.status === 'hidden' && (
-                                                        <span className="rounded-pill bg-[#f1f4ea] px-1.5 py-0.5 text-[10px] font-semibold text-moss">Đang ẩn</span>
-                                                    )}
-                                                </button>
-                                            );
-                                        })}
-                                </div>
-                                {Object.entries(form.errors)
-                                    .filter(([k]) => k.startsWith('accessory_ids'))
-                                    .map(([k, v]) => (
-                                        <p key={k} className="mt-1 text-[12px] text-[#b3493a]">{v}</p>
-                                    ))}
-                            </div>
+                            {/* Có thể bạn cũng thích (Epic 1, 1.6) — section cuối trang sản phẩm */}
+                            <SortedProductPicker
+                                label="Có thể bạn cũng thích"
+                                options={accessory_options}
+                                selectedIds={form.data.related_ids}
+                                excludeId={editing?.id}
+                                onToggle={toggleRelated}
+                                errors={form.errors}
+                                errorPrefix="related_ids"
+                            />
 
                             {/* Price / Qty / Deposit row */}
                             <div className="grid grid-cols-3 gap-3">
@@ -815,6 +795,57 @@ export default function AdminProducts({
                                 />
                             </div>
 
+                            {/* Thông số key–value (Epic 1, 1.2) — card "THÔNG SỐ" dưới ảnh ở trang sản phẩm */}
+                            <div>
+                                <label className="mb-1.5 block text-[13px] font-semibold text-pine">
+                                    Thông số
+                                    <span className="ml-1 font-normal text-moss">(hiện thành bảng dưới ảnh sản phẩm)</span>
+                                </label>
+                                {form.data.specs.length > 0 && (
+                                    <div className="mb-2 space-y-1.5">
+                                        {form.data.specs.map((row, i) => (
+                                            <div key={i} className="flex items-center gap-1.5">
+                                                <input
+                                                    type="text"
+                                                    value={row.key}
+                                                    onChange={(e) => setSpec(i, 'key', e.target.value)}
+                                                    placeholder="VD: Sức chứa"
+                                                    className="w-[38%] rounded-[10px] border border-cardBorder px-3 py-2 text-[13px] outline-none transition focus:border-grass"
+                                                />
+                                                <input
+                                                    type="text"
+                                                    value={row.value}
+                                                    onChange={(e) => setSpec(i, 'value', e.target.value)}
+                                                    placeholder="VD: 4 người"
+                                                    className="flex-1 rounded-[10px] border border-cardBorder px-3 py-2 text-[13px] outline-none transition focus:border-grass"
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => removeSpecRow(i)}
+                                                    title="Xoá dòng"
+                                                    className="grid h-8 w-8 flex-none place-items-center rounded-[8px] border border-[#f6ddd6] text-[13px] font-bold text-[#b3493a] transition hover:bg-[#f6ddd6]"
+                                                >
+                                                    ×
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                                <button
+                                    type="button"
+                                    onClick={addSpecRow}
+                                    className="rounded-[8px] border border-dashed border-cardBorder px-3 py-1.5 text-[12.5px] font-semibold text-pine transition hover:border-grass hover:text-grass"
+                                >
+                                    + Thêm dòng thông số
+                                </button>
+                                {Object.entries(form.errors)
+                                    .filter(([k]) => k.startsWith('specs'))
+                                    .slice(0, 1)
+                                    .map(([k, v]) => (
+                                        <p key={k} className="mt-1 text-[12px] text-[#b3493a]">{v}</p>
+                                    ))}
+                            </div>
+
                             {/* Thumbnail */}
                             <div>
                                 <label className="mb-1.5 block text-[13px] font-semibold text-pine">
@@ -904,6 +935,103 @@ export default function AdminProducts({
                 </div>
             )}
         </>
+    );
+}
+
+/**
+ * Picker chọn sản phẩm có thứ tự (dùng cho "Thường thuê cùng" + "Có thể bạn cũng thích"):
+ * search → click chọn, thứ tự click = thứ tự hiển thị, chip đánh số kèm nút bỏ chọn.
+ */
+function SortedProductPicker({
+    label,
+    options,
+    selectedIds,
+    excludeId,
+    onToggle,
+    errors,
+    errorPrefix,
+}: {
+    label: string;
+    options: AccessoryOption[];
+    selectedIds: number[];
+    excludeId?: number;
+    onToggle: (id: number) => void;
+    errors: Record<string, string>;
+    errorPrefix: string;
+}) {
+    const [search, setSearch] = useState('');
+    const nameOf = (id: number) => options.find((o) => o.id === id)?.name ?? `#${id}`;
+
+    return (
+        <div>
+            <label className="mb-1.5 block text-[13px] font-semibold text-pine">
+                {label}
+                <span className="ml-1 font-normal text-moss">(thứ tự chọn = thứ tự hiển thị)</span>
+            </label>
+
+            {/* Chip các món đã chọn, đúng thứ tự */}
+            {selectedIds.length > 0 && (
+                <div className="mb-2 flex flex-wrap gap-1.5">
+                    {selectedIds.map((id, i) => (
+                        <span key={id} className="flex items-center gap-1.5 rounded-pill bg-[#eef5e1] py-1 pl-2.5 pr-1.5 text-[12px] font-semibold text-grass">
+                            <span className="font-mono text-[10.5px] text-moss">{i + 1}.</span>
+                            {nameOf(id)}
+                            <button
+                                type="button"
+                                onClick={() => onToggle(id)}
+                                className="grid h-4 w-4 place-items-center rounded-full bg-[#c4cfae] text-[10px] font-bold text-white hover:bg-[#b3493a]"
+                                title="Bỏ khỏi gợi ý"
+                            >
+                                ×
+                            </button>
+                        </span>
+                    ))}
+                </div>
+            )}
+
+            <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Tìm sản phẩm để thêm gợi ý…"
+                className="w-full rounded-[10px] border border-cardBorder px-3.5 py-2 text-[13px] outline-none transition focus:border-grass"
+            />
+            <div className="mt-1.5 max-h-[160px] overflow-y-auto rounded-[10px] border border-cardBorder">
+                {options
+                    .filter((o) => o.id !== excludeId)
+                    .filter((o) => o.name.toLowerCase().includes(search.toLowerCase()))
+                    .map((o) => {
+                        const on = selectedIds.includes(o.id);
+                        return (
+                            <button
+                                type="button"
+                                key={o.id}
+                                onClick={() => onToggle(o.id)}
+                                className={`flex w-full items-center gap-2 border-b border-[#f1f4ea] px-3 py-2 text-left text-[12.5px] transition last:border-b-0 ${
+                                    on ? 'bg-[#f4f8ec] font-semibold text-grass' : 'text-pine hover:bg-[#fafcf7]'
+                                }`}
+                            >
+                                <span
+                                    className={`grid h-[15px] w-[15px] flex-none place-items-center rounded-[4px] border text-[10px] font-bold ${
+                                        on ? 'border-grass bg-grass text-white' : 'border-[#c4cca8] text-transparent'
+                                    }`}
+                                >
+                                    ✓
+                                </span>
+                                <span className="flex-1">{o.name}</span>
+                                {o.status === 'hidden' && (
+                                    <span className="rounded-pill bg-[#f1f4ea] px-1.5 py-0.5 text-[10px] font-semibold text-moss">Đang ẩn</span>
+                                )}
+                            </button>
+                        );
+                    })}
+            </div>
+            {Object.entries(errors)
+                .filter(([k]) => k.startsWith(errorPrefix))
+                .map(([k, v]) => (
+                    <p key={k} className="mt-1 text-[12px] text-[#b3493a]">{v}</p>
+                ))}
+        </div>
     );
 }
 

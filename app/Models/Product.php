@@ -22,6 +22,8 @@ class Product extends Model
         'name_normalized',
         'slug',
         'description',
+        'specs',
+        'setup_content',
         'price_per_day',
         'quantity',
         'deposit',
@@ -30,6 +32,7 @@ class Product extends Model
     ];
 
     protected $casts = [
+        'specs' => 'array',
         'price_per_day' => 'integer',
         'quantity' => 'integer',
         'deposit' => 'integer',
@@ -96,6 +99,15 @@ class Product extends Model
             ->withPivot('sort_order')
             ->withTimestamps()
             ->orderBy('product_accessories.sort_order');
+    }
+
+    /** "You may also like" (Epic 1, 1.6): sản phẩm gợi ý admin tự chọn, theo sort_order. */
+    public function related(): BelongsToMany
+    {
+        return $this->belongsToMany(Product::class, 'product_related', 'product_id', 'related_product_id')
+            ->withPivot('sort_order')
+            ->withTimestamps()
+            ->orderBy('product_related.sort_order');
     }
 
     /** Lọc sản phẩm cho thuê tại vị trí có slug tương ứng (vd 'vinh', 'ha-noi'). */

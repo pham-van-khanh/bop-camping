@@ -57,3 +57,68 @@
 @media (prefers-reduced-motion: reduce) {
     .kenburns { animation: none; }
 }
+
+/* Nội dung rich text (TipTap) — dùng chung cho vùng soạn ở admin và render phía khách */
+.editor-content {
+    font-size: 15px;
+    line-height: 1.7;
+    color: #3f4a32;
+}
+.editor-content h2 {
+    margin: 1.2em 0 0.5em;
+    font-size: 22px;
+    font-weight: 800;
+    letter-spacing: -0.01em;
+    color: #26301c;
+}
+.editor-content h3 {
+    margin: 1.1em 0 0.4em;
+    font-size: 18px;
+    font-weight: 700;
+    color: #26301c;
+}
+.editor-content h4 {
+    margin: 1em 0 0.35em;
+    font-size: 15.5px;
+    font-weight: 700;
+    color: #26301c;
+}
+.editor-content p {
+    margin: 0.55em 0;
+}
+.editor-content ul,
+.editor-content ol {
+    margin: 0.55em 0;
+    padding-left: 1.5em;
+}
+.editor-content ul { list-style: disc; }
+.editor-content ol { list-style: decimal; }
+.editor-content li { margin: 0.25em 0; }
+.editor-content a {
+    color: #557a2b;
+    font-weight: 600;
+    text-decoration: underline;
+}
+.editor-content blockquote {
+    margin: 0.8em 0;
+    border-left: 3px solid #c4cfae;
+    padding: 0.2em 0 0.2em 1em;
+    color: #5a6b47;
+}
+.editor-content hr {
+    margin: 1.2em 0;
+    border: 0;
+    border-top: 1px solid #e3e8d6;
+}
+.editor-content img {
+    display: block;
+    margin: 1em auto;
+    max-width: 100%;
+    height: auto;
+    border-radius: 14px;
+}
+/* Ảnh đang được chọn trong editor */
+.editor-content img.ProseMirror-selectednode {
+    outline: 3px solid #7fa64b;
+    outline-offset: 2px;
+}
