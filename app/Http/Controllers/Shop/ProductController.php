@@ -12,6 +12,7 @@ use App\Models\Product;
 use App\Models\Review;
 use App\Models\ServiceLocation;
 use App\Services\AvailabilityService;
+use App\Services\SeoService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -22,7 +23,9 @@ use Inertia\Response;
 
 class ProductController extends Controller
 {
-    public function __construct(private AvailabilityService $availability) {}
+    private const BRAND_TITLE = 'BỐP CAMPING — Cho thuê thiết bị cắm trại theo ngày';
+
+    public function __construct(private AvailabilityService $availability, private SeoService $seo) {}
 
     /** Số vị trí đang mở (memoize) — biết sản phẩm có phục vụ "toàn hệ thống" không. */
     private ?int $openLocationCount = null;
@@ -69,6 +72,10 @@ class ProductController extends Controller
             ])->values();
 
         return Inertia::render('Welcome', [
+            'seo' => $this->seo->page(
+                self::BRAND_TITLE,
+                'Cho thuê lều, bếp, túi ngủ, đèn trại... theo ngày. Giao nhận tận nơi tại Vinh & Hà Nội, cọc linh hoạt, trả tiền khi nhận (COD).',
+            ),
             'featured' => $featured,
             'featured_combos' => $featuredCombos,
             // FAQ hiển thị ở trang chủ (ADR home_faq_contact) — chỉ câu đang bật, theo thứ tự
@@ -168,11 +175,27 @@ class ProductController extends Controller
 
         $products = $query->get()->map(fn ($p) => $this->shape($p));
 
-        $categories = Category::orderBy('name')
-            ->get()
-            ->map(fn ($c) => ['id' => $c->id, 'name' => $c->name, 'slug' => $c->slug]);
+        $categoryModels = Category::orderBy('name')->get();
+        $categories = $categoryModels->map(fn ($c) => ['id' => $c->id, 'name' => $c->name, 'slug' => $c->slug]);
+
+        // SEO: title/desc theo bộ lọc danh mục + breadcrumb (Trang chủ → Thuê đồ [→ danh mục]).
+        $activeCategory = $cat ? $categoryModels->firstWhere('slug', $cat) : null;
+        $crumbs = [['Trang chủ', url('/')], ['Thuê đồ', url('/thiet-bi')]];
+        if ($activeCategory) {
+            $crumbs[] = [$activeCategory->name, url('/thiet-bi').'?cat='.$activeCategory->slug];
+        }
+        $seoProp = $this->seo->page(
+            $activeCategory
+                ? 'Thuê '.$activeCategory->name.' tại BỐP CAMPING'
+                : 'Thuê thiết bị cắm trại — Danh sách đồ cho thuê | BỐP CAMPING',
+            $activeCategory
+                ? 'Cho thuê '.$activeCategory->name.' theo ngày tại BỐP CAMPING — giao nhận tận nơi, cọc linh hoạt, COD.'
+                : 'Danh sách thiết bị cắm trại cho thuê: lều, bếp, túi ngủ, đèn trại... Thuê theo ngày, giao tận nơi tại Vinh & Hà Nội.',
+            jsonld: $this->seo->breadcrumb($crumbs),
+        );
 
         return Inertia::render('Products', [
+            'seo' => $seoProp,
             'products' => $products,
             'categories' => $categories,
             // Vị trí đang mở để render thanh lọc "Thuê tại" (chỉ hiện khi có >1 vị trí).
@@ -250,13 +273,21 @@ class ProductController extends Controller
             'reviews' => $this->reviews($p),
             'review_summary' => ['count' => $reviewCount, 'avg' => $reviewAvg],
             'can_review' => $user !== null && $user->reviewableOrderItemId($p->id) !== null,
-            // SEO riêng cho sản phẩm — share đẹp + Product schema (giá/tồn/sao) cho Google.
+            // SEO riêng cho sản phẩm — share đẹp + Product schema (giá/tồn/sao) + breadcrumb.
             'seo' => [
                 'title' => $p->name.' — Thuê tại BỐP CAMPING',
                 'description' => $seoDesc,
                 'image' => $seoImage,
                 'url' => url()->current(),
-                'jsonld' => $this->productJsonLd($p, $seoImage, $seoDesc, $reviewCount, $reviewAvg),
+                // Mảng nhiều node JSON-LD trong 1 thẻ script (Google chấp nhận): Product + Breadcrumb.
+                'jsonld' => [
+                    $this->productJsonLd($p, $seoImage, $seoDesc, $reviewCount, $reviewAvg),
+                    $this->seo->breadcrumb([
+                        ['Trang chủ', url('/')],
+                        ['Thuê đồ', url('/thiet-bi')],
+                        [$p->name, url()->current()],
+                    ]),
+                ],
             ],
         ]);
     }
