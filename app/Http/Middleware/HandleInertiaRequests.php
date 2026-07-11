@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\Feedback;
 use App\Models\Order;
 use App\Models\PromotionSetting;
 use App\Models\ReferralCode;
@@ -73,6 +74,10 @@ class HandleInertiaRequests extends Middleware
             // Số đơn mới (chờ xác nhận) — badge sidebar admin ở mục Đơn thuê.
             'pending_orders' => fn () => $request->user()?->is_admin
                 ? Order::where('status', 'pending')->count()
+                : null,
+            // Số góp ý chưa phản hồi — badge sidebar admin ở mục Góp ý (Epic 2).
+            'pending_feedback' => fn () => $request->user()?->is_admin
+                ? Feedback::where('status', 'new')->count()
                 : null,
             // Thông tin liên hệ/mạng xã hội (footer + dải Zalo đọc chung) — lazy, 1 row.
             'site' => fn () => $this->sharedSite(),
