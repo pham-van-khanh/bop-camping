@@ -58,4 +58,5 @@ export type PageProps<
     site: SiteInfo;
     pending_reviews?: number | null;
     pending_orders?: number | null;
+    pending_feedback?: number | null;
 };

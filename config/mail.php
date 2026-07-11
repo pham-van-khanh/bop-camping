@@ -75,6 +75,19 @@ return [
             'channel' => env('MAIL_LOG_CHANNEL'),
         ],
 
+        // Mailer PHẢN HỒI góp ý (Epic 2) — tài khoản gửi riêng, cấu hình MAIL_REPLY_*.
+        // Chưa khai MAIL_REPLY_* thì fallback thông số SMTP mặc định.
+        // Dùng khi MAIL_REPLY_MAILER=reply; để trống MAIL_REPLY_MAILER = gửi bằng mailer mặc định.
+        'reply' => [
+            'transport' => 'smtp',
+            'host' => env('MAIL_REPLY_HOST', env('MAIL_HOST', '127.0.0.1')),
+            'port' => env('MAIL_REPLY_PORT', env('MAIL_PORT', 2525)),
+            'username' => env('MAIL_REPLY_USERNAME', env('MAIL_USERNAME')),
+            'password' => env('MAIL_REPLY_PASSWORD', env('MAIL_PASSWORD')),
+            'scheme' => env('MAIL_REPLY_SCHEME', env('MAIL_SCHEME')),
+            'timeout' => null,
+        ],
+
         'array' => [
             'transport' => 'array',
         ],
@@ -113,6 +126,25 @@ return [
     'from' => [
         'address' => env('MAIL_FROM_ADDRESS', 'hello@example.com'),
         'name' => env('MAIL_FROM_NAME', env('APP_NAME', 'Laravel')),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Góp ý (Epic 2)
+    |--------------------------------------------------------------------------
+    | admin_address: nơi nhận mail báo góp ý mới (trống = gửi tới email các
+    | tài khoản admin). reply_mailer: mailer gửi phản hồi cho khách ('reply'
+    | = tài khoản MAIL_REPLY_*; trống = mailer mặc định). reply_from: from
+    | của mail phản hồi (trống = from mặc định). Đổi mail chỉ cần sửa .env.
+    */
+
+    'admin_address' => env('MAIL_ADMIN_ADDRESS'),
+
+    'reply_mailer' => env('MAIL_REPLY_MAILER'),
+
+    'reply_from' => [
+        'address' => env('MAIL_REPLY_FROM_ADDRESS'),
+        'name' => env('MAIL_REPLY_FROM_NAME'),
     ],
 
 ];
