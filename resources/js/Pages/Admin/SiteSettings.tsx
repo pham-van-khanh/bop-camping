@@ -15,6 +15,8 @@ type Settings = {
     facebook_url: string | null;
     tiktok_url: string | null;
     working_hours: string | null;
+    ga_measurement_id: string | null;
+    google_site_verification: string | null;
 };
 
 type Props = PageProps<{
@@ -40,6 +42,8 @@ export default function AdminSiteSettings() {
         facebook_url: settings.facebook_url ?? '',
         tiktok_url: settings.tiktok_url ?? '',
         working_hours: settings.working_hours ?? '',
+        ga_measurement_id: settings.ga_measurement_id ?? '',
+        google_site_verification: settings.google_site_verification ?? '',
     });
 
     useEffect(() => {
@@ -109,6 +113,19 @@ export default function AdminSiteSettings() {
                         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                             {field('facebook_url', 'Facebook', 'https://facebook.com/...')}
                             {field('tiktok_url', 'TikTok', 'https://tiktok.com/@...')}
+                        </div>
+                    </section>
+
+                    {/* SEO & theo dõi */}
+                    <section className="rounded-card border border-cardBorder bg-card p-5">
+                        <h2 className="mb-1 text-[15px] font-bold text-pine">SEO &amp; theo dõi</h2>
+                        <p className="mb-3 text-[12.5px] text-moss">
+                            Để trống thì không chèn mã nào. Lấy mã GA4 ở <span className="font-semibold">Google Analytics → Quản trị → Luồng dữ liệu</span>,
+                            mã xác minh ở <span className="font-semibold">Google Search Console</span> (phương thức thẻ HTML).
+                        </p>
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                            {field('ga_measurement_id', 'Mã đo lường GA4', 'G-XXXXXXXXXX', 'Dạng G-XXXXXXXX — bật Google Analytics 4')}
+                            {field('google_site_verification', 'Mã xác minh Search Console', 'abcXyz123...', 'Chỉ dán phần content của thẻ meta verification')}
                         </div>
                     </section>
 
