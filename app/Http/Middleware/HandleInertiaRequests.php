@@ -85,6 +85,39 @@ class HandleInertiaRequests extends Middleware
             'seo' => [
                 'url' => $request->url(),
             ],
+            // SEO site-wide KHÔNG bị controller ghi đè (prop riêng): GA4 + Google
+            // verification + LocalBusiness — admin nhập ở Cài đặt shop, blade gate theo giá trị.
+            'seoSite' => fn () => $this->sharedSeoSite(),
+        ];
+    }
+
+    /**
+     * SEO site-wide dùng ở blade head (độc lập với prop 'seo' per-page):
+     * mã GA4 + Google verification (admin nhập), LocalBusiness JSON-LD.
+     *
+     * @return array<string, mixed>
+     */
+    private function sharedSeoSite(): array
+    {
+        $s = SiteSetting::current();
+        $hotlines = array_values(array_filter([$s->hotline_primary, $s->hotline_secondary]));
+
+        return [
+            'ga_id' => $s->ga_measurement_id,
+            'google_verification' => $s->google_site_verification,
+            // LocalBusiness chỉ render khi có hotline (đủ dữ liệu tối thiểu cho rich result).
+            'local_business' => $hotlines === [] ? null : [
+                '@context' => 'https://schema.org',
+                '@type' => 'LocalBusiness',
+                'name' => 'BỐP CAMPING',
+                'description' => 'Cho thuê thiết bị cắm trại theo ngày — lều, bếp, túi ngủ, đèn trại.',
+                'url' => url('/'),
+                'image' => url('/images/album/forest-camp-aerial.jpg'),
+                'telephone' => $hotlines[0],
+                'areaServed' => ServiceLocation::open()->ordered()->pluck('name')->all() ?: ['Vinh', 'Hà Nội'],
+                'openingHours' => $s->working_hours,
+                'priceRange' => '$$',
+            ],
         ];
     }
 

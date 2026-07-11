@@ -10,12 +10,18 @@
         @php
             // SEO động: lấy từ prop 'seo' của trang (controller/shared), có fallback site-wide.
             $seo = $page['props']['seo'] ?? [];
+            // SEO site-wide (không bị controller ghi đè): GA4, Google verification, LocalBusiness.
+            $seoSite = $page['props']['seoSite'] ?? [];
             $brand = 'BỐP CAMPING';
             $seoTitle = $seo['title'] ?? $brand.' — Cho thuê thiết bị cắm trại';
             $seoDesc = $seo['description'] ?? 'Cho thuê lều, bếp, túi ngủ, đèn trại... theo ngày. Giao nhận tận nơi tại Vinh & Hà Nội, cọc linh hoạt, trả tiền khi nhận (COD).';
             $seoImage = $seo['image'] ?? url('/images/album/forest-camp-aerial.jpg');
             $seoUrl = $seo['url'] ?? url()->current();
         @endphp
+
+        @if (! empty($seoSite['google_verification']))
+            <meta name="google-site-verification" content="{{ $seoSite['google_verification'] }}">
+        @endif
 
         <title inertia>{{ $seoTitle }}</title>
         <meta name="description" content="{{ $seoDesc }}">
@@ -90,14 +96,25 @@
             ])->all(),
         ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) !!}</script>
 
-        {{-- JSON-LD riêng theo trang (vd Product ở trang chi tiết) --}}
+        {{-- JSON-LD riêng theo trang (vd Product/Breadcrumb ở trang chi tiết) --}}
         @if (! empty($seo['jsonld']))
             <script type="application/ld+json">{!! json_encode($seo['jsonld'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) !!}</script>
         @endif
 
-        {{-- Google Tag Manager (chỉ khi đặt GTM_ID) --}}
+        {{-- LocalBusiness (site-wide) — chỉ khi shop đã điền hotline ở Cài đặt shop --}}
+        @if (! empty($seoSite['local_business']))
+            <script type="application/ld+json">{!! json_encode($seoSite['local_business'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) !!}</script>
+        @endif
+
+        {{-- Google Tag Manager (chỉ khi đặt GTM_ID trong .env) --}}
         @if (config('services.gtm.id'))
             <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);})(window,document,'script','dataLayer','{{ config('services.gtm.id') }}');</script>
+        @endif
+
+        {{-- Google Analytics 4 (chỉ khi admin đã điền mã GA4 ở Cài đặt shop) --}}
+        @if (! empty($seoSite['ga_id']))
+            <script async src="https://www.googletagmanager.com/gtag/js?id={{ $seoSite['ga_id'] }}"></script>
+            <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','{{ $seoSite['ga_id'] }}');</script>
         @endif
 
         <!-- Fonts -->
