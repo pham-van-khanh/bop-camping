@@ -32,11 +32,15 @@ use App\Http\Controllers\Shop\OrderLookupController;
 use App\Http\Controllers\Shop\ProductController;
 use App\Http\Controllers\Shop\ReviewController;
 use App\Http\Controllers\Shop\ReviewInviteController;
+use App\Http\Controllers\Shop\SitemapController;
 use App\Http\Controllers\Shop\StaticPageController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
 Route::get('/', [ProductController::class, 'home'])->name('home');
+
+// Sitemap động cho bot tìm kiếm (Epic 3) — sinh từ DB, cache 1h
+Route::get('/sitemap.xml', [SitemapController::class, 'index'])->name('sitemap');
 
 // Mặt tiền khách
 Route::get('/thiet-bi', [ProductController::class, 'index'])->name('products');

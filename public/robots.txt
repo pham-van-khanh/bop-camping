@@ -1,2 +1,11 @@
 User-agent: *
-Disallow:
+Disallow: /admin
+Disallow: /tra-cuu
+Disallow: /tai-khoan
+Disallow: /gio-thue
+Disallow: /danh-gia
+Disallow: /dang-nhap
+Disallow: /profile
+Disallow: /dashboard
+
+Sitemap: https://bopcamping.com/sitemap.xml
