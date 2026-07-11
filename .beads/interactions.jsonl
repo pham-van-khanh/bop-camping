@@ -113,3 +113,4 @@
 {"id":"int-dbc42e49","kind":"field_change","created_at":"2026-07-10T13:46:16.416619Z","actor":"Kanhpahm","issue_id":"bopcamping-mfp","extra":{"field":"status","new_value":"closed","old_value":"open","reason":"Closed"}}
 {"id":"int-eaa0484b","kind":"field_change","created_at":"2026-07-10T13:46:16.606776Z","actor":"Kanhpahm","issue_id":"bopcamping-9ab","extra":{"field":"status","new_value":"closed","old_value":"open","reason":"Closed"}}
 {"id":"int-bac0a834","kind":"field_change","created_at":"2026-07-10T13:46:16.78974Z","actor":"Kanhpahm","issue_id":"bopcamping-m2o","extra":{"field":"status","new_value":"closed","old_value":"open","reason":"Closed"}}
+{"id":"int-4bb04326","kind":"field_change","created_at":"2026-07-11T02:05:31.49396Z","actor":"Kanhpahm","issue_id":"bopcamping-ggu","extra":{"field":"status","new_value":"closed","old_value":"open","reason":"Epic 4 hoàn thành, đã merge feat/scaffold-laravel (f56b556)"}}
