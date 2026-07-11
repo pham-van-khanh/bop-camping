@@ -162,6 +162,17 @@ const NAV = [
         ),
     },
     {
+        href: '/admin/gop-y',
+        name: 'admin.feedbacks',
+        label: 'Góp ý',
+        icon: (
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                <path d="M21 11.5a8.4 8.4 0 0 1-8.5 8.3c-1.4 0-2.8-.3-4-1L3 20l1.3-4.2a8 8 0 0 1-1.3-4.3A8.4 8.4 0 0 1 11.5 3 8.4 8.4 0 0 1 21 11.5Z" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" />
+                <path d="M8.5 10.5h7M8.5 13.5h4.5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+            </svg>
+        ),
+    },
+    {
         href: '/admin/pages',
         name: 'admin.pages',
         label: 'Trang nội dung',
@@ -186,7 +197,7 @@ const NAV = [
 ];
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
-    const { auth, pending_reviews, pending_orders } = usePage<PageProps>().props;
+    const { auth, pending_reviews, pending_orders, pending_feedback } = usePage<PageProps>().props;
     const currentRoute = usePage().url;
 
     const logout = () => {
@@ -237,6 +248,11 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                                 {item.name === 'admin.orders' && !!pending_orders && (
                                     <span className={`grid h-5 min-w-5 place-items-center rounded-full px-1.5 font-mono text-[11px] font-bold ${active ? 'bg-white text-grass' : 'bg-campfire text-white'}`}>
                                         {pending_orders}
+                                    </span>
+                                )}
+                                {item.name === 'admin.feedbacks' && !!pending_feedback && (
+                                    <span className={`grid h-5 min-w-5 place-items-center rounded-full px-1.5 font-mono text-[11px] font-bold ${active ? 'bg-white text-grass' : 'bg-campfire text-white'}`}>
+                                        {pending_feedback}
                                     </span>
                                 )}
                             </Link>

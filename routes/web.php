@@ -9,6 +9,7 @@ use App\Http\Controllers\Admin\ComboController as AdminComboController;
 use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\Admin\EditorImageController as AdminEditorImageController;
 use App\Http\Controllers\Admin\FaqController as AdminFaqController;
+use App\Http\Controllers\Admin\FeedbackController as AdminFeedbackController;
 use App\Http\Controllers\Admin\OrderController as AdminOrderController;
 use App\Http\Controllers\Admin\ProductContentController as AdminProductContentController;
 use App\Http\Controllers\Admin\ProductController as AdminProductController;
@@ -24,6 +25,7 @@ use App\Http\Controllers\Admin\VoucherController as AdminVoucherController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\Shop\CartController;
 use App\Http\Controllers\Shop\ComboController;
+use App\Http\Controllers\Shop\FeedbackController;
 use App\Http\Controllers\Shop\GuestAuthController;
 use App\Http\Controllers\Shop\OrderController;
 use App\Http\Controllers\Shop\OrderLookupController;
@@ -61,6 +63,8 @@ Route::post('/dat-hang', [OrderController::class, 'store'])->name('order.store')
 Route::get('/tra-cuu', [OrderLookupController::class, 'index'])->name('lookup');
 // Trang giới thiệu — nội dung sửa trong admin "Trang nội dung" (Epic 4)
 Route::get('/gioi-thieu', [StaticPageController::class, 'about'])->name('about');
+// Góp ý trải nghiệm website — widget nổi mọi trang (Epic 2), throttle chống spam
+Route::post('/gop-y', [FeedbackController::class, 'store'])->name('feedback.store')->middleware('throttle:5,1');
 // Đánh giá sau chuyến đi qua link token (không cần đăng nhập)
 Route::get('/danh-gia/{token}', [ReviewInviteController::class, 'show'])->name('review.invite');
 Route::post('/danh-gia/{token}', [ReviewInviteController::class, 'store'])->name('review.invite.store')->middleware('throttle:10,1');
@@ -147,6 +151,10 @@ Route::middleware(['admin'])->prefix('admin')->name('admin.')->group(function ()
     Route::delete('/banners/{banner}', [AdminBannerController::class, 'destroy'])->name('banners.destroy')->middleware('throttle:30,1');
 
     // Điểm cắm trại (Cẩm nang) — CRUD + media
+    // Góp ý của khách: đọc + phản hồi qua email (Epic 2)
+    Route::get('/gop-y', [AdminFeedbackController::class, 'index'])->name('feedbacks');
+    Route::patch('/gop-y/{feedback}', [AdminFeedbackController::class, 'reply'])->name('feedbacks.reply')->middleware('throttle:30,1');
+
     // Trang nội dung (giới thiệu...) — title + ảnh bìa + nội dung TipTap (Epic 4)
     Route::get('/pages', [AdminStaticPageController::class, 'index'])->name('pages');
     Route::get('/pages/{staticPage}', [AdminStaticPageController::class, 'edit'])->name('pages.edit');
