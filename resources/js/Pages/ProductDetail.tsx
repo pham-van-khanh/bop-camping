@@ -120,7 +120,8 @@ export default function ProductDetail({ product, unavailable_dates, accessories,
             return;
         }
         const seq = ++sugSeq.current;
-        fetch(`/thiet-bi/${product.slug}/goi-y-kha-dung?start=${start}&end=${end}`, { headers: { Accept: 'application/json' } })
+        const locQ = storeId != null ? `&location_id=${storeId}` : '';
+        fetch(`/thiet-bi/${product.slug}/goi-y-kha-dung?start=${start}&end=${end}${locQ}`, { headers: { Accept: 'application/json' } })
             .then((r) => (r.ok ? r.json() : null))
             .then((j: { accessories: { id: number; available: number }[]; combo_available: number | null } | null) => {
                 if (seq !== sugSeq.current) return;
@@ -139,7 +140,7 @@ export default function ProductDetail({ product, unavailable_dates, accessories,
                 setAccAvail(null);
                 setComboAvail(null);
             });
-    }, [start, end, product.slug, accessories.length, combo_banner?.id]);
+    }, [start, end, product.slug, accessories.length, combo_banner?.id, storeId]);
 
     const baseGrad = gradFor(product.category.slug);
     // Build gallery: real images first, then fallback gradient variants

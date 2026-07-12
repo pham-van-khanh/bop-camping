@@ -352,11 +352,16 @@ class ProductController extends Controller
         $data = $request->validate([
             'start' => ['required', 'date_format:Y-m-d'],
             'end' => ['required', 'date_format:Y-m-d', 'after_or_equal:start'],
+            // Per-store: gợi ý theo cửa hàng khách đang chọn (null = toàn cục)
+            'location_id' => ['nullable', 'integer', 'exists:service_locations,id'],
         ]);
 
         $p = Product::active()->where('slug', $product)->firstOrFail();
         $start = Carbon::parse($data['start']);
         $end = Carbon::parse($data['end']);
+        $location = ! empty($data['location_id'])
+            ? ServiceLocation::find((int) $data['location_id'])
+            : null;
 
         $bannerCombo = $this->bannerCombo($p);
 
@@ -364,11 +369,11 @@ class ProductController extends Controller
             'accessories' => $this->activeAccessories($p)
                 ->map(fn (Product $a) => [
                     'id' => $a->id,
-                    'available' => $this->availability->availableQuantity($a, $start, $end),
+                    'available' => $this->availability->availableQuantity($a, $start, $end, $location),
                 ])->values(),
             // null = không có banner; 0 = combo hết trong khoảng này → FE ẩn banner
             'combo_available' => $bannerCombo
-                ? $this->availability->comboAvailable($bannerCombo, $start, $end)
+                ? $this->availability->comboAvailable($bannerCombo, $start, $end, $location)
                 : null,
         ]);
     }

@@ -128,3 +128,4 @@
 {"id":"int-5a8c3657","kind":"field_change","created_at":"2026-07-12T05:02:03.486085Z","actor":"Kanhpahm","issue_id":"bopcamping-9v1","extra":{"field":"status","new_value":"closed","old_value":"in_progress","reason":"Closed"}}
 {"id":"int-2aa4ca1a","kind":"field_change","created_at":"2026-07-12T05:06:12.632533Z","actor":"Kanhpahm","issue_id":"bopcamping-jx8","extra":{"field":"status","new_value":"closed","old_value":"in_progress","reason":"Closed"}}
 {"id":"int-e6599e53","kind":"field_change","created_at":"2026-07-12T05:13:57.098771Z","actor":"Kanhpahm","issue_id":"bopcamping-a5x","extra":{"field":"status","new_value":"closed","old_value":"in_progress","reason":"Closed"}}
+{"id":"int-f7c1bdab","kind":"field_change","created_at":"2026-07-12T05:18:03.575417Z","actor":"Kanhpahm","issue_id":"bopcamping-bul","extra":{"field":"status","new_value":"closed","old_value":"in_progress","reason":"Closed"}}
