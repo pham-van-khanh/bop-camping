@@ -13,8 +13,8 @@ import { emit, on, EVENTS } from '@/lib/bus';
 import { estimateDiscount, voucherValueText, type AvailableVoucher, type EmailBonusInfo, type PromoInfo } from '@/lib/voucher';
 import type { PageProps } from '@/types';
 
-type CheckoutItem = { product_id: number; quantity: number; start: string; end: string };
-type CheckoutCombo = { combo_id: number; quantity: number; start: string; end: string };
+type CheckoutItem = { product_id: number; quantity: number; start: string; end: string; location_id: number | null };
+type CheckoutCombo = { combo_id: number; quantity: number; start: string; end: string; location_id: number | null };
 
 // Gợi ý từ cart combo detection (PRD 5.4) — server trả tối đa 1 gợi ý.
 type Suggestion = {
@@ -759,13 +759,13 @@ export default function Cart() {
 function toCheckoutItems(lines: CartLine[]): CheckoutItem[] {
     return lines
         .filter((l) => !isComboLine(l))
-        .map((l) => ({ product_id: l.id, quantity: l.qty, start: l.start, end: l.end }));
+        .map((l) => ({ product_id: l.id, quantity: l.qty, start: l.start, end: l.end, location_id: l.location_id ?? null }));
 }
 
 function toCheckoutCombos(lines: CartLine[]): CheckoutCombo[] {
     return lines
         .filter(isComboLine)
-        .map((l) => ({ combo_id: l.id, quantity: l.qty, start: l.start, end: l.end }));
+        .map((l) => ({ combo_id: l.id, quantity: l.qty, start: l.start, end: l.end, location_id: l.location_id ?? null }));
 }
 
 function Row({ k, v, mono, accent, accentWarm }: { k: string; v: string; mono?: boolean; accent?: boolean; accentWarm?: boolean }) {

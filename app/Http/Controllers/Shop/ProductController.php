@@ -333,9 +333,13 @@ class ProductController extends Controller
             ]);
         }
 
-        return response()->json([
-            'by_location' => $this->availability->availableByLocations($p, $start, $end),
-        ]);
+        // Có cửa hàng phục vụ → map theo store; chưa cấu hình vị trí → tồn toàn cục (legacy).
+        $openServed = $p->serviceLocations->where('status', 'open');
+        if ($openServed->isEmpty()) {
+            return response()->json(['available' => $this->availability->availableQuantity($p, $start, $end)]);
+        }
+
+        return response()->json(['by_location' => $this->availability->availableByLocations($p, $start, $end)]);
     }
 
     /**

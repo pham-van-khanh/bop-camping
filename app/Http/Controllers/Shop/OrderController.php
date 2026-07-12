@@ -15,6 +15,7 @@ use App\Services\ComboPricingService;
 use App\Services\Promotion\EmailBonusService;
 use App\Services\Promotion\VoucherService;
 use App\Services\Referral\ReferralService;
+use App\Services\StoreResolver;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -31,6 +32,7 @@ class OrderController extends Controller
         private ReferralService $referrals,
         private VoucherService $vouchers,
         private EmailBonusService $emailBonus,
+        private StoreResolver $storeResolver,
     ) {}
 
     /**
@@ -54,11 +56,13 @@ class OrderController extends Controller
             'items.*.quantity' => ['required', 'integer', 'min:1', 'max:99'],
             'items.*.start' => ['required', 'date_format:Y-m-d', 'after_or_equal:today'],
             'items.*.end' => ['required', 'date_format:Y-m-d', 'after_or_equal:items.*.start'],
+            'items.*.location_id' => ['nullable', 'integer', 'exists:service_locations,id'],
             'combos' => ['nullable', 'array'],
             'combos.*.combo_id' => ['required', 'integer', 'exists:combos,id'],
             'combos.*.quantity' => ['required', 'integer', 'min:1', 'max:10'],
             'combos.*.start' => ['required', 'date_format:Y-m-d', 'after_or_equal:today'],
             'combos.*.end' => ['required', 'date_format:Y-m-d', 'after_or_equal:combos.*.start'],
+            'combos.*.location_id' => ['nullable', 'integer', 'exists:service_locations,id'],
             'referral_code' => ['nullable', 'string', 'max:20'],
             'voucher_codes' => ['nullable', 'array', 'max:10'],
             'voucher_codes.*' => ['string', 'max:30'],
@@ -97,24 +101,8 @@ class OrderController extends Controller
             return back()->withErrors(['items' => implode(' ', $errors)])->withInput();
         }
 
-        // Giỏ chỉ 1 vị trí: mọi món (kể cả món trong combo) phải thuê được ở cùng ≥1 vị trí đang mở.
-        // (FE đã chặn bằng popup; đây là van an toàn vì giỏ nằm ở localStorage.)
-        $allProducts = $products->values()
-            ->concat($combos->flatMap(fn (Combo $c) => $c->items->map(fn ($i) => $i->product)->filter()));
-        $locationSets = $allProducts
-            ->map(fn (Product $p) => $p->serviceLocations->where('status', 'open')->pluck('id')->all())
-            ->filter(fn (array $ids) => ! empty($ids))
-            ->values()
-            ->all();
-        if (count($locationSets) > 1 && empty(array_intersect(...$locationSets))) {
-            return back()->withErrors([
-                'items' => 'Các thiết bị trong giỏ không cùng một vị trí phục vụ. Mỗi đơn chỉ thuê tại một vị trí.',
-            ])->withInput();
-        }
-
-        // Kiểm kho: GỘP tổng nhu cầu per (sản phẩm + khoảng ngày) từ cả thuê lẻ lẫn
-        // combo đã bung — chống overbook khi cùng 1 sản phẩm xuất hiện ở cả hai phần.
-        // Mọi phép tính đều qua AvailabilityService (single source of truth).
+        // Per-store: GỘP nhu cầu per (sản phẩm + khoảng ngày) từ thuê lẻ + combo bung
+        // (chống overbook khi 1 sản phẩm ở cả hai phần).
         $needed = []; // "productId|start|end" => qty
         foreach ($itemLines as $item) {
             $key = "{$item['product_id']}|{$item['start']}|{$item['end']}";
@@ -128,30 +116,27 @@ class OrderController extends Controller
             }
         }
 
-        $comboProducts = $combos->flatMap(fn (Combo $c) => $c->items->map(fn ($i) => $i->product))
-            ->filter()
+        $productsById = $products->values()
+            ->concat($combos->flatMap(fn (Combo $c) => $c->items->map(fn ($i) => $i->product))->filter())
             ->keyBy('id');
-        foreach ($needed as $key => $qty) {
-            [$productId, $start, $end] = explode('|', $key);
-            $product = $products->get((int) $productId) ?? $comboProducts->get((int) $productId);
-            if (! $product) {
-                $errors[] = "Sản phẩm #$productId không tồn tại.";
 
-                continue;
-            }
-
-            $available = $this->availability->availableQuantity($product, Carbon::parse($start), Carbon::parse($end));
-            if ($available < $qty) {
-                $errors[] = "\"{$product->name}\" chỉ còn {$available} bộ trong khoảng thời gian này.";
-            }
+        // Cửa hàng khách chọn (per-store): id đầu tiên khác null; 2 store khác nhau → lỗi (giỏ 1 cơ sở).
+        $chosenIds = collect($itemLines)->concat($comboLines)
+            ->pluck('location_id')->filter()->unique()->values();
+        if ($chosenIds->count() > 1) {
+            return back()->withErrors(['items' => 'Giỏ đang chọn 2 cơ sở khác nhau. Mỗi đơn chỉ thuê tại một cơ sở.'])->withInput();
         }
 
-        if (! empty($errors)) {
-            return back()->withErrors(['items' => implode(' ', $errors)])->withInput();
+        // Resolve store: khách chọn → validate store đó; chưa chọn → tự gán store đủ cả giỏ.
+        // StoreResolver đã kiểm tồn kho per-store (single source of truth).
+        try {
+            $resolved = $this->storeResolver->resolveForCart($needed, $productsById, $chosenIds->first());
+        } catch (\RuntimeException $e) {
+            return back()->withErrors(['items' => $e->getMessage()])->withInput();
         }
 
         // Tạo đơn trong transaction
-        $order = DB::transaction(function () use ($validated, $itemLines, $comboLines, $products, $combos) {
+        $order = DB::transaction(function () use ($validated, $itemLines, $comboLines, $products, $combos, $resolved) {
             $starts = array_merge(array_column($itemLines, 'start'), array_column($comboLines, 'start'));
             $ends = array_merge(array_column($itemLines, 'end'), array_column($comboLines, 'end'));
             $startDate = Carbon::parse(min($starts));
@@ -167,6 +152,9 @@ class OrderController extends Controller
 
             $order = Order::create([
                 'user_id' => Auth::id(),
+                // Per-store: cửa hàng thuê (khách chọn hoặc hệ thống tự gán) + cờ đánh dấu tự gán.
+                'service_location_id' => $resolved['location']?->id,
+                'location_auto_assigned' => $resolved['auto'],
                 'customer_name' => $validated['name'],
                 'customer_phone' => $validated['phone'],
                 'customer_email' => $customerEmail,

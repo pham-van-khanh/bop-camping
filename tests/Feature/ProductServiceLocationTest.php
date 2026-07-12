@@ -170,9 +170,9 @@ class ProductServiceLocationTest extends TestCase
         $hanoi = ServiceLocation::create(['name' => 'Hà Nội', 'status' => 'open', 'sort_order' => 2]);
 
         $both = $this->product('Toàn hệ thống', 'toan-he-thong');
-        $both->serviceLocations()->sync([$vinh->id, $hanoi->id]);
+        $both->serviceLocations()->sync([$vinh->id => ['quantity' => 3], $hanoi->id => ['quantity' => 3]]);
         $vinhOnly = $this->product('Đồ Vinh', 'do-vinh');
-        $vinhOnly->serviceLocations()->sync([$vinh->id]);
+        $vinhOnly->serviceLocations()->sync([$vinh->id => ['quantity' => 3]]);
 
         // 'Toàn hệ thống' (Vinh+HN) + 'Đồ Vinh' (Vinh) -> giao = Vinh -> hợp lệ.
         $this->post(route('order.store'), [

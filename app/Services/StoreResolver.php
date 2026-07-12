@@ -20,18 +20,29 @@ class StoreResolver
      * @param  array<string, int>  $needed  ["productId|start|end" => qty] — nhu cầu gộp lẻ + combo
      * @param  Collection<int, Product>  $productsById  sản phẩm (đã load serviceLocations)
      * @param  int|null  $chosenLocationId  store khách chọn (null = tự gán)
-     * @return array{location: ServiceLocation, auto: bool}
+     * @return array{location: ServiceLocation|null, auto: bool} location=null → đơn không gắn store (legacy: sản phẩm chưa cấu hình vị trí)
      *
      * @throws RuntimeException khi store chọn không đủ / không store nào đủ cả giỏ
      */
     public function resolveForCart(array $needed, Collection $productsById, ?int $chosenLocationId): array
     {
-        // Cửa hàng ứng viên = store OPEN phục vụ MỌI sản phẩm trong giỏ (giao các tập vị trí).
-        $locationSets = $productsById->map(
-            fn (Product $p) => $p->serviceLocations->where('status', 'open')->pluck('id')->all()
-        )->values()->all();
+        // Chỉ xét sản phẩm CÓ cấu hình vị trí phục vụ (open). Sản phẩm chưa cấu hình → không ràng buộc.
+        $locationSets = $productsById
+            ->map(fn (Product $p) => $p->serviceLocations->where('status', 'open')->pluck('id')->all())
+            ->filter(fn (array $ids) => ! empty($ids))
+            ->values()
+            ->all();
 
-        $candidateIds = $locationSets === [] ? [] : array_values(array_intersect(...$locationSets));
+        // Không sản phẩm nào có vị trí (dữ liệu/test cũ) → đơn không gắn store, kiểm tồn toàn cục.
+        if ($locationSets === []) {
+            if ($this->shortfall($needed, $productsById, null) !== null) {
+                throw new RuntimeException($this->shortfall($needed, $productsById, null));
+            }
+
+            return ['location' => null, 'auto' => false];
+        }
+
+        $candidateIds = array_values(array_intersect(...$locationSets));
 
         if (empty($candidateIds)) {
             throw new RuntimeException('Các thiết bị trong giỏ không cùng một cửa hàng phục vụ. Mỗi đơn chỉ thuê tại một cơ sở.');
@@ -65,8 +76,8 @@ class StoreResolver
         return ['location' => $ok->first(), 'auto' => true];
     }
 
-    /** Trả message thiếu hàng đầu tiên tại store, hoặc null nếu đủ hết. */
-    private function shortfall(array $needed, Collection $productsById, ServiceLocation $location): ?string
+    /** Trả message thiếu hàng đầu tiên tại store (null = toàn cục), hoặc null nếu đủ hết. */
+    private function shortfall(array $needed, Collection $productsById, ?ServiceLocation $location): ?string
     {
         foreach ($needed as $key => $qty) {
             [$productId, $start, $end] = explode('|', $key);
@@ -76,7 +87,9 @@ class StoreResolver
             }
             $available = $this->availability->availableQuantity($product, Carbon::parse($start), Carbon::parse($end), $location);
             if ($available < $qty) {
-                return "\"{$product->name}\" tại {$location->name} chỉ còn {$available} bộ trong khoảng này.";
+                $at = $location ? " tại {$location->name}" : '';
+
+                return "\"{$product->name}\"{$at} chỉ còn {$available} bộ trong khoảng này.";
             }
         }
 
