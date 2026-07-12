@@ -6,6 +6,7 @@ use App\Models\Category;
 use App\Models\Order;
 use App\Models\Product;
 use App\Models\ServiceLocation;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Testing\TestResponse;
 use Tests\TestCase;
@@ -78,6 +79,37 @@ class OrderPerStoreTest extends TestCase
 
         $this->order($p, null, 2)->assertSessionHasErrors('items');
         $this->assertSame(0, Order::count());
+    }
+
+    /** @test */
+    public function admin_can_change_order_store_when_target_has_stock(): void
+    {
+        $admin = User::factory()->create(['is_admin' => true]);
+        $p = $this->product([$this->vinh->id => 5, $this->hanoi->id => 5]);
+        $this->order($p, $this->vinh->id, 2)->assertRedirect();
+        $order = Order::latest('id')->first();
+
+        $this->actingAs($admin)
+            ->patch(route('admin.orders.location', $order), ['service_location_id' => $this->hanoi->id])
+            ->assertRedirect()->assertSessionHas('success');
+
+        $this->assertSame($this->hanoi->id, $order->refresh()->service_location_id);
+        $this->assertFalse($order->location_auto_assigned);
+    }
+
+    /** @test */
+    public function admin_cannot_change_to_store_without_enough_stock(): void
+    {
+        $admin = User::factory()->create(['is_admin' => true]);
+        $p = $this->product([$this->vinh->id => 5, $this->hanoi->id => 1]);
+        $this->order($p, $this->vinh->id, 3)->assertRedirect();
+        $order = Order::latest('id')->first();
+
+        $this->actingAs($admin)
+            ->patch(route('admin.orders.location', $order), ['service_location_id' => $this->hanoi->id])
+            ->assertSessionHasErrors('location');
+
+        $this->assertSame($this->vinh->id, $order->refresh()->service_location_id);
     }
 
     /** @test */

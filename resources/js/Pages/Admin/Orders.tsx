@@ -60,6 +60,9 @@ type Order = {
     deposit_refund_status: string; deposit_refund_note: string | null;
     note: string | null; created_at: string; items: OrderItem[];
     vouchers: UsedVoucher[]; referral: { referrer_name: string | null; status: string } | null;
+    // Per-store: cửa hàng thuê + đơn hệ thống tự gán (admin review theo địa chỉ)
+    service_location: { id: number; name: string } | null;
+    location_auto_assigned: boolean;
 };
 
 // Tình trạng chuyển tiền (marker admin — bopcamping-7be).
@@ -95,9 +98,10 @@ const TABS = [
 ];
 
 export default function AdminOrders({
-    orders, stats, inventory, filters,
+    orders, stats, inventory, service_locations, filters,
 }: {
     orders: Order[]; stats: Stats; inventory: InventoryItem[];
+    service_locations: { id: number; name: string }[];
     filters: { status: string };
 }) {
     const [expandedId, setExpandedId] = useState<number | null>(null);
@@ -253,6 +257,18 @@ export default function AdminOrders({
                                                                             <DetailRow label="Khoảng thuê" value={`${order.start_date} → ${order.end_date} (${order.days} ngày)`} />
                                                                             <DetailRow label="Đặt lúc" value={order.created_at} />
                                                                         </div>
+
+                                                                        {/* Per-store: cửa hàng thuê + đổi store */}
+                                                                        <div className="mb-2 mt-3 flex items-center gap-2 text-[12px] font-bold uppercase tracking-[0.04em] text-grass">
+                                                                            Cơ sở giao
+                                                                            {order.location_auto_assigned && (
+                                                                                <span className="rounded-pill bg-[#f7e7da] px-2 py-0.5 text-[10px] font-semibold normal-case text-[#8a5a1f]">Hệ thống gán · cần duyệt</span>
+                                                                            )}
+                                                                            {order.service_location && !order.location_auto_assigned && (
+                                                                                <span className="rounded-pill bg-[#eef5e1] px-2 py-0.5 text-[10px] font-semibold normal-case text-grass">Khách chọn</span>
+                                                                            )}
+                                                                        </div>
+                                                                        <StoreChanger order={order} locations={service_locations} />
 
                                                                         <div className="mb-2 mt-3 text-[12px] font-bold uppercase tracking-[0.04em] text-grass">Thiết bị</div>
                                                                         <div className="overflow-hidden rounded-[10px] border border-[#eef2e3]">
@@ -518,6 +534,36 @@ function DetailRow({ label, value, mono, accent }: { label: string; value: strin
         <div className="flex items-start justify-between gap-3 py-0.5">
             <span className="shrink-0 text-moss">{label}</span>
             <span className={`text-right text-ink ${mono ? 'font-mono' : ''}`} style={accent ? { color: accent } : undefined}>{value}</span>
+        </div>
+    );
+}
+
+/** Per-store: hiện cửa hàng đơn + cho admin đổi store (kiểm tồn ở backend). */
+function StoreChanger({ order, locations }: { order: Order; locations: { id: number; name: string }[] }) {
+    const errors = usePage().props.errors as Record<string, string>;
+    const change = (id: number) => {
+        if (id === order.service_location?.id) return;
+        router.patch(route('admin.orders.location', order.id), { service_location_id: id }, { preserveScroll: true });
+    };
+    return (
+        <div className="rounded-[10px] border border-[#eef2e3] bg-white p-3">
+            <div className="flex flex-wrap gap-2">
+                {locations.map((l) => {
+                    const on = order.service_location?.id === l.id;
+                    return (
+                        <button
+                            key={l.id}
+                            onClick={() => change(l.id)}
+                            className={`rounded-[9px] border px-3 py-1.5 text-[12.5px] font-semibold transition ${
+                                on ? 'border-grass bg-grass text-white' : 'border-cardBorder text-pine hover:border-grass'
+                            }`}
+                        >
+                            {l.name}
+                        </button>
+                    );
+                })}
+            </div>
+            {errors.location && <p className="mt-1.5 text-[12px] text-[#b3493a]">{errors.location}</p>}
         </div>
     );
 }
