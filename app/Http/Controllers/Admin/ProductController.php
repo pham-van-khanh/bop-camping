@@ -52,6 +52,8 @@ class ProductController extends Controller
                 'status' => $p->status,
                 'category' => $p->category ? ['id' => $p->category->id, 'name' => $p->category->name] : null,
                 'service_location_ids' => $p->serviceLocations->pluck('id')->values(),
+                // Tồn kho theo store (per-store): {service_location_id: quantity}
+                'stocks' => $p->serviceLocations->mapWithKeys(fn ($l) => [$l->id => (int) $l->pivot->quantity]),
                 'accessory_ids' => $p->accessories->pluck('id')->values(),
                 'related_ids' => $p->related->pluck('id')->values(),
                 'combo_names' => $comboNamesByProduct->get($p->id) ?? [],
@@ -86,12 +88,14 @@ class ProductController extends Controller
             'category_id' => 'required|integer|exists:categories,id',
             'description' => 'nullable|string',
             'price_per_day' => 'required|numeric|min:0',
-            'quantity' => 'required|numeric|min:0',
             'deposit' => 'nullable|numeric|min:0',
             'status' => 'sometimes|in:active,hidden',
             'thumbnail' => 'nullable|file|mimes:jpg,jpeg,png,webp|max:4096',
             'service_location_ids' => 'required|array|min:1',
             'service_location_ids.*' => 'integer|exists:service_locations,id',
+            // Tồn kho theo cửa hàng (per-store): map service_location_id => số lượng
+            'stocks' => 'sometimes|array',
+            'stocks.*' => 'integer|min:0',
             'accessory_ids' => 'sometimes|nullable|array|max:20',
             'accessory_ids.*' => 'integer|distinct|exists:products,id',
             'specs' => 'sometimes|nullable|array|max:30',
@@ -105,8 +109,6 @@ class ProductController extends Controller
             'category_id.exists' => 'Danh mục không hợp lệ.',
             'price_per_day.required' => 'Giá thuê không được bỏ trống.',
             'price_per_day.numeric' => 'Giá thuê phải là số.',
-            'quantity.required' => 'Số lượng không được bỏ trống.',
-            'quantity.numeric' => 'Số lượng phải là số.',
             'deposit.numeric' => 'Tiền cọc phải là số.',
             'service_location_ids.required' => 'Vui lòng chọn ít nhất 1 vị trí phục vụ.',
             'service_location_ids.min' => 'Vui lòng chọn ít nhất 1 vị trí phục vụ.',
@@ -130,13 +132,13 @@ class ProductController extends Controller
             'description' => $data['description'] ?? null,
             'specs' => $this->cleanSpecs($data),
             'price_per_day' => (int) $data['price_per_day'],
-            'quantity' => (int) $data['quantity'],
+            'quantity' => 0, // syncStocks cập nhật = tổng tồn theo store
             'deposit' => isset($data['deposit']) ? (int) $data['deposit'] : null,
             'status' => $data['status'] ?? 'active',
             'thumbnail' => $thumbnailPath,
         ]);
 
-        $product->serviceLocations()->sync($data['service_location_ids']);
+        $this->syncStocks($product, $data);
         $this->syncSortedRelation($product, $data, 'accessory_ids', 'accessories');
         $this->syncSortedRelation($product, $data, 'related_ids', 'related');
 
@@ -150,12 +152,14 @@ class ProductController extends Controller
             'category_id' => 'required|integer|exists:categories,id',
             'description' => 'nullable|string',
             'price_per_day' => 'required|numeric|min:0',
-            'quantity' => 'required|numeric|min:0',
             'deposit' => 'nullable|numeric|min:0',
             'status' => 'sometimes|in:active,hidden',
             'thumbnail' => 'nullable|file|mimes:jpg,jpeg,png,webp|max:4096',
             'service_location_ids' => 'required|array|min:1',
             'service_location_ids.*' => 'integer|exists:service_locations,id',
+            // Tồn kho theo cửa hàng (per-store): map service_location_id => số lượng
+            'stocks' => 'sometimes|array',
+            'stocks.*' => 'integer|min:0',
             'accessory_ids' => 'sometimes|nullable|array|max:20',
             'accessory_ids.*' => 'integer|distinct|exists:products,id',
             'specs' => 'sometimes|nullable|array|max:30',
@@ -169,8 +173,6 @@ class ProductController extends Controller
             'category_id.exists' => 'Danh mục không hợp lệ.',
             'price_per_day.required' => 'Giá thuê không được bỏ trống.',
             'price_per_day.numeric' => 'Giá thuê phải là số.',
-            'quantity.required' => 'Số lượng không được bỏ trống.',
-            'quantity.numeric' => 'Số lượng phải là số.',
             'deposit.numeric' => 'Tiền cọc phải là số.',
             'service_location_ids.required' => 'Vui lòng chọn ít nhất 1 vị trí phục vụ.',
             'service_location_ids.min' => 'Vui lòng chọn ít nhất 1 vị trí phục vụ.',
@@ -199,13 +201,12 @@ class ProductController extends Controller
             'description' => $data['description'] ?? null,
             'specs' => array_key_exists('specs', $data) ? $this->cleanSpecs($data) : $product->specs,
             'price_per_day' => (int) $data['price_per_day'],
-            'quantity' => (int) $data['quantity'],
             'deposit' => isset($data['deposit']) ? (int) $data['deposit'] : null,
             'status' => $data['status'] ?? $product->status,
             'thumbnail' => $thumbnailPath,
         ]);
 
-        $product->serviceLocations()->sync($data['service_location_ids']);
+        $this->syncStocks($product, $data);
         $this->syncSortedRelation($product, $data, 'accessory_ids', 'accessories');
         $this->syncSortedRelation($product, $data, 'related_ids', 'related');
 
@@ -237,6 +238,21 @@ class ProductController extends Controller
                 ->mapWithKeys(fn (int $id, int $i) => [$id => ['sort_order' => $i]])
                 ->all()
         );
+    }
+
+    /**
+     * Sync tồn kho theo cửa hàng (per-store): pivot quantity cho từng store đã tick,
+     * rồi cập nhật products.quantity = tổng (để chỗ hiển thị "tổng còn" không vỡ).
+     */
+    private function syncStocks(Product $product, array $data): void
+    {
+        $stocks = $data['stocks'] ?? [];
+        $pivot = [];
+        foreach ($data['service_location_ids'] as $locId) {
+            $pivot[(int) $locId] = ['quantity' => max(0, (int) ($stocks[$locId] ?? 0))];
+        }
+        $product->serviceLocations()->sync($pivot);
+        $product->update(['quantity' => array_sum(array_column($pivot, 'quantity'))]);
     }
 
     /** Chuẩn hoá specs từ form: trim, bỏ dòng key rỗng; không còn dòng nào -> null. */

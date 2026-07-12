@@ -24,6 +24,7 @@ type Product = {
     status: 'active' | 'hidden';
     category: { id: number; name: string } | null;
     service_location_ids: number[];
+    stocks: Record<number, number>;
     accessory_ids: number[];
     related_ids: number[];
     combo_names: string[];
@@ -37,11 +38,12 @@ type ProductFormData = {
     // Thông số key–value (Epic 1, 1.2) — thứ tự dòng = thứ tự hiển thị
     specs: SpecRow[];
     price_per_day: number | '';
-    quantity: number | '';
     deposit: number | null;   // null (không phải '') để JSON request xử lý đúng nullable
     status: 'active' | 'hidden';
     thumbnail: File | null;
     service_location_ids: number[];
+    // Tồn kho theo cửa hàng (per-store): service_location_id -> số lượng
+    stocks: Record<number, number | ''>;
     // "Thường thuê cùng" (US-08) — thứ tự trong mảng = thứ tự hiển thị ở trang sản phẩm
     accessory_ids: number[];
     // "Có thể bạn cũng thích" (Epic 1, 1.6) — admin tự chọn, tối đa 12
@@ -119,11 +121,11 @@ export default function AdminProducts({
         description: '',
         specs: [],
         price_per_day: '',
-        quantity: '',
         deposit: null,
         status: 'active',
         thumbnail: null,
         service_location_ids: [],
+        stocks: {},
         accessory_ids: [],
         related_ids: [],
     });
@@ -134,12 +136,12 @@ export default function AdminProducts({
         description: '',
         specs: [],
         price_per_day: '',
-        quantity: '',
         deposit: null,
         status: 'active',
         thumbnail: null,
         // Mặc định gắn tất cả vị trí đang mở khi thêm mới.
         service_location_ids: [...openLocationIds],
+        stocks: {},
         accessory_ids: [],
         related_ids: [],
     });
@@ -147,6 +149,10 @@ export default function AdminProducts({
     const toggleLocation = (id: number) => {
         const cur = form.data.service_location_ids;
         form.setData('service_location_ids', cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]);
+    };
+
+    const setStock = (id: number, value: string) => {
+        form.setData('stocks', { ...form.data.stocks, [id]: value === '' ? '' : Math.max(0, Number(value)) });
     };
 
     /* --- "Thường thuê cùng" (US-08) + "Có thể bạn cũng thích" (Epic 1):
@@ -183,11 +189,11 @@ export default function AdminProducts({
             description: p.description ?? '',
             specs: p.specs ?? [],
             price_per_day: p.price_per_day,
-            quantity: p.quantity,
             deposit: p.deposit ?? null,
             status: p.status,
             thumbnail: null,
             service_location_ids: p.service_location_ids ?? [],
+            stocks: { ...(p.stocks ?? {}) },
             accessory_ids: p.accessory_ids ?? [],
             related_ids: p.related_ids ?? [],
         });
@@ -218,6 +224,10 @@ export default function AdminProducts({
             accessory_ids: data.accessory_ids.length ? data.accessory_ids : '',
             related_ids: data.related_ids.length ? data.related_ids : '',
             specs: data.specs.length ? data.specs : '',
+            // Tồn kho: chỉ gửi số của store đã tick (store bỏ tick không gửi → không tạo pivot).
+            stocks: Object.fromEntries(
+                data.service_location_ids.map((id) => [id, data.stocks[id] === '' || data.stocks[id] == null ? 0 : data.stocks[id]]),
+            ),
             // PHP không nạp $_FILES cho PUT → POST kèm _method spoofing khi sửa.
             ...(modalMode === 'edit' ? { _method: 'put' } : {}),
         }));
@@ -675,6 +685,38 @@ export default function AdminProducts({
                                 {form.errors.service_location_ids && (
                                     <p className="mt-1 text-[12px] text-[#b3493a]">{form.errors.service_location_ids}</p>
                                 )}
+
+                                {/* Tồn kho theo cửa hàng (per-store) — mỗi store đã chọn 1 ô số lượng */}
+                                {form.data.service_location_ids.length > 0 && (
+                                    <div className="mt-3 rounded-[11px] border border-cardBorder bg-[#f8faf4] p-3">
+                                        <div className="mb-2 text-[12px] font-semibold text-pine">Số lượng tại mỗi cơ sở</div>
+                                        <div className="flex flex-wrap gap-3">
+                                            {form.data.service_location_ids.map((id) => {
+                                                const loc = service_locations.find((l) => l.id === id);
+                                                if (!loc) return null;
+                                                return (
+                                                    <label key={id} className="flex items-center gap-2 text-[13px]">
+                                                        <span className="font-semibold text-pine">{loc.name}</span>
+                                                        <input
+                                                            type="number"
+                                                            min="0"
+                                                            value={form.data.stocks[id] ?? ''}
+                                                            onChange={(e) => setStock(id, e.target.value)}
+                                                            placeholder="0"
+                                                            className="w-20 rounded-[9px] border border-cardBorder px-2.5 py-1.5 text-[13px] outline-none transition focus:border-grass"
+                                                        />
+                                                    </label>
+                                                );
+                                            })}
+                                        </div>
+                                        {Object.entries(form.errors)
+                                            .filter(([k]) => k.startsWith('stocks'))
+                                            .slice(0, 1)
+                                            .map(([k, v]) => (
+                                                <p key={k} className="mt-1.5 text-[12px] text-[#b3493a]">{v}</p>
+                                            ))}
+                                    </div>
+                                )}
                             </div>
 
                             {/* Thường thuê cùng (US-08) — gợi ý hiện ở trang sản phẩm (Case 2) */}
@@ -700,7 +742,7 @@ export default function AdminProducts({
                             />
 
                             {/* Price / Qty / Deposit row */}
-                            <div className="grid grid-cols-3 gap-3">
+                            <div className="grid grid-cols-2 gap-3">
                                 <div>
                                     <label className="mb-1.5 block text-[13px] font-semibold text-pine">
                                         Giá/ngày (₫) <span className="text-[#b3493a]">*</span>
@@ -717,24 +759,6 @@ export default function AdminProducts({
                                     />
                                     {form.errors.price_per_day && (
                                         <p className="mt-1 text-[12px] text-[#b3493a]">{form.errors.price_per_day}</p>
-                                    )}
-                                </div>
-                                <div>
-                                    <label className="mb-1.5 block text-[13px] font-semibold text-pine">
-                                        Số lượng <span className="text-[#b3493a]">*</span>
-                                    </label>
-                                    <input
-                                        type="number"
-                                        min="0"
-                                        value={form.data.quantity}
-                                        onChange={(e) =>
-                                            form.setData('quantity', e.target.value === '' ? '' : Number(e.target.value))
-                                        }
-                                        className="w-full rounded-[10px] border border-cardBorder px-3 py-2.5 text-[13.5px] outline-none transition focus:border-grass"
-                                        placeholder="5"
-                                    />
-                                    {form.errors.quantity && (
-                                        <p className="mt-1 text-[12px] text-[#b3493a]">{form.errors.quantity}</p>
                                     )}
                                 </div>
                                 <div>
