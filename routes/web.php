@@ -92,6 +92,8 @@ Route::middleware(['admin'])->prefix('admin')->name('admin.')->group(function ()
 
     Route::get('/orders', [AdminOrderController::class, 'index'])->name('orders');
     Route::patch('/orders/{order}', [AdminOrderController::class, 'updateStatus'])->name('orders.update');
+    // Per-store: đổi cửa hàng của đơn (kiểm tồn store đích)
+    Route::patch('/orders/{order}/location', [AdminOrderController::class, 'changeLocation'])->name('orders.location')->middleware('throttle:30,1');
     // Đánh dấu tình trạng chuyển tiền (đã chuyển cọc / chuyển hết / chưa chuyển) — bopcamping-7be
     Route::patch('/orders/{order}/payment', [AdminOrderController::class, 'updatePayment'])->name('orders.payment');
     // Hoàn cọc khi đơn đã trả (đã hoàn / chưa hoàn + lý do) — bopcamping-7be

@@ -17,10 +17,17 @@ export type CartLine = {
     end: string; // ISO
     // Vị trí phục vụ (đang mở) của sản phẩm — để giữ giỏ trong cùng 1 vị trí.
     locations?: CartLocation[];
+    // Cửa hàng khách CHỌN cho dòng này (per-store stock). null = chưa chọn → checkout tự gán.
+    location_id?: number | null;
     // Dòng combo (PRD combo): id trỏ vào combos, kèm danh sách món để mở rộng xem.
     kind?: 'product' | 'combo';
     comboItems?: { name: string; qty: number }[];
 };
+
+/** Cửa hàng đã chọn trong giỏ (per-store): id đầu tiên khác null, hoặc null nếu chưa dòng nào chọn. */
+export function cartChosenStoreId(lines = getCart()): number | null {
+    return lines.find((l) => l.location_id != null)?.location_id ?? null;
+}
 
 /** Dòng giỏ là combo (dòng cũ không có kind = product). */
 export const isComboLine = (l: CartLine) => l.kind === 'combo';

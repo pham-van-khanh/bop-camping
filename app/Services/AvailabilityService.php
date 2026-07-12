@@ -7,37 +7,73 @@ use App\Models\ComboItem;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Product;
+use App\Models\ServiceLocation;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 
 class AvailabilityService
 {
     /**
-     * Số lượng còn có thể thuê của một sản phẩm trong khoảng [start, end].
+     * Số lượng còn có thể thuê của một sản phẩm trong khoảng [start, end] TẠI 1 CỬA HÀNG.
      *
-     * Logic: quantity tồn - tổng qty đã đặt trong các đơn chồng lịch (chưa huỷ).
-     * Hai khoảng chồng nhau khi: start_A <= end_B AND start_B <= end_A
+     * Logic (per-store, KHÔNG cộng xuyên cửa hàng):
+     *   tồn tại store − tổng qty đã đặt của đơn active chồng lịch GẮN store đó.
+     * Đơn chưa gắn store (service_location_id NULL — dữ liệu cũ) tính vào mọi store cho an toàn.
+     * Hai khoảng chồng nhau khi: start_A <= end_B AND start_B <= end_A.
+     *
+     * $location = null → hành vi TOÀN CỤC cũ (products.quantity − mọi đơn chồng lịch) cho
+     * caller chưa chuyển per-store. Truyền $location → tính riêng cửa hàng đó (không cộng xuyên store).
      */
-    public function availableQuantity(Product $product, Carbon $start, Carbon $end): int
+    public function availableQuantity(Product $product, Carbon $start, Carbon $end, ?ServiceLocation $location = null): int
     {
+        if ($location === null) {
+            $booked = OrderItem::query()
+                ->whereHas('order', function ($q) use ($start, $end) {
+                    $q->whereIn('status', Order::activeStatuses())
+                        ->where('start_date', '<=', $end)
+                        ->where('end_date', '>=', $start);
+                })
+                ->where('product_id', $product->id)
+                ->sum('quantity');
+
+            return max(0, $product->quantity - (int) $booked);
+        }
+
+        // Per-store: tồn tại store − đơn active chồng lịch GẮN store đó (đơn NULL store — dữ liệu cũ — tính vào mọi store).
         $booked = OrderItem::query()
-            ->whereHas('order', function ($q) use ($start, $end) {
+            ->whereHas('order', function ($q) use ($start, $end, $location) {
                 $q->whereIn('status', Order::activeStatuses())
                     ->where('start_date', '<=', $end)
-                    ->where('end_date', '>=', $start);
+                    ->where('end_date', '>=', $start)
+                    ->where(fn ($sq) => $sq->where('service_location_id', $location->id)->orWhereNull('service_location_id'));
             })
             ->where('product_id', $product->id)
             ->sum('quantity');
 
-        return max(0, $product->quantity - (int) $booked);
+        return max(0, $product->stockAt($location->id) - (int) $booked);
     }
 
     /**
-     * Kiểm tra có đủ số lượng cần thuê không.
+     * Khả dụng theo TỪNG cửa hàng phục vụ (open) — dùng cho trang sản phẩm hiện "Vinh: N / Hà Nội: M".
+     *
+     * @return array<int, int> [ service_location_id => available ]
      */
-    public function isAvailable(Product $product, Carbon $start, Carbon $end, int $needed = 1): bool
+    public function availableByLocations(Product $product, Carbon $start, Carbon $end): array
     {
-        return $this->availableQuantity($product, $start, $end) >= $needed;
+        $product->loadMissing('serviceLocations');
+
+        return $product->serviceLocations
+            ->where('status', 'open')
+            ->mapWithKeys(fn (ServiceLocation $loc) => [$loc->id => $this->availableQuantity($product, $start, $end, $loc)])
+            ->all();
+    }
+
+    /**
+     * Kiểm tra có đủ số lượng cần thuê không (tại 1 cửa hàng).
+     */
+    public function isAvailable(Product $product, Carbon $start, Carbon $end, int $needed = 1, ?ServiceLocation $location = null): bool
+    {
+        return $this->availableQuantity($product, $start, $end, $location) >= $needed;
     }
 
     /**
@@ -47,7 +83,7 @@ class AvailabilityService
      * comboAvailable = min( intdiv(available(product_i), quantity_i) ).
      * Combo chưa có món nào → 0 (không bao giờ cho thuê combo rỗng).
      */
-    public function comboAvailable(Combo $combo, Carbon $start, Carbon $end): int
+    public function comboAvailable(Combo $combo, Carbon $start, Carbon $end, ?ServiceLocation $location = null): int
     {
         $combo->loadMissing('items.product');
 
@@ -55,21 +91,21 @@ class AvailabilityService
             return 0;
         }
 
-        return (int) $combo->items->map(function (ComboItem $item) use ($start, $end) {
+        return (int) $combo->items->map(function (ComboItem $item) use ($start, $end, $location) {
             if (! $item->product || $item->quantity < 1) {
                 return 0;
             }
 
-            return intdiv($this->availableQuantity($item->product, $start, $end), $item->quantity);
+            return intdiv($this->availableQuantity($item->product, $start, $end, $location), $item->quantity);
         })->min();
     }
 
     /**
      * Kiểm tra có đủ số combo cần thuê không (mirror isAvailable cho product).
      */
-    public function isComboAvailable(Combo $combo, Carbon $start, Carbon $end, int $needed = 1): bool
+    public function isComboAvailable(Combo $combo, Carbon $start, Carbon $end, int $needed = 1, ?ServiceLocation $location = null): bool
     {
-        return $this->comboAvailable($combo, $start, $end) >= $needed;
+        return $this->comboAvailable($combo, $start, $end, $location) >= $needed;
     }
 
     /**
@@ -78,7 +114,7 @@ class AvailabilityService
      *
      * @return array<int, array{product: Product, available: int, required: int}>
      */
-    public function comboInsufficientItems(Combo $combo, Carbon $start, Carbon $end, int $needed = 1): array
+    public function comboInsufficientItems(Combo $combo, Carbon $start, Carbon $end, int $needed = 1, ?ServiceLocation $location = null): array
     {
         $combo->loadMissing('items.product');
 
@@ -87,7 +123,7 @@ class AvailabilityService
             if (! $item->product || $item->quantity < 1) {
                 continue;
             }
-            $available = $this->availableQuantity($item->product, $start, $end);
+            $available = $this->availableQuantity($item->product, $start, $end, $location);
             if (intdiv($available, $item->quantity) < $needed) {
                 $insufficient[] = [
                     'product' => $item->product,
@@ -106,12 +142,12 @@ class AvailabilityService
      *
      * @return array{start: string, end: string}|null
      */
-    public function nextComboWindow(Combo $combo, Carbon $start, Carbon $end, int $scanDays = 30): ?array
+    public function nextComboWindow(Combo $combo, Carbon $start, Carbon $end, int $scanDays = 30, ?ServiceLocation $location = null): ?array
     {
         for ($offset = 1; $offset <= $scanDays; $offset++) {
             $s = $start->copy()->addDays($offset);
             $e = $end->copy()->addDays($offset);
-            if ($this->comboAvailable($combo, $s, $e) >= 1) {
+            if ($this->comboAvailable($combo, $s, $e, $location) >= 1) {
                 return ['start' => $s->toDateString(), 'end' => $e->toDateString()];
             }
         }
@@ -125,12 +161,12 @@ class AvailabilityService
      * @param  array<int, int>  $items  [ product_id => quantity ]
      * @return array<int, int> [ product_id => available_qty ]  (chỉ trả các sp thiếu hàng)
      */
-    public function checkCart(array $items, Carbon $start, Carbon $end): array
+    public function checkCart(array $items, Carbon $start, Carbon $end, ?ServiceLocation $location = null): array
     {
         $productIds = array_keys($items);
 
         /** @var Collection<int, Product> $products */
-        $products = Product::whereIn('id', $productIds)->get()->keyBy('id');
+        $products = Product::with('serviceLocations')->whereIn('id', $productIds)->get()->keyBy('id');
 
         $insufficient = [];
 
@@ -141,7 +177,7 @@ class AvailabilityService
 
                 continue;
             }
-            $available = $this->availableQuantity($product, $start, $end);
+            $available = $this->availableQuantity($product, $start, $end, $location);
             if ($available < $needed) {
                 $insufficient[$productId] = $available;
             }
@@ -157,17 +193,20 @@ class AvailabilityService
      * Cách tiếp cận: lấy các đơn đang hoạt động, gom lịch bận, tính từng ngày.
      * Chỉ dùng cho khoảng ngắn (≤ 90 ngày) để tránh loop lớn.
      */
-    public function unavailableDates(Product $product, Carbon $from, Carbon $to): array
+    public function unavailableDates(Product $product, Carbon $from, Carbon $to, ?ServiceLocation $location = null): array
     {
-        if ($product->quantity === 0) {
+        // $location = null → toàn cục cũ (products.quantity). Truyền store → tồn store đó.
+        $stock = $location === null ? (int) $product->quantity : $product->stockAt($location->id);
+        if ($stock === 0) {
             return [];
         }
 
-        // Lấy tất cả đơn chồng lịch
+        // Đơn chồng lịch (nếu có store: gắn store đó hoặc chưa gắn — dữ liệu cũ).
         $orders = Order::query()
             ->whereIn('status', Order::activeStatuses())
             ->where('start_date', '<=', $to)
             ->where('end_date', '>=', $from)
+            ->when($location !== null, fn ($q) => $q->where(fn ($sq) => $sq->where('service_location_id', $location->id)->orWhereNull('service_location_id')))
             ->with(['items' => fn ($q) => $q->where('product_id', $product->id)])
             ->get()
             ->filter(fn ($o) => $o->items->isNotEmpty());
@@ -182,7 +221,7 @@ class AvailabilityService
                     $booked += $order->items->sum('quantity');
                 }
             }
-            if ($booked >= $product->quantity) {
+            if ($booked >= $stock) {
                 $unavailable[] = $cursor->toDateString();
             }
             $cursor->addDay();

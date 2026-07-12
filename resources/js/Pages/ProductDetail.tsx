@@ -48,9 +48,11 @@ interface Props {
     can_review: boolean;
     // "You may also like" (1.6) — admin tự chọn, chỉ sản phẩm active
     related_products: ProductResource[];
+    // Per-store: tồn theo từng cửa hàng phục vụ
+    stock_by_location: { id: number; name: string; slug: string; quantity: number }[];
 }
 
-export default function ProductDetail({ product, unavailable_dates, accessories, combo_banner, reviews, review_summary, can_review, related_products }: Props) {
+export default function ProductDetail({ product, unavailable_dates, accessories, combo_banner, reviews, review_summary, can_review, related_products, stock_by_location }: Props) {
     const { auth } = usePage<PageProps>().props;
     const [activeImg, setActiveImg] = useState(0);
     const [lightboxOpen, setLightboxOpen] = useState(false);
@@ -66,6 +68,10 @@ export default function ProductDetail({ product, unavailable_dates, accessories,
     const [avail, setAvail] = useState<number | null>(null);
     const [checking, setChecking] = useState(false);
     const fetchSeq = useRef(0); // chống race: chỉ nhận kết quả lần fetch mới nhất
+    // Per-store: cửa hàng khách chọn (auto nếu chỉ 1 store phục vụ) + tồn khả dụng theo store.
+    const stores = stock_by_location ?? [];
+    const [storeId, setStoreId] = useState<number | null>(stores.length === 1 ? stores[0].id : null);
+    const [availByLoc, setAvailByLoc] = useState<Record<number, number> | null>(null);
     // Gợi ý P3: tồn kho phụ kiện + combo banner theo khoảng ngày (AC-9).
     const [accAvail, setAccAvail] = useState<Record<number, number> | null>(null);
     const [comboAvail, setComboAvail] = useState<number | null>(null);
@@ -78,20 +84,33 @@ export default function ProductDetail({ product, unavailable_dates, accessories,
     useEffect(() => {
         if (!start || !end) {
             setAvail(null);
+            setAvailByLoc(null);
             return;
         }
         const seq = ++fetchSeq.current;
         setChecking(true);
-        fetch(`/thiet-bi/${product.slug}/kha-dung?start=${start}&end=${end}`, { headers: { Accept: 'application/json' } })
+        // Chọn store → tồn store đó; chưa chọn (nhiều store) → map by_location, lấy max làm mức cho phép thêm.
+        const url = storeId != null
+            ? `/thiet-bi/${product.slug}/kha-dung?start=${start}&end=${end}&location_id=${storeId}`
+            : `/thiet-bi/${product.slug}/kha-dung?start=${start}&end=${end}`;
+        fetch(url, { headers: { Accept: 'application/json' } })
             .then((r) => (r.ok ? r.json() : null))
-            .then((j: { available: number } | null) => {
+            .then((j: { available?: number; by_location?: Record<number, number> } | null) => {
                 if (seq !== fetchSeq.current) return;
-                setAvail(j ? j.available : null);
-                if (j) setQty((q) => Math.max(1, Math.min(q, Math.max(1, j.available))));
+                if (!j) { setAvail(null); setAvailByLoc(null); return; }
+                if (j.by_location) {
+                    setAvailByLoc(j.by_location);
+                    setAvail(Math.max(0, ...Object.values(j.by_location)));
+                } else {
+                    setAvailByLoc(null);
+                    const a = j.available ?? null;
+                    setAvail(a);
+                    if (a != null) setQty((q) => Math.max(1, Math.min(q, Math.max(1, a))));
+                }
             })
-            .catch(() => seq === fetchSeq.current && setAvail(null))
+            .catch(() => { if (seq === fetchSeq.current) { setAvail(null); setAvailByLoc(null); } })
             .finally(() => seq === fetchSeq.current && setChecking(false));
-    }, [start, end, product.slug]);
+    }, [start, end, product.slug, storeId]);
 
     // Tồn kho gợi ý (phụ kiện + combo banner) theo khoảng ngày — AC-9.
     useEffect(() => {
@@ -101,7 +120,8 @@ export default function ProductDetail({ product, unavailable_dates, accessories,
             return;
         }
         const seq = ++sugSeq.current;
-        fetch(`/thiet-bi/${product.slug}/goi-y-kha-dung?start=${start}&end=${end}`, { headers: { Accept: 'application/json' } })
+        const locQ = storeId != null ? `&location_id=${storeId}` : '';
+        fetch(`/thiet-bi/${product.slug}/goi-y-kha-dung?start=${start}&end=${end}${locQ}`, { headers: { Accept: 'application/json' } })
             .then((r) => (r.ok ? r.json() : null))
             .then((j: { accessories: { id: number; available: number }[]; combo_available: number | null } | null) => {
                 if (seq !== sugSeq.current) return;
@@ -120,7 +140,7 @@ export default function ProductDetail({ product, unavailable_dates, accessories,
                 setAccAvail(null);
                 setComboAvail(null);
             });
-    }, [start, end, product.slug, accessories.length, combo_banner?.id]);
+    }, [start, end, product.slug, accessories.length, combo_banner?.id, storeId]);
 
     const baseGrad = gradFor(product.category.slug);
     // Build gallery: real images first, then fallback gradient variants
@@ -143,8 +163,10 @@ export default function ProductDetail({ product, unavailable_dates, accessories,
             if (unavailable.has(toISO(new Date(t)))) { clientBad = true; break; }
         }
     }
-    // Số còn thuê được trong khoảng đã chọn: ưu tiên số thực từ server.
-    const remaining = avail ?? (clientBad ? 0 : product.quantity);
+    // Số còn thuê được trong khoảng đã chọn: ưu tiên số thực từ server (theo store chọn,
+    // hoặc max các store khi chưa chọn). Fallback trước khi fetch = tồn store lớn nhất.
+    const maxStoreQty = stores.length ? Math.max(...stores.map((s) => s.quantity)) : product.quantity;
+    const remaining = avail ?? (clientBad ? 0 : maxStoreQty);
     const qtyCap    = Math.max(1, remaining);
     const canAdd    = !!start && !!end && !checking && remaining >= qty && qty >= 1;
     const subtotal  = product.price_per_day * qty * days;
@@ -172,6 +194,7 @@ export default function ProductDetail({ product, unavailable_dates, accessories,
         start:   start as string,
         end:     end as string,
         locations,
+        location_id: storeId, // per-store: cửa hàng khách chọn (null = checkout tự gán)
     });
 
     const commitAdd = (lines: CartLine[]) => {
@@ -463,6 +486,40 @@ export default function ProductDetail({ product, unavailable_dates, accessories,
                                     <path d="M12 5v14m0 0-6-6m6 6 6-6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
                                 </svg>
                             </button>
+                        )}
+
+                        {/* Per-store: chọn cơ sở khi sản phẩm phục vụ >1 cửa hàng */}
+                        {stores.length > 1 && (
+                            <div className="mb-[18px]">
+                                <div className="mb-2 text-[13px] font-semibold text-ink">Chọn cơ sở gần bạn</div>
+                                <div className="flex flex-wrap gap-2.5">
+                                    {stores.map((s) => {
+                                        const on = storeId === s.id;
+                                        const n = availByLoc ? (availByLoc[s.id] ?? 0) : s.quantity;
+                                        const out = n <= 0;
+                                        return (
+                                            <button
+                                                key={s.id}
+                                                onClick={() => setStoreId(on ? null : s.id)}
+                                                className={`flex items-center gap-2 rounded-[12px] border px-3.5 py-2.5 text-left transition ${
+                                                    on ? 'border-grass bg-[#eef5e1]' : 'border-cardBorder bg-white hover:border-grass'
+                                                }`}
+                                            >
+                                                <span className={`grid h-[18px] w-[18px] place-items-center rounded-full border text-[10px] font-bold ${on ? 'border-grass bg-grass text-white' : 'border-[#c4cca8] text-transparent'}`}>✓</span>
+                                                <span className="leading-tight">
+                                                    <span className="block text-[13.5px] font-bold text-ink">{s.name}</span>
+                                                    <span className={`block text-[11.5px] font-semibold ${out ? 'text-campfire' : 'text-moss'}`}>
+                                                        {out ? 'Tạm hết' : `còn ${n} bộ`}
+                                                    </span>
+                                                </span>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                                {storeId == null && (
+                                    <p className="mt-1.5 text-[12px] text-moss">Chưa chọn cũng được — shop sẽ giao từ cơ sở gần địa chỉ của bạn.</p>
+                                )}
+                            </div>
                         )}
 
                         {/* 1.7: lịch dạng thu gọn — bấm để sổ, chọn xong tự đóng */}

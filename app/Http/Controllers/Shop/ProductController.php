@@ -220,7 +220,18 @@ class ProductController extends Controller
         $from = Carbon::today();
         $to = Carbon::today()->addDays(90);
 
-        $unavailableDates = $this->availability->unavailableDates($p, $from, $to);
+        // Per-store: cửa hàng phục vụ (open) + tồn tĩnh mỗi nơi (FE fetch available động theo ngày).
+        $openServed = $p->serviceLocations->where('status', 'open')->sortBy('sort_order')->values();
+        $primaryLocation = $openServed->first();
+        $stockByLocation = $openServed->map(fn (ServiceLocation $l) => [
+            'id' => $l->id,
+            'name' => $l->name,
+            'slug' => $l->slug,
+            'quantity' => (int) $l->pivot->quantity,
+        ])->values();
+
+        // Lịch tô màu theo cửa hàng phục vụ chính; FE refetch khi khách đổi cơ sở.
+        $unavailableDates = $this->availability->unavailableDates($p, $from, $to, $primaryLocation);
 
         $user = $request->user();
 
@@ -246,6 +257,8 @@ class ProductController extends Controller
                 ->map(fn (Product $r) => $this->shape($r))
                 ->values(),
             'unavailable_dates' => $unavailableDates,
+            // Per-store: tồn theo từng cửa hàng phục vụ — trang SP hiện "Vinh: N / Hà Nội: M"
+            'stock_by_location' => $stockByLocation,
             // Case 2 (US-03): "thường thuê cùng" — FE lọc còn hàng theo khoảng ngày (AC-9)
             'accessories' => $this->activeAccessories($p)
                 ->map(fn (Product $a) => [
@@ -304,17 +317,29 @@ class ProductController extends Controller
         $data = $request->validate([
             'start' => ['required', 'date_format:Y-m-d'],
             'end' => ['required', 'date_format:Y-m-d', 'after_or_equal:start'],
+            // Per-store: có location_id → tồn cửa hàng đó; không → map tất cả cửa hàng phục vụ.
+            'location_id' => ['nullable', 'integer', 'exists:service_locations,id'],
         ]);
 
-        $p = Product::active()->where('slug', $product)->firstOrFail();
+        $p = Product::active()->with('serviceLocations')->where('slug', $product)->firstOrFail();
+        $start = Carbon::parse($data['start']);
+        $end = Carbon::parse($data['end']);
 
-        return response()->json([
-            'available' => $this->availability->availableQuantity(
-                $p,
-                Carbon::parse($data['start']),
-                Carbon::parse($data['end']),
-            ),
-        ]);
+        if (! empty($data['location_id'])) {
+            $location = $p->serviceLocations->firstWhere('id', (int) $data['location_id']);
+
+            return response()->json([
+                'available' => $location ? $this->availability->availableQuantity($p, $start, $end, $location) : 0,
+            ]);
+        }
+
+        // Có cửa hàng phục vụ → map theo store; chưa cấu hình vị trí → tồn toàn cục (legacy).
+        $openServed = $p->serviceLocations->where('status', 'open');
+        if ($openServed->isEmpty()) {
+            return response()->json(['available' => $this->availability->availableQuantity($p, $start, $end)]);
+        }
+
+        return response()->json(['by_location' => $this->availability->availableByLocations($p, $start, $end)]);
     }
 
     /**
@@ -327,11 +352,16 @@ class ProductController extends Controller
         $data = $request->validate([
             'start' => ['required', 'date_format:Y-m-d'],
             'end' => ['required', 'date_format:Y-m-d', 'after_or_equal:start'],
+            // Per-store: gợi ý theo cửa hàng khách đang chọn (null = toàn cục)
+            'location_id' => ['nullable', 'integer', 'exists:service_locations,id'],
         ]);
 
         $p = Product::active()->where('slug', $product)->firstOrFail();
         $start = Carbon::parse($data['start']);
         $end = Carbon::parse($data['end']);
+        $location = ! empty($data['location_id'])
+            ? ServiceLocation::find((int) $data['location_id'])
+            : null;
 
         $bannerCombo = $this->bannerCombo($p);
 
@@ -339,11 +369,11 @@ class ProductController extends Controller
             'accessories' => $this->activeAccessories($p)
                 ->map(fn (Product $a) => [
                     'id' => $a->id,
-                    'available' => $this->availability->availableQuantity($a, $start, $end),
+                    'available' => $this->availability->availableQuantity($a, $start, $end, $location),
                 ])->values(),
             // null = không có banner; 0 = combo hết trong khoảng này → FE ẩn banner
             'combo_available' => $bannerCombo
-                ? $this->availability->comboAvailable($bannerCombo, $start, $end)
+                ? $this->availability->comboAvailable($bannerCombo, $start, $end, $location)
                 : null,
         ]);
     }

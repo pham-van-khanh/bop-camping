@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Order;
 use App\Models\Product;
+use App\Models\ServiceLocation;
+use App\Services\AvailabilityService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -14,11 +16,13 @@ class OrderController extends Controller
 {
     private const VALID_STATUSES = ['pending', 'confirmed', 'renting', 'returned', 'cancelled'];
 
+    public function __construct(private AvailabilityService $availability) {}
+
     public function index(Request $request): Response
     {
         $status = $request->query('status', 'all');
 
-        $query = Order::with(['items.product', 'items.combo', 'vouchers', 'referralUse.referrer'])->latest();
+        $query = Order::with(['items.product', 'items.combo', 'vouchers', 'referralUse.referrer', 'serviceLocation'])->latest();
 
         if ($status !== 'all') {
             $query->where('status', $status);
@@ -46,6 +50,9 @@ class OrderController extends Controller
             'deposit_refund_note' => $o->deposit_refund_note,
             'note' => $o->note,
             'created_at' => $o->created_at->format('d/m/Y H:i'),
+            // Per-store: cửa hàng thuê + đơn hệ thống tự gán (admin review theo địa chỉ)
+            'service_location' => $o->serviceLocation ? ['id' => $o->serviceLocation->id, 'name' => $o->serviceLocation->name] : null,
+            'location_auto_assigned' => (bool) $o->location_auto_assigned,
             'items' => $o->items->map(fn ($i) => [
                 'name' => $i->product?->name ?? '(đã xoá)',
                 'quantity' => $i->quantity,
@@ -93,8 +100,49 @@ class OrderController extends Controller
             'orders' => $orders,
             'stats' => $stats,
             'inventory' => $inventory,
+            // Per-store: cửa hàng đang mở để admin đổi store cho đơn
+            'service_locations' => ServiceLocation::open()->ordered()->get()->map(fn ($l) => ['id' => $l->id, 'name' => $l->name]),
             'filters' => ['status' => $status],
         ]);
+    }
+
+    /**
+     * Per-store: admin đổi cửa hàng của đơn (vd theo địa chỉ khách khi đơn tự gán).
+     * Chỉ đổi được nếu store đích còn đủ MỌI món của đơn trong khoảng ngày (trừ chính đơn này).
+     */
+    public function changeLocation(Request $request, Order $order): RedirectResponse
+    {
+        $data = $request->validate([
+            'service_location_id' => ['required', 'integer', 'exists:service_locations,id'],
+        ]);
+
+        $location = ServiceLocation::findOrFail($data['service_location_id']);
+        $order->loadMissing('items.product.serviceLocations');
+
+        // Nhu cầu mỗi món của đơn (gộp theo product) trong khoảng đơn.
+        $needed = [];
+        foreach ($order->items as $item) {
+            if ($item->product) {
+                $needed[$item->product_id] = ($needed[$item->product_id] ?? 0) + $item->quantity;
+            }
+        }
+
+        // Kiểm store đích: khả dụng (đã trừ đơn khác) + phần đơn NÀY đang chiếm ở store đích (nếu trùng) — cộng lại.
+        foreach ($needed as $productId => $qty) {
+            $product = $order->items->firstWhere('product_id', $productId)->product;
+            $avail = $this->availability->availableQuantity($product, $order->start_date, $order->end_date, $location);
+            // Nếu đơn đang ở đúng store đích, availableQuantity đã trừ chính nó → cộng lại để so đúng.
+            if ($order->service_location_id === $location->id) {
+                $avail += $qty;
+            }
+            if ($avail < $qty) {
+                return back()->withErrors(['location' => "\"{$product->name}\" tại {$location->name} không đủ ({$avail}/{$qty}) cho khoảng đơn."]);
+            }
+        }
+
+        $order->update(['service_location_id' => $location->id, 'location_auto_assigned' => false]);
+
+        return back()->with('success', "Đơn {$order->code} → cơ sở {$location->name}");
     }
 
     public function updateStatus(Request $request, Order $order): RedirectResponse
