@@ -19,4 +19,6 @@ export interface ProductResource {
     // Trang chi tiết (Epic 1): thông số key–value + nội dung setup (HTML đã sanitize)
     specs?: { key: string; value: string }[];
     setup_content?: string | null;
+    // Per-store stock: tồn theo từng cửa hàng phục vụ (trang chi tiết)
+    stock_by_location?: { id: number; name: string; slug: string; quantity: number }[];
 }
