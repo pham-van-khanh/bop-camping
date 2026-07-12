@@ -167,6 +167,12 @@ export default function ProductDetail({ product, unavailable_dates, accessories,
     // hoặc max các store khi chưa chọn). Fallback trước khi fetch = tồn store lớn nhất.
     const maxStoreQty = stores.length ? Math.max(...stores.map((s) => s.quantity)) : product.quantity;
     const remaining = avail ?? (clientBad ? 0 : maxStoreQty);
+    // Mốc so "đã được đặt": tồn của CHÍNH cửa hàng đang xét (không phải tổng 2 store),
+    // nếu chưa chọn store thì lấy store nhiều hàng nhất (khớp remaining = max). Tránh
+    // hiểu nhầm hàng ở store kia thành "đã đặt".
+    const storeBaseline = storeId != null
+        ? (stores.find((s) => s.id === storeId)?.quantity ?? maxStoreQty)
+        : maxStoreQty;
     const qtyCap    = Math.max(1, remaining);
     const canAdd    = !!start && !!end && !checking && remaining >= qty && qty >= 1;
     const subtotal  = product.price_per_day * qty * days;
@@ -606,9 +612,9 @@ export default function ProductDetail({ product, unavailable_dates, accessories,
                                     </div>
                                 ) : (
                                     <div className="rounded-[10px] px-3 py-2 text-[13px] font-semibold"
-                                        style={remaining < product.quantity ? { background: '#f7e7da', color: '#8a5a1f' } : { background: '#dcebc4', color: '#3a5a1f' }}>
-                                        {remaining < product.quantity
-                                            ? `Khoảng này chỉ còn ${remaining} bộ trống (${product.quantity - remaining} bộ đã được đặt)`
+                                        style={remaining < storeBaseline ? { background: '#f7e7da', color: '#8a5a1f' } : { background: '#dcebc4', color: '#3a5a1f' }}>
+                                        {remaining < storeBaseline
+                                            ? `Khoảng này chỉ còn ${remaining} bộ trống (${storeBaseline - remaining} bộ đã được đặt)`
                                             : `Còn đủ ${remaining} bộ cho khoảng này`}
                                     </div>
                                 )
