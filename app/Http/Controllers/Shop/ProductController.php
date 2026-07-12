@@ -230,8 +230,12 @@ class ProductController extends Controller
             'quantity' => (int) $l->pivot->quantity,
         ])->values();
 
-        // Lịch tô màu theo cửa hàng phục vụ chính; FE refetch khi khách đổi cơ sở.
+        // Lịch tô màu: toàn cục (sản phẩm chưa cấu hình store) — fallback cho FE khi chưa chọn/legacy.
         $unavailableDates = $this->availability->unavailableDates($p, $from, $to, $primaryLocation);
+        // Ngày hết theo TỪNG cửa hàng — khách chọn store nào thì lịch chặn ngày hết của store đó.
+        $unavailableByLocation = $openServed->mapWithKeys(fn (ServiceLocation $l) => [
+            $l->id => $this->availability->unavailableDates($p, $from, $to, $l),
+        ]);
 
         $user = $request->user();
 
@@ -257,6 +261,7 @@ class ProductController extends Controller
                 ->map(fn (Product $r) => $this->shape($r))
                 ->values(),
             'unavailable_dates' => $unavailableDates,
+            'unavailable_by_location' => $unavailableByLocation,
             // Per-store: tồn theo từng cửa hàng phục vụ — trang SP hiện "Vinh: N / Hà Nội: M"
             'stock_by_location' => $stockByLocation,
             // Case 2 (US-03): "thường thuê cùng" — FE lọc còn hàng theo khoảng ngày (AC-9)
