@@ -86,10 +86,20 @@ class Product extends Model
         return $this->hasMany(Review::class);
     }
 
-    /** Vị trí phục vụ (Vinh, Hà Nội...) mà sản phẩm có cho thuê. */
+    /** Vị trí phục vụ (Vinh, Hà Nội...) mà sản phẩm có cho thuê, kèm tồn kho tại nơi đó. */
     public function serviceLocations(): BelongsToMany
     {
-        return $this->belongsToMany(ServiceLocation::class, 'product_service_location');
+        return $this->belongsToMany(ServiceLocation::class, 'product_service_location')
+            ->withPivot('quantity');
+    }
+
+    /** Tồn kho tại 1 cửa hàng (per-store stock). 0 nếu không phục vụ ở đó. */
+    public function stockAt(int $serviceLocationId): int
+    {
+        $this->loadMissing('serviceLocations');
+        $loc = $this->serviceLocations->firstWhere('id', $serviceLocationId);
+
+        return $loc ? (int) $loc->pivot->quantity : 0;
     }
 
     /** Case 2 — "thường thuê cùng": phụ kiện admin gán tay, theo sort_order (US-08). */

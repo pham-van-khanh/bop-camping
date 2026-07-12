@@ -20,6 +20,8 @@ class Order extends Model
 
     protected $fillable = [
         'user_id',
+        'service_location_id',
+        'location_auto_assigned',
         'code',
         'customer_name',
         'customer_phone',
@@ -55,6 +57,7 @@ class Order extends Model
         'deposit_total' => 'integer',
         'discount_total' => 'integer',
         'discount_breakdown' => 'array',
+        'location_auto_assigned' => 'boolean',
         'review_invited_at' => 'datetime',
         'review_submitted_at' => 'datetime',
     ];
@@ -72,6 +75,12 @@ class Order extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    /** Cửa hàng thuê (per-store stock) — trừ kho đúng store này. */
+    public function serviceLocation(): BelongsTo
+    {
+        return $this->belongsTo(ServiceLocation::class);
     }
 
     public function items(): HasMany
