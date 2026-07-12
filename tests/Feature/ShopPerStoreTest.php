@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Category;
+use App\Models\Order;
 use App\Models\Product;
 use App\Models\ServiceLocation;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -63,6 +64,30 @@ class ShopPerStoreTest extends TestCase
 
         $this->getJson('/thiet-bi/leu-2-nguoi/kha-dung?start=2026-08-01&end=2026-08-03&location_id='.$this->hanoi->id)
             ->assertOk()->assertJson(['available' => 3]);
+    }
+
+    /** @test */
+    public function show_returns_unavailable_dates_per_store(): void
+    {
+        $p = $this->product(); // Vinh=5, Hà Nội=3
+
+        // Đặt hết Hà Nội (3 bộ) cho 1 ngày cụ thể → ngày đó chỉ hết ở Hà Nội.
+        $order = Order::create([
+            'service_location_id' => $this->hanoi->id,
+            'customer_name' => 'X', 'customer_phone' => '0900000000',
+            'start_date' => now()->addDays(5)->toDateString(), 'end_date' => now()->addDays(5)->toDateString(),
+            'status' => 'confirmed', 'payment_method' => 'cod',
+        ]);
+        $order->items()->create(['product_id' => $p->id, 'quantity' => 3, 'price_per_day' => 50000, 'days' => 1, 'subtotal' => 1]);
+
+        $day = now()->addDays(5)->toDateString();
+        $this->get('/thiet-bi/leu-2-nguoi')
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                // Ngày đó hết ở Hà Nội nhưng KHÔNG hết ở Vinh
+                ->where('unavailable_by_location.'.$this->hanoi->id, fn ($dates) => collect($dates)->contains($day))
+                ->where('unavailable_by_location.'.$this->vinh->id, fn ($dates) => ! collect($dates)->contains($day))
+            );
     }
 
     /** @test */

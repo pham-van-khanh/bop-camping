@@ -41,6 +41,7 @@ type ComboBanner = {
 interface Props {
     product: ProductResource;
     unavailable_dates: string[];
+    unavailable_by_location: Record<number, string[]>;
     accessories: AccessoryItem[];
     combo_banner: ComboBanner | null;
     reviews: ReviewItem[];
@@ -52,7 +53,7 @@ interface Props {
     stock_by_location: { id: number; name: string; slug: string; quantity: number }[];
 }
 
-export default function ProductDetail({ product, unavailable_dates, accessories, combo_banner, reviews, review_summary, can_review, related_products, stock_by_location }: Props) {
+export default function ProductDetail({ product, unavailable_dates, unavailable_by_location, accessories, combo_banner, reviews, review_summary, can_review, related_products, stock_by_location }: Props) {
     const { auth } = usePage<PageProps>().props;
     const [activeImg, setActiveImg] = useState(0);
     const [lightboxOpen, setLightboxOpen] = useState(false);
@@ -79,7 +80,22 @@ export default function ProductDetail({ product, unavailable_dates, accessories,
     const [accChecked, setAccChecked] = useState<Set<number>>(() => new Set(accessories.map((a) => a.id)));
     const [accQty, setAccQty] = useState<Record<number, number>>({});
 
-    const unavailable = useMemo(() => new Set<string>(unavailable_dates ?? []), [unavailable_dates]);
+    // Store đang chọn mà hết sạch trong khoảng ngày → tự bỏ chọn để khách chọn cơ sở khác.
+    useEffect(() => {
+        if (storeId != null && availByLoc && (availByLoc[storeId] ?? 0) <= 0) {
+            setStoreId(null);
+        }
+    }, [storeId, availByLoc]);
+
+    // Lịch chặn ngày hết:
+    // - Đã chọn store → chặn ngày hết CỦA STORE ĐÓ (yêu cầu 1).
+    // - Chưa chọn store (nhiều cơ sở) → KHÔNG chặn ngày, chỉ hiện số còn (yêu cầu 2).
+    // - Sản phẩm chưa cấu hình cơ sở (legacy) → dùng lịch toàn cục.
+    const unavailable = useMemo(() => {
+        if (storeId != null) return new Set<string>(unavailable_by_location?.[storeId] ?? []);
+        if (stores.length === 0) return new Set<string>(unavailable_dates ?? []);
+        return new Set<string>();
+    }, [storeId, unavailable_by_location, unavailable_dates, stores.length]);
 
     useEffect(() => {
         if (!start || !end) {
@@ -502,13 +518,18 @@ export default function ProductDetail({ product, unavailable_dates, accessories,
                                     {stores.map((s) => {
                                         const on = storeId === s.id;
                                         const n = availByLoc ? (availByLoc[s.id] ?? 0) : s.quantity;
-                                        const out = n <= 0;
+                                        const out = n <= 0; // tạm hết (theo khoảng ngày nếu đã chọn, hoặc tồn tĩnh)
                                         return (
                                             <button
                                                 key={s.id}
+                                                disabled={out}
                                                 onClick={() => setStoreId(on ? null : s.id)}
                                                 className={`flex items-center gap-2 rounded-[12px] border px-3.5 py-2.5 text-left transition ${
-                                                    on ? 'border-grass bg-[#eef5e1]' : 'border-cardBorder bg-white hover:border-grass'
+                                                    out
+                                                        ? 'cursor-not-allowed border-cardBorder bg-[#f6f8f1] opacity-60'
+                                                        : on
+                                                          ? 'border-grass bg-[#eef5e1]'
+                                                          : 'border-cardBorder bg-white hover:border-grass'
                                                 }`}
                                             >
                                                 <span className={`grid h-[18px] w-[18px] place-items-center rounded-full border text-[10px] font-bold ${on ? 'border-grass bg-grass text-white' : 'border-[#c4cca8] text-transparent'}`}>✓</span>
