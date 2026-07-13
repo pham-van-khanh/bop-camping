@@ -51,7 +51,7 @@ export default function Products({ products, categories, service_locations, filt
     return (
         <>
             <Head title="Thuê đồ — Kho thiết bị" />
-            <main className="mx-auto max-w-[1200px] px-5 pb-10 pt-[34px]">
+            <main className="mx-auto max-w-[1400px] px-5 pb-10 pt-[34px]">
                 <div className="mb-6">
                     <div className="mb-[7px] font-mono text-[12px] tracking-[0.1em] text-campfire">KHO THIẾT BỊ</div>
                     <h1 className="font-extrabold tracking-tight text-ink" style={{ fontSize: 'clamp(26px,3.4vw,36px)' }}>Chọn đồ cho chuyến đi</h1>
@@ -122,7 +122,7 @@ export default function Products({ products, categories, service_locations, filt
                         <button onClick={clearFilters} className="h-[46px] rounded-control border border-[#cdd6b6] bg-white px-6 font-semibold text-pine">Xoá bộ lọc</button>
                     </div>
                 ) : (
-                    <div className="grid gap-[18px]" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(248px, 1fr))' }}>
+                    <div className="grid grid-cols-2 gap-[18px] md:grid-cols-3 lg:grid-cols-4">
                         {products.map((p, i) => <ProductCard key={p.id} p={p} index={i} />)}
                     </div>
                 )}

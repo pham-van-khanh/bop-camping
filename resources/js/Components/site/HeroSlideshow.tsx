@@ -91,7 +91,7 @@ export default function HeroSlideshow({ children, aside, slides }: { children?: 
 
             {/* Nội dung đè lên */}
             <div
-                className="relative mx-auto flex max-w-[1200px] flex-col justify-center px-5"
+                className="relative mx-auto flex max-w-[1400px] flex-col justify-center px-5"
                 style={{ minHeight: 'clamp(560px,90vh,780px)', padding: 'clamp(44px,9vh,96px) 20px clamp(118px,16vh,150px)' }}
             >
                 <div className="flex w-full flex-col gap-9 lg:flex-row lg:items-center lg:justify-between">
@@ -102,7 +102,7 @@ export default function HeroSlideshow({ children, aside, slides }: { children?: 
 
             {/* Điều khiển: thumbnail + mũi tên */}
             <div className="absolute inset-x-0 z-[3]" style={{ bottom: 'clamp(20px,3vh,34px)' }}>
-                <div className="mx-auto flex max-w-[1200px] items-end justify-between gap-4 px-5">
+                <div className="mx-auto flex max-w-[1400px] items-end justify-between gap-4 px-5">
                     <div className="flex gap-2 overflow-x-auto pb-0.5">
                         {SLIDES.map((s, i) => {
                             const active = i === index;
