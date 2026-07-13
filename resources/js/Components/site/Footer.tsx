@@ -30,7 +30,7 @@ export default function Footer() {
 
     return (
         <footer className="mt-5 border-t border-[#c2dcec]" style={{ background: 'rgba(214,236,247,.55)' }}>
-            <div className="mx-auto grid max-w-[1200px] gap-7 px-5 pb-[30px] pt-10" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
+            <div className="mx-auto grid max-w-[1400px] gap-7 px-5 pb-[30px] pt-10" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
                 <div>
                     <div className="mb-3 flex items-center gap-2.5">
                         <span className="grid h-8 w-8 place-items-center rounded-[9px] bg-grass">
@@ -100,7 +100,7 @@ export default function Footer() {
                     </div>
                 </div>
             </div>
-            <div className="mx-auto max-w-[1200px] border-t border-[#eef0e6] px-5 pb-[30px] pt-3.5 font-mono text-[12px] text-[#a3ad92]">
+            <div className="mx-auto max-w-[1400px] border-t border-[#eef0e6] px-5 pb-[30px] pt-3.5 font-mono text-[12px] text-[#a3ad92]">
                 © 2026 BỐP CAMPING · Thuê đồ, đi liền.
             </div>
         </footer>

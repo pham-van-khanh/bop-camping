@@ -120,7 +120,7 @@ export default function Home({ featured, featured_combos, faqs, system_reviews, 
             <ZaloContactStrip accounts={[site.zalo_1, site.zalo_2]} />
 
             {/* Một bộ đồ, đi khắp địa hình (cảnh 3D đổi biôm) */}
-            <section className="mx-auto grid max-w-[1200px] items-center gap-10 px-5 pb-2.5 pt-12" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(330px, 1fr))' }}>
+            <section className="mx-auto grid max-w-[1400px] items-center gap-10 px-5 pb-2.5 pt-12" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(330px, 1fr))' }}>
                 <motion.div {...reveal}>
                     <div className="mb-2 font-mono text-[12px] tracking-[0.1em] text-campfire">CÙNG MỘT KHU TRẠI</div>
                     <h2 className="mb-3.5 font-extrabold tracking-tight text-ink" style={{ fontSize: 'clamp(24px,3vw,34px)' }}>
@@ -147,7 +147,7 @@ export default function Home({ featured, featured_combos, faqs, system_reviews, 
             </section>
 
             {/* Dải số liệu */}
-            <section className="mx-auto max-w-[1200px] px-5 py-2">
+            <section className="mx-auto max-w-[1400px] px-5 py-2">
                 <motion.div
                     {...reveal}
                     className="grid overflow-hidden rounded-[18px]"
@@ -164,7 +164,7 @@ export default function Home({ featured, featured_combos, faqs, system_reviews, 
 
             {/* Dải banner khuyến mãi (promo) — admin quản lý */}
             {promo_banners.length > 0 && (
-                <section className="mx-auto max-w-[1200px] px-5 py-6">
+                <section className="mx-auto max-w-[1400px] px-5 py-6">
                     <div className="flex flex-col gap-4">
                         {promo_banners.map((b) => (
                             <PromoBannerCard key={b.id} banner={b} />
@@ -175,7 +175,7 @@ export default function Home({ featured, featured_combos, faqs, system_reviews, 
 
             {/* Khách nói gì (đánh giá hệ thống) */}
             {system_reviews.length > 0 && (
-                <section className="mx-auto max-w-[1200px] px-5 pb-2 pt-12">
+                <section className="mx-auto max-w-[1400px] px-5 pb-2 pt-12">
                     <motion.div {...reveal} className="mb-6 text-center">
                         <div className="mb-2 font-mono text-[12px] tracking-[0.1em] text-campfire">KHÁCH NÓI GÌ</div>
                         <h2 className="font-extrabold tracking-tight text-ink" style={{ fontSize: 'clamp(24px,3vw,32px)' }}>Trải nghiệm thật từ những chuyến đi</h2>
@@ -187,7 +187,7 @@ export default function Home({ featured, featured_combos, faqs, system_reviews, 
             )}
 
             {/* Thiết bị nổi bật */}
-            <section className="mx-auto max-w-[1200px] px-5 pb-2.5 pt-12">
+            <section className="mx-auto max-w-[1400px] px-5 pb-2.5 pt-12">
                 <div className="mb-[22px] flex items-end justify-between gap-4">
                     <motion.div {...reveal}>
                         <div className="mb-2 font-mono text-[12px] tracking-[0.1em] text-campfire">ĐƯỢC THUÊ NHIỀU</div>
@@ -202,7 +202,7 @@ export default function Home({ featured, featured_combos, faqs, system_reviews, 
 
             {/* Combo tiết kiệm (PRD combo mục 6 — 3–4 combo nổi bật theo sort_order) */}
             {featured_combos.length > 0 && (
-                <section className="mx-auto max-w-[1200px] px-5 pb-2.5 pt-12">
+                <section className="mx-auto max-w-[1400px] px-5 pb-2.5 pt-12">
                     <div className="mb-[22px] flex items-end justify-between gap-4">
                         <motion.div {...reveal}>
                             <div className="mb-2 font-mono text-[12px] tracking-[0.1em] text-campfire">THUÊ TRỌN BỘ · RẺ HƠN THUÊ LẺ</div>
@@ -217,7 +217,7 @@ export default function Home({ featured, featured_combos, faqs, system_reviews, 
             )}
 
             {/* Thuê đồ 3 bước */}
-            <section className="mx-auto max-w-[1200px] px-5 pb-5 pt-[54px]">
+            <section className="mx-auto max-w-[1400px] px-5 pb-5 pt-[54px]">
                 <motion.h2 {...reveal} className="mb-2 text-center font-extrabold tracking-tight text-ink" style={{ fontSize: 'clamp(24px,3vw,32px)' }}>
                     Thuê đồ trong 3 bước
                 </motion.h2>
@@ -246,7 +246,7 @@ export default function Home({ featured, featured_combos, faqs, system_reviews, 
             <FaqSection faqs={faqs} />
 
             {/* CTA */}
-            <section className="mx-auto my-[46px] max-w-[1200px] px-5">
+            <section className="mx-auto my-[46px] max-w-[1400px] px-5">
                 <motion.div
                     {...reveal}
                     className="relative overflow-hidden rounded-[24px] text-center"

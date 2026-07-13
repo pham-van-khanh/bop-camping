@@ -18,7 +18,7 @@ export default function ZaloContactStrip({ accounts }: { accounts: SiteZalo[] })
     if (usable.length === 0) return null;
 
     return (
-        <section className="mx-auto max-w-[1200px] px-5 pt-8">
+        <section className="mx-auto max-w-[1400px] px-5 pt-8">
             <motion.div
                 initial={{ opacity: 0, y: 16 }}
                 whileInView={{ opacity: 1, y: 0 }}

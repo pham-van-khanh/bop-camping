@@ -47,7 +47,7 @@ export default function Header({ cartCount = 0, userName }: { cartCount?: number
             className="sticky top-0 z-50 border-b border-[#c2dcec]"
             style={{ background: 'rgba(221,239,250,.78)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)' }}
         >
-            <div className="mx-auto flex h-16 max-w-[1200px] items-center gap-4 px-4 sm:px-5">
+            <div className="mx-auto flex h-16 max-w-[1400px] items-center gap-4 px-4 sm:px-5">
                 {/* Logo — chữ ẩn trên mobile, chỉ còn icon */}
                 <Link href="/" className="flex shrink-0 items-center gap-2.5">
                     <span className="grid h-[38px] w-[38px] place-items-center rounded-[11px] bg-grass">

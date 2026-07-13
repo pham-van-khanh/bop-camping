@@ -38,7 +38,6 @@ export default function ComboCard({ c, index = 0 }: { c: ComboCardData; index?: 
                 <div className="relative h-[170px]" style={{ background: COMBO_GRAD }}>
                     {c.image && <img src={c.image} alt={c.name} className="absolute inset-0 h-full w-full object-cover" />}
                     <div className="absolute inset-0" style={{ background: 'radial-gradient(120px 90px at 78% 22%, rgba(255,255,255,.3), transparent 60%)' }} />
-                    <div className="absolute inset-x-0 bottom-0 h-16" style={{ background: 'linear-gradient(180deg, rgba(24,35,15,0), rgba(24,35,15,.5))' }} />
 
                     {/* Badge tiết kiệm — điểm bán chính của combo (US-05) */}
                     {c.savings_amount > 0 && (
@@ -54,9 +53,6 @@ export default function ComboCard({ c, index = 0 }: { c: ComboCardData; index?: 
                             {soldOut ? 'Hết trong khoảng này' : `Còn ${c.available} bộ`}
                         </span>
                     )}
-                    <span className="absolute bottom-3 left-3 font-mono text-[11px] tracking-[0.05em] text-white/90">
-                        COMBO{c.items_count ? ` · ${c.items_count} MÓN` : ''}
-                    </span>
                 </div>
 
                 <div className="flex flex-1 flex-col px-4 pb-4 pt-3.5">

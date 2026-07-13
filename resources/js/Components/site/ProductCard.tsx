@@ -48,19 +48,17 @@ export default function ProductCard({ p, compact = false, index = 0 }: { p: Prod
                 href={`/thiet-bi/${p.slug}`}
                 className="group flex h-full flex-col overflow-hidden rounded-card border border-cardBorder bg-card transition duration-200 hover:-translate-y-1 hover:shadow-cardhover"
             >
-                <div className="relative h-[170px]" style={{ background: bg }}>
+                <div className={`relative ${compact ? 'h-[170px]' : 'h-[240px]'}`} style={{ background: bg }}>
                     {p.thumbnail && (
                         <img src={p.thumbnail} alt={p.name} className="absolute inset-0 h-full w-full object-cover" />
                     )}
                     <div className="absolute inset-0" style={{ background: 'radial-gradient(120px 90px at 78% 22%, rgba(255,255,255,.35), transparent 60%)' }} />
-                    <div className="absolute inset-x-0 bottom-0 h-16" style={{ background: 'linear-gradient(180deg, rgba(24,35,15,0), rgba(24,35,15,.5))' }} />
                     <span
                         className={`absolute left-3 top-3 rounded-pill px-2.5 py-1 font-mono text-[11px] font-bold text-white ${low ? 'bg-campfire' : ''}`}
                         style={low ? undefined : { background: 'rgba(44,61,34,.72)' }}
                     >
                         {low ? `Sắp hết · ${p.quantity} bộ` : `Còn ${p.quantity} bộ`}
                     </span>
-                    <span className="absolute bottom-3 left-3 font-mono text-[11px] tracking-[0.05em] text-white/90">{p.category.name}</span>
                     {locations.length > 0 && (
                         <div className="absolute bottom-2.5 right-2.5 flex max-w-[70%] flex-wrap justify-end gap-1">
                             {showAllBadge ? (

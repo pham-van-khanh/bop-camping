@@ -141,13 +141,13 @@ export default function ComboDetail({ combo }: Props) {
     return (
         <>
             <Head title={combo.name} />
-            <main className="mx-auto max-w-[1120px] px-5 pb-12 pt-6">
+            <main className="mx-auto max-w-[1400px] px-5 pb-12 pt-6">
                 <Link href="/combos" className="mb-2.5 inline-block py-2 text-[14px] font-semibold text-moss hover:text-grass">← Tất cả combo</Link>
                 <div className="grid items-start gap-[34px]" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))' }}>
                     {/* gallery */}
                     <div>
                         <div
-                            className="relative h-[360px] overflow-hidden rounded-card"
+                            className="relative h-[360px] overflow-hidden rounded-card md:h-[440px]"
                             style={activeSlide.type === 'grad' ? { background: activeSlide.bg } : { background: COMBO_GRAD }}
                         >
                             {activeSlide.type === 'img' && (
@@ -168,8 +168,6 @@ export default function ComboDetail({ combo }: Props) {
                                 </button>
                             )}
                             <div className="pointer-events-none absolute inset-0" style={{ background: 'radial-gradient(220px 150px at 76% 20%, rgba(255,255,255,.3), transparent 60%)' }} />
-                            <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[90px]" style={{ background: 'linear-gradient(180deg,rgba(24,35,15,0),rgba(24,35,15,.4))' }} />
-                            <span className="pointer-events-none absolute bottom-4 left-[18px] font-mono text-[13px] tracking-[0.06em] text-white">COMBO · {combo.items.length} MÓN</span>
                             {combo.savings_amount > 0 && (
                                 <span className="absolute left-[18px] top-4 rounded-pill bg-campfire px-3 py-1.5 font-mono text-[12px] font-bold text-white">
                                     Tiết kiệm {combo.savings_percent}% so với thuê lẻ

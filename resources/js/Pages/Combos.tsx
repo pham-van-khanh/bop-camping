@@ -43,7 +43,7 @@ export default function Combos({ combos, filters }: Props) {
     return (
         <>
             <Head title="Combo thuê trọn bộ" />
-            <main className="mx-auto max-w-[1200px] px-5 pb-12 pt-[30px]">
+            <main className="mx-auto max-w-[1400px] px-5 pb-12 pt-[30px]">
                 <div className="mb-2 font-mono text-[12px] tracking-[0.1em] text-campfire">THUÊ TRỌN BỘ · RẺ HƠN THUÊ LẺ</div>
                 <h1 className="mb-2 font-extrabold tracking-tight text-ink" style={{ fontSize: 'clamp(24px,3vw,32px)' }}>
                     Combo tiết kiệm

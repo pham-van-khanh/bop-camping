@@ -334,7 +334,6 @@ export default function ProductDetail({ product, unavailable_dates, unavailable_
             onClick={() => setActiveImg(i)}
             aria-label={`Ảnh ${i + 1}`}
             className={`relative ${sizeClass} overflow-hidden rounded-[11px] transition`}
-            style={{ outline: i === activeImg ? '2px solid #557A2B' : '1px solid #E3E8D6', outlineOffset: i === activeImg ? 1 : 0 }}
         >
             {g.type === 'img' ? (
                 <img src={g.src} alt="" className="h-full w-full object-cover" />
@@ -346,16 +345,23 @@ export default function ProductDetail({ product, unavailable_dates, unavailable_
             ) : (
                 <div className="h-full w-full" style={{ background: g.bg }} />
             )}
+            {/* Viền chọn vẽ PHỦ BÊN TRONG ô (không dùng outline ngoài) để không bị overflow của
+                cột dọc / hàng ngang cắt mất 2 cạnh. */}
+            <span
+                aria-hidden
+                className="pointer-events-none absolute inset-0 rounded-[11px]"
+                style={{ border: i === activeImg ? '2px solid #557A2B' : 'none' }}
+            />
         </button>
     );
 
     return (
         <>
             <Head title={product.name} />
-            <main className="mx-auto max-w-[1120px] px-5 pb-12 pt-6">
+            <main className="mx-auto max-w-[1400px] px-5 pb-12 pt-6">
                 <Link href="/thiet-bi" className="mb-2.5 inline-block py-2 text-[14px] font-semibold text-moss hover:text-grass">← Quay lại danh sách</Link>
                 {/* grid-cols-1 = minmax(0,1fr): chặn hàng thumbs ngang kéo giãn track làm tràn trang mobile */}
-                <div className="grid grid-cols-1 items-start gap-[34px] lg:grid-cols-[minmax(0,1fr)_400px]">
+                <div className="grid grid-cols-1 items-start gap-[34px] lg:grid-cols-[minmax(0,1fr)_440px]">
                     {/* gallery: thumbnails cột dọc trái (desktop) + ảnh chính (1.1) */}
                     <div>
                         <div className="flex gap-2.5">
@@ -364,14 +370,14 @@ export default function ProductDetail({ product, unavailable_dates, unavailable_
                             {gallery.length > 1 && (
                                 <div
                                     ref={thumbColRef}
-                                    className="relative hidden max-h-[420px] w-[76px] flex-none flex-col gap-2.5 overflow-y-auto md:flex"
+                                    className="relative hidden max-h-[500px] w-[76px] flex-none flex-col gap-2.5 overflow-y-auto md:flex"
                                     style={{ scrollbarWidth: 'none' }}
                                 >
                                     {gallery.map((g, i) => renderThumb(g, i, 'h-[64px] w-full flex-none'))}
                                 </div>
                             )}
                             <div
-                                className="relative h-[420px] min-w-0 flex-1 overflow-hidden rounded-card"
+                                className="relative h-[420px] min-w-0 flex-1 overflow-hidden rounded-card md:h-[500px]"
                                 style={activeSlide.type === 'grad' ? { background: activeSlide.bg } : { background: '#eef2e3' }}
                             >
                                 {activeSlide.type === 'img' && (
@@ -416,8 +422,6 @@ export default function ProductDetail({ product, unavailable_dates, unavailable_
                                         </button>
                                     </>
                                 )}
-                                <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[70px]" style={{ background: 'linear-gradient(180deg,rgba(24,35,15,0),rgba(24,35,15,.35))' }} />
-                                <span className="pointer-events-none absolute bottom-4 left-[18px] font-mono text-[13px] tracking-[0.06em] text-white">{product.category.name}</span>
                             </div>
                         </div>
                         {/* Thumbnails hàng ngang — chỉ mobile: 1 hàng trượt ngang,
@@ -495,7 +499,10 @@ export default function ProductDetail({ product, unavailable_dates, unavailable_
                         )}
 
                         {product.description && (
-                            <p className="mb-2 text-[15px] leading-[1.6] text-[#3f4a32]">{product.description}</p>
+                            <div className="relative mb-3 overflow-hidden rounded-[14px] border border-[#e6ecd8] bg-gradient-to-br from-[#f5f8ef] to-[#eaf1de] py-3.5 pl-[18px] pr-4">
+                                <span aria-hidden className="absolute inset-y-0 left-0 w-[3px] bg-grass" />
+                                <p className="text-[15px] font-medium leading-[1.65] text-[#38492a]">{product.description}</p>
+                            </div>
                         )}
                         {/* 1.3: có nội dung chi tiết → nút cuộn xuống khối #chi-tiet */}
                         {product.setup_content && (
@@ -513,7 +520,13 @@ export default function ProductDetail({ product, unavailable_dates, unavailable_
                         {/* Per-store: chọn cơ sở khi sản phẩm phục vụ >1 cửa hàng */}
                         {stores.length > 1 && (
                             <div className="mb-[18px]">
-                                <div className="mb-2 text-[13px] font-semibold text-ink">Chọn cơ sở gần bạn</div>
+                                <div className="mb-2.5 flex items-center gap-1.5">
+                                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" className="flex-none">
+                                        <path d="M12 21s7-5.6 7-11a7 7 0 1 0-14 0c0 5.4 7 11 7 11Z" fill="#C97B36" stroke="#C97B36" strokeWidth="1.5" strokeLinejoin="round" />
+                                        <circle cx="12" cy="10" r="2.4" fill="#fff" />
+                                    </svg>
+                                    <span className="text-[14.5px] font-extrabold tracking-tight text-ink">Chọn cơ sở gần bạn</span>
+                                </div>
                                 <div className="flex flex-wrap gap-2.5">
                                     {stores.map((s) => {
                                         const on = storeId === s.id;
@@ -543,9 +556,6 @@ export default function ProductDetail({ product, unavailable_dates, unavailable_
                                         );
                                     })}
                                 </div>
-                                {storeId == null && (
-                                    <p className="mt-1.5 text-[12px] text-moss">Chưa chọn cũng được — shop sẽ giao từ cơ sở gần địa chỉ của bạn.</p>
-                                )}
                             </div>
                         )}
 
