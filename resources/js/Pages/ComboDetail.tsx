@@ -48,6 +48,8 @@ interface Props {
 export default function ComboDetail({ combo }: Props) {
     const [activeImg, setActiveImg] = useState(0);
     const [lightboxOpen, setLightboxOpen] = useState(false);
+    // Lịch thu gọn — bấm mới sổ popup (đồng bộ trang chi tiết sản phẩm)
+    const [calOpen, setCalOpen] = useState(false);
     const [start, setStart] = useState<string | null>(null);
     const [end, setEnd] = useState<string | null>(null);
     const [qty, setQty] = useState(1);
@@ -138,64 +140,106 @@ export default function ComboDetail({ combo }: Props) {
     const activeSlide = gallery[activeImg] ?? gallery[0];
     const soldOut = !!start && !!end && !checking && (avail?.available ?? 0) === 0;
 
+    const goImg = (d: number) => setActiveImg((i) => (i + d + gallery.length) % gallery.length);
+    const pickDates = (s: string | null, e: string | null) => {
+        setStart(s);
+        setEnd(e);
+        if (s && e) setCalOpen(false);
+    };
+
+    // Lightbox: điều hướng bằng phím ← → và đóng bằng Esc
+    useEffect(() => {
+        if (!lightboxOpen) return;
+        const onKey = (e: KeyboardEvent) => {
+            if (e.key === 'ArrowLeft') goImg(-1);
+            else if (e.key === 'ArrowRight') goImg(1);
+            else if (e.key === 'Escape') setLightboxOpen(false);
+        };
+        window.addEventListener('keydown', onKey);
+        return () => window.removeEventListener('keydown', onKey);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [lightboxOpen, gallery.length]);
+
+    // Thumbnail dùng chung cột dọc (desktop) + hàng ngang (mobile) — viền chọn phủ trong ô, không bị cắt.
+    const renderThumb = (g: (typeof gallery)[number], i: number, sizeClass: string) => (
+        <button
+            key={i}
+            onClick={() => setActiveImg(i)}
+            aria-label={`Ảnh ${i + 1}`}
+            className={`relative ${sizeClass} overflow-hidden rounded-[11px] transition`}
+        >
+            {g.type === 'img' ? (
+                <img src={g.src} alt="" className="h-full w-full object-cover" />
+            ) : g.type === 'video' ? (
+                <>
+                    <video src={g.src} className="h-full w-full object-cover" muted />
+                    <span className="absolute inset-0 grid place-items-center bg-black/25 text-[10px] text-white">▶</span>
+                </>
+            ) : (
+                <div className="h-full w-full" style={{ background: g.bg }} />
+            )}
+            <span
+                aria-hidden
+                className="pointer-events-none absolute inset-0 rounded-[11px]"
+                style={{ border: i === activeImg ? '2px solid #557A2B' : 'none' }}
+            />
+        </button>
+    );
+
     return (
         <>
             <Head title={combo.name} />
             <main className="mx-auto max-w-[1400px] px-5 pb-12 pt-6">
                 <Link href="/combos" className="mb-2.5 inline-block py-2 text-[14px] font-semibold text-moss hover:text-grass">← Tất cả combo</Link>
-                <div className="grid items-start gap-[34px]" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))' }}>
+                <div className="grid grid-cols-1 items-start gap-[34px] lg:grid-cols-[minmax(0,1fr)_440px]">
                     {/* gallery */}
                     <div>
-                        <div
-                            className="relative h-[360px] overflow-hidden rounded-card md:h-[440px]"
-                            style={activeSlide.type === 'grad' ? { background: activeSlide.bg } : { background: COMBO_GRAD }}
-                        >
-                            {activeSlide.type === 'img' && (
-                                <img src={activeSlide.src} alt={combo.name} onClick={() => setLightboxOpen(true)} className="absolute inset-0 h-full w-full cursor-zoom-in object-cover" />
+                        <div className="flex gap-2.5">
+                            {/* Thumbnails dọc — desktop/tablet */}
+                            {gallery.length > 1 && (
+                                <div className="relative hidden max-h-[560px] w-[76px] flex-none flex-col gap-2.5 overflow-y-auto md:flex lg:max-h-[680px]" style={{ scrollbarWidth: 'none' }}>
+                                    {gallery.map((g, i) => renderThumb(g, i, 'h-[64px] w-full flex-none'))}
+                                </div>
                             )}
-                            {activeSlide.type === 'video' && (
-                                <video key={activeSlide.src} src={activeSlide.src} controls autoPlay muted loop playsInline className="absolute inset-0 h-full w-full object-cover" />
-                            )}
-                            {(activeSlide.type === 'img' || activeSlide.type === 'video') && (
-                                <button
-                                    onClick={(e) => { e.stopPropagation(); setLightboxOpen(true); }}
-                                    aria-label="Xem cỡ lớn"
-                                    className="absolute right-3 top-3 z-10 grid h-9 w-9 place-items-center rounded-full bg-black/45 text-white transition hover:bg-black/65"
-                                >
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                                        <path d="M9 3H4a1 1 0 0 0-1 1v5M15 3h5a1 1 0 0 1 1 1v5M9 21H4a1 1 0 0 1-1-1v-5M15 21h5a1 1 0 0 0 1-1v-5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                                    </svg>
-                                </button>
-                            )}
-                            <div className="pointer-events-none absolute inset-0" style={{ background: 'radial-gradient(220px 150px at 76% 20%, rgba(255,255,255,.3), transparent 60%)' }} />
-                            {combo.savings_amount > 0 && (
-                                <span className="absolute left-[18px] top-4 rounded-pill bg-campfire px-3 py-1.5 font-mono text-[12px] font-bold text-white">
-                                    Tiết kiệm {combo.savings_percent}% so với thuê lẻ
-                                </span>
-                            )}
-                        </div>
-                        {gallery.length > 1 && (
-                            <div className="mt-2.5 grid grid-cols-4 gap-2.5">
-                                {gallery.map((g, i) => (
+                            <div
+                                className="relative h-[420px] min-w-0 flex-1 overflow-hidden rounded-card md:h-[560px] lg:h-[680px]"
+                                style={activeSlide.type === 'grad' ? { background: activeSlide.bg } : { background: COMBO_GRAD }}
+                            >
+                                {activeSlide.type === 'img' && (
+                                    <img src={activeSlide.src} alt={combo.name} onClick={() => setLightboxOpen(true)} className="absolute inset-0 h-full w-full cursor-zoom-in object-cover" />
+                                )}
+                                {activeSlide.type === 'video' && (
+                                    <video key={activeSlide.src} src={activeSlide.src} controls autoPlay muted loop playsInline className="absolute inset-0 h-full w-full object-cover" />
+                                )}
+                                {(activeSlide.type === 'img' || activeSlide.type === 'video') && (
                                     <button
-                                        key={i}
-                                        onClick={() => setActiveImg(i)}
-                                        aria-label={`Ảnh ${i + 1}`}
-                                        className="relative h-[70px] overflow-hidden rounded-[11px] transition"
-                                        style={{ outline: i === activeImg ? '2px solid #557A2B' : '1px solid #E3E8D6', outlineOffset: i === activeImg ? 1 : 0 }}
+                                        onClick={(e) => { e.stopPropagation(); setLightboxOpen(true); }}
+                                        aria-label="Xem cỡ lớn"
+                                        className="absolute right-3 top-3 z-10 grid h-9 w-9 place-items-center rounded-full bg-black/45 text-white transition hover:bg-black/65"
                                     >
-                                        {g.type === 'img' ? (
-                                            <img src={g.src} alt="" className="h-full w-full object-cover" />
-                                        ) : g.type === 'video' ? (
-                                            <>
-                                                <video src={g.src} className="h-full w-full object-cover" muted />
-                                                <span className="absolute inset-0 grid place-items-center bg-black/25 text-[10px] text-white">▶</span>
-                                            </>
-                                        ) : (
-                                            <div className="h-full w-full" style={{ background: g.bg }} />
-                                        )}
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                                            <path d="M9 3H4a1 1 0 0 0-1 1v5M15 3h5a1 1 0 0 1 1 1v5M9 21H4a1 1 0 0 1-1-1v-5M15 21h5a1 1 0 0 0 1-1v-5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                                        </svg>
                                     </button>
-                                ))}
+                                )}
+                                {gallery.length > 1 && (
+                                    <>
+                                        <button onClick={() => goImg(-1)} aria-label="Ảnh trước" className="absolute left-3 top-1/2 z-10 grid h-10 w-10 -translate-y-1/2 place-items-center rounded-full bg-black/30 text-[20px] text-white transition hover:bg-black/55">‹</button>
+                                        <button onClick={() => goImg(1)} aria-label="Ảnh sau" className="absolute right-3 top-1/2 z-10 grid h-10 w-10 -translate-y-1/2 place-items-center rounded-full bg-black/30 text-[20px] text-white transition hover:bg-black/55">›</button>
+                                    </>
+                                )}
+                                <div className="pointer-events-none absolute inset-0" style={{ background: 'radial-gradient(220px 150px at 76% 20%, rgba(255,255,255,.3), transparent 60%)' }} />
+                                {combo.savings_amount > 0 && (
+                                    <span className="absolute left-[18px] top-4 rounded-pill bg-campfire px-3 py-1.5 font-mono text-[12px] font-bold text-white">
+                                        Tiết kiệm {combo.savings_percent}% so với thuê lẻ
+                                    </span>
+                                )}
+                            </div>
+                        </div>
+                        {/* Thumbnails hàng ngang — chỉ mobile */}
+                        {gallery.length > 1 && (
+                            <div className="relative mt-2.5 flex gap-2.5 overflow-x-auto md:hidden" style={{ scrollbarWidth: 'none' }}>
+                                {gallery.map((g, i) => renderThumb(g, i, 'h-[64px] w-[72px] flex-none'))}
                             </div>
                         )}
 
@@ -246,7 +290,10 @@ export default function ComboDetail({ combo }: Props) {
                         </div>
 
                         {combo.description && (
-                            <p className="mb-[18px] text-[15px] leading-[1.6] text-[#3f4a32]">{combo.description}</p>
+                            <div className="relative mb-[18px] overflow-hidden rounded-[14px] border border-[#e6ecd8] bg-gradient-to-br from-[#f5f8ef] to-[#eaf1de] py-3.5 pl-[18px] pr-4">
+                                <span aria-hidden className="absolute inset-y-0 left-0 w-[3px] bg-grass" />
+                                <p className="text-[15px] font-medium leading-[1.65] text-[#38492a]">{combo.description}</p>
+                            </div>
                         )}
 
                         {/* So sánh giá lẻ vs combo (US-05) */}
@@ -280,7 +327,48 @@ export default function ComboDetail({ combo }: Props) {
                             </div>
                         </div>
 
-                        <DateRangeCalendar start={start} end={end} unavailable={unavailable} onChange={(s, e) => { setStart(s); setEnd(e); }} />
+                        {/* Lịch thu gọn — bấm để sổ popup, chọn xong tự đóng (đồng bộ trang chi tiết SP) */}
+                        <button
+                            onClick={() => setCalOpen((o) => !o)}
+                            aria-expanded={calOpen}
+                            className="flex w-full items-center justify-between gap-3 rounded-[14px] border border-cardBorder bg-white px-4 py-3.5 text-left transition hover:border-grass"
+                        >
+                            <span className="flex items-center gap-2.5">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" className="flex-none text-grass">
+                                    <rect x="3" y="5" width="18" height="16" rx="3" stroke="currentColor" strokeWidth="1.8" />
+                                    <path d="M3 9h18M8 3v4M16 3v4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                                </svg>
+                                <span>
+                                    <span className="block text-[12px] text-[#8a967a]">Ngày nhận và trả</span>
+                                    <span className="block font-mono text-[14.5px] font-bold text-ink">
+                                        {start && end ? rangeText(start, end) : start ? `${ddmm(start)} → chọn ngày trả` : 'Chọn ngày thuê'}
+                                    </span>
+                                </span>
+                            </span>
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" className={`flex-none text-moss transition-transform ${calOpen ? 'rotate-180' : ''}`}>
+                                <path d="m6 9 6 6 6-6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                        </button>
+                        {calOpen && (
+                            <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/45 px-4" onClick={() => setCalOpen(false)}>
+                                <div className="max-h-[90vh] w-full max-w-[680px] overflow-y-auto rounded-[18px] bg-white p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
+                                    <div className="mb-3 flex items-start justify-between gap-3">
+                                        <div>
+                                            <h2 className="text-[17px] font-extrabold text-ink">Chọn ngày nhận và trả</h2>
+                                            <p className="mt-0.5 text-[12.5px] text-moss">Bấm ngày nhận rồi bấm ngày trả — chọn xong lịch tự đóng.</p>
+                                        </div>
+                                        <button
+                                            onClick={() => setCalOpen(false)}
+                                            aria-label="Đóng"
+                                            className="grid h-9 w-9 flex-none place-items-center rounded-full bg-[#f1f4ea] text-[18px] text-pine transition hover:bg-[#e3e8d6]"
+                                        >
+                                            ×
+                                        </button>
+                                    </div>
+                                    <DateRangeCalendar start={start} end={end} unavailable={unavailable} onChange={pickDates} />
+                                </div>
+                            </div>
+                        )}
 
                         {/* range + qty + availability + Case 4 */}
                         <div className="mt-4 rounded-[14px] border border-cardBorder bg-white p-4">
@@ -374,6 +462,13 @@ export default function ComboDetail({ combo }: Props) {
             {lightboxOpen && (activeSlide.type === 'img' || activeSlide.type === 'video') && (
                 <div onClick={() => setLightboxOpen(false)} className="fixed inset-0 z-[95] flex items-center justify-center p-6" style={{ background: 'rgba(12,16,8,.82)' }}>
                     <button onClick={() => setLightboxOpen(false)} aria-label="Đóng" className="absolute right-4 top-4 grid h-10 w-10 place-items-center rounded-full bg-white/15 text-[20px] text-white">×</button>
+                    {gallery.length > 1 && (
+                        <>
+                            <button onClick={(e) => { e.stopPropagation(); goImg(-1); }} aria-label="Ảnh trước" className="absolute left-4 top-1/2 z-10 grid h-12 w-12 -translate-y-1/2 place-items-center rounded-full bg-white/15 text-[28px] text-white transition hover:bg-white/30">‹</button>
+                            <button onClick={(e) => { e.stopPropagation(); goImg(1); }} aria-label="Ảnh sau" className="absolute right-4 top-1/2 z-10 grid h-12 w-12 -translate-y-1/2 place-items-center rounded-full bg-white/15 text-[28px] text-white transition hover:bg-white/30">›</button>
+                            <span className="absolute bottom-5 left-1/2 -translate-x-1/2 rounded-pill bg-white/15 px-3 py-1 font-mono text-[12px] text-white">{activeImg + 1}/{gallery.length}</span>
+                        </>
+                    )}
                     {activeSlide.type === 'img' ? (
                         <img src={activeSlide.src} alt={combo.name} onClick={(e) => e.stopPropagation()} className="max-h-[90vh] max-w-[92vw] rounded-[12px] object-contain" />
                     ) : (

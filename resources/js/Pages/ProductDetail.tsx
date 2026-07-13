@@ -370,14 +370,14 @@ export default function ProductDetail({ product, unavailable_dates, unavailable_
                             {gallery.length > 1 && (
                                 <div
                                     ref={thumbColRef}
-                                    className="relative hidden max-h-[500px] w-[76px] flex-none flex-col gap-2.5 overflow-y-auto md:flex"
+                                    className="relative hidden max-h-[560px] w-[76px] flex-none flex-col gap-2.5 overflow-y-auto md:flex lg:max-h-[680px]"
                                     style={{ scrollbarWidth: 'none' }}
                                 >
                                     {gallery.map((g, i) => renderThumb(g, i, 'h-[64px] w-full flex-none'))}
                                 </div>
                             )}
                             <div
-                                className="relative h-[420px] min-w-0 flex-1 overflow-hidden rounded-card md:h-[500px]"
+                                className="relative h-[420px] min-w-0 flex-1 overflow-hidden rounded-card md:h-[560px] lg:h-[680px]"
                                 style={activeSlide.type === 'grad' ? { background: activeSlide.bg } : { background: '#eef2e3' }}
                             >
                                 {activeSlide.type === 'img' && (
@@ -385,12 +385,11 @@ export default function ProductDetail({ product, unavailable_dates, unavailable_
                                         src={activeSlide.src}
                                         alt={product.name}
                                         onClick={() => setLightboxOpen(true)}
-                                        // 1.8: object-contain — hiện trọn sản phẩm, không bị crop
-                                        className="absolute inset-0 h-full w-full cursor-zoom-in object-contain"
+                                        className="absolute inset-0 h-full w-full cursor-zoom-in object-cover"
                                     />
                                 )}
                                 {activeSlide.type === 'video' && (
-                                    <video key={activeSlide.src} src={activeSlide.src} controls autoPlay muted loop playsInline className="absolute inset-0 h-full w-full object-contain" />
+                                    <video key={activeSlide.src} src={activeSlide.src} controls autoPlay muted loop playsInline className="absolute inset-0 h-full w-full object-cover" />
                                 )}
                                 {(activeSlide.type === 'img' || activeSlide.type === 'video') && (
                                     <button
@@ -800,6 +799,27 @@ export default function ProductDetail({ product, unavailable_dates, unavailable_
                     >
                         ×
                     </button>
+                    {gallery.length > 1 && (
+                        <>
+                            <button
+                                onClick={(e) => { e.stopPropagation(); goImg(-1); }}
+                                aria-label="Ảnh trước"
+                                className="absolute left-4 top-1/2 z-10 grid h-12 w-12 -translate-y-1/2 place-items-center rounded-full bg-white/15 text-[28px] text-white transition hover:bg-white/30"
+                            >
+                                ‹
+                            </button>
+                            <button
+                                onClick={(e) => { e.stopPropagation(); goImg(1); }}
+                                aria-label="Ảnh sau"
+                                className="absolute right-4 top-1/2 z-10 grid h-12 w-12 -translate-y-1/2 place-items-center rounded-full bg-white/15 text-[28px] text-white transition hover:bg-white/30"
+                            >
+                                ›
+                            </button>
+                            <span className="absolute bottom-5 left-1/2 -translate-x-1/2 rounded-pill bg-white/15 px-3 py-1 font-mono text-[12px] text-white">
+                                {activeImg + 1}/{gallery.length}
+                            </span>
+                        </>
+                    )}
                     {activeSlide.type === 'img' ? (
                         <img
                             src={activeSlide.src}
