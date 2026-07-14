@@ -108,7 +108,7 @@ export default function MagazineContent({ html }: { html: string }) {
                                 src={row.img.src}
                                 alt={row.img.alt}
                                 loading="lazy"
-                                className={`max-h-[440px] w-full rounded-[18px] object-cover ${row.imageLeft ? '' : 'md:order-2'}`}
+                                className={`mx-auto block h-auto max-h-[460px] w-auto max-w-full rounded-[18px] ${row.imageLeft ? '' : 'md:order-2'}`}
                             />
                             {/* An toàn: HTML đã qua EditorHtml::clean (HTMLPurifier) phía server */}
                             <div className="editor-content [&>:first-child]:mt-0" dangerouslySetInnerHTML={{ __html: row.html }} />
@@ -119,13 +119,13 @@ export default function MagazineContent({ html }: { html: string }) {
                     return (
                         <div key={i} className="grid grid-cols-2 gap-4 md:grid-cols-3">
                             {row.imgs.map((im, j) => (
-                                <img key={j} src={im.src} alt={im.alt} loading="lazy" className="h-[180px] w-full rounded-[16px] object-cover md:h-[240px]" />
+                                <img key={j} src={im.src} alt={im.alt} loading="lazy" className="mx-auto block h-auto max-h-[260px] w-auto max-w-full rounded-[16px]" />
                             ))}
                         </div>
                     );
                 }
                 if (row.kind === 'image') {
-                    return <img key={i} src={row.img.src} alt={row.img.alt} loading="lazy" className="max-h-[480px] w-full rounded-[18px] object-cover" />;
+                    return <img key={i} src={row.img.src} alt={row.img.alt} loading="lazy" className="mx-auto block h-auto max-h-[520px] w-auto max-w-full rounded-[18px]" />;
                 }
                 return <div key={i} className="editor-content max-w-[860px] [&>:first-child]:mt-0" dangerouslySetInnerHTML={{ __html: row.html }} />;
             })}
