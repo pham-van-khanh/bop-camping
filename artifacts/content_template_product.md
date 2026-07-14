@@ -4,23 +4,22 @@ Mẫu nội dung dùng cho ô **Nội dung chi tiết** (admin → Sản phẩm 
 Đã áp dụng sẵn cho **Lều Naturehike Cloud Up 2** để xem trực tiếp trên trang
 `/thiet-bi/leu-naturehike-cloud-up-2` (khối "Chi tiết sản phẩm").
 
-## Cách bố cục tự sắp (MagazineContent) — gallery hàng đều cao
+## Cách bố cục tự sắp (MagazineContent) — lưới 2 ảnh / hàng
 
 Admin **chỉ cần soạn tuần tự** (tiêu đề, đoạn văn, ảnh…). Component
 `resources/js/Components/site/MagazineContent.tsx` tự dựng bố cục:
 
 | Bạn soạn | Kết quả hiển thị |
 |----------|------------------|
-| Nhiều ảnh **liền nhau** (không chữ xen giữa) | Xếp thành **hàng cùng chiều cao, cạnh nhau**, tự xuống hàng khi hết chỗ |
-| 1 ảnh đứng một mình | 1 ảnh ở chiều cao chuẩn (không quá to) |
-| chữ (tiêu đề / đoạn) | Full-width, xen giữa các nhóm ảnh |
+| Nhiều ảnh **liền nhau** (không chữ xen giữa) | Lưới **2 ảnh / hàng**, có khoảng cách giữa 2 ảnh |
+| chữ (tiêu đề / đoạn) | **Căn trái**, xen giữa các nhóm ảnh |
 
-**Ảnh KHÔNG bị cắt, vừa phải**: cao bằng nhau (~160px mobile → 224px desktop),
-rộng theo tỉ lệ gốc → cạnh nhau gọn đều, không crop, không quá to. Vd 4 ảnh nằm
-trên 1 hàng ở desktop; màn hẹp tự xuống dòng.
+**Ảnh hiện ĐẦY ĐỦ**: mỗi ảnh chiếm nửa bề ngang, giữ tỉ lệ gốc (`w-full h-auto`)
+→ không cắt; **không bo góc, không viền**.
 
-> Muốn nhiều ảnh **cạnh nhau** → đặt chúng **liền nhau, KHÔNG chèn chữ** ở giữa.
-> Muốn tách nhóm ảnh → chèn 1 dòng chữ / tiêu đề giữa các nhóm.
+> Muốn nhiều ảnh vào lưới → đặt chúng **liền nhau, KHÔNG chèn chữ** ở giữa.
+> Muốn tách nhóm → chèn 1 dòng chữ / tiêu đề giữa các nhóm.
+> Số ảnh lẻ (vd 3) → hàng cuối 1 ảnh chiếm nửa bề ngang bên trái.
 
 ## Cấu trúc mẫu (ảnh là chính, chữ tối giản — thứ tự soạn)
 
