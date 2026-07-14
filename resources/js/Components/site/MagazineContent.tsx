@@ -76,14 +76,16 @@ export default function MagazineContent({ html }: { html: string }) {
                     // Lưới 2 ảnh / hàng, có khoảng cách; ảnh hiện ĐẦY ĐỦ (không cắt),
                     // không bo góc/không viền.
                     return (
-                        <div key={i} className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+                        // flex-wrap + justify-center: 2 ảnh/hàng (desktop), 1/hàng (mobile);
+                        // ảnh lẻ ở hàng cuối TỰ CĂN GIỮA thay vì lệch trái để trống nửa phải.
+                        <div key={i} className="flex flex-wrap items-start justify-center gap-5">
                             {row.imgs.map((im, j) => (
                                 <img
                                     key={j}
                                     src={im.src}
                                     alt={im.alt}
                                     loading="lazy"
-                                    className="block h-auto w-full"
+                                    className="block h-auto w-full sm:w-[calc(50%-10px)]"
                                 />
                             ))}
                         </div>
