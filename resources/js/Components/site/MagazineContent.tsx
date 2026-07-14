@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 
 /**
  * Render "nội dung chi tiết" sản phẩm (HTML TipTap đã sanitize server) theo bố cục
- * GALLERY: các ảnh liền nhau xếp LƯỚI 2 ẢNH / HÀNG, có khoảng cách; ảnh hiện ĐẦY ĐỦ
+ * GALLERY: các ảnh liền nhau xếp LƯỚI 2 ẢNH / HÀNG (mobile 1 ảnh/hàng), có khoảng cách; ảnh hiện ĐẦY ĐỦ
  * (không cắt, không bo góc/viền). Chữ căn TRÁI, xen giữa các nhóm ảnh. Admin chỉ cần
  * soạn tuần tự (ảnh, đoạn văn…) — bố cục tự sắp.
  *
@@ -76,7 +76,7 @@ export default function MagazineContent({ html }: { html: string }) {
                     // Lưới 2 ảnh / hàng, có khoảng cách; ảnh hiện ĐẦY ĐỦ (không cắt),
                     // không bo góc/không viền.
                     return (
-                        <div key={i} className="grid grid-cols-2 gap-5">
+                        <div key={i} className="grid grid-cols-1 gap-5 sm:grid-cols-2">
                             {row.imgs.map((im, j) => (
                                 <img
                                     key={j}
