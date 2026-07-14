@@ -7,7 +7,7 @@ type PageRow = { id: number; slug: string; title: string; updated_at: string | n
 /** Danh sách trang nội dung (Epic 4) — hiện có trang giới thiệu, sau này thêm chính sách... */
 export default function AdminStaticPages({ pages }: { pages: PageRow[] }) {
     return (
-        <>
+        <div className="p-6">
             <Head title="Trang nội dung" />
             <div className="mb-5">
                 <h1 className="text-[22px] font-extrabold tracking-tight text-pine">Trang nội dung</h1>
@@ -39,7 +39,7 @@ export default function AdminStaticPages({ pages }: { pages: PageRow[] }) {
                     </div>
                 ))}
             </div>
-        </>
+        </div>
     );
 }
 

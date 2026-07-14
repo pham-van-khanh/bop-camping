@@ -35,7 +35,7 @@ export default function AdminProductContent({
     };
 
     return (
-        <>
+        <div className="p-6">
             <Head title={`Nội dung — ${product.name}`} />
             <div className="mx-auto max-w-[880px]">
                 <div className="mb-1 text-[12.5px] text-moss">
@@ -93,7 +93,7 @@ export default function AdminProductContent({
                     {toastMsg}
                 </div>
             )}
-        </>
+        </div>
     );
 }
 

@@ -57,7 +57,7 @@ export default function AdminFeedbacks({
         router.get(route('admin.feedbacks'), { page, status: filters.status || undefined }, { preserveScroll: true });
 
     return (
-        <>
+        <div className="p-6">
             <Head title="Góp ý của khách" />
             <div className="mb-5">
                 <h1 className="text-[22px] font-extrabold tracking-tight text-pine">Góp ý của khách</h1>
@@ -121,7 +121,7 @@ export default function AdminFeedbacks({
                     {toastMsg}
                 </div>
             )}
-        </>
+        </div>
     );
 }
 

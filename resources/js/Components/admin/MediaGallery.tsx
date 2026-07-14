@@ -203,7 +203,7 @@ export default function MediaGallery({
                     axis="x"
                     values={order}
                     onReorder={handleReorder}
-                    className="flex flex-nowrap gap-3 overflow-x-auto pb-1"
+                    className="flex flex-nowrap gap-3 overflow-x-auto px-1 pb-1 pt-2.5"
                 >
                     {order.map((img) => (
                         <Reorder.Item
