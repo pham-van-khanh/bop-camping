@@ -2,26 +2,21 @@ import { useMemo } from 'react';
 
 /**
  * Render "nội dung chi tiết" sản phẩm (HTML TipTap đã sanitize server) theo bố cục
- * ƯU TIÊN ẢNH: mỗi ảnh đơn hiển thị FULL-WIDTH, trọn vẹn (không cắt, giữ tỉ lệ gốc);
- * 2+ ảnh liền nhau xếp thành dải 2 cột; chữ để full-width xen giữa. Admin chỉ cần
- * soạn tuần tự (đoạn văn, ảnh, đoạn văn…), không phải biết HTML — bố cục tự sắp.
+ * GALLERY: các ảnh liền nhau xếp thành HÀNG CÙNG CHIỀU CAO (mỗi ảnh cao bằng nhau,
+ * rộng theo tỉ lệ gốc → KHÔNG cắt), tự xuống hàng khi hết chỗ; chữ xen giữa. Ảnh
+ * vừa phải, không quá to. Admin chỉ cần soạn tuần tự (ảnh, đoạn văn…) — bố cục tự sắp.
  *
- * Desktop:                         Mobile: xếp dọc theo thứ tự soạn.
- * ┌─────────────────┐
- * │      IMAGE       │   ← ảnh đơn full-width, hiện trọn ảnh
- * ├─────────────────┤
- * │      text        │
- * ├────────┬────────┤
- * │  IMG   │  IMG   │   ← 2+ ảnh liền nhau
- * └────────┴────────┘
+ * Desktop:                              Mobile: ảnh nhỏ hơn, vẫn xếp cạnh & xuống hàng.
+ * ┌────┬─────┬───┬──────┐
+ * │IMG │ IMG │IMG│ IMG  │   ← nhiều ảnh liền nhau, cùng chiều cao, cạnh nhau
+ * ├────┴─────┴───┴──────┤
+ * │        text          │
+ * └──────────────────────┘
  */
 
 type ImgItem = { src: string; alt: string };
 type Block = { kind: 'text'; html: string } | { kind: 'images'; imgs: ImgItem[] };
-type Row =
-    | { kind: 'strip'; imgs: ImgItem[] }
-    | { kind: 'image'; img: ImgItem }
-    | { kind: 'text'; html: string };
+type Row = { kind: 'gallery'; imgs: ImgItem[] } | { kind: 'text'; html: string };
 
 /** Tách HTML editor thành block text / ảnh theo thứ tự soạn. */
 function parseBlocks(html: string): Block[] {
@@ -60,17 +55,11 @@ function parseBlocks(html: string): Block[] {
     return blocks;
 }
 
-/** Ưu tiên ảnh: ảnh đơn = hàng full-width riêng; 2+ ảnh liền nhau = dải; còn lại = chữ. */
+/** Nhóm ảnh liền nhau = 1 gallery hàng đều cao; còn lại = chữ. */
 function buildRows(blocks: Block[]): Row[] {
-    return blocks.map((b): Row => {
-        if (b.kind === 'images' && b.imgs.length >= 2) {
-            return { kind: 'strip', imgs: b.imgs };
-        }
-        if (b.kind === 'images') {
-            return { kind: 'image', img: b.imgs[0] };
-        }
-        return { kind: 'text', html: b.html };
-    });
+    return blocks.map((b): Row =>
+        b.kind === 'images' ? { kind: 'gallery', imgs: b.imgs } : { kind: 'text', html: b.html },
+    );
 }
 
 export default function MagazineContent({ html }: { html: string }) {
@@ -84,18 +73,22 @@ export default function MagazineContent({ html }: { html: string }) {
     return (
         <div className="space-y-8">
             {rows.map((row, i) => {
-                if (row.kind === 'strip') {
+                if (row.kind === 'gallery') {
+                    // Hàng ảnh CÙNG CHIỀU CAO: chiều cao cố định, rộng theo tỉ lệ gốc
+                    // → cạnh nhau, gọn đều, KHÔNG cắt; tự xuống hàng khi hết chỗ.
                     return (
-                        <div key={i} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                        <div key={i} className="flex flex-wrap justify-center gap-3">
                             {row.imgs.map((im, j) => (
-                                <img key={j} src={im.src} alt={im.alt} loading="lazy" className="block h-auto w-full rounded-[16px]" />
+                                <img
+                                    key={j}
+                                    src={im.src}
+                                    alt={im.alt}
+                                    loading="lazy"
+                                    className="h-40 w-auto rounded-[14px] sm:h-48 md:h-56"
+                                />
                             ))}
                         </div>
                     );
-                }
-                if (row.kind === 'image') {
-                    // Ảnh đơn: full-width, hiện TRỌN ảnh (không cắt), giữ tỉ lệ gốc.
-                    return <img key={i} src={row.img.src} alt={row.img.alt} loading="lazy" className="block h-auto w-full rounded-[18px]" />;
                 }
                 // An toàn: HTML đã qua EditorHtml::clean (HTMLPurifier) phía server
                 return <div key={i} className="editor-content mx-auto max-w-[820px] [&>:first-child]:mt-0" dangerouslySetInnerHTML={{ __html: row.html }} />;
