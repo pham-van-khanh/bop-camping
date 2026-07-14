@@ -7,6 +7,7 @@ use App\Models\Combo;
 use App\Models\ComboImage;
 use App\Models\ComboItem;
 use App\Models\Product;
+use App\Support\MediaRef;
 use App\Support\MediaType;
 use App\Support\Slug;
 use Illuminate\Http\RedirectResponse;
@@ -62,6 +63,8 @@ class ComboController extends Controller
             'combos' => $combos,
             // Danh sách sản phẩm cho picker (cả hidden — hiển thị kèm nhãn để admin biết)
             'products' => Product::orderBy('name')->get(['id', 'name', 'price_per_day', 'quantity', 'status']),
+            // Kho ảnh cho picker "chọn ảnh có sẵn" — nạp lazy khi mở picker (partial reload).
+            'mediaLibrary' => Inertia::optional(fn () => MediaRef::library()),
         ]);
     }
 
@@ -99,11 +102,13 @@ class ComboController extends Controller
 
     public function destroy(Combo $combo): RedirectResponse
     {
-        foreach ($combo->images as $image) {
-            Storage::disk('media')->delete($image->path);
-        }
+        // Xoá ảnh: xoá row trước, rồi chỉ xoá file khi không còn nơi khác dùng chung.
+        $paths = $combo->images->pluck('path')->all();
         // combo_items + combo_images cascade theo FK; order_items.combo_id → null (giữ đơn cũ)
         $combo->delete();
+        foreach ($paths as $path) {
+            MediaRef::deleteFileIfOrphan($path);
+        }
 
         return back()->with('success', 'Đã xoá combo.');
     }
@@ -115,7 +120,7 @@ class ComboController extends Controller
             'images.*' => ['file', MediaType::MIMES_RULE, 'max:51200'], // ≤50MB
         ], [
             'images.max' => 'Tối đa 12 ảnh/video mỗi lần.',
-            'images.*.mimetypes' => 'Chỉ nhận ảnh (jpg, png, webp) hoặc video (mp4, webm, mov).',
+            'images.*.mimetypes' => 'Chỉ nhận ảnh (jpg, png, gif, webp) hoặc video (mp4, webm, mov).',
             'images.*.max' => 'Mỗi tệp tối đa 50MB.',
         ]);
 
@@ -132,13 +137,63 @@ class ComboController extends Controller
         return back()->with('success', 'Đã tải lên ảnh.');
     }
 
+    /**
+     * Tái sử dụng ảnh đã upload: tạo row mới trỏ cùng file (chia sẻ, không copy).
+     * Bỏ qua ảnh mà combo này đã có (tránh trùng path).
+     */
+    public function attachImages(Request $request, Combo $combo): RedirectResponse
+    {
+        $data = $request->validate([
+            'sources' => ['required', 'array', 'min:1', 'max:24'],
+            'sources.*.type' => ['required', 'in:product,combo'],
+            'sources.*.id' => ['required', 'integer'],
+        ], [
+            'sources.required' => 'Chưa chọn ảnh nào.',
+        ]);
+
+        $existing = $combo->images()->pluck('path')->all();
+        $maxSort = $combo->images()->max('sort_order') ?? 0;
+
+        MediaRef::resolveSources($data['sources'])
+            ->reject(fn (array $src) => in_array($src['path'], $existing, true))
+            ->each(function (array $src) use ($combo, &$maxSort) {
+                $combo->images()->create([
+                    'path' => $src['path'],
+                    'sort_order' => ++$maxSort,
+                    'type' => $src['type'],
+                ]);
+            });
+
+        return back()->with('success', 'Đã thêm ảnh.');
+    }
+
+    /** Sắp xếp lại thứ tự ảnh (kéo-thả): sort_order = vị trí trong mảng gửi lên. */
+    public function reorderImages(Request $request, Combo $combo): RedirectResponse
+    {
+        $data = $request->validate([
+            'image_ids' => ['required', 'array'],
+            'image_ids.*' => ['integer'],
+        ]);
+
+        // Chỉ nhận id thuộc đúng combo (chống IDOR — CWE-639).
+        $owned = $combo->images()->pluck('id')->all();
+        foreach ($data['image_ids'] as $i => $id) {
+            if (in_array((int) $id, $owned, true)) {
+                $combo->images()->whereKey($id)->update(['sort_order' => $i]);
+            }
+        }
+
+        return back()->with('success', 'Đã cập nhật thứ tự ảnh.');
+    }
+
     public function destroyImage(Combo $combo, ComboImage $image): RedirectResponse
     {
         // Chặn IDOR: ảnh phải thuộc đúng combo trên URL (CWE-639).
         abort_unless($image->combo_id === $combo->id, 404);
 
-        Storage::disk('media')->delete($image->path);
+        $path = $image->path;
         $image->delete();
+        MediaRef::deleteFileIfOrphan($path);
 
         return back()->with('success', 'Đã xoá ảnh.');
     }

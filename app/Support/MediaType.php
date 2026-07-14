@@ -11,7 +11,7 @@ use Illuminate\Http\UploadedFile;
  */
 final class MediaType
 {
-    public const MIMES_RULE = 'mimetypes:image/jpeg,image/png,image/webp,video/mp4,video/webm,video/quicktime';
+    public const MIMES_RULE = 'mimetypes:image/jpeg,image/png,image/webp,image/gif,video/mp4,video/webm,video/quicktime';
 
     /** Phân loại theo mimetype THẬT (finfo), không theo đuôi file. */
     public static function detect(UploadedFile $file): string
