@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 export type LibraryImage = {
     id: number;
@@ -44,6 +44,15 @@ export default function MediaPickerModal({
         return library.filter((g) => g.name.toLowerCase().includes(needle));
     }, [library, q]);
 
+    // Reset lựa chọn + ô tìm mỗi khi picker đóng (kể cả khi cha đóng qua prop `open`
+    // sau lúc "Thêm ảnh" thành công — không đi qua close()). Tránh giữ tick cũ lần mở sau.
+    useEffect(() => {
+        if (!open) {
+            setSelected(new Set());
+            setQ('');
+        }
+    }, [open]);
+
     if (!open) return null;
 
     const toggle = (groupType: string, imageId: number) => {
@@ -67,11 +76,8 @@ export default function MediaPickerModal({
         onConfirm(sources);
     };
 
-    const close = () => {
-        setSelected(new Set());
-        setQ('');
-        onClose();
-    };
+    // Reset do useEffect([open]) lo — ở đây chỉ cần báo cha đóng.
+    const close = () => onClose();
 
     return (
         <div

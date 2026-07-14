@@ -19,12 +19,14 @@ const ROUTES = {
         attach: 'admin.products.images.attach',
         reorder: 'admin.products.images.reorder',
         destroy: 'admin.products.images.destroy',
+        prop: 'products',
     },
     combo: {
         store: 'admin.combos.images.store',
         attach: 'admin.combos.images.attach',
         reorder: 'admin.combos.images.reorder',
         destroy: 'admin.combos.images.destroy',
+        prop: 'combos',
     },
 } as const;
 
@@ -76,7 +78,11 @@ export default function MediaGallery({
         router.post(
             route(r.reorder, itemId),
             { image_ids: ids },
-            { preserveScroll: true, preserveState: true },
+            {
+                preserveScroll: true,
+                preserveState: true,
+                only: [r.prop, 'flash'],
+            },
         );
     };
 
@@ -90,6 +96,7 @@ export default function MediaGallery({
         router.post(route(r.store, itemId), formData, {
             forceFormData: true,
             preserveScroll: true,
+            only: [r.prop, 'flash'],
             onFinish: () => {
                 setUploading(false);
                 e.target.value = '';
@@ -100,6 +107,7 @@ export default function MediaGallery({
     const deleteImage = (imageId: number) => {
         router.delete(route(r.destroy, [itemId, imageId]), {
             preserveScroll: true,
+            only: [r.prop, 'flash'],
         });
     };
 
@@ -119,6 +127,7 @@ export default function MediaGallery({
             { sources },
             {
                 preserveScroll: true,
+                only: [r.prop, 'flash'],
                 onFinish: () => {
                     setAttaching(false);
                     setPickerOpen(false);
