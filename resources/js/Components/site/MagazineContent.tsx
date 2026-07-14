@@ -2,16 +2,15 @@ import { useMemo } from 'react';
 
 /**
  * Render "nội dung chi tiết" sản phẩm (HTML TipTap đã sanitize server) theo bố cục
- * GALLERY: các ảnh liền nhau xếp thành HÀNG CÙNG CHIỀU CAO (mỗi ảnh cao bằng nhau,
- * rộng theo tỉ lệ gốc → KHÔNG cắt), tự xuống hàng khi hết chỗ; chữ xen giữa. Ảnh
- * vừa phải, không quá to. Admin chỉ cần soạn tuần tự (ảnh, đoạn văn…) — bố cục tự sắp.
+ * GALLERY: các ảnh liền nhau xếp LƯỚI 2 ẢNH / HÀNG, có khoảng cách; ảnh hiện ĐẦY ĐỦ
+ * (không cắt, không bo góc/viền). Chữ căn TRÁI, xen giữa các nhóm ảnh. Admin chỉ cần
+ * soạn tuần tự (ảnh, đoạn văn…) — bố cục tự sắp.
  *
- * Desktop:                              Mobile: ảnh nhỏ hơn, vẫn xếp cạnh & xuống hàng.
- * ┌────┬─────┬───┬──────┐
- * │IMG │ IMG │IMG│ IMG  │   ← nhiều ảnh liền nhau, cùng chiều cao, cạnh nhau
- * ├────┴─────┴───┴──────┤
- * │        text          │
- * └──────────────────────┘
+ * ┌─────────┬─────────┐
+ * │  IMG    │  IMG    │   ← 2 ảnh / hàng, cách nhau 1 khoảng, hiện trọn ảnh
+ * ├─────────┴─────────┤
+ * │ text (căn trái)    │
+ * └───────────────────┘
  */
 
 type ImgItem = { src: string; alt: string };
@@ -74,24 +73,24 @@ export default function MagazineContent({ html }: { html: string }) {
         <div className="space-y-8">
             {rows.map((row, i) => {
                 if (row.kind === 'gallery') {
-                    // Hàng ảnh CÙNG CHIỀU CAO: chiều cao cố định, rộng theo tỉ lệ gốc
-                    // → cạnh nhau, gọn đều, KHÔNG cắt; tự xuống hàng khi hết chỗ.
+                    // Lưới 2 ảnh / hàng, có khoảng cách; ảnh hiện ĐẦY ĐỦ (không cắt),
+                    // không bo góc/không viền.
                     return (
-                        <div key={i} className="flex flex-wrap justify-center gap-3">
+                        <div key={i} className="grid grid-cols-2 gap-5">
                             {row.imgs.map((im, j) => (
                                 <img
                                     key={j}
                                     src={im.src}
                                     alt={im.alt}
                                     loading="lazy"
-                                    className="h-40 w-auto rounded-[14px] sm:h-48 md:h-56"
+                                    className="block h-auto w-full"
                                 />
                             ))}
                         </div>
                     );
                 }
                 // An toàn: HTML đã qua EditorHtml::clean (HTMLPurifier) phía server
-                return <div key={i} className="editor-content mx-auto max-w-[820px] [&>:first-child]:mt-0" dangerouslySetInnerHTML={{ __html: row.html }} />;
+                return <div key={i} className="editor-content max-w-[820px] text-left [&>:first-child]:mt-0" dangerouslySetInnerHTML={{ __html: row.html }} />;
             })}
         </div>
     );
