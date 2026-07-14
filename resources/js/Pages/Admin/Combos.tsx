@@ -1,6 +1,7 @@
 import { Head, router, useForm, usePage } from '@inertiajs/react';
-import { Fragment, ReactNode, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, ReactNode, useEffect, useMemo, useState } from 'react';
 import AdminLayout from '@/Layouts/AdminLayout';
+import MediaGallery from '@/Components/admin/MediaGallery';
 import { money } from '@/lib/format';
 import type { PageProps } from '@/types';
 
@@ -57,8 +58,6 @@ export default function AdminCombos({ combos, products }: { combos: Combo[]; pro
     const [deleteId, setDeleteId] = useState<number | null>(null);
     const [toastMsg, setToastMsg] = useState('');
     const [productSearch, setProductSearch] = useState('');
-    const [uploadingId, setUploadingId] = useState<number | null>(null);
-    const uploadRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
         if (flash.success) {
@@ -174,45 +173,9 @@ export default function AdminCombos({ combos, products }: { combos: Combo[]; pro
         });
     };
 
-    /* --- Image upload (pattern Products.tsx) --- */
-    const uploadTargetRef = useRef<number | null>(null);
-    const triggerUpload = (comboId: number) => {
-        uploadTargetRef.current = comboId;
-        uploadRef.current?.click();
-    };
-
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const comboId = uploadTargetRef.current;
-        if (!comboId || !e.target.files?.length) return;
-        setUploadingId(comboId);
-        const formData = new FormData();
-        Array.from(e.target.files).forEach((f) => formData.append('images[]', f));
-        router.post(route('admin.combos.images.store', comboId), formData, {
-            forceFormData: true,
-            preserveScroll: true,
-            onFinish: () => {
-                setUploadingId(null);
-                e.target.value = '';
-            },
-        });
-    };
-
-    const deleteImage = (comboId: number, imageId: number) => {
-        router.delete(route('admin.combos.images.destroy', [comboId, imageId]), { preserveScroll: true });
-    };
-
     return (
         <>
             <Head title="Admin · Combo" />
-
-            <input
-                ref={uploadRef}
-                type="file"
-                accept="image/*,video/*"
-                multiple
-                className="hidden"
-                onChange={handleFileChange}
-            />
 
             {toastMsg && (
                 <div className="fixed bottom-6 right-6 z-[100] rounded-[12px] bg-[#dcebc4] px-5 py-3 text-[13px] font-semibold text-[#3a5a1f] shadow-lg">
@@ -358,46 +321,12 @@ export default function AdminCombos({ combos, products }: { combos: Combo[]; pro
                                                         </div>
 
                                                         {/* Ảnh combo */}
-                                                        <div className="mb-2 flex items-center justify-between">
-                                                            <span className="text-[12.5px] font-semibold text-moss">Ảnh combo ({c.images.length})</span>
-                                                            <button
-                                                                onClick={() => triggerUpload(c.id)}
-                                                                disabled={uploadingId === c.id}
-                                                                className="flex items-center gap-1.5 rounded-[8px] border border-cardBorder bg-white px-3 py-1.5 text-[12px] font-semibold text-pine transition hover:border-grass hover:text-grass disabled:opacity-50"
-                                                            >
-                                                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
-                                                                    <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                                                                </svg>
-                                                                {uploadingId === c.id ? 'Đang tải…' : 'Upload ảnh/video'}
-                                                            </button>
-                                                        </div>
-                                                        {c.images.length === 0 ? (
-                                                            <div className="rounded-[10px] border border-dashed border-cardBorder py-6 text-center text-[12.5px] text-moss">
-                                                                Chưa có ảnh · click "Upload ảnh/video" để thêm
-                                                            </div>
-                                                        ) : (
-                                                            <div className="flex flex-wrap gap-3">
-                                                                {c.images.map((img) => (
-                                                                    <div key={img.id} className="group relative">
-                                                                        {img.type === 'video' ? (
-                                                                            <video src={img.path} className="h-20 w-20 rounded-[10px] border border-cardBorder object-cover" muted />
-                                                                        ) : (
-                                                                            <img src={img.path} alt="" className="h-20 w-20 rounded-[10px] border border-cardBorder object-cover" />
-                                                                        )}
-                                                                        {img.type === 'video' && (
-                                                                            <span className="pointer-events-none absolute inset-0 grid place-items-center text-white">▶</span>
-                                                                        )}
-                                                                        <button
-                                                                            onClick={() => deleteImage(c.id, img.id)}
-                                                                            className="absolute -right-1.5 -top-1.5 hidden h-5 w-5 items-center justify-center rounded-full bg-[#b3493a] text-[10px] font-bold text-white shadow group-hover:flex"
-                                                                            title="Xoá ảnh"
-                                                                        >
-                                                                            ×
-                                                                        </button>
-                                                                    </div>
-                                                                ))}
-                                                            </div>
-                                                        )}
+                                                        <MediaGallery
+                                                            kind="combo"
+                                                            itemId={c.id}
+                                                            images={c.images}
+                                                            label="Ảnh combo"
+                                                        />
                                                     </td>
                                                 </tr>
                                             )}

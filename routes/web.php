@@ -115,6 +115,8 @@ Route::middleware(['admin'])->prefix('admin')->name('admin.')->group(function ()
     Route::get('/products/{product}/noi-dung', [AdminProductContentController::class, 'edit'])->name('products.content.edit');
     Route::put('/products/{product}/noi-dung', [AdminProductContentController::class, 'update'])->name('products.content.update')->middleware('throttle:30,1');
     Route::post('/products/{product}/images', [AdminProductController::class, 'storeImage'])->name('products.images.store')->middleware('throttle:60,1');
+    Route::post('/products/{product}/images/attach', [AdminProductController::class, 'attachImages'])->name('products.images.attach')->middleware('throttle:60,1');
+    Route::post('/products/{product}/images/reorder', [AdminProductController::class, 'reorderImages'])->name('products.images.reorder')->middleware('throttle:120,1');
     Route::delete('/products/{product}/images/{image}', [AdminProductController::class, 'destroyImage'])->name('products.images.destroy');
 
     // Combo thuê trọn bộ — CRUD + ảnh (bopcamping-s9d)
@@ -123,6 +125,8 @@ Route::middleware(['admin'])->prefix('admin')->name('admin.')->group(function ()
     Route::put('/combos/{combo}', [AdminComboController::class, 'update'])->name('combos.update')->middleware('throttle:30,1');
     Route::delete('/combos/{combo}', [AdminComboController::class, 'destroy'])->name('combos.destroy');
     Route::post('/combos/{combo}/images', [AdminComboController::class, 'storeImage'])->name('combos.images.store')->middleware('throttle:60,1');
+    Route::post('/combos/{combo}/images/attach', [AdminComboController::class, 'attachImages'])->name('combos.images.attach')->middleware('throttle:60,1');
+    Route::post('/combos/{combo}/images/reorder', [AdminComboController::class, 'reorderImages'])->name('combos.images.reorder')->middleware('throttle:120,1');
     Route::delete('/combos/{combo}/images/{image}', [AdminComboController::class, 'destroyImage'])->name('combos.images.destroy');
 
     Route::get('/users', [AdminUserController::class, 'index'])->name('users');

@@ -2,6 +2,7 @@ import { Head, router, useForm, usePage } from '@inertiajs/react';
 import { Fragment, ReactNode, useEffect, useRef, useState } from 'react';
 import AdminLayout from '@/Layouts/AdminLayout';
 import ProductStatusPill from '@/Components/ProductStatusPill';
+import MediaGallery from '@/Components/admin/MediaGallery';
 import { money } from '@/lib/format';
 import type { PageProps } from '@/types';
 
@@ -102,8 +103,6 @@ export default function AdminProducts({
     const [deleteId, setDeleteId] = useState<number | null>(null);
     const [deleteError, setDeleteError] = useState('');
     const [toastMsg, setToastMsg] = useState('');
-    const [uploadingId, setUploadingId] = useState<number | null>(null);
-    const uploadRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
         if (flash.success) {
@@ -250,51 +249,9 @@ export default function AdminProducts({
         });
     };
 
-    /* --- Image upload --- */
-    // Lưu ở ref (không phải state) vì chỉ dùng để nhớ sản phẩm đích cho lần chọn file
-    // kế tiếp — set nó KHÔNG được kích hoạt trạng thái "đang tải" trên UI (xem dưới).
-    const uploadTargetRef = useRef<number | null>(null);
-    const triggerUpload = (productId: number) => {
-        uploadTargetRef.current = productId;
-        uploadRef.current?.click();
-    };
-
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const productId = uploadTargetRef.current;
-        // Bấm Cancel ở hộp thoại chọn file → không có file → không set uploadingId,
-        // nút không bị kẹt ở "Đang tải…" (trước đây set uploadingId ngay lúc mở dialog,
-        // nếu khách Cancel thì onChange không bắn nên không có gì reset lại được).
-        if (!productId || !e.target.files?.length) return;
-        setUploadingId(productId);
-        const formData = new FormData();
-        Array.from(e.target.files).forEach((f) => formData.append('images[]', f));
-        router.post(route('admin.products.images.store', productId), formData, {
-            forceFormData: true,
-            preserveScroll: true,
-            onFinish: () => {
-                setUploadingId(null);
-                e.target.value = '';
-            },
-        });
-    };
-
-    const deleteImage = (productId: number, imageId: number) => {
-        router.delete(route('admin.products.images.destroy', [productId, imageId]), { preserveScroll: true });
-    };
-
     return (
         <>
             <Head title="Admin · Sản phẩm" />
-
-            {/* Hidden file input for image/video upload */}
-            <input
-                ref={uploadRef}
-                type="file"
-                accept="image/*,video/*"
-                multiple
-                className="hidden"
-                onChange={handleFileChange}
-            />
 
             {/* Toast */}
             {toastMsg && (
@@ -485,67 +442,12 @@ export default function AdminProducts({
                                                         className="px-6 pb-5 pt-3"
                                                         style={{ background: '#fafcf7' }}
                                                     >
-                                                        <div className="mb-2 flex items-center justify-between">
-                                                            <span className="text-[12.5px] font-semibold text-moss">
-                                                                Ảnh phụ ({p.images.length})
-                                                            </span>
-                                                            <button
-                                                                onClick={() => triggerUpload(p.id)}
-                                                                disabled={uploadingId === p.id}
-                                                                className="flex items-center gap-1.5 rounded-[8px] border border-cardBorder bg-white px-3 py-1.5 text-[12px] font-semibold text-pine transition hover:border-grass hover:text-grass disabled:opacity-50"
-                                                            >
-                                                                <svg
-                                                                    width="13"
-                                                                    height="13"
-                                                                    viewBox="0 0 24 24"
-                                                                    fill="none"
-                                                                >
-                                                                    <path
-                                                                        d="M12 5v14M5 12h14"
-                                                                        stroke="currentColor"
-                                                                        strokeWidth="2"
-                                                                        strokeLinecap="round"
-                                                                    />
-                                                                </svg>
-                                                                {uploadingId === p.id ? 'Đang tải…' : 'Upload ảnh/video'}
-                                                            </button>
-                                                        </div>
-
-                                                        {p.images.length === 0 ? (
-                                                            <div className="rounded-[10px] border border-dashed border-cardBorder py-6 text-center text-[12.5px] text-moss">
-                                                                Chưa có ảnh phụ · click "Upload ảnh" để thêm
-                                                            </div>
-                                                        ) : (
-                                                            <div className="flex flex-wrap gap-3">
-                                                                {p.images.map((img) => (
-                                                                    <div key={img.id} className="group relative">
-                                                                        {img.type === 'video' ? (
-                                                                            <video
-                                                                                src={img.path}
-                                                                                className="h-20 w-20 rounded-[10px] border border-cardBorder object-cover"
-                                                                                muted
-                                                                            />
-                                                                        ) : (
-                                                                            <img
-                                                                                src={img.path}
-                                                                                alt=""
-                                                                                className="h-20 w-20 rounded-[10px] object-cover border border-cardBorder"
-                                                                            />
-                                                                        )}
-                                                                        {img.type === 'video' && (
-                                                                            <span className="pointer-events-none absolute inset-0 grid place-items-center text-white">▶</span>
-                                                                        )}
-                                                                        <button
-                                                                            onClick={() => deleteImage(p.id, img.id)}
-                                                                            className="absolute -right-1.5 -top-1.5 hidden h-5 w-5 items-center justify-center rounded-full bg-[#b3493a] text-[10px] font-bold text-white shadow group-hover:flex"
-                                                                            title="Xoá ảnh"
-                                                                        >
-                                                                            ×
-                                                                        </button>
-                                                                    </div>
-                                                                ))}
-                                                            </div>
-                                                        )}
+                                                        <MediaGallery
+                                                            kind="product"
+                                                            itemId={p.id}
+                                                            images={p.images}
+                                                            label="Ảnh phụ"
+                                                        />
                                                     </td>
                                                 </tr>
                                             )}
