@@ -2,24 +2,23 @@ import { useMemo } from 'react';
 
 /**
  * Render "nội dung chi tiết" sản phẩm (HTML TipTap đã sanitize server) theo bố cục
- * magazine xen kẽ (Epic 1 feedback #4): ảnh trái–text phải, rồi đảo bên, nhiều ảnh
- * liên tiếp thành dải ảnh ngang. Admin chỉ cần soạn tuần tự (đoạn văn, ảnh, đoạn văn…),
- * không phải biết HTML — bố cục tự sắp.
+ * ƯU TIÊN ẢNH: mỗi ảnh đơn hiển thị FULL-WIDTH, trọn vẹn (không cắt, giữ tỉ lệ gốc);
+ * 2+ ảnh liền nhau xếp thành dải 2 cột; chữ để full-width xen giữa. Admin chỉ cần
+ * soạn tuần tự (đoạn văn, ảnh, đoạn văn…), không phải biết HTML — bố cục tự sắp.
  *
  * Desktop:                         Mobile: xếp dọc theo thứ tự soạn.
- * ┌────────┬────────┐
- * │ IMAGE  │ text   │
- * ├────────┼────────┤
- * │ text   │ IMAGE  │
- * ├──────┬─────┬────┤
- * │ IMG  │ IMG │ IMG│   ← 2+ ảnh liền nhau
- * └──────┴─────┴────┘
+ * ┌─────────────────┐
+ * │      IMAGE       │   ← ảnh đơn full-width, hiện trọn ảnh
+ * ├─────────────────┤
+ * │      text        │
+ * ├────────┬────────┤
+ * │  IMG   │  IMG   │   ← 2+ ảnh liền nhau
+ * └────────┴────────┘
  */
 
 type ImgItem = { src: string; alt: string };
 type Block = { kind: 'text'; html: string } | { kind: 'images'; imgs: ImgItem[] };
 type Row =
-    | { kind: 'pair'; img: ImgItem; html: string; imageLeft: boolean }
     | { kind: 'strip'; imgs: ImgItem[] }
     | { kind: 'image'; img: ImgItem }
     | { kind: 'text'; html: string };
@@ -61,33 +60,17 @@ function parseBlocks(html: string): Block[] {
     return blocks;
 }
 
-/** Ghép block thành hàng: ảnh đơn + text kề nhau = hàng 2 cột (đảo bên luân phiên). */
+/** Ưu tiên ảnh: ảnh đơn = hàng full-width riêng; 2+ ảnh liền nhau = dải; còn lại = chữ. */
 function buildRows(blocks: Block[]): Row[] {
-    const rows: Row[] = [];
-    let imageLeft = true;
-
-    for (let i = 0; i < blocks.length; i++) {
-        const b = blocks[i];
-        const next = blocks[i + 1];
-
+    return blocks.map((b): Row => {
         if (b.kind === 'images' && b.imgs.length >= 2) {
-            rows.push({ kind: 'strip', imgs: b.imgs });
-        } else if (b.kind === 'images' && next?.kind === 'text') {
-            rows.push({ kind: 'pair', img: b.imgs[0], html: next.html, imageLeft });
-            imageLeft = !imageLeft;
-            i++;
-        } else if (b.kind === 'text' && next?.kind === 'images' && next.imgs.length === 1) {
-            rows.push({ kind: 'pair', img: next.imgs[0], html: b.html, imageLeft });
-            imageLeft = !imageLeft;
-            i++;
-        } else if (b.kind === 'images') {
-            rows.push({ kind: 'image', img: b.imgs[0] });
-        } else {
-            rows.push({ kind: 'text', html: b.html });
+            return { kind: 'strip', imgs: b.imgs };
         }
-    }
-
-    return rows;
+        if (b.kind === 'images') {
+            return { kind: 'image', img: b.imgs[0] };
+        }
+        return { kind: 'text', html: b.html };
+    });
 }
 
 export default function MagazineContent({ html }: { html: string }) {
@@ -99,35 +82,23 @@ export default function MagazineContent({ html }: { html: string }) {
     }
 
     return (
-        <div className="space-y-10">
+        <div className="space-y-8">
             {rows.map((row, i) => {
-                if (row.kind === 'pair') {
-                    return (
-                        <div key={i} className="grid items-center gap-5 md:grid-cols-2 md:gap-10">
-                            <img
-                                src={row.img.src}
-                                alt={row.img.alt}
-                                loading="lazy"
-                                className={`mx-auto block h-auto max-h-[460px] w-auto max-w-full rounded-[18px] ${row.imageLeft ? '' : 'md:order-2'}`}
-                            />
-                            {/* An toàn: HTML đã qua EditorHtml::clean (HTMLPurifier) phía server */}
-                            <div className="editor-content [&>:first-child]:mt-0" dangerouslySetInnerHTML={{ __html: row.html }} />
-                        </div>
-                    );
-                }
                 if (row.kind === 'strip') {
                     return (
-                        <div key={i} className="grid grid-cols-2 gap-4 md:grid-cols-3">
+                        <div key={i} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                             {row.imgs.map((im, j) => (
-                                <img key={j} src={im.src} alt={im.alt} loading="lazy" className="mx-auto block h-auto max-h-[260px] w-auto max-w-full rounded-[16px]" />
+                                <img key={j} src={im.src} alt={im.alt} loading="lazy" className="block h-auto w-full rounded-[16px]" />
                             ))}
                         </div>
                     );
                 }
                 if (row.kind === 'image') {
-                    return <img key={i} src={row.img.src} alt={row.img.alt} loading="lazy" className="mx-auto block h-auto max-h-[520px] w-auto max-w-full rounded-[18px]" />;
+                    // Ảnh đơn: full-width, hiện TRỌN ảnh (không cắt), giữ tỉ lệ gốc.
+                    return <img key={i} src={row.img.src} alt={row.img.alt} loading="lazy" className="block h-auto w-full rounded-[18px]" />;
                 }
-                return <div key={i} className="editor-content max-w-[860px] [&>:first-child]:mt-0" dangerouslySetInnerHTML={{ __html: row.html }} />;
+                // An toàn: HTML đã qua EditorHtml::clean (HTMLPurifier) phía server
+                return <div key={i} className="editor-content mx-auto max-w-[820px] [&>:first-child]:mt-0" dangerouslySetInnerHTML={{ __html: row.html }} />;
             })}
         </div>
     );
