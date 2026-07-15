@@ -60,6 +60,7 @@ class Order extends Model
         'location_auto_assigned' => 'boolean',
         'review_invited_at' => 'datetime',
         'review_submitted_at' => 'datetime',
+        'pickup_reminder_sent_at' => 'datetime',
     ];
 
     /** Tự sinh mã đơn khi tạo */
