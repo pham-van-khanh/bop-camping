@@ -288,6 +288,34 @@ sudo supervisorctl status         # phải thấy RUNNING
 
 ---
 
+## Giai đoạn 5.5 — Cron scheduler (BẮT BUỘC cho email nhắc nhận đồ)
+
+> Từ 15/07/2026 (bopcamping-sdy8) app có tác vụ định kỳ: **email nhắc nhận đồ trước 1
+> ngày** (`orders:send-pickup-reminders`, lịch daily 08:00 ở `routes/console.php`). Command
+> chỉ chạy khi có cron gọi `schedule:run` mỗi phút. Thiếu bước này = email nhắc KHÔNG gửi
+> (queue worker vẫn cần chạy để mail đi — xem §5).
+
+Thêm 1 dòng vào crontab của user chạy app (vd `deploy` hoặc `www-data`):
+
+```bash
+crontab -e
+# thêm dòng (đường dẫn theo symlink release hiện hành):
+* * * * * cd /var/www/bopcamping/current && php artisan schedule:run >> /dev/null 2>&1
+```
+
+- Cron là system daemon → **tự chạy lại sau reboot/crash**, không cần trông.
+- `schedule:run` chạy mỗi phút; Laravel tự quyết chỉ chạy command đến hạn (08:00).
+- Nếu deploy KHÔNG dùng symlink `current`, trỏ thẳng vào thư mục app.
+
+Kiểm tra nhanh:
+
+```bash
+php artisan schedule:list                 # thấy 'orders:send-pickup-reminders ... 0 8 * * *'
+php artisan orders:send-pickup-reminders   # chạy tay 1 lần để test (chỉ gửi nếu có đơn đủ điều kiện)
+```
+
+---
+
 ## Giai đoạn 6 — Kiểm tra (smoke test)
 
 - [ ] Mở `https://bopcamping.vn` → trang chủ hiện, có khoá HTTPS, không có cảnh báo.
@@ -295,6 +323,7 @@ sudo supervisorctl status         # phải thấy RUNNING
 - [ ] Đăng nhập admin (`/admin/...`) bằng mật khẩu mới → vào được dashboard.
 - [ ] Ảnh sản phẩm hiển thị (storage link OK).
 - [ ] Chuyển một đơn sang `returned` → khách **nhận mail mời đánh giá**.
+- [ ] `crontab -l` có dòng `schedule:run`; `php artisan schedule:list` thấy `orders:send-pickup-reminders` → **cron scheduler đã bật**.
 - [ ] Kiểm tra log không có lỗi: `tail -f storage/logs/laravel.log` và `worker.log`.
 - [ ] Thử mở một URL sai → **không** lộ stack trace (xác nhận `APP_DEBUG=false`).
 
@@ -321,8 +350,7 @@ php artisan up                        # tắt maintenance mode
 - [ ] **Backup tự động:** cron dump MySQL hằng ngày + backup `storage/app/public` (ảnh). Đẩy ra nơi khác (vd object storage).
 - [ ] **Theo dõi uptime** (UptimeRobot free) + cảnh báo khi web down.
 - [ ] **Firewall:** `sudo ufw allow OpenSSH && sudo ufw allow 'Nginx Full' && sudo ufw enable`.
-- [ ] **Cron scheduler** — chỉ thêm KHI có tác vụ định kỳ (vd dọn OTP hết hạn):
-  `* * * * * cd /var/www/bopcamping && php artisan schedule:run >> /dev/null 2>&1`
+- [x] ~~**Cron scheduler**~~ → đã thành BẮT BUỘC, chuyển lên **Giai đoạn 5.5** (email nhắc nhận đồ). Không còn là TODO tuỳ chọn.
 
 ---
 

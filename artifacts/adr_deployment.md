@@ -20,9 +20,12 @@ ghi rõ "quyết định phương thức deploy khi gần ra mắt, ghi vào ADR
    không bao giờ gửi → khách không đăng nhập được.
 2. **Ảnh sản phẩm** lưu ở `storage/app/public` qua symlink `public/storage` → cần
    `php artisan storage:link` và phân quyền ghi cho `storage/`.
-3. **Không** có cron scheduler: mail mời đánh giá được kích hoạt bởi `OrderObserver` khi
-   đơn chuyển trạng thái `returned`, không cần `schedule:run`. (Nếu sau này thêm tác vụ
-   định kỳ — vd dọn OTP hết hạn — sẽ cần thêm cron, xem mục Hệ quả.)
+3. **Cron scheduler — BẮT BUỘC (từ 15/07/2026, bopcamping-sdy8).** Trước đây không cần
+   (mail mời đánh giá do `OrderObserver` kích hoạt khi đơn chuyển `returned`). Nhưng đã
+   thêm tác vụ định kỳ đầu tiên: **email nhắc nhận đồ trước 1 ngày** (command
+   `orders:send-pickup-reminders`, lên lịch daily 08:00 ở `routes/console.php`). Command
+   chỉ chạy nếu server có cron gọi `php artisan schedule:run` mỗi phút — xem mục Hệ quả +
+   deploy_runbook.md §"Cron scheduler". Thiếu cron = email nhắc KHÔNG bao giờ gửi.
 4. **Không** thanh toán online (chỉ COD) → không cần webhook/cổng thanh toán.
 
 ## Quyết định
@@ -90,8 +93,10 @@ trong `.env` trên server, **không commit**. Dev tiếp tục dùng `MAIL_MAILE
 - Tự chịu trách nhiệm vá bảo mật OS, backup DB, theo dõi uptime.
 - **Backup:** cần thiết lập dump MySQL định kỳ + backup thư mục `storage/app/public`
   (ảnh sản phẩm). Chưa tự động hoá ở giai đoạn này — ghi TODO trong runbook.
-- **Nếu thêm tác vụ định kỳ** (dọn `email_otps` hết hạn, nhắc đơn...) → phải thêm một
-  dòng cron gọi `php artisan schedule:run` mỗi phút. Hiện chưa cần.
+- **Cron scheduler — ĐÃ CẦN (từ 15/07/2026).** Do có email nhắc nhận đồ (tác vụ định kỳ),
+  production phải có 1 dòng cron gọi `schedule:run` mỗi phút:
+  `* * * * * cd /var/www/bopcamping/current && php artisan schedule:run >> /dev/null 2>&1`
+  Cron là system daemon nên tự sống lại sau reboot. Xem bước chi tiết + verify ở runbook.
 - Single point of failure (1 VPS). Chấp nhận được với SLA của shop nhỏ; nâng cấp HA sau
   nếu cần (ADR mới).
 
