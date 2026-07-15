@@ -54,6 +54,8 @@ type Order = {
     id: number; code: string; customer_name: string; customer_phone: string;
     customer_email: string | null; customer_address: string | null;
     start_date: string; end_date: string; days: number;
+    // ISO (Y-m-d) cho form đổi lịch (bopcamping-5hjm)
+    start_date_iso: string; end_date_iso: string;
     total_price: number; deposit_total: number; discount_total: number; amount_due: number;
     discount_breakdown: DiscountLine[] | null;
     status: string; payment_status: string;
@@ -269,6 +271,14 @@ export default function AdminOrders({
                                                                             )}
                                                                         </div>
                                                                         <StoreChanger order={order} locations={service_locations} />
+
+                                                                        {/* Đổi lịch — chỉ đơn chưa giao (bopcamping-5hjm) */}
+                                                                        {['pending', 'confirmed'].includes(order.status) && (
+                                                                            <>
+                                                                                <div className="mb-2 mt-3 text-[12px] font-bold uppercase tracking-[0.04em] text-grass">Đổi lịch thuê</div>
+                                                                                <DatesChanger order={order} />
+                                                                            </>
+                                                                        )}
 
                                                                         <div className="mb-2 mt-3 text-[12px] font-bold uppercase tracking-[0.04em] text-grass">Thiết bị</div>
                                                                         <div className="overflow-hidden rounded-[10px] border border-[#eef2e3]">
@@ -534,6 +544,84 @@ function DetailRow({ label, value, mono, accent }: { label: string; value: strin
         <div className="flex items-start justify-between gap-3 py-0.5">
             <span className="shrink-0 text-moss">{label}</span>
             <span className={`text-right text-ink ${mono ? 'font-mono' : ''}`} style={accent ? { color: accent } : undefined}>{value}</span>
+        </div>
+    );
+}
+
+/**
+ * Đổi lịch thuê (bopcamping-5hjm) — chỉ đơn pending/confirmed. Preview số ngày +
+ * tiền thuê mới tính client-side (scale tuyến tính subtotal); server là source of
+ * truth (kiểm tồn kho khoảng mới + tính lại tiền + mail báo khách).
+ */
+function DatesChanger({ order }: { order: Order }) {
+    const errors = usePage().props.errors as Record<string, string>;
+    const [start, setStart] = useState(order.start_date_iso);
+    const [end, setEnd] = useState(order.end_date_iso);
+    const [saving, setSaving] = useState(false);
+
+    const today = new Date().toISOString().slice(0, 10);
+    const msPerDay = 86_400_000;
+    const newDays =
+        start && end && end >= start
+            ? Math.round((Date.parse(end) - Date.parse(start)) / msPerDay) + 1
+            : 0;
+    // Preview tiền thuê mới: scale tuyến tính từng dòng theo số ngày (khớp công thức server).
+    const newTotal = newDays > 0
+        ? order.items.reduce((sum, it) => sum + Math.round((it.subtotal * newDays) / Math.max(1, it.days)), 0)
+        : 0;
+    const dirty = start !== order.start_date_iso || end !== order.end_date_iso;
+    const valid = newDays > 0 && start >= today;
+
+    const save = () => {
+        setSaving(true);
+        router.patch(
+            route('admin.orders.dates', order.id),
+            { start_date: start, end_date: end },
+            { preserveScroll: true, onFinish: () => setSaving(false) },
+        );
+    };
+
+    return (
+        <div className="rounded-[10px] border border-[#eef2e3] bg-white p-3">
+            <div className="flex flex-wrap items-end gap-2">
+                <label className="text-[12px] text-moss">
+                    Ngày nhận
+                    <input
+                        type="date"
+                        value={start}
+                        min={today}
+                        onChange={(e) => setStart(e.target.value)}
+                        className="mt-1 block rounded-[8px] border-cardBorder px-2 py-1.5 text-[12.5px] focus:border-grass focus:ring-0"
+                    />
+                </label>
+                <label className="text-[12px] text-moss">
+                    Ngày trả
+                    <input
+                        type="date"
+                        value={end}
+                        min={start || today}
+                        onChange={(e) => setEnd(e.target.value)}
+                        className="mt-1 block rounded-[8px] border-cardBorder px-2 py-1.5 text-[12.5px] focus:border-grass focus:ring-0"
+                    />
+                </label>
+                <button
+                    onClick={save}
+                    disabled={!dirty || !valid || saving}
+                    className="rounded-[9px] bg-grass px-3.5 py-2 text-[12.5px] font-bold text-white transition hover:bg-pine disabled:opacity-40"
+                >
+                    {saving ? 'Đang lưu…' : 'Lưu lịch mới'}
+                </button>
+            </div>
+            {dirty && valid && (
+                <p className="mt-1.5 text-[12px] text-moss">
+                    {newDays} ngày · tiền thuê mới <span className="font-mono font-bold text-ink">{money(newTotal)}</span>
+                    {newTotal !== order.total_price && <span className="ml-1 text-[#8a6d3a]">(cọc & giảm giá giữ nguyên)</span>}
+                </p>
+            )}
+            {errors.dates && <p className="mt-1.5 text-[12px] text-[#b3493a]">{errors.dates}</p>}
+            {(errors.start_date || errors.end_date) && (
+                <p className="mt-1.5 text-[12px] text-[#b3493a]">{errors.start_date ?? errors.end_date}</p>
+            )}
         </div>
     );
 }

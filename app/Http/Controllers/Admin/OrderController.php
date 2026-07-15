@@ -3,12 +3,16 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Mail\OrderDatesChangedMail;
 use App\Models\Order;
 use App\Models\Product;
 use App\Models\ServiceLocation;
 use App\Services\AvailabilityService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -37,6 +41,9 @@ class OrderController extends Controller
             'customer_address' => $o->customer_address,
             'start_date' => $o->start_date->format('d/m/Y'),
             'end_date' => $o->end_date->format('d/m/Y'),
+            // ISO cho input[type=date] ở form đổi lịch (bopcamping-5hjm)
+            'start_date_iso' => $o->start_date->format('Y-m-d'),
+            'end_date_iso' => $o->end_date->format('Y-m-d'),
             'days' => $o->days,
             'total_price' => $o->total_price,
             'deposit_total' => $o->deposit_total,
@@ -143,6 +150,84 @@ class OrderController extends Controller
         $order->update(['service_location_id' => $location->id, 'location_auto_assigned' => false]);
 
         return back()->with('success', "Đơn {$order->code} → cơ sở {$location->name}");
+    }
+
+    /**
+     * Đổi lịch thuê của đơn (bopcamping-5hjm) — chỉ đơn CHƯA giao (pending/confirmed).
+     * Kiểm tồn kho khoảng mới tại store của đơn (AvailabilityService — single source),
+     * tính lại tiền thuê tuyến tính theo số ngày (cọc + giảm giá GIỮ NGUYÊN),
+     * re-arm email nhắc nhận đồ và gửi mail báo khách lịch mới.
+     */
+    public function changeDates(Request $request, Order $order): RedirectResponse
+    {
+        if (! in_array($order->status, ['pending', 'confirmed'], true)) {
+            return back()->withErrors(['dates' => 'Chỉ đổi lịch đơn chưa giao (chờ xác nhận / đã xác nhận).']);
+        }
+
+        $data = $request->validate([
+            'start_date' => ['required', 'date', 'after_or_equal:today'],
+            'end_date' => ['required', 'date', 'after_or_equal:start_date'],
+        ], [
+            'start_date.after_or_equal' => 'Ngày nhận không được ở quá khứ.',
+            'end_date.after_or_equal' => 'Ngày trả phải từ ngày nhận trở đi.',
+        ]);
+
+        $start = Carbon::parse($data['start_date'])->startOfDay();
+        $end = Carbon::parse($data['end_date'])->startOfDay();
+
+        $order->loadMissing('items.product', 'serviceLocation');
+
+        // Nhu cầu mỗi món của đơn (gộp theo product) — như changeLocation.
+        $needed = [];
+        foreach ($order->items as $item) {
+            if ($item->product) {
+                $needed[$item->product_id] = ($needed[$item->product_id] ?? 0) + $item->quantity;
+            }
+        }
+
+        // Khoảng mới chồng khoảng cũ → availableQuantity đã trừ chính đơn này → cộng lại để so đúng.
+        $overlapsSelf = $start->lte($order->end_date) && $order->start_date->lte($end);
+
+        foreach ($needed as $productId => $qty) {
+            $product = $order->items->firstWhere('product_id', $productId)->product;
+            $avail = $this->availability->availableQuantity($product, $start, $end, $order->serviceLocation);
+            if ($overlapsSelf) {
+                $avail += $qty;
+            }
+            if ($avail < $qty) {
+                return back()->withErrors(['dates' => "\"{$product->name}\" không đủ hàng ({$avail}/{$qty}) cho khoảng mới."]);
+            }
+        }
+
+        $oldStart = $order->start_date->copy();
+        $oldEnd = $order->end_date->copy();
+        $oldDays = $order->days;
+        $newDays = (int) $start->diffInDays($end) + 1;
+
+        DB::transaction(function () use ($order, $start, $end, $oldStart, $oldDays, $newDays) {
+            // Tính lại tiền tuyến tính theo ngày — đúng cho cả dòng lẻ lẫn dòng combo
+            // (subtotal nào cũng = đơn giá/ngày × ngày). allocated_* / cọc / giảm giá giữ nguyên.
+            foreach ($order->items as $item) {
+                $item->update([
+                    'days' => $newDays,
+                    'subtotal' => (int) round($item->subtotal * $newDays / max(1, $oldDays)),
+                ]);
+            }
+
+            $order->update([
+                'start_date' => $start,
+                'end_date' => $end,
+                'total_price' => (int) $order->items()->sum('subtotal'),
+                // Ngày nhận đổi → email "Còn 1 ngày nữa!" phải gửi lại theo ngày mới.
+                'pickup_reminder_sent_at' => $start->equalTo($oldStart) ? $order->pickup_reminder_sent_at : null,
+            ]);
+        });
+
+        if ($email = $order->notifiableEmail()) {
+            Mail::to($email)->send(new OrderDatesChangedMail($order->fresh()->loadMissing('items.product'), $oldStart, $oldEnd));
+        }
+
+        return back()->with('success', "Đơn {$order->code}: đã đổi lịch thuê");
     }
 
     public function updateStatus(Request $request, Order $order): RedirectResponse

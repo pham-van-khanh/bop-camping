@@ -30,6 +30,7 @@ class Order extends Model
         'review_token',
         'review_invited_at',
         'review_submitted_at',
+        'pickup_reminder_sent_at',
         'start_date',
         'end_date',
         'total_price',
