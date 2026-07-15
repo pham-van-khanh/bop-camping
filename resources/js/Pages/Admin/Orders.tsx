@@ -1,6 +1,7 @@
 import { Head, router, usePage } from '@inertiajs/react';
 import { Fragment, ReactNode, useState } from 'react';
 import AdminLayout from '@/Layouts/AdminLayout';
+import DateRangeCalendar from '@/Components/site/DateRangeCalendar';
 import ProductStatusPill from '@/Components/ProductStatusPill';
 import { money } from '@/lib/format';
 import { STATUS_LABEL, STATUS_STYLE } from '@/lib/orderStatus';
@@ -548,79 +549,120 @@ function DetailRow({ label, value, mono, accent }: { label: string; value: strin
     );
 }
 
+/** Không có dữ liệu ngày bận cho admin (server kiểm tồn khi lưu) — Set rỗng dùng chung. */
+const NO_UNAVAILABLE = new Set<string>();
+
 /**
- * Đổi lịch thuê (bopcamping-5hjm) — chỉ đơn pending/confirmed. Preview số ngày +
- * tiền thuê mới tính client-side (scale tuyến tính subtotal); server là source of
- * truth (kiểm tồn kho khoảng mới + tính lại tiền + mail báo khách).
+ * Đổi lịch thuê (bopcamping-5hjm) — chỉ đơn pending/confirmed. Nút mở modal lịch
+ * 2 tháng (DateRangeCalendar, pattern modal "Đặt lại" ở trang tài khoản). Preview
+ * số ngày + tiền thuê mới tính client-side (scale tuyến tính subtotal); server là
+ * source of truth (kiểm tồn kho khoảng mới + tính lại tiền + mail báo khách).
  */
 function DatesChanger({ order }: { order: Order }) {
     const errors = usePage().props.errors as Record<string, string>;
-    const [start, setStart] = useState(order.start_date_iso);
-    const [end, setEnd] = useState(order.end_date_iso);
+    const [open, setOpen] = useState(false);
+    const [start, setStart] = useState<string | null>(order.start_date_iso);
+    const [end, setEnd] = useState<string | null>(order.end_date_iso);
     const [saving, setSaving] = useState(false);
 
-    const today = new Date().toISOString().slice(0, 10);
     const msPerDay = 86_400_000;
-    const newDays =
-        start && end && end >= start
-            ? Math.round((Date.parse(end) - Date.parse(start)) / msPerDay) + 1
-            : 0;
+    const newDays = start && end ? Math.round((Date.parse(end) - Date.parse(start)) / msPerDay) + 1 : 0;
     // Preview tiền thuê mới: scale tuyến tính từng dòng theo số ngày (khớp công thức server).
     const newTotal = newDays > 0
         ? order.items.reduce((sum, it) => sum + Math.round((it.subtotal * newDays) / Math.max(1, it.days)), 0)
         : 0;
     const dirty = start !== order.start_date_iso || end !== order.end_date_iso;
-    const valid = newDays > 0 && start >= today;
+    const canSave = !!start && !!end && dirty;
+    const fmt = (iso: string) => iso.split('-').reverse().join('/');
+
+    const openModal = () => {
+        // Reset về lịch hiện tại của đơn mỗi lần mở (bỏ lựa chọn dở lần trước).
+        setStart(order.start_date_iso);
+        setEnd(order.end_date_iso);
+        setOpen(true);
+    };
 
     const save = () => {
         setSaving(true);
         router.patch(
             route('admin.orders.dates', order.id),
             { start_date: start, end_date: end },
-            { preserveScroll: true, onFinish: () => setSaving(false) },
+            {
+                preserveScroll: true,
+                onSuccess: () => setOpen(false),
+                onFinish: () => setSaving(false),
+            },
         );
     };
 
     return (
         <div className="rounded-[10px] border border-[#eef2e3] bg-white p-3">
-            <div className="flex flex-wrap items-end gap-2">
-                <label className="text-[12px] text-moss">
-                    Ngày nhận
-                    <input
-                        type="date"
-                        value={start}
-                        min={today}
-                        onChange={(e) => setStart(e.target.value)}
-                        className="mt-1 block rounded-[8px] border-cardBorder px-2 py-1.5 text-[12.5px] focus:border-grass focus:ring-0"
-                    />
-                </label>
-                <label className="text-[12px] text-moss">
-                    Ngày trả
-                    <input
-                        type="date"
-                        value={end}
-                        min={start || today}
-                        onChange={(e) => setEnd(e.target.value)}
-                        className="mt-1 block rounded-[8px] border-cardBorder px-2 py-1.5 text-[12.5px] focus:border-grass focus:ring-0"
-                    />
-                </label>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="text-[12.5px] text-ink">
+                    <span className="font-mono font-semibold">{order.start_date} → {order.end_date}</span>
+                    <span className="ml-1 text-moss">({order.days} ngày)</span>
+                </span>
                 <button
-                    onClick={save}
-                    disabled={!dirty || !valid || saving}
-                    className="rounded-[9px] bg-grass px-3.5 py-2 text-[12.5px] font-bold text-white transition hover:bg-pine disabled:opacity-40"
+                    onClick={openModal}
+                    className="flex items-center gap-1.5 rounded-[9px] border border-cardBorder bg-white px-3 py-1.5 text-[12.5px] font-semibold text-pine transition hover:border-grass hover:text-grass"
                 >
-                    {saving ? 'Đang lưu…' : 'Lưu lịch mới'}
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                        <rect x="3" y="4" width="18" height="18" rx="2" />
+                        <path d="M16 2v4M8 2v4M3 10h18" />
+                    </svg>
+                    Đổi lịch
                 </button>
             </div>
-            {dirty && valid && (
-                <p className="mt-1.5 text-[12px] text-moss">
-                    {newDays} ngày · tiền thuê mới <span className="font-mono font-bold text-ink">{money(newTotal)}</span>
-                    {newTotal !== order.total_price && <span className="ml-1 text-[#8a6d3a]">(cọc & giảm giá giữ nguyên)</span>}
-                </p>
-            )}
-            {errors.dates && <p className="mt-1.5 text-[12px] text-[#b3493a]">{errors.dates}</p>}
-            {(errors.start_date || errors.end_date) && (
-                <p className="mt-1.5 text-[12px] text-[#b3493a]">{errors.start_date ?? errors.end_date}</p>
+
+            {open && (
+                <div className="fixed inset-0 z-[200] grid place-items-center overflow-y-auto p-4" style={{ background: 'rgba(24,35,15,.45)' }}>
+                    <div className="my-auto w-full max-w-[680px] rounded-[18px] border border-cardBorder bg-white p-5">
+                        <div className="mb-1 flex items-start justify-between gap-3">
+                            <div className="text-[17px] font-bold text-ink">
+                                Đổi lịch đơn <span className="font-mono text-grass">{order.code}</span>
+                            </div>
+                            <button onClick={() => setOpen(false)} aria-label="Đóng" className="shrink-0 rounded-full p-1 text-[#8a967a] hover:bg-[#f1f4ea]">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="m6 6 12 12M18 6 6 18" /></svg>
+                            </button>
+                        </div>
+                        <p className="mb-3 text-[13px] text-moss">
+                            Lịch hiện tại: <strong>{order.start_date} → {order.end_date}</strong> ({order.days} ngày). Tồn kho khoảng mới được kiểm tra khi lưu.
+                        </p>
+
+                        <DateRangeCalendar start={start} end={end} unavailable={NO_UNAVAILABLE} onChange={(s, e) => { setStart(s); setEnd(e); }} />
+
+                        <div className="mt-2 text-center text-[13px] text-moss">
+                            {start && end ? (
+                                <>
+                                    Thuê <strong className="text-ink">{fmt(start)} → {fmt(end)}</strong> · {newDays} ngày · tiền thuê mới{' '}
+                                    <strong className="font-mono text-ink">{money(newTotal)}</strong>
+                                    {newTotal !== order.total_price && <span className="ml-1 text-[#8a6d3a]">(cọc &amp; giảm giá giữ nguyên)</span>}
+                                </>
+                            ) : (
+                                'Chạm chọn ngày nhận và ngày trả.'
+                            )}
+                        </div>
+
+                        {errors.dates && <p className="mt-2 rounded-[8px] px-3 py-2 text-[12.5px]" style={{ background: '#fdf3f1', color: '#b3493a' }}>{errors.dates}</p>}
+                        {(errors.start_date || errors.end_date) && (
+                            <p className="mt-2 rounded-[8px] px-3 py-2 text-[12.5px]" style={{ background: '#fdf3f1', color: '#b3493a' }}>{errors.start_date ?? errors.end_date}</p>
+                        )}
+
+                        <div className="mt-4 flex flex-col gap-2.5 sm:flex-row-reverse">
+                            <button
+                                onClick={save}
+                                disabled={!canSave || saving}
+                                className="flex h-[48px] flex-1 items-center justify-center rounded-control text-[15px] font-bold text-white transition disabled:cursor-not-allowed"
+                                style={{ background: canSave && !saving ? '#557A2B' : '#c4cfae' }}
+                            >
+                                {saving ? 'Đang lưu…' : 'Lưu lịch mới'}
+                            </button>
+                            <button onClick={() => setOpen(false)} className="h-[48px] rounded-control border border-[#cdd6b6] bg-white px-6 text-[14px] font-semibold text-pine sm:flex-none">
+                                Huỷ
+                            </button>
+                        </div>
+                    </div>
+                </div>
             )}
         </div>
     );
