@@ -125,11 +125,15 @@ class VoucherService
 
             $quote = $this->quote($base, $vouchers, $settings, $regularBase);
 
-            // Lưu vết TỪNG voucher với số tiền THỰC áp (bopcamping-3ag) — dòng 0đ tự loại
+            // Lưu vết TỪNG voucher với số tiền THỰC áp (bopcamping-3ag) — dòng 0đ tự loại.
+            // Cờ `percent` (bopcamping-lmk6): voucher % scale theo ngày khi đổi lịch, voucher
+            // tiền cố định giữ nguyên.
+            $isPercentByCode = $vouchers->mapWithKeys(fn (Voucher $v) => [$v->code => $v->type === 'percent']);
             $order->applyDiscountLines(array_map(fn (array $b) => [
                 'source' => 'voucher',
                 'code' => $b['code'],
                 'amount' => (int) $b['applied'],
+                'percent' => (bool) $isPercentByCode->get($b['code'], false),
             ], $quote['breakdown']));
 
             $appliedByCode = collect($quote['breakdown'])->keyBy('code');

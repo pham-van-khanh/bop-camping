@@ -3,12 +3,17 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Mail\OrderDatesChangedMail;
 use App\Models\Order;
 use App\Models\Product;
+use App\Models\PromotionSetting;
 use App\Models\ServiceLocation;
 use App\Services\AvailabilityService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -37,6 +42,9 @@ class OrderController extends Controller
             'customer_address' => $o->customer_address,
             'start_date' => $o->start_date->format('d/m/Y'),
             'end_date' => $o->end_date->format('d/m/Y'),
+            // ISO cho input[type=date] ở form đổi lịch (bopcamping-5hjm)
+            'start_date_iso' => $o->start_date->format('Y-m-d'),
+            'end_date_iso' => $o->end_date->format('Y-m-d'),
             'days' => $o->days,
             'total_price' => $o->total_price,
             'deposit_total' => $o->deposit_total,
@@ -103,6 +111,8 @@ class OrderController extends Controller
             // Per-store: cửa hàng đang mở để admin đổi store cho đơn
             'service_locations' => ServiceLocation::open()->ordered()->get()->map(fn ($l) => ['id' => $l->id, 'name' => $l->name]),
             'filters' => ['status' => $status],
+            // Trần % giảm giá tối đa/đơn — preview đổi lịch dùng để kẹp giống server (bopcamping-lmk6).
+            'max_discount_percent' => (float) PromotionSetting::current()->max_discount_percent_per_order,
         ]);
     }
 
@@ -127,14 +137,10 @@ class OrderController extends Controller
             }
         }
 
-        // Kiểm store đích: khả dụng (đã trừ đơn khác) + phần đơn NÀY đang chiếm ở store đích (nếu trùng) — cộng lại.
+        // Kiểm store đích: loại chính đơn này khỏi "đã đặt" (không tự chặn mình, không over-credit).
         foreach ($needed as $productId => $qty) {
             $product = $order->items->firstWhere('product_id', $productId)->product;
-            $avail = $this->availability->availableQuantity($product, $order->start_date, $order->end_date, $location);
-            // Nếu đơn đang ở đúng store đích, availableQuantity đã trừ chính nó → cộng lại để so đúng.
-            if ($order->service_location_id === $location->id) {
-                $avail += $qty;
-            }
+            $avail = $this->availability->availableQuantity($product, $order->start_date, $order->end_date, $location, $order->id);
             if ($avail < $qty) {
                 return back()->withErrors(['location' => "\"{$product->name}\" tại {$location->name} không đủ ({$avail}/{$qty}) cho khoảng đơn."]);
             }
@@ -143,6 +149,127 @@ class OrderController extends Controller
         $order->update(['service_location_id' => $location->id, 'location_auto_assigned' => false]);
 
         return back()->with('success', "Đơn {$order->code} → cơ sở {$location->name}");
+    }
+
+    /**
+     * Đổi lịch thuê của đơn (bopcamping-5hjm) — chỉ đơn CHƯA giao (pending/confirmed).
+     * Kiểm tồn kho khoảng mới tại store của đơn (AvailabilityService — single source),
+     * tính lại tiền thuê tuyến tính theo số ngày (cọc + giảm giá GIỮ NGUYÊN),
+     * re-arm email nhắc nhận đồ và gửi mail báo khách lịch mới.
+     */
+    public function changeDates(Request $request, Order $order): RedirectResponse
+    {
+        if (! in_array($order->status, ['pending', 'confirmed'], true)) {
+            return back()->withErrors(['dates' => 'Chỉ đổi lịch đơn chưa giao (chờ xác nhận / đã xác nhận).']);
+        }
+
+        $data = $request->validate([
+            'start_date' => ['required', 'date', 'after_or_equal:today'],
+            'end_date' => ['required', 'date', 'after_or_equal:start_date'],
+        ], [
+            'start_date.after_or_equal' => 'Ngày nhận không được ở quá khứ.',
+            'end_date.after_or_equal' => 'Ngày trả phải từ ngày nhận trở đi.',
+        ]);
+
+        $start = Carbon::parse($data['start_date'])->startOfDay();
+        $end = Carbon::parse($data['end_date'])->startOfDay();
+
+        $order->loadMissing('items.product', 'serviceLocation');
+
+        // Nhu cầu mỗi món của đơn (gộp theo product) — như changeLocation.
+        $needed = [];
+        foreach ($order->items as $item) {
+            if ($item->product) {
+                $needed[$item->product_id] = ($needed[$item->product_id] ?? 0) + $item->quantity;
+            }
+        }
+
+        // Loại chính đơn này khỏi "đã đặt" (không tự chặn mình, không over-credit khi đơn khác chiếm hàng).
+        foreach ($needed as $productId => $qty) {
+            $product = $order->items->firstWhere('product_id', $productId)->product;
+            $avail = $this->availability->availableQuantity($product, $start, $end, $order->serviceLocation, $order->id);
+            if ($avail < $qty) {
+                return back()->withErrors(['dates' => "\"{$product->name}\" không đủ hàng ({$avail}/{$qty}) cho khoảng mới."]);
+            }
+        }
+
+        $oldStart = $order->start_date->copy();
+        $oldEnd = $order->end_date->copy();
+        $oldDays = $order->days;
+        $newDays = (int) $start->diffInDays($end) + 1;
+
+        DB::transaction(function () use ($order, $start, $end, $oldStart, $oldDays, $newDays) {
+            // Tính lại tiền tuyến tính theo ngày — đúng cho cả dòng lẻ lẫn dòng combo
+            // (subtotal nào cũng = đơn giá/ngày × ngày). allocated_* / cọc giữ nguyên.
+            $newTotal = 0;
+            foreach ($order->items as $item) {
+                $newSubtotal = (int) round($item->subtotal * $newDays / max(1, $oldDays));
+                $item->update(['days' => $newDays, 'subtotal' => $newSubtotal]);
+                $newTotal += $newSubtotal;
+            }
+
+            // Giảm giá theo tổng thuê mới: dòng % scale theo ngày, dòng tiền cố định giữ nguyên,
+            // rồi áp LẠI trần % giá trị đơn (van an toàn) trên tổng mới — không vượt tổng, không âm.
+            [$discountTotal, $breakdown] = $this->rescaleDiscount($order, $oldDays, $newDays, $newTotal);
+
+            $order->update([
+                'start_date' => $start,
+                'end_date' => $end,
+                'total_price' => $newTotal,
+                'discount_total' => $discountTotal,
+                'discount_breakdown' => $breakdown,
+                // Ngày nhận đổi → email "Còn 1 ngày nữa!" phải gửi lại theo ngày mới.
+                'pickup_reminder_sent_at' => $start->equalTo($oldStart) ? $order->pickup_reminder_sent_at : null,
+            ]);
+        });
+
+        if ($email = $order->notifiableEmail()) {
+            Mail::to($email)->send(new OrderDatesChangedMail($order->fresh()->loadMissing('items.product'), $oldStart, $oldEnd));
+        }
+
+        return back()->with('success', "Đơn {$order->code}: đã đổi lịch thuê");
+    }
+
+    /**
+     * Tính lại giảm giá khi đổi số ngày thuê (bopcamping-lmk6).
+     * Dòng breakdown có cờ `percent = true` (voucher %, referral/email bonus %) scale theo tỉ lệ
+     * ngày; dòng tiền cố định giữ nguyên. Dòng `cap` cũ bị bỏ và TÍNH LẠI trên tổng mới. Cuối cùng
+     * áp trần % giá trị đơn (van an toàn — giống lúc checkout) → giảm không bao giờ vượt tổng thuê
+     * hay vượt trần, không bao giờ âm. Đơn cũ không có breakdown → kẹp discount_total theo trần + tổng.
+     *
+     * @return array{0:int, 1:array<int,array<string,mixed>>|null}
+     */
+    private function rescaleDiscount(Order $order, int $oldDays, int $newDays, int $newTotal): array
+    {
+        $maxPercent = (float) PromotionSetting::current()->max_discount_percent_per_order;
+        $cap = (int) floor($newTotal * $maxPercent / 100);
+
+        $breakdown = $order->discount_breakdown;
+        if (empty($breakdown)) {
+            // Đơn cũ (trước bopcamping-3ag): vẫn kẹp để không vượt tổng mới / trần.
+            return [max(0, min((int) $order->discount_total, $cap, $newTotal)), $breakdown];
+        }
+
+        // Bỏ dòng cap cũ (tính lại trên tổng mới); scale dòng %, giữ dòng cố định.
+        $lines = [];
+        foreach ($breakdown as $line) {
+            if (($line['source'] ?? null) === 'cap') {
+                continue;
+            }
+            if (! empty($line['percent'])) {
+                $line['amount'] = (int) round((int) $line['amount'] * $newDays / max(1, $oldDays));
+            }
+            $lines[] = $line;
+        }
+
+        $preCap = (int) array_sum(array_column($lines, 'amount'));
+        $clamped = max(0, min($preCap, $cap, $newTotal));
+        if ($clamped !== $preCap) {
+            // Dòng điều chỉnh ÂM để sum(breakdown) === discount_total (bopcamping-3ag).
+            $lines[] = ['source' => 'cap', 'amount' => $clamped - $preCap, 'percent' => true];
+        }
+
+        return [$clamped, array_values($lines)];
     }
 
     public function updateStatus(Request $request, Order $order): RedirectResponse
