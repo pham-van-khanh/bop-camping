@@ -68,7 +68,7 @@ class DiscountBreakdownTest extends TestCase
         $order = Order::latest('id')->first();
         $this->assertSame(15000, (int) $order->discount_total); // 5% × 300k
         // assertEquals: MySQL JSON chuẩn hoá thứ tự key (sqlite giữ nguyên) — nội dung mới là thứ cần so
-        $this->assertEquals([['source' => 'email_bonus', 'amount' => 15000]], $order->discount_breakdown);
+        $this->assertEquals([['source' => 'email_bonus', 'amount' => 15000, 'percent' => true]], $order->discount_breakdown);
     }
 
     /** @test */
@@ -130,7 +130,7 @@ class DiscountBreakdownTest extends TestCase
 
         $order = Order::latest('id')->first();
         $this->assertSame(30000, (int) $order->discount_total); // 10% × 300k
-        $this->assertEquals([['source' => 'referral', 'amount' => 30000, 'code' => 'REFTEST']], $order->discount_breakdown);
+        $this->assertEquals([['source' => 'referral', 'amount' => 30000, 'code' => 'REFTEST', 'percent' => true]], $order->discount_breakdown);
     }
 
     /**

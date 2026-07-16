@@ -8,6 +8,7 @@ use App\Models\Combo;
 use App\Models\Product;
 use App\Models\ProductImage;
 use App\Models\ServiceLocation;
+use App\Support\MediaRef;
 use App\Support\MediaType;
 use App\Support\Slug;
 use Illuminate\Http\RedirectResponse;
@@ -78,6 +79,8 @@ class ProductController extends Controller
                 'status' => $l->status,
             ])->values(),
             'filters' => ['search' => $search, 'category' => $categoryId ?: null],
+            // Kho ảnh cho picker "chọn ảnh có sẵn" — nạp lazy khi mở picker (partial reload).
+            'mediaLibrary' => Inertia::optional(fn () => MediaRef::library()),
         ]);
     }
 
@@ -275,11 +278,12 @@ class ProductController extends Controller
         // US-07: ẩn combo TRƯỚC khi xoá — sau đó combo_items cascade theo FK
         Combo::hideForProduct($product, 'product_deleted');
 
-        // Xóa tất cả ảnh phụ trên storage
-        foreach ($product->images as $image) {
-            Storage::disk('media')->delete($image->path);
-        }
+        // Xoá ảnh phụ: xoá row trước, rồi chỉ xoá file khi không còn nơi khác dùng chung.
+        $paths = $product->images->pluck('path')->all();
         $product->images()->delete();
+        foreach ($paths as $path) {
+            MediaRef::deleteFileIfOrphan($path);
+        }
 
         // Xóa thumbnail
         if ($product->thumbnail) {
@@ -298,7 +302,7 @@ class ProductController extends Controller
             'images.*' => ['file', MediaType::MIMES_RULE, 'max:51200'], // ≤50MB
         ], [
             'images.max' => 'Tối đa 12 ảnh/video mỗi lần.',
-            'images.*.mimetypes' => 'Chỉ nhận ảnh (jpg, png, webp) hoặc video (mp4, webm, mov).',
+            'images.*.mimetypes' => 'Chỉ nhận ảnh (jpg, png, gif, webp) hoặc video (mp4, webm, mov).',
             'images.*.max' => 'Mỗi tệp tối đa 50MB.',
         ]);
 
@@ -315,13 +319,63 @@ class ProductController extends Controller
         return back()->with('success', 'Đã tải lên ảnh.');
     }
 
+    /**
+     * Tái sử dụng ảnh đã upload: tạo row mới trỏ cùng file (chia sẻ, không copy).
+     * Bỏ qua ảnh mà sản phẩm này đã có (tránh trùng path).
+     */
+    public function attachImages(Request $request, Product $product): RedirectResponse
+    {
+        $data = $request->validate([
+            'sources' => ['required', 'array', 'min:1', 'max:24'],
+            'sources.*.type' => ['required', 'in:product,combo'],
+            'sources.*.id' => ['required', 'integer'],
+        ], [
+            'sources.required' => 'Chưa chọn ảnh nào.',
+        ]);
+
+        $existing = $product->images()->pluck('path')->all();
+        $maxSort = $product->images()->max('sort_order') ?? 0;
+
+        MediaRef::resolveSources($data['sources'])
+            ->reject(fn (array $src) => in_array($src['path'], $existing, true))
+            ->each(function (array $src) use ($product, &$maxSort) {
+                $product->images()->create([
+                    'path' => $src['path'],
+                    'sort_order' => ++$maxSort,
+                    'type' => $src['type'],
+                ]);
+            });
+
+        return back()->with('success', 'Đã thêm ảnh.');
+    }
+
+    /** Sắp xếp lại thứ tự ảnh (kéo-thả): sort_order = vị trí trong mảng gửi lên. */
+    public function reorderImages(Request $request, Product $product): RedirectResponse
+    {
+        $data = $request->validate([
+            'image_ids' => ['required', 'array'],
+            'image_ids.*' => ['integer'],
+        ]);
+
+        // Chỉ nhận id thuộc đúng sản phẩm (chống IDOR — CWE-639).
+        $owned = $product->images()->pluck('id')->all();
+        foreach ($data['image_ids'] as $i => $id) {
+            if (in_array((int) $id, $owned, true)) {
+                $product->images()->whereKey($id)->update(['sort_order' => $i]);
+            }
+        }
+
+        return back()->with('success', 'Đã cập nhật thứ tự ảnh.');
+    }
+
     public function destroyImage(Product $product, ProductImage $image): RedirectResponse
     {
         // Chặn IDOR: ảnh phải thuộc đúng sản phẩm trên URL (CWE-639).
         abort_unless($image->product_id === $product->id, 404);
 
-        Storage::disk('media')->delete($image->path);
+        $path = $image->path;
         $image->delete();
+        MediaRef::deleteFileIfOrphan($path);
 
         return back()->with('success', 'Đã xoá ảnh.');
     }

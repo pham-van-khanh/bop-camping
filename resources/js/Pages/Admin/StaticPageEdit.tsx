@@ -38,7 +38,7 @@ export default function AdminStaticPageEdit({
     };
 
     return (
-        <>
+        <div className="p-6">
             <Head title={`Sửa — ${page.title}`} />
             <div className="mx-auto max-w-[880px]">
                 <div className="mb-1 text-[12.5px] text-moss">
@@ -127,7 +127,7 @@ export default function AdminStaticPageEdit({
                     {toastMsg}
                 </div>
             )}
-        </>
+        </div>
     );
 }
 

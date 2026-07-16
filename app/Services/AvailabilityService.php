@@ -23,15 +23,22 @@ class AvailabilityService
      *
      * $location = null → hành vi TOÀN CỤC cũ (products.quantity − mọi đơn chồng lịch) cho
      * caller chưa chuyển per-store. Truyền $location → tính riêng cửa hàng đó (không cộng xuyên store).
+     *
+     * $excludeOrderId: loại chính đơn này khỏi phần "đã đặt" — dùng khi đổi lịch/đổi cửa hàng
+     * để đơn KHÔNG tự chặn mình. Trừ NGAY trong query (trước max(0)), tránh over-credit khi
+     * nhiều đơn khác đã đẩy "đã đặt" vượt tồn (cộng bù sau max(0) sẽ cho phép đặt trùng).
      */
-    public function availableQuantity(Product $product, Carbon $start, Carbon $end, ?ServiceLocation $location = null): int
+    public function availableQuantity(Product $product, Carbon $start, Carbon $end, ?ServiceLocation $location = null, ?int $excludeOrderId = null): int
     {
         if ($location === null) {
             $booked = OrderItem::query()
-                ->whereHas('order', function ($q) use ($start, $end) {
+                ->whereHas('order', function ($q) use ($start, $end, $excludeOrderId) {
                     $q->whereIn('status', Order::activeStatuses())
                         ->where('start_date', '<=', $end)
                         ->where('end_date', '>=', $start);
+                    if ($excludeOrderId !== null) {
+                        $q->where('id', '!=', $excludeOrderId);
+                    }
                 })
                 ->where('product_id', $product->id)
                 ->sum('quantity');
@@ -41,11 +48,14 @@ class AvailabilityService
 
         // Per-store: tồn tại store − đơn active chồng lịch GẮN store đó (đơn NULL store — dữ liệu cũ — tính vào mọi store).
         $booked = OrderItem::query()
-            ->whereHas('order', function ($q) use ($start, $end, $location) {
+            ->whereHas('order', function ($q) use ($start, $end, $location, $excludeOrderId) {
                 $q->whereIn('status', Order::activeStatuses())
                     ->where('start_date', '<=', $end)
                     ->where('end_date', '>=', $start)
                     ->where(fn ($sq) => $sq->where('service_location_id', $location->id)->orWhereNull('service_location_id'));
+                if ($excludeOrderId !== null) {
+                    $q->where('id', '!=', $excludeOrderId);
+                }
             })
             ->where('product_id', $product->id)
             ->sum('quantity');

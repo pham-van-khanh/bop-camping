@@ -72,9 +72,13 @@ class ReferralService
         $discount = max(0, min($raw, $cap, $base));
 
         if ($discount > 0) {
-            $order->applyDiscountLines([
-                ['source' => 'referral', 'amount' => $discount, 'code' => $referralCode->code],
-            ]);
+            $order->applyDiscountLines([[
+                'source' => 'referral',
+                'amount' => $discount,
+                'code' => $referralCode->code,
+                // Cờ để đổi lịch scale đúng theo ngày (bopcamping-lmk6).
+                'percent' => $settings->referee_discount_type === 'percent',
+            ]]);
         }
 
         return ['discount' => $discount, 'reason' => 'ok', 'referral' => $referral];

@@ -1,42 +1,35 @@
-<!DOCTYPE html>
-<html lang="vi">
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ $tpl['heading'] }}</title>
-</head>
-<body style="margin:0;padding:0;background:#f5f1e8;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#3a3226;">
-    <div style="max-width:520px;margin:0 auto;padding:32px 20px;">
-        <div style="background:#fbf9f4;border:1px solid #e6ddc9;border-radius:18px;padding:32px;">
-            <div style="font-size:20px;font-weight:800;color:#557a2b;margin-bottom:4px;">BopCamping</div>
-            <h1 style="font-size:18px;margin:14px 0 6px;">{{ $tpl['heading'] }}</h1>
-            <p style="font-size:15px;line-height:1.6;margin:6px 0 0;">
-                Xin chào <strong>{{ $order->customer_name }}</strong>, đơn
-                <strong style="color:#557a2b;">{{ $order->code }}</strong>: {{ $tpl['message'] }}
-            </p>
+@php
+    $mono = "'SFMono-Regular',ui-monospace,Menlo,Consolas,monospace";
+    // confirmed/returned = xanh, cancelled = trung tính.
+    $variant = $order->status === 'cancelled' ? 'muted' : 'green';
+    $isConfirmed = $order->status === 'confirmed';
+    $pill = [
+        'confirmed' => ['t' => '● Đã xác nhận', 'bg' => '#dcebc4', 'c' => '#3a5a1f'],
+        'returned' => ['t' => '● Đã hoàn tất', 'bg' => '#dcebc4', 'c' => '#3a5a1f'],
+        'cancelled' => ['t' => '● Đã huỷ', 'bg' => '#efe7e3', 'c' => '#8a6d63'],
+    ][$order->status] ?? null;
+@endphp
+<x-mail.brand :variant="$variant" :preheader="'Đơn '.$order->code.' '.($tpl['subject'] ?? 'cập nhật').'.'">
+    <div style="font-family:{{ $mono }};font-size:11px;letter-spacing:2px;text-transform:uppercase;color:#c06a2a;">Đơn #{{ $order->code }}</div>
+    <h1 style="font-size:21px;line-height:1.3;margin:8px 0 6px;color:#2e2a20;">{{ $tpl['heading'] }}</h1>
+    <p style="font-size:14.5px;line-height:1.65;margin:0;color:#5a5445;">{{ $tpl['message'] }}</p>
 
-            <div style="margin:20px 0;border-top:1px solid #ece4d2;"></div>
+    @if ($pill)
+        <div style="display:inline-block;margin:16px 0 4px;background:{{ $pill['bg'] }};color:{{ $pill['c'] }};font-family:{{ $mono }};font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;padding:5px 12px;border-radius:999px;">{{ $pill['t'] }}</div>
+    @endif
 
-            <table style="width:100%;border-collapse:collapse;font-size:14px;">
-                <tr>
-                    <td style="padding:4px 0;color:#8a8170;">Khoảng thuê</td>
-                    <td style="padding:4px 0;text-align:right;font-weight:600;">
-                        {{ $order->start_date->format('d/m/Y') }} → {{ $order->end_date->format('d/m/Y') }}
-                    </td>
-                </tr>
-                <tr>
-                    <td style="padding:4px 0;color:#8a8170;">Trả khi nhận</td>
-                    <td style="padding:4px 0;text-align:right;font-weight:600;">{{ number_format($order->amount_due, 0, ',', '.') }}đ</td>
-                </tr>
-            </table>
-
-            <p style="font-size:13px;color:#8a8170;line-height:1.6;margin:18px 0 0;">
-                Xem chi tiết tại trang <strong>Tra cứu đơn</strong> với mã {{ $order->code }} và số điện thoại.
-            </p>
-        </div>
-        <p style="font-size:12px;color:#a39b88;text-align:center;margin-top:18px;">
-            © BopCamping — Cho thuê đồ cắm trại
-        </p>
+    <div style="margin:10px 0 4px;">
+        <x-mail.item-list :order="$order" :per-day="$isConfirmed" />
     </div>
-</body>
-</html>
+
+    @if ($isConfirmed)
+        <x-mail.order-facts :order="$order" />
+    @endif
+
+    <div style="margin:22px 0 12px;">
+        <x-mail.button :href="route('lookup')">Xem chi tiết đơn</x-mail.button>
+    </div>
+    <p style="text-align:center;margin:0;font-size:13px;">
+        <a href="{{ route('lookup') }}" style="color:#557a2b;font-weight:600;text-decoration:none;">Cần hỗ trợ? Liên hệ tụi mình</a>
+    </p>
+</x-mail.brand>
