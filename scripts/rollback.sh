@@ -70,6 +70,12 @@ log "Rolling back:"
 log "  from: ${CURRENT_RELEASE:-<none>}"
 log "  to  : $PREVIOUS"
 
+# Same guard as deploy.sh: never let ln nest a symlink inside a real `current` dir.
+if [[ -d "$CURRENT_LINK" && ! -L "$CURRENT_LINK" ]]; then
+    warning "'current' is a real directory — removing it so the symlink is created correctly."
+    rm -rf "$CURRENT_LINK"
+fi
+
 ln -sfn "$PREVIOUS" "$CURRENT_LINK"
 
 success "Symlink switched to previous release."

@@ -246,6 +246,15 @@ success "Database migrations completed."
 
 log "Switching current release..."
 
+# If `current` is a real directory (e.g. left from a manual setup), `ln -sfn`
+# would nest the symlink INSIDE it instead of replacing it, leaving nginx's
+# `current/public` root missing -> 404. Remove the stray dir first so we always
+# end up with a proper symlink.
+if [[ -d "$APP_DIR/current" && ! -L "$APP_DIR/current" ]]; then
+    warning "'current' is a real directory — removing it so the symlink is created correctly."
+    rm -rf "$APP_DIR/current"
+fi
+
 ln -sfn "$NEW_RELEASE" "$APP_DIR/current"
 
 success "Current release switched."
