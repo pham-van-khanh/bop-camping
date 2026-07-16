@@ -101,11 +101,12 @@ const TABS = [
 ];
 
 export default function AdminOrders({
-    orders, stats, inventory, service_locations, filters,
+    orders, stats, inventory, service_locations, filters, max_discount_percent,
 }: {
     orders: Order[]; stats: Stats; inventory: InventoryItem[];
     service_locations: { id: number; name: string }[];
     filters: { status: string };
+    max_discount_percent: number;
 }) {
     const [expandedId, setExpandedId] = useState<number | null>(null);
     const [tab, setTab] = useState<'orders' | 'inventory'>('orders');
@@ -277,7 +278,7 @@ export default function AdminOrders({
                                                                         {['pending', 'confirmed'].includes(order.status) && (
                                                                             <>
                                                                                 <div className="mb-2 mt-3 text-[12px] font-bold uppercase tracking-[0.04em] text-grass">Đổi lịch thuê</div>
-                                                                                <DatesChanger order={order} />
+                                                                                <DatesChanger order={order} maxDiscountPercent={max_discount_percent} />
                                                                             </>
                                                                         )}
 
@@ -558,7 +559,7 @@ const NO_UNAVAILABLE = new Set<string>();
  * số ngày + tiền thuê mới tính client-side (scale tuyến tính subtotal); server là
  * source of truth (kiểm tồn kho khoảng mới + tính lại tiền + mail báo khách).
  */
-function DatesChanger({ order }: { order: Order }) {
+function DatesChanger({ order, maxDiscountPercent }: { order: Order; maxDiscountPercent: number }) {
     const errors = usePage().props.errors as Record<string, string>;
     const [open, setOpen] = useState(false);
     const [start, setStart] = useState<string | null>(order.start_date_iso);
@@ -567,18 +568,24 @@ function DatesChanger({ order }: { order: Order }) {
 
     const msPerDay = 86_400_000;
     const newDays = start && end ? Math.round((Date.parse(end) - Date.parse(start)) / msPerDay) + 1 : 0;
-    // Preview tiền thuê mới: scale tuyến tính từng dòng theo số ngày (khớp công thức server).
+    // Preview khớp CHÍNH XÁC server (changeDates + rescaleDiscount): dùng order.days làm mốc cũ
+    // cho MỌI dòng, scale tuyến tính, rồi áp lại trần % + kẹp theo tổng (van an toàn).
+    const oldDays = Math.max(1, order.days);
     const newTotal = newDays > 0
-        ? order.items.reduce((sum, it) => sum + Math.round((it.subtotal * newDays) / Math.max(1, it.days)), 0)
+        ? order.items.reduce((sum, it) => sum + Math.round((it.subtotal * newDays) / oldDays), 0)
         : 0;
-    // Giảm giá mới: dòng % scale theo ngày, dòng tiền cố định giữ nguyên (bopcamping-lmk6).
-    // Đơn không có breakdown → giữ nguyên discount_total như server.
-    const newDiscount = newDays > 0 && order.discount_breakdown?.length
-        ? order.discount_breakdown.reduce(
-              (sum, d) => sum + (d.percent ? Math.round((d.amount * newDays) / Math.max(1, order.days)) : d.amount),
-              0,
-          )
-        : order.discount_total;
+    // Giảm giá mới: bỏ dòng cap cũ, scale dòng %, giữ dòng cố định, rồi kẹp min(preCap, trần%, tổng).
+    let newDiscount = order.discount_total;
+    if (newDays > 0) {
+        if (order.discount_breakdown?.length) {
+            const preCap = order.discount_breakdown
+                .filter((d) => d.source !== 'cap')
+                .reduce((sum, d) => sum + (d.percent ? Math.round((d.amount * newDays) / oldDays) : d.amount), 0);
+            newDiscount = Math.max(0, Math.min(preCap, Math.floor((newTotal * maxDiscountPercent) / 100), newTotal));
+        } else {
+            newDiscount = Math.max(0, Math.min(order.discount_total, Math.floor((newTotal * maxDiscountPercent) / 100), newTotal));
+        }
+    }
     const newAmountDue = newTotal + order.deposit_total - newDiscount;
     const dirty = start !== order.start_date_iso || end !== order.end_date_iso;
     const canSave = !!start && !!end && dirty;

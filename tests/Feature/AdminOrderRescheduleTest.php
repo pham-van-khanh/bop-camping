@@ -105,24 +105,81 @@ class AdminOrderRescheduleTest extends TestCase
     public function scales_percent_discount_but_keeps_fixed_discount_when_rescheduling(): void
     {
         Mail::fake();
-        // Đơn 2 ngày, subtotal 200k. Giảm: voucher % (10% = 20k) + voucher tiền cố định 50k.
-        $order = $this->makeOrder(['discount_total' => 70000]);
+        // Đơn 2 ngày, subtotal 200k. Giảm: voucher % (10% = 20k) + voucher cố định 30k = 50k (=25% trần).
+        $order = $this->makeOrder(['discount_total' => 50000]);
         $order->update(['discount_breakdown' => [
             ['source' => 'voucher', 'code' => 'PCT10', 'amount' => 20000, 'percent' => true],
-            ['source' => 'voucher', 'code' => 'FIX50', 'amount' => 50000, 'percent' => false],
+            ['source' => 'voucher', 'code' => 'FIX30', 'amount' => 30000, 'percent' => false],
         ]]);
 
-        // 2 ngày → 3 ngày: subtotal 200k → 300k.
+        // 2 ngày → 3 ngày: subtotal 200k → 300k. Giảm mới 30k+30k=60k ≤ trần 25%×300k=75k.
         $this->patchDates($order, '2030-07-10', '2030-07-12')->assertSessionHas('success');
 
         $order->refresh();
         $this->assertSame(300000, $order->total_price);
-        // % giảm theo ngày mới (10% của 300k = 30k); tiền cố định giữ nguyên 50k.
-        $this->assertSame(80000, $order->discount_total);
+        // % giảm theo ngày mới (10% của 300k = 30k); tiền cố định giữ nguyên 30k.
+        $this->assertSame(60000, $order->discount_total);
         $this->assertSame(30000, $order->discount_breakdown[0]['amount']);
-        $this->assertSame(50000, $order->discount_breakdown[1]['amount']);
+        $this->assertSame(30000, $order->discount_breakdown[1]['amount']);
         // Bất biến: sum(breakdown.amount) === discount_total
-        $this->assertSame(80000, array_sum(array_column($order->discount_breakdown, 'amount')));
+        $this->assertSame(60000, array_sum(array_column($order->discount_breakdown, 'amount')));
+    }
+
+    /** @test */
+    public function clamps_discount_to_new_total_and_cap_when_shortening(): void
+    {
+        Mail::fake();
+        // Đơn 5 ngày (500k), voucher cố định 125k (=25% trần, hợp lệ lúc đặt).
+        $order = $this->makeOrder(['start_date' => '2030-07-01', 'end_date' => '2030-07-05', 'total_price' => 500000, 'discount_total' => 125000]);
+        $order->items()->update(['days' => 5, 'subtotal' => 500000]);
+        $order->update(['discount_breakdown' => [
+            ['source' => 'voucher', 'code' => 'FIX125', 'amount' => 125000, 'percent' => false],
+        ]]);
+
+        // Rút xuống 1 ngày (total 100k): giảm KHÔNG được vượt tổng mới, và bị kẹp lại theo trần 25%.
+        $this->patchDates($order, '2030-07-01', '2030-07-01')->assertSessionHas('success');
+
+        $order->refresh();
+        $this->assertSame(100000, $order->total_price);
+        $this->assertLessThanOrEqual(100000, $order->discount_total);   // không vượt tiền thuê
+        $this->assertLessThanOrEqual(25000, $order->discount_total);    // trần 25% của 100k
+        $this->assertGreaterThanOrEqual(0, $order->discount_total);
+        // Bất biến sum(breakdown) === discount_total
+        $this->assertSame($order->discount_total, array_sum(array_column($order->discount_breakdown, 'amount')));
+    }
+
+    /** @test */
+    public function keeps_discount_non_negative_and_recaps_when_extending_with_cap_line(): void
+    {
+        Mail::fake();
+        // Đơn 2 ngày (200k): voucher % 20k + voucher cố định 100k, trần 25% → dòng cap −80k → discount 40k.
+        $order = $this->makeOrder(['discount_total' => 40000]);
+        $order->update(['discount_breakdown' => [
+            ['source' => 'voucher', 'code' => 'PCT', 'amount' => 20000, 'percent' => true],
+            ['source' => 'voucher', 'code' => 'FIX100', 'amount' => 100000, 'percent' => false],
+            ['source' => 'cap', 'amount' => -80000, 'percent' => true],
+        ]]);
+
+        // Kéo 2 → 6 ngày (600k). KHÔNG được ra giảm giá âm; kẹp theo trần 25%×600k=150k.
+        $this->patchDates($order, '2030-07-01', '2030-07-06')->assertSessionHas('success');
+
+        $order->refresh();
+        $this->assertSame(600000, $order->total_price);
+        $this->assertGreaterThanOrEqual(0, $order->discount_total);     // không âm (bug cũ: −80k)
+        $this->assertLessThanOrEqual(150000, $order->discount_total);   // trần 25% của 600k
+        $this->assertSame($order->discount_total, array_sum(array_column($order->discount_breakdown, 'amount')));
+    }
+
+    /** @test */
+    public function rejects_reschedule_that_would_overbook_against_another_order(): void
+    {
+        // Tồn 2 tại Vinh. Đơn A chiếm cả 2 (01–02/07). Đơn B chiếm cả 2 ở khoảng RỜI (05–06/07).
+        $a = $this->makeOrder();
+        $this->makeOrder(['start_date' => '2030-07-05', 'end_date' => '2030-07-06']);
+
+        // Đổi lịch A → 02–05/07: ngày 05/07 sẽ có A(2)+B(2)=4 > tồn 2 → PHẢI từ chối.
+        $this->patchDates($a, '2030-07-02', '2030-07-05')->assertSessionHasErrors('dates');
+        $this->assertSame('2030-07-01', $a->fresh()->start_date->format('Y-m-d'));
     }
 
     /** @test */
