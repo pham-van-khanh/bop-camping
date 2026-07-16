@@ -47,7 +47,12 @@ class EmailBonusService
         $discount = max(0, min($raw, $cap, $base));
 
         if ($discount > 0) {
-            $order->applyDiscountLines([['source' => 'email_bonus', 'amount' => $discount]]);
+            $order->applyDiscountLines([[
+                'source' => 'email_bonus',
+                'amount' => $discount,
+                // Cờ để đổi lịch scale đúng theo ngày (bopcamping-lmk6).
+                'percent' => $settings->email_bonus_discount_type === 'percent',
+            ]]);
         }
 
         return ['discount' => $discount, 'reason' => 'ok'];

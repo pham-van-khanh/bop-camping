@@ -23,7 +23,7 @@ type OrderItem = {
 type ItemGroup = { key: string; combo: string | null; items: OrderItem[] };
 
 // bopcamping-3ag: nguồn giảm giá từng dòng, lưu lúc checkout (đơn cũ = null).
-type DiscountLine = { source: string; amount: number; code?: string };
+type DiscountLine = { source: string; amount: number; code?: string; percent?: boolean };
 
 const DISCOUNT_SOURCE_LABEL: Record<string, string> = {
     voucher: 'Voucher',
@@ -571,6 +571,15 @@ function DatesChanger({ order }: { order: Order }) {
     const newTotal = newDays > 0
         ? order.items.reduce((sum, it) => sum + Math.round((it.subtotal * newDays) / Math.max(1, it.days)), 0)
         : 0;
+    // Giảm giá mới: dòng % scale theo ngày, dòng tiền cố định giữ nguyên (bopcamping-lmk6).
+    // Đơn không có breakdown → giữ nguyên discount_total như server.
+    const newDiscount = newDays > 0 && order.discount_breakdown?.length
+        ? order.discount_breakdown.reduce(
+              (sum, d) => sum + (d.percent ? Math.round((d.amount * newDays) / Math.max(1, order.days)) : d.amount),
+              0,
+          )
+        : order.discount_total;
+    const newAmountDue = newTotal + order.deposit_total - newDiscount;
     const dirty = start !== order.start_date_iso || end !== order.end_date_iso;
     const canSave = !!start && !!end && dirty;
     const fmt = (iso: string) => iso.split('-').reverse().join('/');
@@ -636,7 +645,12 @@ function DatesChanger({ order }: { order: Order }) {
                                 <>
                                     Thuê <strong className="text-ink">{fmt(start)} → {fmt(end)}</strong> · {newDays} ngày · tiền thuê mới{' '}
                                     <strong className="font-mono text-ink">{money(newTotal)}</strong>
-                                    {newTotal !== order.total_price && <span className="ml-1 text-[#8a6d3a]">(cọc &amp; giảm giá giữ nguyên)</span>}
+                                    {newDiscount > 0 && (
+                                        <>
+                                            {' '}· giảm <strong className="font-mono text-grass">−{money(newDiscount)}</strong>
+                                        </>
+                                    )}
+                                    <span className="ml-1 text-[#8a6d3a]">(cọc giữ nguyên · phải trả <strong className="font-mono text-ink">{money(newAmountDue)}</strong>)</span>
                                 </>
                             ) : (
                                 'Chạm chọn ngày nhận và ngày trả.'

@@ -248,9 +248,10 @@ class OrderController extends Controller
             $cap = (int) floor((int) $order->total_price * (float) $settings->max_discount_percent_per_order / 100);
             $clamped = min((int) $order->discount_total, $cap, (int) $order->total_price);
             if ($clamped !== (int) $order->discount_total) {
-                // Ghi dòng điều chỉnh ÂM để sum(breakdown) luôn khớp discount_total (bopcamping-3ag)
+                // Ghi dòng điều chỉnh ÂM để sum(breakdown) luôn khớp discount_total (bopcamping-3ag).
+                // percent=true: trần là % giá trị đơn → scale theo ngày khi đổi lịch (bopcamping-lmk6).
                 $order->applyDiscountLines([
-                    ['source' => 'cap', 'amount' => $clamped - (int) $order->discount_total],
+                    ['source' => 'cap', 'amount' => $clamped - (int) $order->discount_total, 'percent' => true],
                 ]);
             }
         }

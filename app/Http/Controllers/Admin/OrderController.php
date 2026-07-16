@@ -206,7 +206,7 @@ class OrderController extends Controller
 
         DB::transaction(function () use ($order, $start, $end, $oldStart, $oldDays, $newDays) {
             // Tính lại tiền tuyến tính theo ngày — đúng cho cả dòng lẻ lẫn dòng combo
-            // (subtotal nào cũng = đơn giá/ngày × ngày). allocated_* / cọc / giảm giá giữ nguyên.
+            // (subtotal nào cũng = đơn giá/ngày × ngày). allocated_* / cọc giữ nguyên.
             foreach ($order->items as $item) {
                 $item->update([
                     'days' => $newDays,
@@ -214,10 +214,17 @@ class OrderController extends Controller
                 ]);
             }
 
+            // Giảm giá theo NGÀY: dòng kiểu % scale theo tỉ lệ ngày (giữ đúng phần trăm ban
+            // đầu — mọi base đều scale cùng tỉ lệ nên amount × ngày_mới/ngày_cũ == %×base_mới);
+            // dòng tiền cố định (voucher 50k) GIỮ NGUYÊN. Đơn cũ không có breakdown → giữ nguyên.
+            [$discountTotal, $breakdown] = $this->rescaleDiscount($order, $oldDays, $newDays);
+
             $order->update([
                 'start_date' => $start,
                 'end_date' => $end,
                 'total_price' => (int) $order->items()->sum('subtotal'),
+                'discount_total' => $discountTotal,
+                'discount_breakdown' => $breakdown,
                 // Ngày nhận đổi → email "Còn 1 ngày nữa!" phải gửi lại theo ngày mới.
                 'pickup_reminder_sent_at' => $start->equalTo($oldStart) ? $order->pickup_reminder_sent_at : null,
             ]);
@@ -228,6 +235,32 @@ class OrderController extends Controller
         }
 
         return back()->with('success', "Đơn {$order->code}: đã đổi lịch thuê");
+    }
+
+    /**
+     * Tính lại giảm giá khi đổi số ngày thuê (bopcamping-lmk6).
+     * Dòng breakdown có cờ `percent = true` (voucher %, referral/email bonus %, dòng cap)
+     * scale theo tỉ lệ ngày; dòng tiền cố định giữ nguyên. Đơn không có breakdown
+     * (đơn cũ trước bopcamping-3ag) → giữ nguyên discount_total, breakdown như cũ.
+     *
+     * @return array{0:int, 1:array<int,array<string,mixed>>|null}
+     */
+    private function rescaleDiscount(Order $order, int $oldDays, int $newDays): array
+    {
+        $breakdown = $order->discount_breakdown;
+        if (empty($breakdown)) {
+            return [(int) $order->discount_total, $breakdown];
+        }
+
+        $scaled = array_map(function (array $line) use ($oldDays, $newDays) {
+            if (! empty($line['percent'])) {
+                $line['amount'] = (int) round((int) $line['amount'] * $newDays / max(1, $oldDays));
+            }
+
+            return $line;
+        }, $breakdown);
+
+        return [(int) array_sum(array_column($scaled, 'amount')), $scaled];
     }
 
     public function updateStatus(Request $request, Order $order): RedirectResponse

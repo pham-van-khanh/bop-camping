@@ -150,7 +150,7 @@ class Order extends Model
      * Cộng giảm giá KÈM lưu vết nguồn (bopcamping-3ag) — dòng amount 0 bị loại.
      * Bất biến: sum(discount_breakdown.amount) === discount_total.
      *
-     * @param  array<int, array{source: string, amount: int, code?: string}>  $lines
+     * @param  array<int, array{source: string, amount: int, code?: string, percent?: bool}>  $lines
      */
     public function applyDiscountLines(array $lines): void
     {

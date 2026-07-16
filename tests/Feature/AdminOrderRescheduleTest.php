@@ -102,6 +102,42 @@ class AdminOrderRescheduleTest extends TestCase
     }
 
     /** @test */
+    public function scales_percent_discount_but_keeps_fixed_discount_when_rescheduling(): void
+    {
+        Mail::fake();
+        // Đơn 2 ngày, subtotal 200k. Giảm: voucher % (10% = 20k) + voucher tiền cố định 50k.
+        $order = $this->makeOrder(['discount_total' => 70000]);
+        $order->update(['discount_breakdown' => [
+            ['source' => 'voucher', 'code' => 'PCT10', 'amount' => 20000, 'percent' => true],
+            ['source' => 'voucher', 'code' => 'FIX50', 'amount' => 50000, 'percent' => false],
+        ]]);
+
+        // 2 ngày → 3 ngày: subtotal 200k → 300k.
+        $this->patchDates($order, '2030-07-10', '2030-07-12')->assertSessionHas('success');
+
+        $order->refresh();
+        $this->assertSame(300000, $order->total_price);
+        // % giảm theo ngày mới (10% của 300k = 30k); tiền cố định giữ nguyên 50k.
+        $this->assertSame(80000, $order->discount_total);
+        $this->assertSame(30000, $order->discount_breakdown[0]['amount']);
+        $this->assertSame(50000, $order->discount_breakdown[1]['amount']);
+        // Bất biến: sum(breakdown.amount) === discount_total
+        $this->assertSame(80000, array_sum(array_column($order->discount_breakdown, 'amount')));
+    }
+
+    /** @test */
+    public function keeps_discount_frozen_for_legacy_orders_without_breakdown(): void
+    {
+        Mail::fake();
+        // Đơn cũ (trước bopcamping-3ag): có discount_total nhưng breakdown null → giữ nguyên.
+        $order = $this->makeOrder(['discount_total' => 30000, 'discount_breakdown' => null]);
+
+        $this->patchDates($order, '2030-07-10', '2030-07-12')->assertSessionHas('success');
+
+        $this->assertSame(30000, $order->fresh()->discount_total);
+    }
+
+    /** @test */
     public function rejects_orders_already_renting_or_finished(): void
     {
         foreach (['renting', 'returned', 'cancelled'] as $status) {
