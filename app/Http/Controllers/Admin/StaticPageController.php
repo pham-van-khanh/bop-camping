@@ -16,8 +16,9 @@ class StaticPageController extends Controller
 {
     public function index(): Response
     {
-        // Đảm bảo trang giới thiệu luôn tồn tại (prod không cần chạy seeder).
-        StaticPage::about();
+        // Đảm bảo trang giới thiệu + các trang chính sách luôn tồn tại
+        // (prod không cần chạy seeder).
+        StaticPage::provisionAll();
 
         return Inertia::render('Admin/StaticPages', [
             'pages' => StaticPage::orderBy('id')->get()->map(fn (StaticPage $p) => [

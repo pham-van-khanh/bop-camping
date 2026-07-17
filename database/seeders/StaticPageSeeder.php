@@ -9,6 +9,6 @@ class StaticPageSeeder extends Seeder
 {
     public function run(): void
     {
-        StaticPage::about();
+        StaticPage::provisionAll();
     }
 }

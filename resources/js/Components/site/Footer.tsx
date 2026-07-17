@@ -73,6 +73,17 @@ export default function Footer() {
                 </div>
 
                 <div>
+                    <div className="mb-3 text-[11px] font-bold uppercase tracking-[0.05em] text-[#a3ad92]">Chính sách</div>
+                    <div className="flex flex-col gap-[9px] text-[14px] text-moss">
+                        <Link href="/chinh-sach-bao-mat" className="hover:text-grass">Chính sách bảo mật</Link>
+                        <Link href="/dieu-khoan-su-dung" className="hover:text-grass">Điều khoản sử dụng</Link>
+                        <Link href="/chinh-sach-thanh-toan" className="hover:text-grass">Chính sách thanh toán</Link>
+                        <Link href="/chinh-sach-giao-nhan" className="hover:text-grass">Chính sách giao nhận</Link>
+                        <Link href="/chinh-sach-doi-tra" className="hover:text-grass">Chính sách hủy / đổi / trả</Link>
+                    </div>
+                </div>
+
+                <div>
                     <div className="mb-3 text-[11px] font-bold uppercase tracking-[0.05em] text-[#a3ad92]">Liên hệ Zalo</div>
                     <div className="flex flex-col gap-[9px] text-[14px] text-moss">
                         {[site?.zalo_1, site?.zalo_2].filter((z) => z?.url).map((z, i) => (

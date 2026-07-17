@@ -46,13 +46,47 @@ class StaticPageTest extends TestCase
     /** @test */
     public function admin_pages_index_renders(): void
     {
+        // provisionAll(): 1 giới thiệu + 5 trang chính sách
+        $expected = 1 + count(StaticPage::POLICIES);
+
         $this->actingAs($this->admin())
             ->get('/admin/pages')
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
                 ->component('Admin/StaticPages')
-                ->has('pages', 1)
+                ->has('pages', $expected)
             );
+    }
+
+    /** @test */
+    public function policy_helper_creates_default_once(): void
+    {
+        $first = StaticPage::policy('chinh-sach-bao-mat');
+        $second = StaticPage::policy('chinh-sach-bao-mat');
+
+        $this->assertSame($first->id, $second->id);
+        $this->assertSame(1, StaticPage::count());
+        $this->assertStringContainsString('bảo vệ thông tin cá nhân', (string) $first->content);
+    }
+
+    /** @test */
+    public function all_policy_pages_render_publicly(): void
+    {
+        foreach (StaticPage::POLICIES as $slug => $title) {
+            $this->get('/'.$slug)
+                ->assertOk()
+                ->assertInertia(fn (Assert $page) => $page
+                    ->component('Policy')
+                    ->where('page.title', StaticPage::policyDefaults($slug)['title'])
+                    ->has('page.content')
+                );
+        }
+    }
+
+    /** @test */
+    public function unknown_policy_slug_returns_404(): void
+    {
+        $this->get('/chinh-sach-khong-ton-tai')->assertNotFound();
     }
 
     /** @test */
