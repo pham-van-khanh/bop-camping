@@ -34,6 +34,7 @@ use App\Http\Controllers\Shop\ReviewController;
 use App\Http\Controllers\Shop\ReviewInviteController;
 use App\Http\Controllers\Shop\SitemapController;
 use App\Http\Controllers\Shop\StaticPageController;
+use App\Models\StaticPage;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -67,6 +68,12 @@ Route::post('/dat-hang', [OrderController::class, 'store'])->name('order.store')
 Route::get('/tra-cuu', [OrderLookupController::class, 'index'])->name('lookup');
 // Trang giới thiệu — nội dung sửa trong admin "Trang nội dung" (Epic 4)
 Route::get('/gioi-thieu', [StaticPageController::class, 'about'])->name('about');
+// Trang chính sách — DRY: mỗi slug 1 route top-level, cùng controller policy()
+foreach (array_keys(StaticPage::POLICIES) as $policySlug) {
+    Route::get('/'.$policySlug, [StaticPageController::class, 'policy'])
+        ->defaults('slug', $policySlug)
+        ->name('policy.'.$policySlug);
+}
 // Góp ý trải nghiệm website — widget nổi mọi trang (Epic 2), throttle chống spam
 Route::post('/gop-y', [FeedbackController::class, 'store'])->name('feedback.store')->middleware('throttle:5,1');
 // Đánh giá sau chuyến đi qua link token (không cần đăng nhập)

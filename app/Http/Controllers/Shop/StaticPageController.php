@@ -37,4 +37,30 @@ class StaticPageController extends Controller
             ),
         ]);
     }
+
+    /** Trang chính sách (slug lấy từ route defaults). */
+    public function policy(string $slug): Response
+    {
+        abort_unless(array_key_exists($slug, StaticPage::POLICIES), 404);
+
+        $page = StaticPage::policy($slug);
+        $cover = $page->cover_path ? Storage::disk('media')->url($page->cover_path) : null;
+
+        return Inertia::render('Policy', [
+            'page' => [
+                'title' => $page->title,
+                'cover_url' => $cover,
+                'content' => $page->content,
+            ],
+            'seo' => $this->seo->page(
+                $page->title.' | BỐP CAMPING',
+                $page->content,
+                $cover,
+                jsonld: $this->seo->breadcrumb([
+                    ['Trang chủ', url('/')],
+                    [StaticPage::POLICIES[$slug], url('/'.$slug)],
+                ]),
+            ),
+        ]);
+    }
 }
