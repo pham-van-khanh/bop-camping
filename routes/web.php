@@ -140,6 +140,8 @@ Route::middleware(['admin'])->prefix('admin')->name('admin.')->group(function ()
     // Khuyến mãi: cấu hình + voucher + giới thiệu
     Route::get('/promotion', [AdminPromotionController::class, 'index'])->name('promotion');
     Route::put('/promotion', [AdminPromotionController::class, 'update'])->name('promotion.update');
+    // Bậc giảm giá thuê dài ngày — sync toàn bảng (bopcamping-e36e).
+    Route::put('/promotion/duration-tiers', [AdminPromotionController::class, 'updateDurationTiers'])->name('promotion.duration-tiers');
 
     Route::get('/vouchers', [AdminVoucherController::class, 'index'])->name('vouchers');
     Route::post('/vouchers', [AdminVoucherController::class, 'store'])->name('vouchers.store')->middleware('throttle:30,1');

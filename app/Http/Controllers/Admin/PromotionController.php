@@ -3,11 +3,13 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\DurationDiscountTier;
 use App\Models\PromotionSetting;
 use App\Models\Referral;
 use App\Models\Voucher;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -17,6 +19,14 @@ class PromotionController extends Controller
     {
         return Inertia::render('Admin/Promotion', [
             'settings' => PromotionSetting::current(),
+            // Bậc giảm giá thuê dài ngày (bopcamping-e36e) — hiển thị theo min_days tăng dần.
+            'duration_tiers' => DurationDiscountTier::orderBy('min_days')->get()
+                ->map(fn ($t) => [
+                    'id' => $t->id,
+                    'min_days' => (int) $t->min_days,
+                    'discount_percent' => (float) $t->discount_percent,
+                    'is_active' => (bool) $t->is_active,
+                ]),
             'stats' => [
                 'referrals_this_month' => Referral::where('status', 'converted')
                     ->whereBetween('converted_at', [now()->startOfMonth(), now()->endOfMonth()])->count(),
@@ -73,5 +83,36 @@ class PromotionController extends Controller
         PromotionSetting::current()->update($data);
 
         return back()->with('success', 'Đã lưu cấu hình khuyến mãi.');
+    }
+
+    /**
+     * Lưu bậc giảm giá thuê dài ngày (bopcamping-e36e) — sync TOÀN BẢNG theo payload:
+     * xoá hết rồi ghi lại. min_days phải duy nhất trong payload; % trong [0,100].
+     */
+    public function updateDurationTiers(Request $request): RedirectResponse
+    {
+        $data = $request->validate([
+            'tiers' => ['present', 'array'],
+            'tiers.*.min_days' => ['required', 'integer', 'min:1', 'distinct'],
+            'tiers.*.discount_percent' => ['required', 'numeric', 'min:0', 'max:100'],
+            'tiers.*.is_active' => ['required', 'boolean'],
+        ], [
+            'tiers.*.min_days.distinct' => 'Các mốc ngày không được trùng nhau.',
+            'tiers.*.min_days.required' => 'Nhập số ngày tối thiểu.',
+            'tiers.*.discount_percent.max' => 'Phần trăm giảm tối đa là 100.',
+        ]);
+
+        DB::transaction(function () use ($data) {
+            DurationDiscountTier::query()->delete();
+            foreach ($data['tiers'] as $tier) {
+                DurationDiscountTier::create([
+                    'min_days' => (int) $tier['min_days'],
+                    'discount_percent' => (float) $tier['discount_percent'],
+                    'is_active' => (bool) $tier['is_active'],
+                ]);
+            }
+        });
+
+        return back()->with('success', 'Đã lưu bậc giảm giá thuê dài ngày.');
     }
 }
