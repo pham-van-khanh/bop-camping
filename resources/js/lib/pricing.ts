@@ -18,8 +18,3 @@ export function netFromGross(gross: number, days: number, tiers: DurationTier[])
     const percent = durationTierPercent(days, tiers);
     return Math.round(gross * (1 - percent / 100));
 }
-
-/** Tiện ích: tính net từ đơn giá/ngày × qty × ngày. */
-export function netSubtotal(perDay: number, qty: number, days: number, tiers: DurationTier[]): number {
-    return netFromGross(perDay * qty * days, days, tiers);
-}
