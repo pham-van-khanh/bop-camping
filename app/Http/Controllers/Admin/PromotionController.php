@@ -92,7 +92,7 @@ class PromotionController extends Controller
     public function updateDurationTiers(Request $request): RedirectResponse
     {
         $data = $request->validate([
-            'tiers' => ['present', 'array'],
+            'tiers' => ['present', 'array', 'max:50'], // chặn payload mảng khổng lồ (CWE-770)
             'tiers.*.min_days' => ['required', 'integer', 'min:1', 'distinct'],
             'tiers.*.discount_percent' => ['required', 'numeric', 'min:0', 'max:100'],
             'tiers.*.is_active' => ['required', 'boolean'],
