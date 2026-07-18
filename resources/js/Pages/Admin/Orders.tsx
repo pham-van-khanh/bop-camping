@@ -13,6 +13,8 @@ type OrderItem = {
     price_per_day: number;
     days: number;
     subtotal: number;
+    // % giảm thuê dài ngày đã áp cho dòng (bopcamping-e36e); 0 = không giảm.
+    duration_discount_percent: number;
     // bopcamping-d7l: items thuộc combo mang uuid nhóm + giá phân bổ (AC-3)
     combo_group_uuid: string | null;
     combo_name: string | null;
@@ -297,7 +299,15 @@ export default function AdminOrders({
                                                                                         <tr key={g.key} className="border-t border-[#eef2e3]">
                                                                                             <td className="px-3 py-2 text-ink">{g.items[0].name}<div className="text-[11px] text-moss">{money(g.items[0].price_per_day)}/ngày</div></td>
                                                                                             <td className="px-3 py-2 text-center text-moss">{g.items[0].quantity} × {g.items[0].days}</td>
-                                                                                            <td className="px-3 py-2 text-right font-mono font-bold text-ink">{money(g.items[0].subtotal)}</td>
+                                                                                            <td className="px-3 py-2 text-right">
+                                                                                                <div className="font-mono font-bold text-ink">{money(g.items[0].subtotal)}</div>
+                                                                                                {g.items[0].duration_discount_percent > 0 && (
+                                                                                                    <div className="text-[10.5px]">
+                                                                                                        <span className="font-mono text-[#8a967a] line-through">{money(g.items[0].price_per_day * g.items[0].quantity * g.items[0].days)}</span>
+                                                                                                        <span className="ml-1 font-bold text-[#3a5a1f]">−{g.items[0].duration_discount_percent}% thuê dài ngày</span>
+                                                                                                    </div>
+                                                                                                )}
+                                                                                            </td>
                                                                                         </tr>
                                                                                     ) : (
                                                                                         /* bopcamping-d7l: khối combo — header + các món con với giá phân bổ */
@@ -308,7 +318,15 @@ export default function AdminOrders({
                                                                                                     <span className="font-bold text-pine">{g.combo}</span>
                                                                                                     <div className="mt-0.5 text-[11px] text-moss">{g.items.length} món · tổng giá phân bổ = giá combo</div>
                                                                                                 </td>
-                                                                                                <td className="px-3 py-2 text-right font-mono font-bold text-pine">{money(g.items.reduce((s, it) => s + it.subtotal, 0))}</td>
+                                                                                                <td className="px-3 py-2 text-right">
+                                                                                                    <div className="font-mono font-bold text-pine">{money(g.items.reduce((s, it) => s + it.subtotal, 0))}</div>
+                                                                                                    {g.items[0].duration_discount_percent > 0 && (
+                                                                                                        <div className="text-[10.5px]">
+                                                                                                            <span className="font-mono text-[#8a967a] line-through">{money(g.items.reduce((s, it) => s + (it.allocated_price ?? it.price_per_day) * it.days, 0))}</span>
+                                                                                                            <span className="ml-1 font-bold text-[#3a5a1f]">−{g.items[0].duration_discount_percent}% thuê dài ngày</span>
+                                                                                                        </div>
+                                                                                                    )}
+                                                                                                </td>
                                                                                             </tr>
                                                                                             {g.items.map((item, i) => (
                                                                                                 <tr key={i} className="border-t border-[#f3f7ec]">
@@ -333,7 +351,21 @@ export default function AdminOrders({
                                                                     <div>
                                                                         <div className="mb-2 text-[12px] font-bold uppercase tracking-[0.04em] text-grass">Thanh toán</div>
                                                                         <div className="rounded-[10px] border border-[#eef2e3] bg-white p-3 text-[12.5px]">
-                                                                            <DetailRow label="Tiền thuê" value={money(order.total_price)} mono />
+                                                                            {(() => {
+                                                                                // Tiền thuê hiện là NET (đã trừ giảm thuê dài ngày). Nếu có giảm → hiện giá gốc + số đã giảm.
+                                                                                const grossRental = order.items.reduce((s, it) => s + (it.combo_group_uuid ? (it.allocated_price ?? it.price_per_day) : it.price_per_day * it.quantity) * it.days, 0);
+                                                                                const durSaved = grossRental - order.total_price;
+                                                                                return (
+                                                                                    <div className="flex items-start justify-between gap-3 py-0.5">
+                                                                                        <span className="shrink-0 text-moss">Tiền thuê</span>
+                                                                                        <span className="text-right">
+                                                                                            {durSaved > 0 && <span className="mr-1.5 font-mono text-[11px] text-[#8a967a] line-through">{money(grossRental)}</span>}
+                                                                                            <span className="font-mono text-ink">{money(order.total_price)}</span>
+                                                                                            {durSaved > 0 && <div className="text-[10.5px] text-[#3a5a1f]">đã giảm thuê dài ngày −{money(durSaved)}</div>}
+                                                                                        </span>
+                                                                                    </div>
+                                                                                );
+                                                                            })()}
                                                                             {order.discount_total > 0 && <DetailRow label="Giảm giá" value={`−${money(order.discount_total)}`} mono accent="#3a5a1f" />}
                                                                             <DetailRow label="Tiền cọc" value={money(order.deposit_total)} mono />
                                                                             <div className="mt-1 flex items-center justify-between border-t border-[#eef2e3] pt-2">
