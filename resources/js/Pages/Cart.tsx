@@ -65,7 +65,7 @@ type Props = PageProps<{
 }>;
 
 export default function Cart() {
-    const { auth, flash, availableVouchers, referralRef, firstOrderEligible, promo, emailBonus } = usePage<Props>().props;
+    const { auth, flash, availableVouchers, referralRef, firstOrderEligible, promo, emailBonus, durationTiers } = usePage<Props>().props;
     const user = auth.user;
     const promoOn = !!user && promo.enabled;
 
@@ -279,7 +279,7 @@ export default function Cart() {
         emit(EVENTS.toast, `Đã thêm ${suggestion.missing.map((m) => m.name).join(', ')} vào giỏ`);
     };
 
-    const totals = cartTotals(lines);
+    const totals = cartTotals(lines, durationTiers);
 
     const toggleVoucher = (code: string) => {
         setSelectedCodes((prev) => {
@@ -512,7 +512,7 @@ export default function Cart() {
                                             <button onClick={() => setQty(i, it.qty + 1)} className="h-8 w-[30px] bg-[#f1f4ea] text-[16px] text-grass">+</button>
                                         </div>
                                         <div className="text-right">
-                                            <div className="font-mono text-[15px] font-bold text-ink">{money(lineRent(it))}</div>
+                                            <div className="font-mono text-[15px] font-bold text-ink">{money(lineRent(it, durationTiers))}</div>
                                             <div className="font-mono text-[11px] text-campfire">cọc {money(lineDeposit(it))}</div>
                                         </div>
                                     </div>

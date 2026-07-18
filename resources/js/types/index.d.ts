@@ -55,6 +55,7 @@ export type PageProps<
     flash: Flash;
     referral: Referral | null;
     emailBonus: EmailBonus;
+    durationTiers: { minDays: number; percent: number }[];
     site: SiteInfo;
     pending_reviews?: number | null;
     pending_orders?: number | null;

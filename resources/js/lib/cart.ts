@@ -2,6 +2,7 @@
 // để Header cập nhật badge và trang Giỏ vẽ lại.
 import { dayCount } from './format';
 import { emit, EVENTS } from './bus';
+import { netFromGross, type DurationTier } from './pricing';
 
 export type CartLocation = { slug: string; name: string };
 
@@ -86,7 +87,12 @@ export function setCart(lines: CartLine[]) {
 }
 
 export const lineDays = (l: CartLine) => dayCount(l.start, l.end);
-export const lineRent = (l: CartLine) => l.price * l.qty * lineDays(l);
+// Rent NET sau giảm giá thuê dài ngày (bopcamping-e36e) — mirror server RentalPricingService.
+// tiers rỗng (mặc định) → net = gross (giữ hành vi cũ khi caller chưa truyền bậc).
+export const lineRent = (l: CartLine, tiers: DurationTier[] = []) => {
+    const days = lineDays(l);
+    return netFromGross(l.price * l.qty * days, days, tiers);
+};
 export const lineDeposit = (l: CartLine) => l.deposit * l.qty;
 
 export function cartCount(lines = getCart()) {
@@ -135,8 +141,8 @@ export function cartHasLocationConflict(lines = getCart()): boolean {
     return cartCommonLocations(lines).length === 0;
 }
 
-export function cartTotals(lines = getCart()) {
-    const rent = lines.reduce((s, l) => s + lineRent(l), 0);
+export function cartTotals(lines = getCart(), tiers: DurationTier[] = []) {
+    const rent = lines.reduce((s, l) => s + lineRent(l, tiers), 0);
     const deposit = lines.reduce((s, l) => s + lineDeposit(l), 0);
     return { rent, deposit, pay: rent + deposit };
 }
