@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\DurationDiscountTier;
 use App\Models\Feedback;
 use App\Models\Order;
 use App\Models\PromotionSetting;
@@ -67,6 +68,11 @@ class HandleInertiaRequests extends Middleware
             'referral' => fn () => $this->sharedReferral($request),
             // Ưu đãi khuyến khích thêm email (đơn đầu) — LoginModal hiện % lấy từ đây, KHÔNG hardcode.
             'emailBonus' => fn () => $this->sharedEmailBonus(),
+            // Bậc giảm giá thuê dài ngày (bopcamping-e36e) — client hiển thị + tính giá net theo
+            // đúng nguồn cấu hình admin (KHÔNG hardcode %). Sort min_days giảm dần (bậc cao trước).
+            'durationTiers' => fn () => DurationDiscountTier::activeDescending()
+                ->map(fn ($t) => ['minDays' => (int) $t->min_days, 'percent' => (float) $t->discount_percent])
+                ->values(),
             // Số đánh giá chờ duyệt — badge sidebar admin (chỉ tính cho admin).
             'pending_reviews' => fn () => $request->user()?->is_admin
                 ? Review::where('status', 'pending')->count()

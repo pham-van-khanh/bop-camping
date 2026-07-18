@@ -15,6 +15,7 @@ use App\Services\ComboPricingService;
 use App\Services\Promotion\EmailBonusService;
 use App\Services\Promotion\VoucherService;
 use App\Services\Referral\ReferralService;
+use App\Services\RentalPricingService;
 use App\Services\StoreResolver;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -33,6 +34,7 @@ class OrderController extends Controller
         private VoucherService $vouchers,
         private EmailBonusService $emailBonus,
         private StoreResolver $storeResolver,
+        private RentalPricingService $pricing,
     ) {}
 
     /**
@@ -172,17 +174,19 @@ class OrderController extends Controller
             foreach ($itemLines as $item) {
                 $product = $products->get($item['product_id']);
                 $days = Carbon::parse($item['start'])->diffInDays(Carbon::parse($item['end'])) + 1;
-                $subtotal = $product->price_per_day * $item['quantity'] * $days;
+                // Giá net sau bậc giảm dài ngày (RentalPricingService — nguồn chân lý).
+                $line = $this->pricing->priceLine((int) $product->price_per_day, (int) $item['quantity'], $days);
 
                 $order->items()->create([
                     'product_id' => $product->id,
                     'quantity' => $item['quantity'],
                     'price_per_day' => $product->price_per_day,
                     'days' => $days,
-                    'subtotal' => $subtotal,
+                    'subtotal' => $line['net'],
+                    'duration_discount_percent' => $line['percent'],
                 ]);
 
-                $totalPrice += $subtotal;
+                $totalPrice += $line['net'];
                 $depositTotal += ($product->deposit ?? 0) * $item['quantity'];
             }
 
@@ -194,10 +198,17 @@ class OrderController extends Controller
                 $days = Carbon::parse($line['start'])->diffInDays(Carbon::parse($line['end'])) + 1;
                 $allocation = $this->comboPricing->allocate($combo);
 
+                // Bậc giảm dài ngày áp ĐỒNG NHẤT lên combo theo số ngày; tổng đơn = Σ net dòng
+                // (penny-exact, không round riêng combo_price) — allocated_price đã cộng đúng combo_price.
+                $comboPercent = $this->pricing->tierPercentForDays($days);
+
                 for ($instance = 0; $instance < $line['quantity']; $instance++) {
                     $groupUuid = (string) Str::uuid();
 
                     foreach ($allocation as $alloc) {
+                        // allocated_price đã gồm quantity → coi như 1 dòng (qty=1) trong priceLine.
+                        $lineNet = $this->pricing->priceLine((int) $alloc['allocated_price'], 1, $days)['net'];
+
                         $order->items()->create([
                             'product_id' => $alloc['product_id'],
                             'combo_id' => $combo->id,
@@ -205,13 +216,15 @@ class OrderController extends Controller
                             'quantity' => $alloc['quantity'],
                             'price_per_day' => $alloc['price_per_day'], // snapshot giá lẻ để đối chiếu
                             'days' => $days,
-                            'subtotal' => $alloc['allocated_price'] * $days,
+                            'subtotal' => $lineNet,
+                            'duration_discount_percent' => $comboPercent,
                             'allocated_price' => $alloc['allocated_price'],
                             'allocated_deposit' => $alloc['allocated_deposit'],
                         ]);
+
+                        $totalPrice += $lineNet;
                     }
 
-                    $totalPrice += (int) $combo->combo_price * $days;
                     $depositTotal += (int) ($combo->deposit ?? 0);
                 }
             }

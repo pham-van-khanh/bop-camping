@@ -7,6 +7,7 @@ import ProductCard from '@/Components/site/ProductCard';
 import { COMBO_GRAD } from '@/Components/site/ComboCard';
 import ProductReviews, { type ReviewItem, type ReviewSummary } from '@/Components/site/ProductReviews';
 import { dayCount, ddmm, fromISO, money, rangeText, toISO } from '@/lib/format';
+import { durationTierPercent, netFromGross } from '@/lib/pricing';
 import { addLine, clearCart, locationConflict, type CartLine, type CartLocation } from '@/lib/cart';
 import { emit, EVENTS } from '@/lib/bus';
 import { gradFor } from '@/lib/grad';
@@ -54,7 +55,7 @@ interface Props {
 }
 
 export default function ProductDetail({ product, unavailable_dates, unavailable_by_location, accessories, combo_banner, reviews, review_summary, can_review, related_products, stock_by_location }: Props) {
-    const { auth } = usePage<PageProps>().props;
+    const { auth, durationTiers } = usePage<PageProps>().props;
     const [activeImg, setActiveImg] = useState(0);
     const [lightboxOpen, setLightboxOpen] = useState(false);
     const [start, setStart] = useState<string | null>(null);
@@ -191,7 +192,10 @@ export default function ProductDetail({ product, unavailable_dates, unavailable_
         : maxStoreQty;
     const qtyCap    = Math.max(1, remaining);
     const canAdd    = !!start && !!end && !checking && remaining >= qty && qty >= 1;
-    const subtotal  = product.price_per_day * qty * days;
+    // Giảm giá thuê dài ngày (bopcamping-e36e) — net theo bậc admin cấu hình (mirror server).
+    const grossSub  = product.price_per_day * qty * days;
+    const tierPct   = durationTierPercent(days, durationTiers);
+    const subtotal  = netFromGross(grossSub, days, durationTiers);
     const subDeposit = product.deposit * qty;
     const lowStock  = product.quantity <= 2;
     const locations = product.locations ?? [];
@@ -650,10 +654,36 @@ export default function ProductDetail({ product, unavailable_dates, unavailable_
                                 )
                             )}
 
+                            {/* Bậc giảm giá thuê dài ngày (bopcamping-e36e) — thuê càng lâu càng rẻ. */}
+                            {durationTiers.length > 0 && (
+                                <div className="mt-3 rounded-[10px] border border-[#e3e8d6] bg-[#f7faf0] px-3 py-2">
+                                    <div className="mb-1 text-[12px] font-semibold text-pine">🏕️ Thuê dài ngày càng giảm</div>
+                                    <div className="flex flex-wrap gap-x-3 gap-y-1 text-[12px]">
+                                        {durationTiers.map((t) => {
+                                            const on = tierPct === t.percent && days >= t.minDays;
+                                            return (
+                                                <span key={t.minDays} className={on ? 'font-bold text-grass' : 'text-moss'}>
+                                                    ≥{t.minDays} ngày −{t.percent}%{on ? ' ✓' : ''}
+                                                </span>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
+
                             <div className="mt-3.5 flex items-center justify-between gap-3">
                                 <div>
                                     <div className="text-[12px] text-[#8a967a]">Tạm tính {days > 0 ? `(${days} ngày)` : ''}</div>
-                                    <div className="font-mono text-[20px] font-bold text-grass">{money(subtotal)}</div>
+                                    {/* Giá đã giảm nổi bật; giá gốc gạch ngang xuống DÒNG DƯỚI cho gọn (góp ý chủ shop). */}
+                                    <div className="flex items-baseline gap-2">
+                                        <span className="font-mono text-[20px] font-bold text-grass">{money(subtotal)}</span>
+                                        {tierPct > 0 && days > 0 && (
+                                            <span className="rounded-full bg-[#dcebc4] px-2 py-0.5 text-[11px] font-bold text-[#3a5a1f]">−{tierPct}%</span>
+                                        )}
+                                    </div>
+                                    {tierPct > 0 && days > 0 && (
+                                        <div className="font-mono text-[12px] text-[#8a967a] line-through">{money(grossSub)}</div>
+                                    )}
                                     <div className="font-mono text-[11px] text-campfire">+ cọc {money(subDeposit)}</div>
                                 </div>
                                 <button

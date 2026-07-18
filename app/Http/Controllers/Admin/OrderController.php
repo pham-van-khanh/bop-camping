@@ -9,6 +9,7 @@ use App\Models\Product;
 use App\Models\PromotionSetting;
 use App\Models\ServiceLocation;
 use App\Services\AvailabilityService;
+use App\Services\RentalPricingService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -21,7 +22,10 @@ class OrderController extends Controller
 {
     private const VALID_STATUSES = ['pending', 'confirmed', 'renting', 'returned', 'cancelled'];
 
-    public function __construct(private AvailabilityService $availability) {}
+    public function __construct(
+        private AvailabilityService $availability,
+        private RentalPricingService $pricing,
+    ) {}
 
     public function index(Request $request): Response
     {
@@ -67,6 +71,8 @@ class OrderController extends Controller
                 'price_per_day' => (int) $i->price_per_day,
                 'days' => $i->days,
                 'subtotal' => $i->subtotal,
+                // % giảm thuê dài ngày đã snapshot (bopcamping-e36e) — admin thấy đã giảm bao nhiêu.
+                'duration_discount_percent' => (float) $i->duration_discount_percent,
                 // bopcamping-d7l: FE nhóm items combo thành 1 khối theo group uuid (AC-3)
                 'combo_group_uuid' => $i->combo_group_uuid,
                 'combo_name' => $i->combo_id ? ($i->combo?->name ?? 'Combo (đã xoá)') : null,
@@ -199,13 +205,20 @@ class OrderController extends Controller
         $newDays = (int) $start->diffInDays($end) + 1;
 
         DB::transaction(function () use ($order, $start, $end, $oldStart, $oldDays, $newDays) {
-            // Tính lại tiền tuyến tính theo ngày — đúng cho cả dòng lẻ lẫn dòng combo
-            // (subtotal nào cũng = đơn giá/ngày × ngày). allocated_* / cọc giữ nguyên.
+            // Tính lại giá theo số ngày MỚI qua RentalPricingService (nguồn chân lý) — bậc giảm
+            // dài ngày được tái xác định theo newDays (KHÔNG scale tuyến tính, vì % bậc đổi theo
+            // ngày). Combo dùng allocated_price (đã gồm qty); lẻ dùng price_per_day × qty.
             $newTotal = 0;
             foreach ($order->items as $item) {
-                $newSubtotal = (int) round($item->subtotal * $newDays / max(1, $oldDays));
-                $item->update(['days' => $newDays, 'subtotal' => $newSubtotal]);
-                $newTotal += $newSubtotal;
+                $line = $item->combo_id
+                    ? $this->pricing->priceLine((int) $item->allocated_price, 1, $newDays)
+                    : $this->pricing->priceLine((int) $item->price_per_day, (int) $item->quantity, $newDays);
+                $item->update([
+                    'days' => $newDays,
+                    'subtotal' => $line['net'],
+                    'duration_discount_percent' => $line['percent'],
+                ]);
+                $newTotal += $line['net'];
             }
 
             // Giảm giá theo tổng thuê mới: dòng % scale theo ngày, dòng tiền cố định giữ nguyên,

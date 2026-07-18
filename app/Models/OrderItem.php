@@ -16,6 +16,7 @@ class OrderItem extends Model
         'price_per_day',
         'days',
         'subtotal',
+        'duration_discount_percent',
         'allocated_price',
         'allocated_deposit',
     ];
@@ -25,6 +26,7 @@ class OrderItem extends Model
         'price_per_day' => 'integer',
         'days' => 'integer',
         'subtotal' => 'integer',
+        'duration_discount_percent' => 'decimal:2',
         'allocated_price' => 'integer',
         'allocated_deposit' => 'integer',
     ];
