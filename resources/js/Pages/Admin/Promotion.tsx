@@ -1,4 +1,4 @@
-import { Head, useForm, usePage } from '@inertiajs/react';
+import { Head, router, useForm, usePage } from '@inertiajs/react';
 import { ReactNode, useEffect, useState } from 'react';
 import AdminLayout from '@/Layouts/AdminLayout';
 import SelectInput from '@/Components/admin/SelectInput';
@@ -25,8 +25,11 @@ type Settings = {
     email_bonus_discount_value: number | string;
 };
 
+type DurationTierRow = { min_days: number | string; discount_percent: number | string; is_active: boolean };
+
 type Props = PageProps<{
     settings: Settings;
+    duration_tiers: DurationTierRow[];
     stats: {
         referrals_this_month: number;
         vouchers_active: number;
@@ -43,7 +46,7 @@ const STATUS_OPTIONS = [
 ];
 
 export default function AdminPromotion() {
-    const { settings, stats, flash } = usePage<Props>().props;
+    const { settings, duration_tiers, stats, flash } = usePage<Props>().props;
     const [toast, setToast] = useState('');
     const { data, setData, put, processing, errors } = useForm<Settings>({ ...settings });
 
@@ -133,8 +136,70 @@ export default function AdminPromotion() {
                         </button>
                     </div>
                 </form>
+
+                <DurationTiers initial={duration_tiers} />
             </div>
         </>
+    );
+}
+
+// Bậc giảm giá thuê dài ngày (bopcamping-e36e) — form riêng, sync toàn bảng khi lưu.
+function DurationTiers({ initial }: { initial: DurationTierRow[] }) {
+    const [rows, setRows] = useState<DurationTierRow[]>(initial);
+    const [saving, setSaving] = useState(false);
+    const [err, setErr] = useState('');
+
+    const setRow = (i: number, patch: Partial<DurationTierRow>) =>
+        setRows((r) => r.map((row, j) => (j === i ? { ...row, ...patch } : row)));
+    const addRow = () => setRows((r) => [...r, { min_days: '', discount_percent: '', is_active: true }]);
+    const removeRow = (i: number) => setRows((r) => r.filter((_, j) => j !== i));
+
+    const save = () => {
+        setErr('');
+        const days = rows.map((r) => Number(r.min_days));
+        if (days.some((d) => !Number.isInteger(d) || d < 1)) return setErr('Số ngày tối thiểu phải là số nguyên ≥ 1.');
+        if (new Set(days).size !== days.length) return setErr('Các mốc ngày không được trùng nhau.');
+        if (rows.some((r) => Number(r.discount_percent) < 0 || Number(r.discount_percent) > 100)) return setErr('Phần trăm giảm phải trong khoảng 0–100.');
+        setSaving(true);
+        router.put(route('admin.promotion.duration-tiers'),
+            { tiers: rows.map((r) => ({ min_days: Number(r.min_days), discount_percent: Number(r.discount_percent), is_active: r.is_active })) },
+            { preserveScroll: true, onFinish: () => setSaving(false) });
+    };
+
+    return (
+        <div className="mt-6 rounded-[14px] border border-cardBorder bg-white p-5">
+            <h2 className="mb-1 text-[15px] font-bold text-pine">Giảm giá thuê dài ngày</h2>
+            <p className="mb-4 text-[13px] text-moss">Thuê càng nhiều ngày càng giảm — áp thẳng vào giá thuê (ngoài trần voucher). Bậc cao nhất khớp số ngày sẽ được dùng.</p>
+
+            {err && <div className="mb-3 rounded-[8px] bg-red-50 px-3 py-2 text-[13px] text-red-700">{err}</div>}
+
+            <div className="flex flex-col gap-2">
+                {rows.length === 0 && <div className="text-[13px] text-[#8a967a]">Chưa có bậc nào. Bấm “Thêm bậc”.</div>}
+                {rows.map((row, i) => (
+                    <div key={i} className="flex flex-wrap items-center gap-2">
+                        <span className="text-[13px] text-moss">Thuê từ</span>
+                        <input type="number" min={1} value={row.min_days} onChange={(e) => setRow(i, { min_days: e.target.value })}
+                            className="h-9 w-20 rounded-[8px] border border-cardBorder px-2 text-[14px]" />
+                        <span className="text-[13px] text-moss">ngày → giảm</span>
+                        <input type="number" min={0} max={100} value={row.discount_percent} onChange={(e) => setRow(i, { discount_percent: e.target.value })}
+                            className="h-9 w-20 rounded-[8px] border border-cardBorder px-2 text-[14px]" />
+                        <span className="text-[13px] text-moss">%</span>
+                        <label className="flex items-center gap-1.5 text-[13px] text-moss">
+                            <input type="checkbox" checked={row.is_active} onChange={(e) => setRow(i, { is_active: e.target.checked })} /> Bật
+                        </label>
+                        <button type="button" onClick={() => removeRow(i)} className="ml-auto rounded-[8px] border border-cardBorder px-2.5 py-1 text-[12.5px] text-[#b3493a] hover:border-[#b3493a]">Xoá</button>
+                    </div>
+                ))}
+            </div>
+
+            <div className="mt-4 flex gap-2">
+                <button type="button" onClick={addRow} className="h-10 rounded-control border border-cardBorder px-4 text-[14px] font-semibold text-pine hover:border-grass">+ Thêm bậc</button>
+                <button type="button" onClick={save} disabled={saving}
+                    className="h-10 rounded-control bg-grass px-5 text-[14px] font-bold text-white transition hover:bg-pine disabled:opacity-60">
+                    {saving ? 'Đang lưu…' : 'Lưu bậc giảm giá'}
+                </button>
+            </div>
+        </div>
     );
 }
 

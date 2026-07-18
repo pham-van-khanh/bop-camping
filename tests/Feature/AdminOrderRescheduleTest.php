@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Mail\OrderDatesChangedMail;
 use App\Models\Category;
+use App\Models\DurationDiscountTier;
 use App\Models\Order;
 use App\Models\Product;
 use App\Models\ServiceLocation;
@@ -168,6 +169,45 @@ class AdminOrderRescheduleTest extends TestCase
         $this->assertGreaterThanOrEqual(0, $order->discount_total);     // không âm (bug cũ: −80k)
         $this->assertLessThanOrEqual(150000, $order->discount_total);   // trần 25% của 600k
         $this->assertSame($order->discount_total, array_sum(array_column($order->discount_breakdown, 'amount')));
+    }
+
+    /** @test */
+    public function applies_duration_tier_on_new_days_not_linear_scale(): void
+    {
+        Mail::fake();
+        // Bậc: ≥5 ngày −20%, ≥10 ngày −30%.
+        DurationDiscountTier::create(['min_days' => 5, 'discount_percent' => 20, 'is_active' => true]);
+        DurationDiscountTier::create(['min_days' => 10, 'discount_percent' => 30, 'is_active' => true]);
+
+        // Đơn 2 ngày, 2 lều × 50k = 100k/ngày → 200k (chưa đạt bậc).
+        $order = $this->makeOrder(['discount_total' => 0, 'discount_breakdown' => null]);
+
+        // Kéo lên 10 ngày: gross 1.000.000, bậc −30% → 700.000 (KHÔNG phải linear 1.000.000).
+        $this->patchDates($order, '2030-07-10', '2030-07-19')->assertSessionHas('success');
+
+        $order->refresh();
+        $this->assertSame(10, $order->days);
+        $this->assertSame(700000, $order->total_price);
+        $this->assertSame(700000, (int) $order->items()->first()->subtotal);
+        $this->assertSame('30.00', (string) $order->items()->first()->duration_discount_percent);
+    }
+
+    /** @test */
+    public function drops_duration_tier_when_shortened_below_threshold(): void
+    {
+        Mail::fake();
+        DurationDiscountTier::create(['min_days' => 5, 'discount_percent' => 20, 'is_active' => true]);
+
+        // Đơn 7 ngày (đạt bậc −20%): 100k/ngày × 7 = 700k → net 560k.
+        $order = $this->makeOrder(['start_date' => '2030-07-01', 'end_date' => '2030-07-07', 'total_price' => 560000, 'discount_total' => 0, 'discount_breakdown' => null]);
+        $order->items()->update(['days' => 7, 'subtotal' => 560000, 'duration_discount_percent' => 20]);
+
+        // Rút xuống 3 ngày (< 5): mất bậc → 100k × 3 = 300k, %=0.
+        $this->patchDates($order, '2030-07-01', '2030-07-03')->assertSessionHas('success');
+
+        $order->refresh();
+        $this->assertSame(300000, $order->total_price);
+        $this->assertSame('0.00', (string) $order->items()->first()->duration_discount_percent);
     }
 
     /** @test */

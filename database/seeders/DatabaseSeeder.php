@@ -32,6 +32,7 @@ class DatabaseSeeder extends Seeder
             FaqSeeder::class,
             SiteSettingSeeder::class,
             StaticPageSeeder::class,
+            DurationDiscountTierSeeder::class,
         ]);
     }
 }
