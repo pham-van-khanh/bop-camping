@@ -182,6 +182,9 @@ class OrderController extends Controller
                     'quantity' => $item['quantity'],
                     'price_per_day' => $product->price_per_day,
                     'days' => $days,
+                    // Ngày RIÊNG từng món (bopcamping-u1nb) — tồn kho tính đúng theo khoảng món.
+                    'start_date' => $item['start'],
+                    'end_date' => $item['end'],
                     'subtotal' => $line['net'],
                     'duration_discount_percent' => $line['percent'],
                 ]);
@@ -216,6 +219,8 @@ class OrderController extends Controller
                             'quantity' => $alloc['quantity'],
                             'price_per_day' => $alloc['price_per_day'], // snapshot giá lẻ để đối chiếu
                             'days' => $days,
+                            'start_date' => $line['start'],
+                            'end_date' => $line['end'],
                             'subtotal' => $lineNet,
                             'duration_discount_percent' => $comboPercent,
                             'allocated_price' => $alloc['allocated_price'],

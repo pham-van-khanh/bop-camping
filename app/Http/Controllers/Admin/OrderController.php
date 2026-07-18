@@ -215,6 +215,9 @@ class OrderController extends Controller
                     : $this->pricing->priceLine((int) $item->price_per_day, (int) $item->quantity, $newDays);
                 $item->update([
                     'days' => $newDays,
+                    // Đổi lịch cấp ĐƠN → mọi món về cùng khoảng mới (bopcamping-u1nb).
+                    'start_date' => $start,
+                    'end_date' => $end,
                     'subtotal' => $line['net'],
                     'duration_discount_percent' => $line['percent'],
                 ]);
