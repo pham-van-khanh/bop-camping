@@ -674,14 +674,15 @@ export default function ProductDetail({ product, unavailable_dates, unavailable_
                             <div className="mt-3.5 flex items-center justify-between gap-3">
                                 <div>
                                     <div className="text-[12px] text-[#8a967a]">Tạm tính {days > 0 ? `(${days} ngày)` : ''}</div>
-                                    {tierPct > 0 && days > 0 ? (
-                                        <div className="flex items-baseline gap-2">
-                                            <span className="font-mono text-[13px] text-[#8a967a] line-through">{money(grossSub)}</span>
-                                            <span className="font-mono text-[20px] font-bold text-grass">{money(subtotal)}</span>
+                                    {/* Giá đã giảm nổi bật; giá gốc gạch ngang xuống DÒNG DƯỚI cho gọn (góp ý chủ shop). */}
+                                    <div className="flex items-baseline gap-2">
+                                        <span className="font-mono text-[20px] font-bold text-grass">{money(subtotal)}</span>
+                                        {tierPct > 0 && days > 0 && (
                                             <span className="rounded-full bg-[#dcebc4] px-2 py-0.5 text-[11px] font-bold text-[#3a5a1f]">−{tierPct}%</span>
-                                        </div>
-                                    ) : (
-                                        <div className="font-mono text-[20px] font-bold text-grass">{money(subtotal)}</div>
+                                        )}
+                                    </div>
+                                    {tierPct > 0 && days > 0 && (
+                                        <div className="font-mono text-[12px] text-[#8a967a] line-through">{money(grossSub)}</div>
                                     )}
                                     <div className="font-mono text-[11px] text-campfire">+ cọc {money(subDeposit)}</div>
                                 </div>

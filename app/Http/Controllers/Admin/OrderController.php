@@ -71,6 +71,8 @@ class OrderController extends Controller
                 'price_per_day' => (int) $i->price_per_day,
                 'days' => $i->days,
                 'subtotal' => $i->subtotal,
+                // % giảm thuê dài ngày đã snapshot (bopcamping-e36e) — admin thấy đã giảm bao nhiêu.
+                'duration_discount_percent' => (float) $i->duration_discount_percent,
                 // bopcamping-d7l: FE nhóm items combo thành 1 khối theo group uuid (AC-3)
                 'combo_group_uuid' => $i->combo_group_uuid,
                 'combo_name' => $i->combo_id ? ($i->combo?->name ?? 'Combo (đã xoá)') : null,
