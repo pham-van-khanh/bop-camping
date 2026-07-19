@@ -280,10 +280,22 @@ export default function AdminOrders({
                                                             </span>
                                                         </td>
                                                         <td className="px-4 py-3">
-                                                            <button onClick={(e) => { e.stopPropagation(); setOpenParents((m) => ({ ...m, [order.id]: !open })); }}
-                                                                className="rounded-[8px] border border-grass px-2.5 py-1 text-[11px] font-semibold text-grass transition hover:bg-grass hover:text-white">
-                                                                {open ? 'Thu gọn' : `Xem ${order.children?.length ?? 0} đợt`}
-                                                            </button>
+                                                            <div className="flex flex-wrap gap-1.5">
+                                                                <button onClick={(e) => { e.stopPropagation(); setOpenParents((m) => ({ ...m, [order.id]: !open })); }}
+                                                                    className="rounded-[8px] border border-grass px-2.5 py-1 text-[11px] font-semibold text-grass transition hover:bg-grass hover:text-white">
+                                                                    {open ? 'Thu gọn' : `Xem ${order.children?.length ?? 0} đợt`}
+                                                                </button>
+                                                                {/* Cha chỉ có thao tác HUỶ CẢ CỤM — vòng đời giao/thu nằm ở từng con (T7). */}
+                                                                {['pending', 'confirmed'].includes(order.status) && (
+                                                                    <button onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        if (window.confirm(`Huỷ CẢ ${order.children?.length ?? 0} đợt của đơn ${order.code}?`)) changeStatus(order, 'cancelled');
+                                                                    }}
+                                                                        className="rounded-[8px] border border-cardBorder px-2.5 py-1 text-[11px] font-semibold text-[#b3493a] transition hover:border-[#b3493a]">
+                                                                        Huỷ cả cụm
+                                                                    </button>
+                                                                )}
+                                                            </div>
                                                         </td>
                                                     </tr>
                                                 );

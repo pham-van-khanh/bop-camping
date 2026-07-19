@@ -158,9 +158,37 @@ class OrderController extends Controller
         ]);
 
         $location = ServiceLocation::findOrFail($data['service_location_id']);
+
+        // Đơn gộp: cả cụm dùng CHUNG 1 cơ sở — kiểm tồn từng CON theo khoảng của nó,
+        // đủ hết mới đổi cha + toàn bộ con (bopcamping-wtuv T7).
+        $targets = $order->is_parent
+            ? $order->children()->where('status', '!=', 'cancelled')->get()
+            : collect([$order]);
+
+        foreach ($targets as $target) {
+            if ($err = $this->locationShortage($target, $location)) {
+                return back()->withErrors(['location' => $err]);
+            }
+        }
+
+        DB::transaction(function () use ($order, $location) {
+            $order->update(['service_location_id' => $location->id, 'location_auto_assigned' => false]);
+            if ($order->is_parent) {
+                $order->children()->update(['service_location_id' => $location->id, 'location_auto_assigned' => false]);
+            }
+        });
+
+        return back()->with('success', "Đơn {$order->code} → cơ sở {$location->name}");
+    }
+
+    /**
+     * Kiểm store đích có đủ MỌI món của đơn trong khoảng ngày của đơn không.
+     * Loại chính đơn khỏi "đã đặt" (không tự chặn mình). Trả message lỗi hoặc null nếu đủ.
+     */
+    private function locationShortage(Order $order, ServiceLocation $location): ?string
+    {
         $order->loadMissing('items.product.serviceLocations');
 
-        // Nhu cầu mỗi món của đơn (gộp theo product) trong khoảng đơn.
         $needed = [];
         foreach ($order->items as $item) {
             if ($item->product) {
@@ -168,18 +196,15 @@ class OrderController extends Controller
             }
         }
 
-        // Kiểm store đích: loại chính đơn này khỏi "đã đặt" (không tự chặn mình, không over-credit).
         foreach ($needed as $productId => $qty) {
             $product = $order->items->firstWhere('product_id', $productId)->product;
             $avail = $this->availability->availableQuantity($product, $order->start_date, $order->end_date, $location, $order->id);
             if ($avail < $qty) {
-                return back()->withErrors(['location' => "\"{$product->name}\" tại {$location->name} không đủ ({$avail}/{$qty}) cho khoảng đơn."]);
+                return "\"{$product->name}\" tại {$location->name} không đủ ({$avail}/{$qty}) cho khoảng {$order->code}.";
             }
         }
 
-        $order->update(['service_location_id' => $location->id, 'location_auto_assigned' => false]);
-
-        return back()->with('success', "Đơn {$order->code} → cơ sở {$location->name}");
+        return null;
     }
 
     /**
@@ -190,6 +215,10 @@ class OrderController extends Controller
      */
     public function changeDates(Request $request, Order $order): RedirectResponse
     {
+        // Đơn cha không có món — đổi lịch trên TỪNG CON (mỗi con 1 khoảng ngày riêng).
+        if ($order->is_parent) {
+            return back()->withErrors(['dates' => 'Đơn gộp: đổi lịch trên từng đợt (đơn con).']);
+        }
         if (! in_array($order->status, ['pending', 'confirmed'], true)) {
             return back()->withErrors(['dates' => 'Chỉ đổi lịch đơn chưa giao (chờ xác nhận / đã xác nhận).']);
         }
@@ -261,6 +290,12 @@ class OrderController extends Controller
             ]);
         });
 
+        // Con của đơn gộp đổi lịch → tổng/envelope/voucher của CHA phải tính lại + phân bổ lại
+        // (voucher % scale theo tổng mới, cap tái áp) — bopcamping-wtuv T7.
+        if ($order->parent_id) {
+            $this->recomputeParentAfterChildChange($order->parent()->first());
+        }
+
         if ($email = $order->notifiableEmail()) {
             Mail::to($email)->send(new OrderDatesChangedMail($order->fresh()->loadMissing('items.product'), $oldStart, $oldEnd));
         }
@@ -318,6 +353,13 @@ class OrderController extends Controller
 
         $was = $order->status;
         $new = $validated['status'];
+
+        // Đơn cha chỉ gom đợt — vòng đời giao/thu nằm ở TỪNG CON (bopcamping-wtuv T7).
+        // Trên cha chỉ cho phép HUỶ CẢ CỤM; các trạng thái khác thao tác trên con.
+        if ($order->is_parent && $new !== 'cancelled') {
+            return back()->withErrors(['status' => 'Đơn gộp chỉ có thể Huỷ cả cụm — đổi trạng thái trên từng đợt (đơn con).']);
+        }
+
         $order->update(['status' => $new]);
 
         // Đơn cha/con (bopcamping-wtuv T4): huỷ cha → huỷ hết con; huỷ/khôi phục 1 con →
@@ -372,6 +414,11 @@ class OrderController extends Controller
             'deposit_total' => (int) $active->sum('deposit_total'),
             'discount_total' => $discountTotal,
             'discount_breakdown' => $lines ?: null,
+            // Envelope ngày của cha bám theo các con còn active (đổi lịch con / huỷ con).
+            ...($active->isNotEmpty() ? [
+                'start_date' => $active->min('start_date'),
+                'end_date' => $active->max('end_date'),
+            ] : []),
         ]);
 
         // Phân bổ lại xuống con active ∝ tiền thuê (dồn dư con cuối); con huỷ → 0.
@@ -399,6 +446,9 @@ class OrderController extends Controller
      */
     public function updatePayment(Request $request, Order $order): RedirectResponse
     {
+        if ($order->is_parent) {
+            return back()->withErrors(['payment_status' => 'Đơn gộp: đánh dấu chuyển tiền trên từng đợt (đơn con).']);
+        }
         if ($order->status === 'returned') {
             return back()->withErrors(['payment_status' => 'Đơn đã trả — không đổi tình trạng chuyển tiền nữa.']);
         }
@@ -418,6 +468,9 @@ class OrderController extends Controller
      */
     public function updateRefund(Request $request, Order $order): RedirectResponse
     {
+        if ($order->is_parent) {
+            return back()->withErrors(['deposit_refund_status' => 'Đơn gộp: hoàn cọc trên từng đợt (đơn con).']);
+        }
         if ($order->status !== 'returned') {
             return back()->withErrors(['deposit_refund_status' => 'Chỉ hoàn cọc cho đơn đã trả.']);
         }
