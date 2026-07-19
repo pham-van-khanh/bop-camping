@@ -42,13 +42,14 @@ class PerItemDatesCheckoutTest extends TestCase
             ],
         ])->assertSessionHas('order_code');
 
-        $order = Order::latest('id')->with('items')->first();
-        // Đơn giữ envelope, món giữ ngày riêng.
-        $this->assertSame('2030-07-01', $order->start_date->format('Y-m-d'));
-        $this->assertSame('2030-07-04', $order->end_date->format('Y-m-d'));
-        $itemA = $order->items->firstWhere('product_id', $this->a->id);
-        $this->assertSame('2030-07-01', $itemA->start_date->format('Y-m-d'));
-        $this->assertSame('2030-07-02', $itemA->end_date->format('Y-m-d'));
+        // 2 khoảng khác nhau → tách cha + 2 con (bopcamping-wtuv). Con A giữ ngày riêng.
+        $parent = Order::where('is_parent', true)->with('children.items')->firstOrFail();
+        $this->assertSame('2030-07-01', $parent->start_date->format('Y-m-d')); // envelope
+        $this->assertSame('2030-07-04', $parent->end_date->format('Y-m-d'));
+        $childA = $parent->children->first(fn ($c) => $c->items->contains('product_id', $this->a->id));
+        $this->assertSame('2030-07-01', $childA->start_date->format('Y-m-d'));
+        $this->assertSame('2030-07-02', $childA->end_date->format('Y-m-d'));
+        $this->assertSame('2030-07-02', $childA->items->firstWhere('product_id', $this->a->id)->end_date->format('Y-m-d'));
 
         $svc = new AvailabilityService;
         // A chỉ thuê 01→02 → 03→04 phải CÒN (bug cũ: bị khoá theo envelope 01→04).
@@ -74,6 +75,7 @@ class PerItemDatesCheckoutTest extends TestCase
             'items' => [['product_id' => $this->a->id, 'quantity' => 1, 'start' => '2030-08-10', 'end' => '2030-08-11']],
         ])->assertSessionHas('order_code')->assertSessionHasNoErrors();
 
-        $this->assertSame(2, Order::count());
+        // Đơn 1 tách cha+2 con; đơn 2 là đơn thường → 2 đơn top-level.
+        $this->assertSame(2, Order::topLevel()->count());
     }
 }

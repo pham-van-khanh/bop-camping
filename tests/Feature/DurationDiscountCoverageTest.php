@@ -76,15 +76,19 @@ class DurationDiscountCoverageTest extends TestCase
             ],
         ])->assertSessionHas('order_code');
 
-        $order = Order::latest('id')->with('items')->first();
-        $tentLine = $order->items->firstWhere('product_id', $this->tent->id);
-        $bagLine = $order->items->firstWhere('product_id', $this->bag->id);
+        // 2 khoảng ngày khác nhau → tách đơn cha + 2 con (bopcamping-wtuv). Mỗi con ăn bậc
+        // theo số ngày RIÊNG của khoảng đó.
+        $parent = Order::whereNull('parent_id')->where('is_parent', true)->latest('id')->with('children.items')->first();
+        $this->assertNotNull($parent);
+        $this->assertSame(2, $parent->children->count());
+        $this->assertSame(790000, (int) $parent->total_price);
 
-        $this->assertSame(700000, (int) $tentLine->subtotal);   // 100k×10 −30%
-        $this->assertSame('30.00', (string) $tentLine->duration_discount_percent);
-        $this->assertSame(90000, (int) $bagLine->subtotal);     // 30k×3, không giảm
-        $this->assertSame('0.00', (string) $bagLine->duration_discount_percent);
-        $this->assertSame(790000, (int) $order->total_price);
+        $tentChild = $parent->children->first(fn ($c) => $c->items->contains('product_id', $this->tent->id));
+        $bagChild = $parent->children->first(fn ($c) => $c->items->contains('product_id', $this->bag->id));
+        $this->assertSame(700000, (int) $tentChild->items->firstWhere('product_id', $this->tent->id)->subtotal);   // 100k×10 −30%
+        $this->assertSame('30.00', (string) $tentChild->items->firstWhere('product_id', $this->tent->id)->duration_discount_percent);
+        $this->assertSame(90000, (int) $bagChild->items->firstWhere('product_id', $this->bag->id)->subtotal);      // 30k×3, không giảm
+        $this->assertSame('0.00', (string) $bagChild->items->firstWhere('product_id', $this->bag->id)->duration_discount_percent);
     }
 
     /** @test */
