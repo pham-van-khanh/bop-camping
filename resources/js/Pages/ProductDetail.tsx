@@ -8,7 +8,7 @@ import { COMBO_GRAD } from '@/Components/site/ComboCard';
 import ProductReviews, { type ReviewItem, type ReviewSummary } from '@/Components/site/ProductReviews';
 import { dayCount, ddmm, fromISO, money, rangeText, toISO } from '@/lib/format';
 import { durationTierPercent, netFromGross } from '@/lib/pricing';
-import { addLine, clearCart, locationConflict, type CartLine, type CartLocation } from '@/lib/cart';
+import { addLine, cartSuggestedRange, clearCart, locationConflict, type CartLine, type CartLocation } from '@/lib/cart';
 import { emit, EVENTS } from '@/lib/bus';
 import { gradFor } from '@/lib/grad';
 import type { PageProps } from '@/types';
@@ -58,8 +58,15 @@ export default function ProductDetail({ product, unavailable_dates, unavailable_
     const { auth, durationTiers } = usePage<PageProps>().props;
     const [activeImg, setActiveImg] = useState(0);
     const [lightboxOpen, setLightboxOpen] = useState(false);
-    const [start, setStart] = useState<string | null>(null);
-    const [end, setEnd] = useState<string | null>(null);
+    // Prefill ngày từ giỏ (bopcamping-wtuv T5): giỏ đã có khoảng ngày → sản phẩm mở sau tự
+    // chọn khoảng đó (khách vẫn đổi được — đổi = cố ý tách đợt, checkout sẽ tách đơn con).
+    // Bỏ qua khoảng đã ở quá khứ (giỏ cũ để lâu).
+    const suggested = useMemo(() => {
+        const r = cartSuggestedRange();
+        return r && r.start >= toISO(new Date()) ? r : null;
+    }, []);
+    const [start, setStart] = useState<string | null>(suggested?.start ?? null);
+    const [end, setEnd] = useState<string | null>(suggested?.end ?? null);
     // 1.7: lịch mặc định thu gọn — bấm ô "Chọn ngày thuê" mới sổ ra.
     const [calOpen, setCalOpen] = useState(false);
     const [qty, setQty] = useState(1);

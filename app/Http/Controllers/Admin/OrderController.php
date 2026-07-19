@@ -30,14 +30,22 @@ class OrderController extends Controller
     public function index(Request $request): Response
     {
         $status = $request->query('status', 'all');
+        $q = trim((string) $request->query('q', ''));
 
-        $query = Order::with(['items.product', 'items.combo', 'vouchers', 'referralUse.referrer', 'serviceLocation'])->latest();
+        // Đơn cha/con (bopcamping-wtuv T6): danh sách chỉ TOP-LEVEL (đơn thường + cha, ẩn con);
+        // con nạp kèm trong cha. Search theo mã đơn (cả mã con)/tên/SĐT.
+        $relations = ['items.product', 'items.combo', 'vouchers', 'referralUse.referrer', 'serviceLocation'];
+        $query = Order::topLevel()->with(array_merge($relations, array_map(fn ($r) => "children.$r", $relations)))->latest();
 
-        if ($status !== 'all') {
-            $query->where('status', $status);
+        if ($q !== '') {
+            $query->where(fn ($w) => $w
+                ->where('code', 'like', "%{$q}%")
+                ->orWhere('customer_name', 'like', "%{$q}%")
+                ->orWhere('customer_phone', 'like', "%{$q}%")
+                ->orWhereHas('children', fn ($c) => $c->where('code', 'like', "%{$q}%")));
         }
 
-        $orders = $query->get()->map(fn ($o) => [
+        $mapOrder = fn ($o) => [
             'id' => $o->id,
             'code' => $o->code,
             'customer_name' => $o->customer_name,
@@ -88,18 +96,35 @@ class OrderController extends Controller
                 'referrer_name' => $o->referralUse->referrer?->name,
                 'status' => $o->referralUse->status,
             ] : null,
-        ]);
-
-        // Thống kê
-        $all = Order::selectRaw('status, count(*) as cnt')->groupBy('status')->pluck('cnt', 'status');
-        $stats = [
-            'total' => Order::count(),
-            'pending' => $all['pending'] ?? 0,
-            'confirmed' => $all['confirmed'] ?? 0,
-            'renting' => $all['renting'] ?? 0,
-            'returned' => $all['returned'] ?? 0,
-            'cancelled' => $all['cancelled'] ?? 0,
+            'is_parent' => (bool) $o->is_parent,
         ];
+
+        // Cha: trạng thái hiển thị suy từ con; kèm mảng children (map cùng shape để FE tái dùng UI).
+        $orders = $query->get()->map(function ($o) use ($mapOrder) {
+            $row = $mapOrder($o);
+            if ($o->is_parent) {
+                $row['status'] = $o->aggregateStatus();
+                $row['children'] = $o->children->map($mapOrder)->values();
+            }
+
+            return $row;
+        });
+
+        // Thống kê theo TOP-LEVEL (đơn cha đếm 1, trạng thái suy từ con — không đếm trùng con).
+        $byStatus = $orders->countBy('status');
+        $stats = [
+            'total' => $orders->count(),
+            'pending' => $byStatus['pending'] ?? 0,
+            'confirmed' => $byStatus['confirmed'] ?? 0,
+            'renting' => $byStatus['renting'] ?? 0,
+            'returned' => $byStatus['returned'] ?? 0,
+            'cancelled' => $byStatus['cancelled'] ?? 0,
+        ];
+
+        // Lọc trạng thái SAU khi suy trạng thái cha (in-collection — list không phân trang).
+        if ($status !== 'all') {
+            $orders = $orders->filter(fn ($row) => $row['status'] === $status)->values();
+        }
 
         // Tồn kho
         $inventory = Product::with('category')->orderBy('name')->get()->map(fn ($p) => [
@@ -116,7 +141,7 @@ class OrderController extends Controller
             'inventory' => $inventory,
             // Per-store: cửa hàng đang mở để admin đổi store cho đơn
             'service_locations' => ServiceLocation::open()->ordered()->get()->map(fn ($l) => ['id' => $l->id, 'name' => $l->name]),
-            'filters' => ['status' => $status],
+            'filters' => ['status' => $status, 'q' => $q],
             // Trần % giảm giá tối đa/đơn — preview đổi lịch dùng để kẹp giống server (bopcamping-lmk6).
             'max_discount_percent' => (float) PromotionSetting::current()->max_discount_percent_per_order,
         ]);
