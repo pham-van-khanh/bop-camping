@@ -6,35 +6,30 @@ use App\Http\Controllers\Controller;
 use App\Mail\NewOrderAdminMail;
 use App\Mail\OrderPlacedMail;
 use App\Models\Combo;
-use App\Models\Order;
 use App\Models\Product;
 use App\Models\PromotionSetting;
 use App\Models\User;
 use App\Services\AvailabilityService;
-use App\Services\ComboPricingService;
+use App\Services\OrderSplitter;
 use App\Services\Promotion\EmailBonusService;
 use App\Services\Promotion\VoucherService;
 use App\Services\Referral\ReferralService;
-use App\Services\RentalPricingService;
 use App\Services\StoreResolver;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
-use Illuminate\Support\Str;
 
 class OrderController extends Controller
 {
     public function __construct(
         private AvailabilityService $availability,
-        private ComboPricingService $comboPricing,
         private ReferralService $referrals,
         private VoucherService $vouchers,
         private EmailBonusService $emailBonus,
         private StoreResolver $storeResolver,
-        private RentalPricingService $pricing,
+        private OrderSplitter $splitter,
     ) {}
 
     /**
@@ -137,108 +132,29 @@ class OrderController extends Controller
             return back()->withErrors(['items' => $e->getMessage()])->withInput();
         }
 
-        // Tạo đơn trong transaction
-        $order = DB::transaction(function () use ($validated, $itemLines, $comboLines, $products, $combos, $resolved) {
-            $starts = array_merge(array_column($itemLines, 'start'), array_column($comboLines, 'start'));
-            $ends = array_merge(array_column($itemLines, 'end'), array_column($comboLines, 'end'));
-            $startDate = Carbon::parse(min($starts));
-            $endDate = Carbon::parse(max($ends));
+        // Email xác nhận: ưu tiên email khách nhập ở checkout; bỏ trống thì lấy email tài khoản (bỏ tạm .local).
+        $customerEmail = $validated['email'] ?? null;
+        if (! $customerEmail) {
+            $user = Auth::user();
+            $customerEmail = ($user && ! str_ends_with($user->email, '@bopcamping.local')) ? $user->email : null;
+        }
 
-            // Email gửi xác nhận: ưu tiên email khách nhập ở checkout (khách vãng lai cũng
-            // nhận được mail); bỏ trống thì lấy từ tài khoản đăng nhập (bỏ email tạm .local).
-            $customerEmail = $validated['email'] ?? null;
-            if (! $customerEmail) {
-                $user = Auth::user();
-                $customerEmail = ($user && ! str_ends_with($user->email, '@bopcamping.local')) ? $user->email : null;
-            }
+        $base = [
+            'user_id' => Auth::id(),
+            'service_location_id' => $resolved['location']?->id,
+            'location_auto_assigned' => $resolved['auto'],
+            'customer_name' => $validated['name'],
+            'customer_phone' => $validated['phone'],
+            'customer_email' => $customerEmail,
+            'customer_address' => $validated['address'] ?? null,
+            'note' => $validated['note'] ?? null,
+        ];
 
-            $order = Order::create([
-                'user_id' => Auth::id(),
-                // Per-store: cửa hàng thuê (khách chọn hoặc hệ thống tự gán) + cờ đánh dấu tự gán.
-                'service_location_id' => $resolved['location']?->id,
-                'location_auto_assigned' => $resolved['auto'],
-                'customer_name' => $validated['name'],
-                'customer_phone' => $validated['phone'],
-                'customer_email' => $customerEmail,
-                'customer_address' => $validated['address'] ?? null,
-                'note' => $validated['note'] ?? null,
-                'start_date' => $startDate,
-                'end_date' => $endDate,
-                'status' => 'pending',
-                'payment_method' => 'cod',
-            ]);
+        // Tách đơn theo khoảng ngày (bopcamping-wtuv): 1 khoảng → đơn thường; ≥2 → cha + con.
+        $order = DB::transaction(fn () => $this->splitter->create($base, $itemLines, $comboLines, $productsById, $combos));
 
-            $totalPrice = 0;
-            $depositTotal = 0;
-
-            foreach ($itemLines as $item) {
-                $product = $products->get($item['product_id']);
-                $days = Carbon::parse($item['start'])->diffInDays(Carbon::parse($item['end'])) + 1;
-                // Giá net sau bậc giảm dài ngày (RentalPricingService — nguồn chân lý).
-                $line = $this->pricing->priceLine((int) $product->price_per_day, (int) $item['quantity'], $days);
-
-                $order->items()->create([
-                    'product_id' => $product->id,
-                    'quantity' => $item['quantity'],
-                    'price_per_day' => $product->price_per_day,
-                    'days' => $days,
-                    'subtotal' => $line['net'],
-                    'duration_discount_percent' => $line['percent'],
-                ]);
-
-                $totalPrice += $line['net'];
-                $depositTotal += ($product->deposit ?? 0) * $item['quantity'];
-            }
-
-            // Bung combo thành order_items per-product (PRD combo 5.3). Mỗi combo-instance
-            // = 1 combo_group_uuid riêng (1 đơn có thể chứa 2 combo giống nhau); giá/cọc
-            // phân bổ snapshot qua ComboPricingService — tổng khớp từng đồng (AC-3).
-            foreach ($comboLines as $line) {
-                $combo = $combos->get($line['combo_id']);
-                $days = Carbon::parse($line['start'])->diffInDays(Carbon::parse($line['end'])) + 1;
-                $allocation = $this->comboPricing->allocate($combo);
-
-                // Bậc giảm dài ngày áp ĐỒNG NHẤT lên combo theo số ngày; tổng đơn = Σ net dòng
-                // (penny-exact, không round riêng combo_price) — allocated_price đã cộng đúng combo_price.
-                $comboPercent = $this->pricing->tierPercentForDays($days);
-
-                for ($instance = 0; $instance < $line['quantity']; $instance++) {
-                    $groupUuid = (string) Str::uuid();
-
-                    foreach ($allocation as $alloc) {
-                        // allocated_price đã gồm quantity → coi như 1 dòng (qty=1) trong priceLine.
-                        $lineNet = $this->pricing->priceLine((int) $alloc['allocated_price'], 1, $days)['net'];
-
-                        $order->items()->create([
-                            'product_id' => $alloc['product_id'],
-                            'combo_id' => $combo->id,
-                            'combo_group_uuid' => $groupUuid,
-                            'quantity' => $alloc['quantity'],
-                            'price_per_day' => $alloc['price_per_day'], // snapshot giá lẻ để đối chiếu
-                            'days' => $days,
-                            'subtotal' => $lineNet,
-                            'duration_discount_percent' => $comboPercent,
-                            'allocated_price' => $alloc['allocated_price'],
-                            'allocated_deposit' => $alloc['allocated_deposit'],
-                        ]);
-
-                        $totalPrice += $lineNet;
-                    }
-
-                    $depositTotal += (int) ($combo->deposit ?? 0);
-                }
-            }
-
-            $order->update([
-                'total_price' => $totalPrice,
-                'deposit_total' => $depositTotal,
-            ]);
-
-            return $order;
-        });
-
-        // Khuyến mãi (chỉ cho khách đã đăng nhập) — referee giảm đơn đầu + voucher.
-        if ($order->user_id) {
+        // Khuyến mãi — chỉ cho khách đăng nhập VÀ đơn thường (đơn cha: voucher xử lý ở T3 bopcamping-wtuv).
+        if ($order->user_id && ! $order->is_parent) {
             $settings = PromotionSetting::current();
 
             // (1) Mã giới thiệu cho đơn đầu của referee.
@@ -269,16 +185,16 @@ class OrderController extends Controller
             }
         }
 
-        // Mail đều là ShouldQueue → đẩy vào queue (worker gửi nền), checkout không treo vì SMTP.
-        // Mail xác nhận đặt đơn — gửi tới email khách nhập ở checkout (chưa verify, khách
-        // vãng lai cũng nhận) hoặc email tài khoản; notifiableEmail() chỉ lọc email tạm .local.
-        if ($email = $order->notifiableEmail()) {
-            Mail::to($email)->send(new OrderPlacedMail($order));
-        }
-
-        // Báo QTV có đơn mới (tới email các tài khoản admin đã đặt email thật).
-        if ($admins = User::adminNotifyEmails()) {
-            Mail::to($admins)->send(new NewOrderAdminMail($order));
+        // Mail đều là ShouldQueue → gửi nền qua queue. Đơn cha không có món → gửi theo từng CON
+        // (mỗi con là 1 đơn hợp lệ có món). Gộp 1 mail cấp cha là bopcamping-wtuv T9.
+        $mailables = $order->is_parent ? $order->children()->get()->all() : [$order];
+        foreach ($mailables as $mailOrder) {
+            if ($email = $mailOrder->notifiableEmail()) {
+                Mail::to($email)->send(new OrderPlacedMail($mailOrder));
+            }
+            if ($admins = User::adminNotifyEmails()) {
+                Mail::to($admins)->send(new NewOrderAdminMail($mailOrder));
+            }
         }
 
         return back()->with([
