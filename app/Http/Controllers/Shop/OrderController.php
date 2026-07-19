@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Mail\NewOrderAdminMail;
 use App\Mail\OrderPlacedMail;
 use App\Models\Combo;
+use App\Models\Order;
 use App\Models\Product;
 use App\Models\PromotionSetting;
 use App\Models\User;
@@ -153,35 +154,21 @@ class OrderController extends Controller
         // Tách đơn theo khoảng ngày (bopcamping-wtuv): 1 khoảng → đơn thường; ≥2 → cha + con.
         $order = DB::transaction(fn () => $this->splitter->create($base, $itemLines, $comboLines, $productsById, $combos));
 
-        // Khuyến mãi — chỉ cho khách đăng nhập VÀ đơn thường (đơn cha: voucher xử lý ở T3 bopcamping-wtuv).
-        if ($order->user_id && ! $order->is_parent) {
+        // Khuyến mãi (chỉ khách đăng nhập). Đơn cha (bopcamping-wtuv T3): áp trên TỔNG cha
+        // rồi PHÂN BỔ xuống con ∝ tiền thuê; đơn thường: áp trực tiếp như cũ.
+        if ($order->user_id) {
             $settings = PromotionSetting::current();
+            $referralCode = $validated['referral_code'] ?? null;
+            $voucherCodes = $validated['voucher_codes'] ?? [];
 
-            // (1) Mã giới thiệu cho đơn đầu của referee.
-            $this->referrals->applyRefereeFirstOrderDiscount(
-                $order,
-                $validated['referral_code'] ?? null,
-                $settings,
-            );
-            $order->refresh();
-
-            // (1.5) Ưu đãi thêm email cho đơn đầu (khuyến khích khách bổ sung email — email không bắt buộc).
-            $this->emailBonus->applyFirstOrderDiscount($order, $settings);
-            $order->refresh();
-
-            // (2) Voucher (stacking + trần) áp lên phần còn lại.
-            $this->vouchers->apply($order, $validated['voucher_codes'] ?? [], $settings);
-            $order->refresh();
-
-            // (3) VAN AN TOÀN tổng thể: tổng giảm không vượt trần % giá trị đơn.
-            $cap = (int) floor((int) $order->total_price * (float) $settings->max_discount_percent_per_order / 100);
-            $clamped = min((int) $order->discount_total, $cap, (int) $order->total_price);
-            if ($clamped !== (int) $order->discount_total) {
-                // Ghi dòng điều chỉnh ÂM để sum(breakdown) luôn khớp discount_total (bopcamping-3ag).
-                // percent=true: trần là % giá trị đơn → scale theo ngày khi đổi lịch (bopcamping-lmk6).
-                $order->applyDiscountLines([
-                    ['source' => 'cap', 'amount' => $clamped - (int) $order->discount_total, 'percent' => true],
-                ]);
+            if ($order->is_parent) {
+                $order->loadMissing('children.items');
+                // Voucher không giảm phần combo — gộp combo subtotal của các con (đơn cha không có món).
+                $comboPart = (int) $order->children->flatMap(fn ($c) => $c->items)->whereNotNull('combo_id')->sum('subtotal');
+                $this->applyPromotions($order, $referralCode, $voucherCodes, $settings, $comboPart);
+                $this->allocateDiscountToChildren($order->fresh());
+            } else {
+                $this->applyPromotions($order, $referralCode, $voucherCodes, $settings);
             }
         }
 
@@ -205,5 +192,60 @@ class OrderController extends Controller
             'order_discount' => $order->discount_total,
             'order_items' => count($itemLines) + count($comboLines),
         ]);
+    }
+
+    /**
+     * Áp khuyến mãi lên 1 đơn (referee + email bonus + voucher) + van an toàn trần %.
+     * $comboPart: phần combo không được voucher giảm (đơn cha truyền gộp từ con).
+     */
+    private function applyPromotions(Order $order, ?string $referralCode, array $voucherCodes, PromotionSetting $settings, ?int $comboPart = null): void
+    {
+        $this->referrals->applyRefereeFirstOrderDiscount($order, $referralCode, $settings);
+        $order->refresh();
+
+        $this->emailBonus->applyFirstOrderDiscount($order, $settings);
+        $order->refresh();
+
+        $this->vouchers->apply($order, $voucherCodes, $settings, $comboPart);
+        $order->refresh();
+
+        // Van an toàn: tổng giảm không vượt trần % giá trị đơn / không vượt tổng thuê.
+        $cap = (int) floor((int) $order->total_price * (float) $settings->max_discount_percent_per_order / 100);
+        $clamped = min((int) $order->discount_total, $cap, (int) $order->total_price);
+        if ($clamped !== (int) $order->discount_total) {
+            $order->applyDiscountLines([
+                ['source' => 'cap', 'amount' => $clamped - (int) $order->discount_total, 'percent' => true],
+            ]);
+        }
+    }
+
+    /**
+     * Phân bổ giảm giá của đơn CHA xuống các con ∝ tiền thuê con (bopcamping-wtuv T3).
+     * Dồn phần dư vào con cuối để Σ discount con === discount cha. COD thu theo từng con.
+     */
+    private function allocateDiscountToChildren(Order $parent): void
+    {
+        $discount = (int) $parent->discount_total;
+        $children = $parent->children()->get();
+        $totalRental = (int) $children->sum('total_price');
+
+        if ($children->isEmpty()) {
+            return;
+        }
+
+        $allocated = 0;
+        $last = $children->count() - 1;
+        foreach ($children->values() as $i => $child) {
+            $share = ($discount <= 0 || $totalRental <= 0)
+                ? 0
+                : ($i === $last ? $discount - $allocated : (int) floor($discount * (int) $child->total_price / $totalRental));
+            $allocated += $share;
+            $child->update([
+                'discount_total' => $share,
+                'discount_breakdown' => $share > 0
+                    ? [['source' => 'parent_alloc', 'amount' => $share, 'percent' => true]]
+                    : null,
+            ]);
+        }
     }
 }
