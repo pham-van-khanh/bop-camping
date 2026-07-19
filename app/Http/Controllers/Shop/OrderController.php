@@ -172,16 +172,13 @@ class OrderController extends Controller
             }
         }
 
-        // Mail đều là ShouldQueue → gửi nền qua queue. Đơn cha không có món → gửi theo từng CON
-        // (mỗi con là 1 đơn hợp lệ có món). Gộp 1 mail cấp cha là bopcamping-wtuv T9.
-        $mailables = $order->is_parent ? $order->children()->get()->all() : [$order];
-        foreach ($mailables as $mailOrder) {
-            if ($email = $mailOrder->notifiableEmail()) {
-                Mail::to($email)->send(new OrderPlacedMail($mailOrder));
-            }
-            if ($admins = User::adminNotifyEmails()) {
-                Mail::to($admins)->send(new NewOrderAdminMail($mailOrder));
-            }
+        // Mail đều là ShouldQueue → gửi nền qua queue. Đơn gộp: 1 email cấp CHA liệt kê
+        // từng đợt giao (bopcamping-wtuv T9); đơn thường: mail như cũ.
+        if ($email = $order->notifiableEmail()) {
+            Mail::to($email)->send(new OrderPlacedMail($order));
+        }
+        if ($admins = User::adminNotifyEmails()) {
+            Mail::to($admins)->send(new NewOrderAdminMail($order));
         }
 
         return back()->with([
