@@ -294,9 +294,80 @@ class OrderController extends Controller
             'status' => ['required', 'in:'.implode(',', self::VALID_STATUSES)],
         ]);
 
-        $order->update(['status' => $validated['status']]);
+        $was = $order->status;
+        $new = $validated['status'];
+        $order->update(['status' => $new]);
 
-        return back()->with('success', "Đơn {$order->code} → {$validated['status']}");
+        // Đơn cha/con (bopcamping-wtuv T4): huỷ cha → huỷ hết con; huỷ/khôi phục 1 con →
+        // tính lại voucher + phân bổ trên các con CÒN active.
+        if ($order->is_parent && $new === 'cancelled') {
+            $order->children()->update(['status' => 'cancelled']);
+        } elseif ($order->parent_id && ($new === 'cancelled' || $was === 'cancelled')) {
+            $this->recomputeParentAfterChildChange($order->parent);
+        }
+
+        return back()->with('success', "Đơn {$order->code} → {$new}");
+    }
+
+    /**
+     * Sau khi 1 con huỷ/khôi phục (bopcamping-wtuv T4): tính lại tổng + voucher của cha trên
+     * các con CÒN active rồi phân bổ lại. Voucher % scale theo tổng mới, tiền cố định giữ,
+     * áp lại trần % (van an toàn). Bất biến: Σ discount con active === discount cha.
+     */
+    private function recomputeParentAfterChildChange(?Order $parent): void
+    {
+        if (! $parent) {
+            return;
+        }
+        $parent->loadMissing('children');
+        $active = $parent->children->reject(fn (Order $c) => $c->status === 'cancelled')->values();
+        $newTotal = (int) $active->sum('total_price');
+        $oldTotal = (int) $parent->total_price;
+
+        $maxPercent = (float) PromotionSetting::current()->max_discount_percent_per_order;
+        $cap = (int) floor($newTotal * $maxPercent / 100);
+
+        // Tính lại discount cha: bỏ dòng cap cũ, scale dòng % theo tổng mới, giữ dòng cố định, kẹp.
+        $breakdown = $parent->discount_breakdown ?? [];
+        $lines = [];
+        foreach ($breakdown as $line) {
+            if (($line['source'] ?? null) === 'cap') {
+                continue;
+            }
+            if (! empty($line['percent'])) {
+                $line['amount'] = $oldTotal > 0 ? (int) round((int) $line['amount'] * $newTotal / $oldTotal) : 0;
+            }
+            $lines[] = $line;
+        }
+        $preCap = (int) array_sum(array_column($lines, 'amount'));
+        $discountTotal = max(0, min($preCap, $cap, $newTotal));
+        if ($lines && $discountTotal !== $preCap) {
+            $lines[] = ['source' => 'cap', 'amount' => $discountTotal - $preCap, 'percent' => true];
+        }
+
+        $parent->update([
+            'total_price' => $newTotal,
+            'deposit_total' => (int) $active->sum('deposit_total'),
+            'discount_total' => $discountTotal,
+            'discount_breakdown' => $lines ?: null,
+        ]);
+
+        // Phân bổ lại xuống con active ∝ tiền thuê (dồn dư con cuối); con huỷ → 0.
+        $allocated = 0;
+        $last = $active->count() - 1;
+        foreach ($active as $i => $child) {
+            $share = ($discountTotal <= 0 || $newTotal <= 0)
+                ? 0
+                : ($i === $last ? $discountTotal - $allocated : (int) floor($discountTotal * (int) $child->total_price / $newTotal));
+            $allocated += $share;
+            $child->update([
+                'discount_total' => $share,
+                'discount_breakdown' => $share > 0 ? [['source' => 'parent_alloc', 'amount' => $share, 'percent' => true]] : null,
+            ]);
+        }
+        foreach ($parent->children->where('status', 'cancelled') as $c) {
+            $c->update(['discount_total' => 0, 'discount_breakdown' => null]);
+        }
     }
 
     /**
