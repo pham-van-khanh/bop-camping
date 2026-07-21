@@ -421,19 +421,8 @@ class OrderController extends Controller
             ] : []),
         ]);
 
-        // Phân bổ lại xuống con active ∝ tiền thuê (dồn dư con cuối); con huỷ → 0.
-        $allocated = 0;
-        $last = $active->count() - 1;
-        foreach ($active as $i => $child) {
-            $share = ($discountTotal <= 0 || $newTotal <= 0)
-                ? 0
-                : ($i === $last ? $discountTotal - $allocated : (int) floor($discountTotal * (int) $child->total_price / $newTotal));
-            $allocated += $share;
-            $child->update([
-                'discount_total' => $share,
-                'discount_breakdown' => $share > 0 ? [['source' => 'parent_alloc', 'amount' => $share, 'percent' => true]] : null,
-            ]);
-        }
+        // Phân bổ lại xuống con active ∝ tiền thuê (nguồn chung ở Order model); con huỷ → 0.
+        $parent->allocateDiscountToChildren($active);
         foreach ($parent->children->where('status', 'cancelled') as $c) {
             $c->update(['discount_total' => 0, 'discount_breakdown' => null]);
         }
