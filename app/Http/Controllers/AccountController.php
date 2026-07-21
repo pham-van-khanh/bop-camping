@@ -39,7 +39,10 @@ class AccountController extends Controller
         $completedProductCount = (int) OrderItem::whereIn('order_id', $completedOrderIds)->sum('quantity');
 
         // (2) Đơn đã/đang thuê — mô tả đủ: combo vs thuê lẻ, tiền, ưu đãi đã áp, địa chỉ, đặt lại.
+        // Đơn gộp (bopcamping-wtuv T8): ẨN đơn CHA (container, không món) — khách thấy từng
+        // ĐỢT giao (đơn con, mã BOP-XXX-1/2) như đơn thường, mỗi đợt có trạng thái/tiền riêng.
         $orders = Order::whereIn('id', $relatedOrderIds)
+            ->where('is_parent', false)
             ->with(['items.product.category', 'items.product.serviceLocations', 'items.combo'])
             ->latest()
             ->limit(self::ORDER_HISTORY_LIMIT)

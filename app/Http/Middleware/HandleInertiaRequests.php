@@ -78,8 +78,10 @@ class HandleInertiaRequests extends Middleware
                 ? Review::where('status', 'pending')->count()
                 : null,
             // Số đơn mới (chờ xác nhận) — badge sidebar admin ở mục Đơn thuê.
+            // Loại đơn CHA (container, không thao tác trực tiếp) — đếm việc CẦN LÀM:
+            // đơn thường + từng đợt (con) đang chờ xác nhận (bopcamping-wtuv T8).
             'pending_orders' => fn () => $request->user()?->is_admin
-                ? Order::where('status', 'pending')->count()
+                ? Order::where('is_parent', false)->where('status', 'pending')->count()
                 : null,
             // Số góp ý chưa phản hồi — badge sidebar admin ở mục Góp ý (Epic 2).
             'pending_feedback' => fn () => $request->user()?->is_admin
