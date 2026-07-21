@@ -167,7 +167,9 @@ class OrderController extends Controller
                 // Voucher không giảm phần combo — gộp combo subtotal của các con (đơn cha không có món).
                 $comboPart = (int) $order->children->flatMap(fn ($c) => $c->items)->whereNotNull('combo_id')->sum('subtotal');
                 $this->applyPromotions($order, $referralCode, $voucherCodes, $settings, $comboPart);
-                $this->allocateDiscountToChildren($order->fresh());
+                // Phân bổ discount cha xuống con ∝ tiền thuê (nguồn chung ở Order model).
+                $parent = $order->fresh();
+                $parent->allocateDiscountToChildren($parent->children()->get());
             } else {
                 $this->applyPromotions($order, $referralCode, $voucherCodes, $settings);
             }
@@ -213,36 +215,6 @@ class OrderController extends Controller
         if ($clamped !== (int) $order->discount_total) {
             $order->applyDiscountLines([
                 ['source' => 'cap', 'amount' => $clamped - (int) $order->discount_total, 'percent' => true],
-            ]);
-        }
-    }
-
-    /**
-     * Phân bổ giảm giá của đơn CHA xuống các con ∝ tiền thuê con (bopcamping-wtuv T3).
-     * Dồn phần dư vào con cuối để Σ discount con === discount cha. COD thu theo từng con.
-     */
-    private function allocateDiscountToChildren(Order $parent): void
-    {
-        $discount = (int) $parent->discount_total;
-        $children = $parent->children()->get();
-        $totalRental = (int) $children->sum('total_price');
-
-        if ($children->isEmpty()) {
-            return;
-        }
-
-        $allocated = 0;
-        $last = $children->count() - 1;
-        foreach ($children->values() as $i => $child) {
-            $share = ($discount <= 0 || $totalRental <= 0)
-                ? 0
-                : ($i === $last ? $discount - $allocated : (int) floor($discount * (int) $child->total_price / $totalRental));
-            $allocated += $share;
-            $child->update([
-                'discount_total' => $share,
-                'discount_breakdown' => $share > 0
-                    ? [['source' => 'parent_alloc', 'amount' => $share, 'percent' => true]]
-                    : null,
             ]);
         }
     }
