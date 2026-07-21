@@ -20,7 +20,23 @@ class OrderLookupService
             ->where('customer_phone', trim($phone))
             ->first();
 
-        return $order ? $this->shape($order) : null;
+        if (! $order) {
+            return null;
+        }
+
+        // Đơn gộp (bopcamping-wtuv T8): tra mã CHA → trả cha (trạng thái suy từ con)
+        // + installments = từng ĐỢT giao. Tra mã CON (BOP-XXX-1) đi nhánh thường (con là đơn đầy đủ).
+        if ($order->is_parent) {
+            $order->loadMissing('children.items.product');
+            // Gán in-memory (KHÔNG save) để shape/timeline dùng trạng thái suy từ con.
+            $order->status = $order->aggregateStatus();
+            $shaped = $this->shape($order);
+            $shaped['installments'] = $order->children->map(fn (Order $c) => $this->shape($c))->values()->all();
+
+            return $shaped;
+        }
+
+        return $this->shape($order);
     }
 
     public function shape(Order $o): array

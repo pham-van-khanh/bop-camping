@@ -19,11 +19,20 @@ class OrderPlacedMail extends Mailable implements ShouldQueue
 
     public function envelope(): Envelope
     {
-        return new Envelope(subject: 'Đã nhận đơn thuê '.$this->order->code.' — BopCamping');
+        $suffix = $this->order->is_parent ? ' ('.$this->order->children()->count().' đợt giao)' : '';
+
+        return new Envelope(subject: 'Đã nhận đơn thuê '.$this->order->code.$suffix.' — BopCamping');
     }
 
     public function content(): Content
     {
+        // Đơn gộp (bopcamping-wtuv T9): 1 email cấp CHA liệt kê từng đợt giao + tiền từng đợt.
+        if ($this->order->is_parent) {
+            return new Content(view: 'emails.order_placed_parent', with: [
+                'order' => $this->order->loadMissing('children.items.product'),
+            ]);
+        }
+
         return new Content(view: 'emails.order_placed', with: [
             'order' => $this->order->loadMissing('items.product'),
         ]);

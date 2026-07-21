@@ -45,8 +45,12 @@ class ReferralService
             return $fail('self_referral');
         }
 
-        // Phải là đơn ĐẦU TIÊN của referee.
-        $hasPriorOrder = Order::where('user_id', $buyerId)->where('id', '!=', $order->id)->exists();
+        // Phải là đơn ĐẦU TIÊN của referee. Chỉ đếm đơn TOP-LEVEL (đơn thường + cha) —
+        // đơn CON thuộc cụm hiện tại không phải "đơn trước đó" (bopcamping-wtuv T8).
+        $hasPriorOrder = Order::where('user_id', $buyerId)
+            ->whereNull('parent_id')
+            ->where('id', '!=', $order->id)
+            ->exists();
         if ($hasPriorOrder) {
             return $fail('not_first_order');
         }
