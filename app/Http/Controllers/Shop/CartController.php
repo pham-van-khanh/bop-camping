@@ -112,6 +112,7 @@ class CartController extends Controller
                     'name' => $p->name,
                     'price_per_day' => (int) $p->price_per_day,
                     'deposit' => (int) ($p->deposit ?? 0),
+                    'early_return_pct' => (int) $p->early_return_discount_pct,
                     'locations' => $open->map(fn (ServiceLocation $l) => ['slug' => $l->slug, 'name' => $l->name])->values(),
                     'all_locations' => $openCount > 0 && $open->count() === $openCount,
                 ]];

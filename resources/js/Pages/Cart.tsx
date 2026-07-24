@@ -5,8 +5,8 @@ import SiteLayout from '@/Layouts/SiteLayout';
 import { COMBO_GRAD } from '@/Components/site/ComboCard';
 import PickupReturnNote from '@/Components/site/PickupReturnNote';
 import {
-    addLine, cartHasLocationConflict, cartTotals, clearCart, getCart, isComboLine, lineDays, lineDeposit,
-    lineRent, locationConflict as checkLocationConflict, removeLine, setCart, setQty,
+    addLine, cartHasLocationConflict, cartTotals, clearCart, getCart, halfDayEligible, isComboLine, lineDays, lineDeposit,
+    lineRent, locationConflict as checkLocationConflict, removeLine, setCart, setHalfDay, setQty,
     type CartLine, type CartLocation,
 } from '@/lib/cart';
 import { money, rangeText } from '@/lib/format';
@@ -14,7 +14,7 @@ import { emit, on, EVENTS } from '@/lib/bus';
 import { estimateDiscount, voucherValueText, type AvailableVoucher, type EmailBonusInfo, type PromoInfo } from '@/lib/voucher';
 import type { PageProps } from '@/types';
 
-type CheckoutItem = { product_id: number; quantity: number; start: string; end: string; location_id: number | null };
+type CheckoutItem = { product_id: number; quantity: number; start: string; end: string; location_id: number | null; half_day: boolean };
 type CheckoutCombo = { combo_id: number; quantity: number; start: string; end: string; location_id: number | null };
 
 // Gợi ý từ cart combo detection (PRD 5.4) — server trả tối đa 1 gợi ý.
@@ -47,7 +47,7 @@ type Suggestion = {
 };
 
 // Dữ liệu mới nhất của sản phẩm/combo trả về từ /gio-thue/lam-tuoi.
-type FreshProduct = { name: string; price_per_day: number; deposit: number; locations: CartLocation[]; all_locations: boolean };
+type FreshProduct = { name: string; price_per_day: number; deposit: number; early_return_pct?: number; locations: CartLocation[]; all_locations: boolean };
 type FreshCombo = {
     name: string;
     combo_price: number;
@@ -146,7 +146,7 @@ export default function Cart() {
                         }
                         const p = fresh[String(l.id)];
                         if (!p) { removed.push(l.name); continue; } // đã ẩn/xoá → gỡ
-                        next.push({ ...l, name: p.name, price: p.price_per_day, deposit: p.deposit, locations: p.locations });
+                        next.push({ ...l, name: p.name, price: p.price_per_day, deposit: p.deposit, locations: p.locations, early_return_pct: p.early_return_pct ?? 0 });
                     }
                     setCart(next); // emit cartChange → listener cập nhật state + items
                     if (removed.length) {
@@ -517,6 +517,21 @@ export default function Cart() {
                                             <div className="font-mono text-[11px] text-campfire">cọc {money(lineDeposit(it))}</div>
                                         </div>
                                     </div>
+                                    {/* Nửa ngày (adr_pricing_models): chỉ hiện khi thuê đúng 1 ngày + sản phẩm có ưu đãi trả sớm */}
+                                    {halfDayEligible(it) && (
+                                        <label className="mt-2 flex cursor-pointer items-center gap-2 rounded-[9px] px-2.5 py-1.5 text-[12.5px]" style={{ background: '#f4f8ec' }}>
+                                            <input
+                                                type="checkbox"
+                                                checked={!!it.half_day}
+                                                onChange={(e) => setHalfDay(i, e.target.checked)}
+                                                className="h-4 w-4 flex-none accent-grass"
+                                            />
+                                            <span className="text-[#3f4a32]">
+                                                Trả sớm trong ngày <span className="font-semibold text-grass">−{it.early_return_pct}%</span>
+                                                <span className="ml-1 text-[#8a967a]">(nhận & trả trong cùng một ngày)</span>
+                                            </span>
+                                        </label>
+                                    )}
                                 </div>
                                 <button onClick={() => removeLine(i)} title="Xoá" className="self-start px-1 py-0.5 text-[18px]" style={{ color: '#b3493a' }}>×</button>
                             </div>
@@ -763,7 +778,7 @@ export default function Cart() {
 function toCheckoutItems(lines: CartLine[]): CheckoutItem[] {
     return lines
         .filter((l) => !isComboLine(l))
-        .map((l) => ({ product_id: l.id, quantity: l.qty, start: l.start, end: l.end, location_id: l.location_id ?? null }));
+        .map((l) => ({ product_id: l.id, quantity: l.qty, start: l.start, end: l.end, location_id: l.location_id ?? null, half_day: !!(l.half_day && halfDayEligible(l)) }));
 }
 
 function toCheckoutCombos(lines: CartLine[]): CheckoutCombo[] {

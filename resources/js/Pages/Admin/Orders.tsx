@@ -59,6 +59,8 @@ type Order = {
     id: number; code: string; customer_name: string; customer_phone: string;
     customer_email: string | null; customer_address: string | null;
     start_date: string; end_date: string; days: number;
+    // Nửa ngày (adr_pricing_models) — đơn cùng ngày trả sớm.
+    is_half_day: boolean;
     // ISO (Y-m-d) cho form đổi lịch (bopcamping-5hjm)
     start_date_iso: string; end_date_iso: string;
     total_price: number; deposit_total: number; discount_total: number; amount_due: number;
@@ -357,7 +359,7 @@ export default function AdminOrders({
                                                                             <DetailRow label="SĐT" value={order.customer_phone} mono />
                                                                             <DetailRow label="Email" value={order.customer_email ?? '—'} mono />
                                                                             <DetailRow label="Địa chỉ" value={order.customer_address ?? '—'} />
-                                                                            <DetailRow label="Khoảng thuê" value={`${order.start_date} → ${order.end_date} (${order.days} ngày)`} />
+                                                                            <DetailRow label="Khoảng thuê" value={`${order.start_date} → ${order.end_date} (${order.days} ngày)${order.is_half_day ? ' · trả sớm nửa ngày' : ''}`} />
                                                                             <DetailRow label="Đặt lúc" value={order.created_at} />
                                                                         </div>
 

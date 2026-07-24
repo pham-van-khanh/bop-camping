@@ -23,6 +23,10 @@ export type CartLine = {
     // Dòng combo (PRD combo): id trỏ vào combos, kèm danh sách món để mở rộng xem.
     kind?: 'product' | 'combo';
     comboItems?: { name: string; qty: number }[];
+    // Ưu đãi trả sớm trong ngày % của sản phẩm (adr_pricing_models) — 0/undefined = không có.
+    early_return_pct?: number;
+    // Khách chọn "trả sớm trong ngày" cho dòng này — chỉ áp khi đơn cùng ngày (start === end).
+    half_day?: boolean;
 };
 
 /** Cửa hàng đã chọn trong giỏ (per-store): id đầu tiên khác null, hoặc null nếu chưa dòng nào chọn. */
@@ -98,13 +102,31 @@ export function setCart(lines: CartLine[]) {
 }
 
 export const lineDays = (l: CartLine) => dayCount(l.start, l.end);
+
+/** Dòng đủ điều kiện "trả sớm trong ngày": thuê đúng 1 ngày + sản phẩm có ưu đãi. */
+export const halfDayEligible = (l: CartLine) => lineDays(l) === 1 && (l.early_return_pct ?? 0) > 0;
+
 // Rent NET sau giảm giá thuê dài ngày (bopcamping-e36e) — mirror server RentalPricingService.
 // tiers rỗng (mặc định) → net = gross (giữ hành vi cũ khi caller chưa truyền bậc).
+// Nửa ngày (adr_pricing_models): khách chọn trả sớm + đơn cùng ngày → áp ưu đãi trả sớm
+// thay bậc dài ngày (bậc dài ngày = 0 khi 1 ngày). Mirror server priceLine().
 export const lineRent = (l: CartLine, tiers: DurationTier[] = []) => {
     const days = lineDays(l);
-    return netFromGross(l.price * l.qty * days, days, tiers);
+    const gross = l.price * l.qty * days;
+    if (l.half_day && halfDayEligible(l)) {
+        return Math.round(gross * (1 - (l.early_return_pct as number) / 100));
+    }
+    return netFromGross(gross, days, tiers);
 };
 export const lineDeposit = (l: CartLine) => l.deposit * l.qty;
+
+/** Bật/tắt "trả sớm trong ngày" cho 1 dòng giỏ. */
+export function setHalfDay(index: number, on: boolean) {
+    const lines = getCart();
+    if (!lines[index]) return;
+    lines[index].half_day = on;
+    save(lines);
+}
 
 export function cartCount(lines = getCart()) {
     return lines.reduce((s, l) => s + l.qty, 0);

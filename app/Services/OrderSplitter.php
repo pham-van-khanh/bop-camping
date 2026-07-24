@@ -44,10 +44,11 @@ class OrderSplitter
             $order = Order::create($base + [
                 'start_date' => $g['start'],
                 'end_date' => $g['end'],
+                'is_half_day' => $g['half_day'],
                 'status' => 'pending',
                 'payment_method' => 'cod',
             ]);
-            $t = $this->buildItems($order, $g['items'], $g['combos'], $productsById, $combos);
+            $t = $this->buildItems($order, $g['items'], $g['combos'], $productsById, $combos, $g['half_day']);
             $order->update(['total_price' => $t['total'], 'deposit_total' => $t['deposit']]);
 
             return $order;
@@ -72,10 +73,11 @@ class OrderSplitter
                 'code' => $parent->code.'-'.($i + 1),
                 'start_date' => $g['start'],
                 'end_date' => $g['end'],
+                'is_half_day' => $g['half_day'],
                 'status' => 'pending',
                 'payment_method' => 'cod',
             ]);
-            $t = $this->buildItems($child, $g['items'], $g['combos'], $productsById, $combos);
+            $t = $this->buildItems($child, $g['items'], $g['combos'], $productsById, $combos, $g['half_day']);
             $child->update(['total_price' => $t['total'], 'deposit_total' => $t['deposit']]);
             $total += $t['total'];
             $deposit += $t['deposit'];
@@ -96,14 +98,24 @@ class OrderSplitter
         $groups = [];
         foreach ($itemLines as $line) {
             $key = $line['start'].'|'.$line['end'];
-            $groups[$key] ??= ['start' => $line['start'], 'end' => $line['end'], 'items' => [], 'combos' => []];
+            $groups[$key] ??= ['start' => $line['start'], 'end' => $line['end'], 'items' => [], 'combos' => [], 'half_day' => false];
             $groups[$key]['items'][] = $line;
+            // Ý định "trả sớm trong ngày" của khách (server áp % của sản phẩm, không tin client).
+            if (! empty($line['half_day'])) {
+                $groups[$key]['half_day'] = true;
+            }
         }
         foreach ($comboLines as $line) {
             $key = $line['start'].'|'.$line['end'];
-            $groups[$key] ??= ['start' => $line['start'], 'end' => $line['end'], 'items' => [], 'combos' => []];
+            $groups[$key] ??= ['start' => $line['start'], 'end' => $line['end'], 'items' => [], 'combos' => [], 'half_day' => false];
             $groups[$key]['combos'][] = $line;
         }
+
+        // Nửa ngày CHỈ hợp lệ khi đơn cùng ngày (start === end) — bảo vệ dù client gửi sai.
+        foreach ($groups as &$g) {
+            $g['half_day'] = $g['half_day'] && $g['start'] === $g['end'];
+        }
+        unset($g);
 
         return collect($groups)->sortBy('start')->values()->all();
     }
@@ -113,15 +125,18 @@ class OrderSplitter
      *
      * @return array{total:int, deposit:int}
      */
-    private function buildItems(Order $order, array $itemLines, array $comboLines, Collection $productsById, Collection $combos): array
+    private function buildItems(Order $order, array $itemLines, array $comboLines, Collection $productsById, Collection $combos, bool $halfDay = false): array
     {
         $total = 0;
         $deposit = 0;
 
         foreach ($itemLines as $item) {
             $product = $productsById->get($item['product_id']);
-            $days = Carbon::parse($item['start'])->diffInDays(Carbon::parse($item['end'])) + 1;
-            $line = $this->pricing->priceLine((int) $product->price_per_day, (int) $item['quantity'], $days);
+            // Carbon 3: diffInDays trả float → ép int để so 1 ngày chính xác.
+            $days = (int) (Carbon::parse($item['start'])->diffInDays(Carbon::parse($item['end'])) + 1);
+            // Nửa ngày (đơn cùng ngày): áp ưu đãi trả sớm của CHÍNH sản phẩm (adr_pricing_models).
+            $earlyPct = ($halfDay && $days === 1) ? (int) $product->early_return_discount_pct : 0;
+            $line = $this->pricing->priceLine((int) $product->price_per_day, (int) $item['quantity'], $days, $earlyPct);
 
             $order->items()->create([
                 'product_id' => $product->id,

@@ -58,6 +58,8 @@ class OrderController extends Controller
             'start_date_iso' => $o->start_date->format('Y-m-d'),
             'end_date_iso' => $o->end_date->format('Y-m-d'),
             'days' => $o->days,
+            // Nửa ngày (adr_pricing_models) — đơn cùng ngày trả sớm; admin thấy đơn trả trưa.
+            'is_half_day' => (bool) $o->is_half_day,
             'total_price' => $o->total_price,
             'deposit_total' => $o->deposit_total,
             'discount_total' => $o->discount_total,
