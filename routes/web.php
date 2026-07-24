@@ -117,7 +117,10 @@ Route::middleware(['admin'])->prefix('admin')->name('admin.')->group(function ()
     Route::post('/editor/images', [AdminEditorImageController::class, 'store'])->name('editor.images.store')->middleware('throttle:60,1');
 
     Route::get('/products', [AdminProductController::class, 'index'])->name('products');
+    // Thêm/sửa sản phẩm — màn hình riêng (thay popup cũ). 'create' đặt trước {product} để không nuốt route.
+    Route::get('/products/create', [AdminProductController::class, 'create'])->name('products.create');
     Route::post('/products', [AdminProductController::class, 'store'])->name('products.store');
+    Route::get('/products/{product}/sua', [AdminProductController::class, 'edit'])->name('products.edit');
     Route::put('/products/{product}', [AdminProductController::class, 'update'])->name('products.update');
     Route::delete('/products/{product}', [AdminProductController::class, 'destroy'])->name('products.destroy');
     // Nội dung chi tiết (setup/mô tả lớn) — màn soạn thảo riêng, editor full-width (Epic 1)

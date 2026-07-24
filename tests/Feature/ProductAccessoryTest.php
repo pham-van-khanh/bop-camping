@@ -292,11 +292,12 @@ class ProductAccessoryTest extends TestCase
     /** @test */
     public function admin_index_exposes_accessory_ids(): void
     {
+        // accessory_options đã chuyển sang màn thêm/sửa riêng (Admin/ProductForm);
+        // trang danh sách chỉ còn cần accessory_ids trên từng dòng sản phẩm.
         $this->actingAs($this->admin())->get(route('admin.products'))
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
                 ->component('Admin/Products')
-                ->has('accessory_options')
                 ->where('products.data', fn ($data) => collect($data)
                     ->firstWhere('id', $this->tent->id)['accessory_ids'] === [$this->chair->id, $this->mat->id]));
     }
