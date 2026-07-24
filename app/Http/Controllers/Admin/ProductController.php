@@ -39,35 +39,51 @@ class ProductController extends Controller
             ->orderBy('name')
             ->paginate(50)
             ->withQueryString()
-            ->through(fn (Product $p) => [
-                'id' => $p->id,
-                'name' => $p->name,
-                'slug' => $p->slug,
-                'description' => $p->description,
-                'specs' => $p->specs ?? [],
-                'has_setup_content' => $p->setup_content !== null,
-                'price_per_day' => $p->price_per_day,
-                'quantity' => $p->quantity,
-                'deposit' => $p->deposit,
-                'thumbnail' => $p->thumbnail ? Storage::disk('media')->url($p->thumbnail) : null,
-                'status' => $p->status,
-                'category' => $p->category ? ['id' => $p->category->id, 'name' => $p->category->name] : null,
-                'service_location_ids' => $p->serviceLocations->pluck('id')->values(),
-                // Tồn kho theo store (per-store): {service_location_id: quantity}
-                'stocks' => $p->serviceLocations->mapWithKeys(fn ($l) => [$l->id => (int) $l->pivot->quantity]),
-                'accessory_ids' => $p->accessories->pluck('id')->values(),
-                'related_ids' => $p->related->pluck('id')->values(),
-                'combo_names' => $comboNamesByProduct->get($p->id) ?? [],
-                'images' => $p->images->map(fn (ProductImage $img) => [
-                    'id' => $img->id,
-                    'path' => Storage::disk('media')->url($img->path),
-                    'sort_order' => $img->sort_order,
-                    'type' => $img->type,
-                ])->values(),
-            ]);
+            ->through(fn (Product $p) => $this->mapProductForForm($p, ($comboNamesByProduct->get($p->id)?->all()) ?? []));
 
         return Inertia::render('Admin/Products', [
             'products' => $products,
+            // Chỉ cần danh mục cho bộ lọc — form thêm/sửa đã tách sang màn riêng.
+            'categories' => Category::orderBy('name')->get(['id', 'name']),
+            'filters' => ['search' => $search, 'category' => $categoryId ?: null],
+        ]);
+    }
+
+    /** Màn THÊM sản phẩm (trang riêng, thay cho popup cũ). */
+    public function create(): Response
+    {
+        return Inertia::render('Admin/ProductForm', $this->formSharedProps());
+    }
+
+    /** Màn SỬA sản phẩm (trang riêng): form đầy đủ + quản lý ảnh phụ. */
+    public function edit(Product $product): Response
+    {
+        $product->load(['category', 'serviceLocations', 'accessories', 'related', 'images' => fn ($q) => $q->orderBy('sort_order')]);
+
+        // Tên combo active chứa sản phẩm này — FE cảnh báo khi ẩn (US-07).
+        $comboNames = Combo::query()
+            ->where('is_active', true)
+            ->join('combo_items', 'combo_items.combo_id', '=', 'combos.id')
+            ->where('combo_items.product_id', $product->id)
+            ->pluck('combos.name')
+            ->values()
+            ->all();
+
+        return Inertia::render('Admin/ProductForm', [
+            'product' => $this->mapProductForForm($product, $comboNames),
+            // Kho ảnh cho picker "chọn ảnh có sẵn" của gallery — nạp lazy khi mở picker.
+            'mediaLibrary' => Inertia::optional(fn () => MediaRef::library()),
+        ] + $this->formSharedProps());
+    }
+
+    /**
+     * Props dùng chung cho form thêm/sửa: danh mục, sản phẩm gợi ý, vị trí phục vụ.
+     *
+     * @return array<string, mixed>
+     */
+    private function formSharedProps(): array
+    {
+        return [
             'categories' => Category::orderBy('name')->get(['id', 'name']),
             // Toàn bộ sản phẩm cho picker "Thường thuê cùng" (US-08) — shop nhỏ, không cần search server
             'accessory_options' => Product::orderBy('name')->get(['id', 'name', 'status']),
@@ -78,10 +94,43 @@ class ProductController extends Controller
                 'area' => $l->area,
                 'status' => $l->status,
             ])->values(),
-            'filters' => ['search' => $search, 'category' => $categoryId ?: null],
-            // Kho ảnh cho picker "chọn ảnh có sẵn" — nạp lazy khi mở picker (partial reload).
-            'mediaLibrary' => Inertia::optional(fn () => MediaRef::library()),
-        ]);
+        ];
+    }
+
+    /**
+     * Map 1 sản phẩm sang shape mà list + form thêm/sửa cùng dùng (single source).
+     *
+     * @param  array<int, string>  $comboNames
+     * @return array<string, mixed>
+     */
+    private function mapProductForForm(Product $p, array $comboNames): array
+    {
+        return [
+            'id' => $p->id,
+            'name' => $p->name,
+            'slug' => $p->slug,
+            'description' => $p->description,
+            'specs' => $p->specs ?? [],
+            'has_setup_content' => $p->setup_content !== null,
+            'price_per_day' => $p->price_per_day,
+            'quantity' => $p->quantity,
+            'deposit' => $p->deposit,
+            'thumbnail' => $p->thumbnail ? Storage::disk('media')->url($p->thumbnail) : null,
+            'status' => $p->status,
+            'category' => $p->category ? ['id' => $p->category->id, 'name' => $p->category->name] : null,
+            'service_location_ids' => $p->serviceLocations->pluck('id')->values(),
+            // Tồn kho theo store (per-store): {service_location_id: quantity}
+            'stocks' => $p->serviceLocations->mapWithKeys(fn ($l) => [$l->id => (int) $l->pivot->quantity]),
+            'accessory_ids' => $p->accessories->pluck('id')->values(),
+            'related_ids' => $p->related->pluck('id')->values(),
+            'combo_names' => $comboNames,
+            'images' => $p->images->map(fn (ProductImage $img) => [
+                'id' => $img->id,
+                'path' => Storage::disk('media')->url($img->path),
+                'sort_order' => $img->sort_order,
+                'type' => $img->type,
+            ])->values(),
+        ];
     }
 
     public function store(Request $request): RedirectResponse
@@ -145,7 +194,8 @@ class ProductController extends Controller
         $this->syncSortedRelation($product, $data, 'accessory_ids', 'accessories');
         $this->syncSortedRelation($product, $data, 'related_ids', 'related');
 
-        return back()->with('success', 'Đã thêm sản phẩm.');
+        // Sang thẳng màn sửa để admin thêm ảnh phụ (gallery cần product đã tồn tại).
+        return to_route('admin.products.edit', $product)->with('success', 'Đã thêm sản phẩm. Giờ có thể thêm ảnh phụ.');
     }
 
     public function update(Request $request, Product $product): RedirectResponse
