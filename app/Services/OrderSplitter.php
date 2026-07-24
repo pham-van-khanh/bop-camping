@@ -132,8 +132,7 @@ class OrderSplitter
 
         foreach ($itemLines as $item) {
             $product = $productsById->get($item['product_id']);
-            // Carbon 3: diffInDays trả float → ép int để so 1 ngày chính xác.
-            $days = (int) (Carbon::parse($item['start'])->diffInDays(Carbon::parse($item['end'])) + 1);
+            $days = $this->rentalDays($item['start'], $item['end']);
             // Nửa ngày (đơn cùng ngày): áp ưu đãi trả sớm của CHÍNH sản phẩm (adr_pricing_models).
             $earlyPct = ($halfDay && $days === 1) ? (int) $product->early_return_discount_pct : 0;
             $line = $this->pricing->priceLine((int) $product->price_per_day, (int) $item['quantity'], $days, $earlyPct);
@@ -156,7 +155,7 @@ class OrderSplitter
 
         foreach ($comboLines as $line) {
             $combo = $combos->get($line['combo_id']);
-            $days = Carbon::parse($line['start'])->diffInDays(Carbon::parse($line['end'])) + 1;
+            $days = $this->rentalDays($line['start'], $line['end']);
             $allocation = $this->comboPricing->allocate($combo);
             $comboPercent = $this->pricing->tierPercentForDays($days);
 
@@ -185,5 +184,14 @@ class OrderSplitter
         }
 
         return ['total' => $total, 'deposit' => $deposit];
+    }
+
+    /**
+     * Số ngày thuê của 1 khoảng (bao gồm cả ngày đầu và cuối).
+     * Carbon 3 trả float từ diffInDays → ép int để so biên (vd '=== 1' cho nửa ngày) chính xác.
+     */
+    private function rentalDays(string $start, string $end): int
+    {
+        return (int) (Carbon::parse($start)->diffInDays(Carbon::parse($end)) + 1);
     }
 }
