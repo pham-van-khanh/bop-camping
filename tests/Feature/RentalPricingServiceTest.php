@@ -66,6 +66,27 @@ class RentalPricingServiceTest extends TestCase
         $this->assertSame(['gross' => 2400000, 'percent' => 30.0, 'net' => 1680000], $this->pricing->priceLine(120000, 2, 10));
     }
 
+    /**
+     * Ưu đãi trả sớm trong ngày (adr_pricing_models) — CHỈ áp đơn cùng ngày (days=1),
+     * thay bậc dài ngày; đơn nhiều ngày bỏ qua.
+     *
+     * @test
+     */
+    public function early_return_discount_applies_only_to_same_day(): void
+    {
+        // 1 ngày, ưu đãi 10% → 100k × 0.9 = 90k
+        $this->assertSame(['gross' => 100000, 'percent' => 10.0, 'net' => 90000], $this->pricing->priceLine(100000, 1, 1, 10));
+
+        // 1 ngày, ưu đãi 0 → giữ nguyên (tương thích ngược)
+        $this->assertSame(['gross' => 100000, 'percent' => 0.0, 'net' => 100000], $this->pricing->priceLine(100000, 1, 1, 0));
+
+        // 3 ngày (nhiều ngày) — ưu đãi trả sớm BỎ QUA; chưa đạt bậc → net = gross
+        $this->assertSame(['gross' => 300000, 'percent' => 0.0, 'net' => 300000], $this->pricing->priceLine(100000, 1, 3, 10));
+
+        // 5 ngày — ưu đãi trả sớm BỎ QUA, dùng bậc dài ngày −20% → 400k
+        $this->assertSame(['gross' => 500000, 'percent' => 20.0, 'net' => 400000], $this->pricing->priceLine(100000, 1, 5, 10));
+    }
+
     /** @test */
     public function net_is_rounded_to_integer(): void
     {

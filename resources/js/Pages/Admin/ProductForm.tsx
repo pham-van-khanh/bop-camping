@@ -19,6 +19,7 @@ type Product = {
     price_per_day: number;
     quantity: number;
     deposit: number | null;
+    early_return_discount_pct: number;
     thumbnail: string | null;
     status: 'active' | 'hidden';
     category: { id: number; name: string } | null;
@@ -38,6 +39,8 @@ type ProductFormData = {
     specs: SpecRow[];
     price_per_day: number | '';
     deposit: number | null;
+    // Ưu đãi trả sớm trong ngày % (adr_pricing_models) — 0 = không giảm.
+    early_return_discount_pct: number | '';
     status: 'active' | 'hidden';
     thumbnail: File | null;
     service_location_ids: number[];
@@ -87,6 +90,7 @@ export default function AdminProductForm({
                   specs: product.specs ?? [],
                   price_per_day: product.price_per_day,
                   deposit: product.deposit ?? null,
+                  early_return_discount_pct: product.early_return_discount_pct ?? 0,
                   status: product.status,
                   thumbnail: null,
                   service_location_ids: product.service_location_ids ?? [],
@@ -102,6 +106,7 @@ export default function AdminProductForm({
                   specs: [],
                   price_per_day: '',
                   deposit: null,
+                  early_return_discount_pct: 0,
                   status: 'active',
                   thumbnail: null,
                   // Mặc định gắn tất cả vị trí đang mở khi thêm mới.
@@ -150,6 +155,7 @@ export default function AdminProductForm({
         form.transform((data) => ({
             ...data,
             category_id: data.category_id === '' ? '' : Number(data.category_id),
+            early_return_discount_pct: data.early_return_discount_pct === '' ? 0 : Number(data.early_return_discount_pct),
             accessory_ids: data.accessory_ids.length ? data.accessory_ids : '',
             related_ids: data.related_ids.length ? data.related_ids : '',
             specs: data.specs.length ? data.specs : '',
@@ -301,6 +307,23 @@ export default function AdminProductForm({
                                             placeholder="200000"
                                         />
                                     </div>
+                                </div>
+
+                                <div>
+                                    <label className="mb-1.5 block text-[13px] font-semibold text-pine">
+                                        Ưu đãi trả sớm trong ngày (%)
+                                        <span className="ml-1 font-normal text-moss">(giảm khi khách thuê & trả trong cùng một ngày; 0 = không giảm)</span>
+                                    </label>
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        max="50"
+                                        value={form.data.early_return_discount_pct}
+                                        onChange={(e) => form.setData('early_return_discount_pct', e.target.value === '' ? '' : Number(e.target.value))}
+                                        className="w-28 rounded-[10px] border border-cardBorder px-3 py-2.5 text-[13.5px] outline-none transition focus:border-grass"
+                                        placeholder="0"
+                                    />
+                                    {form.errors.early_return_discount_pct && <p className="mt-1 text-[12px] text-[#b3493a]">{form.errors.early_return_discount_pct}</p>}
                                 </div>
 
                                 <div>

@@ -27,6 +27,7 @@ class Product extends Model
         'price_per_day',
         'quantity',
         'deposit',
+        'early_return_discount_pct',
         'thumbnail',
         'status',
     ];
@@ -36,6 +37,7 @@ class Product extends Model
         'price_per_day' => 'integer',
         'quantity' => 'integer',
         'deposit' => 'integer',
+        'early_return_discount_pct' => 'integer',
     ];
 
     /** Tự cập nhật name_normalized (bỏ dấu) mỗi khi name thay đổi. */

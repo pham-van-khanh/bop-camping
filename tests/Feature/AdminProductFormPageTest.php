@@ -93,6 +93,36 @@ class AdminProductFormPageTest extends TestCase
     }
 
     /** @test */
+    public function store_saves_early_return_discount_and_rejects_over_50(): void
+    {
+        $category = Category::create(['name' => 'Ghế', 'slug' => 'ghe']);
+        $loc = ServiceLocation::create(['name' => 'Vinh', 'area' => 'Nghệ An', 'status' => 'open', 'sort_order' => 1]);
+
+        $this->actingAs($this->admin())->post(route('admin.products.store'), [
+            'name' => 'Ghế nửa ngày',
+            'category_id' => $category->id,
+            'price_per_day' => 20000,
+            'status' => 'active',
+            'service_location_ids' => [$loc->id],
+            'stocks' => [$loc->id => 5],
+            'early_return_discount_pct' => 15,
+        ])->assertRedirect()->assertSessionHasNoErrors();
+
+        $this->assertSame(15, Product::where('name', 'Ghế nửa ngày')->firstOrFail()->early_return_discount_pct);
+
+        // > trần 50 → lỗi validate.
+        $this->actingAs($this->admin())->post(route('admin.products.store'), [
+            'name' => 'Ghế lỗi %',
+            'category_id' => $category->id,
+            'price_per_day' => 20000,
+            'status' => 'active',
+            'service_location_ids' => [$loc->id],
+            'stocks' => [$loc->id => 1],
+            'early_return_discount_pct' => 80,
+        ])->assertSessionHasErrors('early_return_discount_pct');
+    }
+
+    /** @test */
     public function non_admin_cannot_see_create_or_edit_page(): void
     {
         $product = $this->makeProduct();
