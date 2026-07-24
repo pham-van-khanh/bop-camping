@@ -24,6 +24,7 @@ type Product = {
     category: { id: number; name: string } | null;
     service_location_ids: number[];
     stocks: Record<number, number>;
+    buffers: Record<number, number>;
     accessory_ids: number[];
     related_ids: number[];
     combo_names: string[];
@@ -41,6 +42,8 @@ type ProductFormData = {
     thumbnail: File | null;
     service_location_ids: number[];
     stocks: Record<number, number | ''>;
+    // Đệm giặt/phơi theo kho (adr_turnaround_buffer): service_location_id -> số ngày
+    buffers: Record<number, number | ''>;
     accessory_ids: number[];
     related_ids: number[];
 };
@@ -88,6 +91,7 @@ export default function AdminProductForm({
                   thumbnail: null,
                   service_location_ids: product.service_location_ids ?? [],
                   stocks: { ...(product.stocks ?? {}) },
+                  buffers: { ...(product.buffers ?? {}) },
                   accessory_ids: product.accessory_ids ?? [],
                   related_ids: product.related_ids ?? [],
               }
@@ -103,6 +107,7 @@ export default function AdminProductForm({
                   // Mặc định gắn tất cả vị trí đang mở khi thêm mới.
                   service_location_ids: [...openLocationIds],
                   stocks: {},
+                  buffers: {},
                   accessory_ids: [],
                   related_ids: [],
               },
@@ -115,6 +120,10 @@ export default function AdminProductForm({
 
     const setStock = (id: number, value: string) => {
         form.setData('stocks', { ...form.data.stocks, [id]: value === '' ? '' : Math.max(0, Number(value)) });
+    };
+
+    const setBuffer = (id: number, value: string) => {
+        form.setData('buffers', { ...form.data.buffers, [id]: value === '' ? '' : Math.min(30, Math.max(0, Number(value))) });
     };
 
     const toggleAccessory = (id: number) => {
@@ -147,6 +156,10 @@ export default function AdminProductForm({
             // Tồn kho: chỉ gửi số của store đã tick.
             stocks: Object.fromEntries(
                 data.service_location_ids.map((id) => [id, data.stocks[id] === '' || data.stocks[id] == null ? 0 : data.stocks[id]]),
+            ),
+            // Đệm giặt/phơi theo kho — cùng quy tắc: chỉ gửi số của store đã tick.
+            buffers: Object.fromEntries(
+                data.service_location_ids.map((id) => [id, data.buffers[id] === '' || data.buffers[id] == null ? 0 : data.buffers[id]]),
             ),
             // PHP không nạp $_FILES cho PUT → POST kèm _method spoofing khi sửa.
             ...(isEdit ? { _method: 'put' } : {}),
@@ -384,28 +397,46 @@ export default function AdminProductForm({
 
                         {form.data.service_location_ids.length > 0 && (
                             <div className="mt-3 rounded-[11px] border border-cardBorder bg-[#f8faf4] p-3">
-                                <div className="mb-2 text-[12px] font-semibold text-pine">Số lượng tại mỗi cơ sở</div>
-                                <div className="flex flex-wrap gap-3">
+                                <div className="mb-2 text-[12px] font-semibold text-pine">
+                                    Số lượng & ngày giặt/phơi tại mỗi cơ sở
+                                    <span className="ml-1 font-normal text-moss">(ngày phơi = số ngày chừa sau khi trả trước khi cho thuê lại; 0 = cho thuê ngay hôm sau)</span>
+                                </div>
+                                <div className="flex flex-wrap gap-x-6 gap-y-3">
                                     {form.data.service_location_ids.map((id) => {
                                         const loc = service_locations.find((l) => l.id === id);
                                         if (!loc) return null;
                                         return (
-                                            <label key={id} className="flex items-center gap-2 text-[13px]">
+                                            <div key={id} className="flex items-center gap-2 text-[13px]">
                                                 <span className="font-semibold text-pine">{loc.name}</span>
-                                                <input
-                                                    type="number"
-                                                    min="0"
-                                                    value={form.data.stocks[id] ?? ''}
-                                                    onChange={(e) => setStock(id, e.target.value)}
-                                                    placeholder="0"
-                                                    className="w-20 rounded-[9px] border border-cardBorder px-2.5 py-1.5 text-[13px] outline-none transition focus:border-grass"
-                                                />
-                                            </label>
+                                                <label className="flex items-center gap-1 text-moss">
+                                                    <span className="text-[11.5px]">SL</span>
+                                                    <input
+                                                        type="number"
+                                                        min="0"
+                                                        value={form.data.stocks[id] ?? ''}
+                                                        onChange={(e) => setStock(id, e.target.value)}
+                                                        placeholder="0"
+                                                        className="w-16 rounded-[9px] border border-cardBorder px-2.5 py-1.5 text-[13px] text-ink outline-none transition focus:border-grass"
+                                                    />
+                                                </label>
+                                                <label className="flex items-center gap-1 text-moss">
+                                                    <span className="text-[11.5px]">ngày phơi</span>
+                                                    <input
+                                                        type="number"
+                                                        min="0"
+                                                        max="30"
+                                                        value={form.data.buffers[id] ?? ''}
+                                                        onChange={(e) => setBuffer(id, e.target.value)}
+                                                        placeholder="0"
+                                                        className="w-16 rounded-[9px] border border-cardBorder px-2.5 py-1.5 text-[13px] text-ink outline-none transition focus:border-grass"
+                                                    />
+                                                </label>
+                                            </div>
                                         );
                                     })}
                                 </div>
                                 {Object.entries(form.errors)
-                                    .filter(([k]) => k.startsWith('stocks'))
+                                    .filter(([k]) => k.startsWith('stocks') || k.startsWith('buffers'))
                                     .slice(0, 1)
                                     .map(([k, v]) => (
                                         <p key={k} className="mt-1.5 text-[12px] text-[#b3493a]">{v}</p>

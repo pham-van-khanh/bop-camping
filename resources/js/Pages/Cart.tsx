@@ -3,6 +3,7 @@ import axios from 'axios';
 import { ChangeEvent, ReactNode, useEffect, useMemo, useState } from 'react';
 import SiteLayout from '@/Layouts/SiteLayout';
 import { COMBO_GRAD } from '@/Components/site/ComboCard';
+import PickupReturnNote from '@/Components/site/PickupReturnNote';
 import {
     addLine, cartHasLocationConflict, cartTotals, clearCart, getCart, isComboLine, lineDays, lineDeposit,
     lineRent, locationConflict as checkLocationConflict, removeLine, setCart, setQty,
@@ -684,6 +685,9 @@ export default function Cart() {
                                 Tiền mặt (COD) khi nhận đồ{estimate.total > 0 ? ' · giảm là tạm tính, chốt khi đặt đơn' : ''}
                             </p>
                         </div>
+
+                        {/* Khung giờ giao/trả mặc định (adr_turnaround_buffer) */}
+                        <PickupReturnNote className="mt-3.5" />
 
                         {/* Lưu ý (rút gọn từ design doc mục 3) */}
                         <ul className="my-3.5 flex flex-col gap-1 rounded-[11px] px-3.5 py-[11px] text-[12.5px] leading-[1.5]" style={{ background: '#eef2e3', color: '#3a5a1f' }}>

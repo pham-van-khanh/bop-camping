@@ -39,6 +39,10 @@ class SiteSettingController extends Controller
             'facebook_url' => 'nullable|url|max:255',
             'tiktok_url' => 'nullable|url|max:255',
             'working_hours' => 'nullable|string|max:100',
+            // Khung giờ giao/trả mặc định (adr_turnaround_buffer) — chỉ hiển thị kỳ vọng.
+            // 'sometimes' để form cũ/không gửi vẫn giữ giá trị mặc định (tương thích ngược).
+            'pickup_hour' => 'sometimes|integer|min:0|max:23',
+            'return_hour' => 'sometimes|integer|min:0|max:23',
             // SEO: GA4 dạng "G-XXXXXXXX"; mã xác minh Search Console là chuỗi token.
             'ga_measurement_id' => 'nullable|string|max:40|regex:/^G-[A-Z0-9]+$/i',
             'google_site_verification' => 'nullable|string|max:120',
