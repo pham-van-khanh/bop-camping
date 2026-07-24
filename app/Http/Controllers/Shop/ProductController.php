@@ -465,6 +465,7 @@ class ProductController extends Controller
             'price_per_day' => $p->price_per_day,
             'quantity' => $p->quantity,
             'deposit' => $p->deposit ?? 0,
+            'early_return_discount_pct' => (int) $p->early_return_discount_pct,
             'thumbnail' => $p->thumbnail ? Storage::disk('media')->url($p->thumbnail) : null,
             'status' => $p->status,
             'category' => [

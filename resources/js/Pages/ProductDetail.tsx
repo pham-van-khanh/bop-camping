@@ -229,6 +229,7 @@ export default function ProductDetail({ product, unavailable_dates, unavailable_
         end:     end as string,
         locations,
         location_id: storeId, // per-store: cửa hàng khách chọn (null = checkout tự gán)
+        early_return_pct: product.early_return_discount_pct ?? 0, // ưu đãi trả sớm trong ngày (adr_pricing_models)
     });
 
     const commitAdd = (lines: CartLine[]) => {

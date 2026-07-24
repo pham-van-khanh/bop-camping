@@ -6,6 +6,8 @@ export interface ProductResource {
     price_per_day: number;
     quantity: number;
     deposit: number;
+    // Ưu đãi trả sớm trong ngày % (adr_pricing_models) — 0 = không có.
+    early_return_discount_pct?: number;
     thumbnail: string | null;
     status: string;
     category: { id: number; name: string; slug: string };

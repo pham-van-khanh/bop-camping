@@ -56,6 +56,8 @@ class OrderController extends Controller
             'items.*.start' => ['required', 'date_format:Y-m-d', 'after_or_equal:today'],
             'items.*.end' => ['required', 'date_format:Y-m-d', 'after_or_equal:items.*.start'],
             'items.*.location_id' => ['nullable', 'integer', 'exists:service_locations,id'],
+            // Ý định "trả sớm trong ngày" (nửa ngày) — chỉ áp khi đơn cùng ngày; server tính % (adr_pricing_models).
+            'items.*.half_day' => ['nullable', 'boolean'],
             'combos' => ['nullable', 'array', 'max:20'],
             'combos.*.combo_id' => ['required', 'integer', 'exists:combos,id'],
             'combos.*.quantity' => ['required', 'integer', 'min:1', 'max:10'],
