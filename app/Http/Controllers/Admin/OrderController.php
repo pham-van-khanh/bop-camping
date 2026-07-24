@@ -60,6 +60,11 @@ class OrderController extends Controller
             'days' => $o->days,
             // Nửa ngày (adr_pricing_models) — đơn cùng ngày trả sớm; admin thấy đơn trả trưa.
             'is_half_day' => (bool) $o->is_half_day,
+            // Giờ nhận/trả mong muốn + phụ phí ngoài khung giờ (Phase 2 turnaround, bopcamping-h4to).
+            'requested_pickup_time' => $o->requested_pickup_time,
+            'requested_return_time' => $o->requested_return_time,
+            'extra_fee' => (int) $o->extra_fee,
+            'extra_fee_note' => $o->extra_fee_note,
             'total_price' => $o->total_price,
             'deposit_total' => $o->deposit_total,
             'discount_total' => $o->discount_total,
@@ -480,5 +485,30 @@ class OrderController extends Controller
         ]);
 
         return back()->with('success', "Đơn {$order->code}: đã cập nhật hoàn cọc");
+    }
+
+    /**
+     * Phụ phí giao/trả NGOÀI KHUNG GIỜ (bopcamping-h4to, Phase 2) — admin nhập tay sau khi
+     * liên hệ khách (giao sớm/trả muộn). Cộng vào amount_due; không dùng biểu phí tự động.
+     */
+    public function updateExtraFee(Request $request, Order $order): RedirectResponse
+    {
+        if ($order->is_parent) {
+            return back()->withErrors(['extra_fee' => 'Đơn gộp: nhập phụ phí trên từng đợt (đơn con).']);
+        }
+
+        $validated = $request->validate([
+            'extra_fee' => ['required', 'integer', 'min:0', 'max:100000000'],
+            'extra_fee_note' => ['nullable', 'string', 'max:255'],
+        ], [
+            'extra_fee.integer' => 'Phụ phí phải là số.',
+        ]);
+
+        $order->update([
+            'extra_fee' => $validated['extra_fee'],
+            'extra_fee_note' => $validated['extra_fee_note'] ?? null,
+        ]);
+
+        return back()->with('success', "Đơn {$order->code}: đã cập nhật phụ phí");
     }
 }

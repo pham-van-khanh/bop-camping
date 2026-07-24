@@ -37,8 +37,12 @@ class Order extends Model
         'start_date',
         'end_date',
         'is_half_day',
+        'requested_pickup_time',
+        'requested_return_time',
         'total_price',
         'deposit_total',
+        'extra_fee',
+        'extra_fee_note',
         'discount_total',
         'discount_breakdown',
         'status',
@@ -61,6 +65,7 @@ class Order extends Model
         'is_half_day' => 'boolean',
         'total_price' => 'integer',
         'deposit_total' => 'integer',
+        'extra_fee' => 'integer',
         'discount_total' => 'integer',
         'discount_breakdown' => 'array',
         'is_parent' => 'boolean',
@@ -189,10 +194,10 @@ class Order extends Model
         return $this->start_date->diffInDays($this->end_date) + 1;
     }
 
-    /** Số tiền phải trả khi nhận (thuê + cọc − giảm giá). */
+    /** Số tiền phải trả khi nhận (thuê + cọc + phụ phí ngoài khung giờ − giảm giá). */
     public function getAmountDueAttribute(): int
     {
-        return (int) $this->total_price + (int) $this->deposit_total - (int) $this->discount_total;
+        return (int) $this->total_price + (int) $this->deposit_total + (int) $this->extra_fee - (int) $this->discount_total;
     }
 
     /**

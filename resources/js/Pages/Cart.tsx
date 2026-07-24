@@ -70,6 +70,12 @@ export default function Cart() {
     const user = auth.user;
     const promoOn = !!user && promo.enabled;
 
+    // Khung giờ mặc định của shop (Phase 2 turnaround) — prefill giờ nhận/trả mong muốn.
+    const site = (usePage().props as { site?: { pickup_hour?: number; return_hour?: number } }).site;
+    const shopPickup = site?.pickup_hour ?? 8;
+    const shopReturn = site?.return_hour ?? 20;
+    const hhmm = (h: number) => `${String(h).padStart(2, '0')}:00`;
+
     const [lines, setLines] = useState<CartLine[]>([]);
     const [selectedCodes, setSelectedCodes] = useState<string[]>([]);
     const [manualCode, setManualCode] = useState('');
@@ -89,6 +95,8 @@ export default function Cart() {
         email: string;
         address: string;
         note: string;
+        requested_pickup_time: string;
+        requested_return_time: string;
         referral_code: string;
         voucher_codes: string[];
         items: CheckoutItem[];
@@ -99,6 +107,8 @@ export default function Cart() {
         email: userEmail,
         address: '',
         note: '',
+        requested_pickup_time: hhmm(shopPickup),
+        requested_return_time: hhmm(shopReturn),
         referral_code: firstOrderEligible ? (referralRef ?? '') : '',
         voucher_codes: [],
         items: [],
@@ -348,7 +358,7 @@ export default function Cart() {
             ? 'Tick xác nhận điều khoản để đặt đơn.'
             : '';
 
-    const set = (k: 'name' | 'phone' | 'email' | 'address' | 'note') =>
+    const set = (k: 'name' | 'phone' | 'email' | 'address' | 'note' | 'requested_pickup_time' | 'requested_return_time') =>
         (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setData(k, e.target.value);
 
     const submit = () => post(route('order.store'));
@@ -609,6 +619,29 @@ export default function Cart() {
                                     className={`${inputCls} ${errors.address ? 'border-red-400' : 'border-cardBorder'}`} />
                                 {errors.address && <p className="mt-1 text-[12px] text-red-500">{errors.address}</p>}
                             </div>
+
+                            {/* Giờ nhận/trả mong muốn (Phase 2 turnaround) — mặc định khung giờ shop; ngoài khung → phụ phí */}
+                            <div>
+                                <div className="mb-1 text-[12.5px] font-semibold text-moss">Giờ nhận / trả mong muốn</div>
+                                <div className="flex gap-3">
+                                    <label className="flex-1">
+                                        <span className="mb-1 block text-[11.5px] text-[#a3ad92]">Giờ nhận</span>
+                                        <input type="time" value={data.requested_pickup_time} onChange={set('requested_pickup_time')}
+                                            className={`${inputCls} border-cardBorder`} />
+                                    </label>
+                                    <label className="flex-1">
+                                        <span className="mb-1 block text-[11.5px] text-[#a3ad92]">Giờ trả</span>
+                                        <input type="time" value={data.requested_return_time} onChange={set('requested_return_time')}
+                                            className={`${inputCls} border-cardBorder`} />
+                                    </label>
+                                </div>
+                                {(data.requested_pickup_time < hhmm(shopPickup) || data.requested_return_time > hhmm(shopReturn)) && (
+                                    <p className="mt-1.5 rounded-[9px] bg-[#fdf6ec] px-3 py-2 text-[12px] text-[#8a5a1f]">
+                                        Ngoài khung giờ {shopPickup}h–{shopReturn}h — shop sẽ liên hệ xác nhận, có thể tính phụ phí.
+                                    </p>
+                                )}
+                            </div>
+
                             <textarea value={data.note} onChange={set('note')} placeholder="Ghi chú (tuỳ chọn)" rows={2}
                                 className="resize-y rounded-[11px] border border-cardBorder bg-white px-3.5 py-[11px] text-[14px] text-ink outline-none focus:border-grass" />
                         </div>
