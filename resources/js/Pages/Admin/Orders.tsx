@@ -61,6 +61,11 @@ type Order = {
     start_date: string; end_date: string; days: number;
     // Nửa ngày (adr_pricing_models) — đơn cùng ngày trả sớm.
     is_half_day: boolean;
+    // Giờ nhận/trả mong muốn + phụ phí ngoài khung giờ (Phase 2 turnaround, bopcamping-h4to)
+    requested_pickup_time: string | null;
+    requested_return_time: string | null;
+    extra_fee: number;
+    extra_fee_note: string | null;
     // ISO (Y-m-d) cho form đổi lịch (bopcamping-5hjm)
     start_date_iso: string; end_date_iso: string;
     total_price: number; deposit_total: number; discount_total: number; amount_due: number;
@@ -360,6 +365,9 @@ export default function AdminOrders({
                                                                             <DetailRow label="Email" value={order.customer_email ?? '—'} mono />
                                                                             <DetailRow label="Địa chỉ" value={order.customer_address ?? '—'} />
                                                                             <DetailRow label="Khoảng thuê" value={`${order.start_date} → ${order.end_date} (${order.days} ngày)${order.is_half_day ? ' · trả sớm nửa ngày' : ''}`} />
+                                                                            {(order.requested_pickup_time || order.requested_return_time) && (
+                                                                                <DetailRow label="Giờ mong muốn" value={`nhận ${order.requested_pickup_time ?? '—'} · trả ${order.requested_return_time ?? '—'}`} mono />
+                                                                            )}
                                                                             <DetailRow label="Đặt lúc" value={order.created_at} />
                                                                         </div>
 
@@ -467,11 +475,15 @@ export default function AdminOrders({
                                                                             })()}
                                                                             {order.discount_total > 0 && <DetailRow label="Giảm giá" value={`−${money(order.discount_total)}`} mono accent="#3a5a1f" />}
                                                                             <DetailRow label="Tiền cọc" value={money(order.deposit_total)} mono />
+                                                                            {order.extra_fee > 0 && <DetailRow label={`Phụ phí${order.extra_fee_note ? ` (${order.extra_fee_note})` : ''}`} value={`+${money(order.extra_fee)}`} mono accent="#8a5a1f" />}
                                                                             <div className="mt-1 flex items-center justify-between border-t border-[#eef2e3] pt-2">
                                                                                 <span className="font-bold text-ink">Trả khi nhận</span>
                                                                                 <span className="font-mono text-[14px] font-extrabold text-pine">{money(order.amount_due)}</span>
                                                                             </div>
                                                                         </div>
+
+                                                                        {/* Phụ phí giao/trả ngoài khung giờ — admin nhập tay (Phase 2 turnaround) */}
+                                                                        {!order.is_parent && <ExtraFeeEditor order={order} />}
 
                                                                         <div className="mb-2 mt-3 text-[12px] font-bold uppercase tracking-[0.04em] text-grass">Ưu đãi đã dùng</div>
                                                                         <div className="rounded-[10px] border border-[#eef2e3] bg-white p-3 text-[12.5px]">
@@ -677,6 +689,46 @@ function DetailRow({ label, value, mono, accent }: { label: string; value: strin
         <div className="flex items-start justify-between gap-3 py-0.5">
             <span className="shrink-0 text-moss">{label}</span>
             <span className={`text-right text-ink ${mono ? 'font-mono' : ''}`} style={accent ? { color: accent } : undefined}>{value}</span>
+        </div>
+    );
+}
+
+/**
+ * Nhập phụ phí giao/trả ngoài khung giờ (Phase 2 turnaround, bopcamping-h4to) — admin
+ * nhập tay sau khi liên hệ khách; cộng vào "Trả khi nhận". Chỉ đơn thường/đơn con.
+ */
+function ExtraFeeEditor({ order }: { order: Order }) {
+    const [fee, setFee] = useState<string>(order.extra_fee ? String(order.extra_fee) : '');
+    const [note, setNote] = useState<string>(order.extra_fee_note ?? '');
+    const [saving, setSaving] = useState(false);
+
+    const save = () => {
+        setSaving(true);
+        router.patch(route('admin.orders.fee', order.id), { extra_fee: Number(fee || 0), extra_fee_note: note || null }, {
+            preserveScroll: true,
+            onFinish: () => setSaving(false),
+        });
+    };
+
+    return (
+        <div className="mt-3">
+            <div className="mb-2 text-[12px] font-bold uppercase tracking-[0.04em] text-grass">Phụ phí ngoài khung giờ</div>
+            <div className="flex flex-wrap items-end gap-2 rounded-[10px] border border-[#eef2e3] bg-white p-3">
+                <label className="min-w-[110px] flex-1">
+                    <span className="mb-1 block text-[11.5px] text-moss">Số tiền (₫)</span>
+                    <input type="number" min="0" value={fee} onChange={(e) => setFee(e.target.value)} placeholder="0"
+                        className="w-full rounded-[9px] border border-cardBorder px-2.5 py-1.5 text-[13px] outline-none focus:border-grass" />
+                </label>
+                <label className="min-w-[150px] flex-[2]">
+                    <span className="mb-1 block text-[11.5px] text-moss">Ghi chú</span>
+                    <input type="text" value={note} onChange={(e) => setNote(e.target.value)} placeholder="VD: giao sớm 6h"
+                        className="w-full rounded-[9px] border border-cardBorder px-2.5 py-1.5 text-[13px] outline-none focus:border-grass" />
+                </label>
+                <button onClick={save} disabled={saving}
+                    className="rounded-[9px] bg-grass px-4 py-1.5 text-[13px] font-bold text-white transition hover:bg-pine disabled:opacity-60">
+                    {saving ? 'Đang lưu…' : 'Lưu phụ phí'}
+                </button>
+            </div>
         </div>
     );
 }

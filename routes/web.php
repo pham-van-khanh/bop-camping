@@ -105,6 +105,8 @@ Route::middleware(['admin'])->prefix('admin')->name('admin.')->group(function ()
     Route::patch('/orders/{order}/dates', [AdminOrderController::class, 'changeDates'])->name('orders.dates')->middleware('throttle:30,1');
     // Đánh dấu tình trạng chuyển tiền (đã chuyển cọc / chuyển hết / chưa chuyển) — bopcamping-7be
     Route::patch('/orders/{order}/payment', [AdminOrderController::class, 'updatePayment'])->name('orders.payment');
+    // Phụ phí giao/trả ngoài khung giờ — admin nhập tay (Phase 2 turnaround, bopcamping-h4to)
+    Route::patch('/orders/{order}/extra-fee', [AdminOrderController::class, 'updateExtraFee'])->name('orders.fee')->middleware('throttle:30,1');
     // Hoàn cọc khi đơn đã trả (đã hoàn / chưa hoàn + lý do) — bopcamping-7be
     Route::patch('/orders/{order}/refund', [AdminOrderController::class, 'updateRefund'])->name('orders.refund');
 

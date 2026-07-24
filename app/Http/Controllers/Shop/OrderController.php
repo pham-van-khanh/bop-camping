@@ -49,6 +49,9 @@ class OrderController extends Controller
             'email' => ['nullable', 'email', 'max:255'],
             'address' => ['nullable', 'string', 'max:255'],
             'note' => ['nullable', 'string', 'max:500'],
+            // Giờ nhận/trả mong muốn (Phase 2 turnaround) — "HH:MM" 24h; null = theo khung giờ shop.
+            'requested_pickup_time' => ['nullable', 'date_format:H:i'],
+            'requested_return_time' => ['nullable', 'date_format:H:i'],
             // max:50 — chặn giỏ khổng lồ tạo hàng loạt đơn con/1 request (CWE-770, bopcamping-wtuv).
             'items' => ['nullable', 'array', 'max:50'],
             'items.*.product_id' => ['required', 'integer', 'exists:products,id'],
@@ -152,6 +155,9 @@ class OrderController extends Controller
             'customer_email' => $customerEmail,
             'customer_address' => $validated['address'] ?? null,
             'note' => $validated['note'] ?? null,
+            // Giờ mong muốn áp cho cả đơn (đơn tách: cha + con cùng nhận giá trị này).
+            'requested_pickup_time' => $validated['requested_pickup_time'] ?? null,
+            'requested_return_time' => $validated['requested_return_time'] ?? null,
         ];
 
         // Tách đơn theo khoảng ngày (bopcamping-wtuv): 1 khoảng → đơn thường; ≥2 → cha + con.
