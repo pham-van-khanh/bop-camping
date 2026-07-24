@@ -36,6 +36,7 @@ class Order extends Model
         'pickup_reminder_sent_at',
         'start_date',
         'end_date',
+        'is_half_day',
         'total_price',
         'deposit_total',
         'discount_total',
@@ -57,6 +58,7 @@ class Order extends Model
     protected $casts = [
         'start_date' => 'date',
         'end_date' => 'date',
+        'is_half_day' => 'boolean',
         'total_price' => 'integer',
         'deposit_total' => 'integer',
         'discount_total' => 'integer',

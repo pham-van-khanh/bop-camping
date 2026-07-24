@@ -115,6 +115,7 @@ class ProductController extends Controller
             'price_per_day' => $p->price_per_day,
             'quantity' => $p->quantity,
             'deposit' => $p->deposit,
+            'early_return_discount_pct' => (int) $p->early_return_discount_pct,
             'thumbnail' => $p->thumbnail ? Storage::disk('media')->url($p->thumbnail) : null,
             'status' => $p->status,
             'category' => $p->category ? ['id' => $p->category->id, 'name' => $p->category->name] : null,
@@ -143,6 +144,8 @@ class ProductController extends Controller
             'description' => 'nullable|string',
             'price_per_day' => 'required|numeric|min:0',
             'deposit' => 'nullable|numeric|min:0',
+            // Ưu đãi trả sớm trong ngày (adr_pricing_models) — % giảm cho đơn cùng ngày.
+            'early_return_discount_pct' => 'sometimes|integer|min:0|max:50',
             'status' => 'sometimes|in:active,hidden',
             'thumbnail' => 'nullable|file|mimes:jpg,jpeg,png,webp|max:4096',
             'service_location_ids' => 'required|array|min:1',
@@ -191,6 +194,7 @@ class ProductController extends Controller
             'price_per_day' => (int) $data['price_per_day'],
             'quantity' => 0, // syncStocks cập nhật = tổng tồn theo store
             'deposit' => isset($data['deposit']) ? (int) $data['deposit'] : null,
+            'early_return_discount_pct' => (int) ($data['early_return_discount_pct'] ?? 0),
             'status' => $data['status'] ?? 'active',
             'thumbnail' => $thumbnailPath,
         ]);
@@ -211,6 +215,8 @@ class ProductController extends Controller
             'description' => 'nullable|string',
             'price_per_day' => 'required|numeric|min:0',
             'deposit' => 'nullable|numeric|min:0',
+            // Ưu đãi trả sớm trong ngày (adr_pricing_models) — % giảm cho đơn cùng ngày.
+            'early_return_discount_pct' => 'sometimes|integer|min:0|max:50',
             'status' => 'sometimes|in:active,hidden',
             'thumbnail' => 'nullable|file|mimes:jpg,jpeg,png,webp|max:4096',
             'service_location_ids' => 'required|array|min:1',
@@ -263,6 +269,7 @@ class ProductController extends Controller
             'specs' => array_key_exists('specs', $data) ? $this->cleanSpecs($data) : $product->specs,
             'price_per_day' => (int) $data['price_per_day'],
             'deposit' => isset($data['deposit']) ? (int) $data['deposit'] : null,
+            'early_return_discount_pct' => (int) ($data['early_return_discount_pct'] ?? 0),
             'status' => $data['status'] ?? $product->status,
             'thumbnail' => $thumbnailPath,
         ]);
