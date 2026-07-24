@@ -121,6 +121,8 @@ class ProductController extends Controller
             'service_location_ids' => $p->serviceLocations->pluck('id')->values(),
             // Tồn kho theo store (per-store): {service_location_id: quantity}
             'stocks' => $p->serviceLocations->mapWithKeys(fn ($l) => [$l->id => (int) $l->pivot->quantity]),
+            // Đệm giặt/phơi theo kho (adr_turnaround_buffer): {service_location_id: buffer_days}
+            'buffers' => $p->serviceLocations->mapWithKeys(fn ($l) => [$l->id => (int) $l->pivot->buffer_days]),
             'accessory_ids' => $p->accessories->pluck('id')->values(),
             'related_ids' => $p->related->pluck('id')->values(),
             'combo_names' => $comboNames,
@@ -148,6 +150,9 @@ class ProductController extends Controller
             // Tồn kho theo cửa hàng (per-store): map service_location_id => số lượng
             'stocks' => 'sometimes|array',
             'stocks.*' => 'integer|min:0',
+            // Đệm giặt/phơi theo kho (adr_turnaround_buffer) — số ngày, trần 30.
+            'buffers' => 'sometimes|array',
+            'buffers.*' => 'integer|min:0|max:30',
             'accessory_ids' => 'sometimes|nullable|array|max:20',
             'accessory_ids.*' => 'integer|distinct|exists:products,id',
             'specs' => 'sometimes|nullable|array|max:30',
@@ -213,6 +218,9 @@ class ProductController extends Controller
             // Tồn kho theo cửa hàng (per-store): map service_location_id => số lượng
             'stocks' => 'sometimes|array',
             'stocks.*' => 'integer|min:0',
+            // Đệm giặt/phơi theo kho (adr_turnaround_buffer) — số ngày, trần 30.
+            'buffers' => 'sometimes|array',
+            'buffers.*' => 'integer|min:0|max:30',
             'accessory_ids' => 'sometimes|nullable|array|max:20',
             'accessory_ids.*' => 'integer|distinct|exists:products,id',
             'specs' => 'sometimes|nullable|array|max:30',
@@ -300,9 +308,14 @@ class ProductController extends Controller
     private function syncStocks(Product $product, array $data): void
     {
         $stocks = $data['stocks'] ?? [];
+        $buffers = $data['buffers'] ?? [];
         $pivot = [];
         foreach ($data['service_location_ids'] as $locId) {
-            $pivot[(int) $locId] = ['quantity' => max(0, (int) ($stocks[$locId] ?? 0))];
+            $pivot[(int) $locId] = [
+                'quantity' => max(0, (int) ($stocks[$locId] ?? 0)),
+                // Đệm giặt/phơi theo kho (adr_turnaround_buffer) — trần 30 khớp validate.
+                'buffer_days' => min(30, max(0, (int) ($buffers[$locId] ?? 0))),
+            ];
         }
         $product->serviceLocations()->sync($pivot);
         $product->update(['quantity' => array_sum(array_column($pivot, 'quantity'))]);

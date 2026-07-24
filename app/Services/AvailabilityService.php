@@ -44,12 +44,16 @@ class AvailabilityService
      */
     private function bookedQuantity(Product $product, Carbon $start, Carbon $end, ?ServiceLocation $location, ?int $excludeOrderId): int
     {
+        // Đệm quay vòng: nới biên "đã đặt" thêm buffer ngày sau ngày trả (đồ còn giặt/phơi).
+        // Theo KHO đang hỏi; nhánh toàn cục lấy max buffer các kho (adr_turnaround_buffer).
+        $buffer = $location === null ? $product->maxBufferAcrossLocations() : $product->bufferAt($location->id);
+
         $q = OrderItem::query()
             ->join('orders', 'orders.id', '=', 'order_items.order_id')
             ->whereIn('orders.status', Order::activeStatuses())
             ->where('order_items.product_id', $product->id)
             ->whereRaw('COALESCE(DATE(order_items.start_date), DATE(orders.start_date)) <= ?', [$end->toDateString()])
-            ->whereRaw('COALESCE(DATE(order_items.end_date), DATE(orders.end_date)) >= ?', [$start->toDateString()]);
+            ->whereRaw('COALESCE(DATE(order_items.end_date), DATE(orders.end_date)) >= ?', [$start->copy()->subDays($buffer)->toDateString()]);
 
         // Per-store: chỉ đếm đơn GẮN store đó (đơn NULL store — dữ liệu cũ — tính vào mọi store).
         if ($location !== null) {
@@ -211,11 +215,16 @@ class AvailabilityService
             return [];
         }
 
-        // Đơn chồng lịch (nếu có store: gắn store đó hoặc chưa gắn — dữ liệu cũ).
+        // Đệm quay vòng: mỗi đơn chiếm [start, end + buffer] (đồ còn giặt/phơi sau ngày trả).
+        // Theo kho đang hỏi; nhánh toàn cục lấy max buffer các kho (adr_turnaround_buffer mục 3.3).
+        $buffer = $location === null ? $product->maxBufferAcrossLocations() : $product->bufferAt($location->id);
+
+        // Đơn chồng lịch — nới điều kiện end_date về trước theo buffer để bắt cả đơn mà
+        // cửa sổ phơi mới chạm vào [from, to].
         $orders = Order::query()
             ->whereIn('status', Order::activeStatuses())
             ->where('start_date', '<=', $to)
-            ->where('end_date', '>=', $from)
+            ->where('end_date', '>=', $from->copy()->subDays($buffer))
             ->when($location !== null, fn ($q) => $q->where(fn ($sq) => $sq->where('service_location_id', $location->id)->orWhereNull('service_location_id')))
             ->with(['items' => fn ($q) => $q->where('product_id', $product->id)])
             ->get()
@@ -227,7 +236,7 @@ class AvailabilityService
         while ($cursor->lte($to)) {
             $booked = 0;
             foreach ($orders as $order) {
-                if ($cursor->between($order->start_date, $order->end_date)) {
+                if ($cursor->between($order->start_date, $order->end_date->copy()->addDays($buffer))) {
                     $booked += $order->items->sum('quantity');
                 }
             }

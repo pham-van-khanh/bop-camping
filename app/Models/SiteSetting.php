@@ -13,6 +13,17 @@ class SiteSetting extends Model
 {
     protected $guarded = [];
 
+    /** Giờ giao/trả mặc định (adr_turnaround_buffer) — đảm bảo bản ghi mới có sẵn 8/20. */
+    protected $attributes = [
+        'pickup_hour' => 8,
+        'return_hour' => 20,
+    ];
+
+    protected $casts = [
+        'pickup_hour' => 'integer',
+        'return_hour' => 'integer',
+    ];
+
     /** Lấy bản ghi cấu hình duy nhất (tạo mặc định nếu chưa có). */
     public static function current(): self
     {

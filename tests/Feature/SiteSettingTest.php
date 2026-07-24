@@ -113,6 +113,39 @@ class SiteSettingTest extends TestCase
     }
 
     /** @test */
+    public function admin_saves_pickup_return_hours_and_shared_prop_exposes_them(): void
+    {
+        $this->actingAs($this->admin())->put(route('admin.settings.update'), [
+            'pickup_hour' => 6,
+            'return_hour' => 22,
+        ])->assertRedirect()->assertSessionHasNoErrors();
+
+        $s = SiteSetting::current();
+        $this->assertSame(6, (int) $s->pickup_hour);
+        $this->assertSame(22, (int) $s->return_hour);
+
+        $this->get('/')->assertInertia(fn (Assert $page) => $page
+            ->where('site.pickup_hour', 6)
+            ->where('site.return_hour', 22));
+    }
+
+    /** @test */
+    public function pickup_hour_rejects_out_of_range(): void
+    {
+        $this->actingAs($this->admin())->put(route('admin.settings.update'), [
+            'pickup_hour' => 25,
+        ])->assertSessionHasErrors('pickup_hour');
+    }
+
+    /** @test */
+    public function pickup_return_hours_default_to_8_and_20(): void
+    {
+        $this->get('/')->assertInertia(fn (Assert $page) => $page
+            ->where('site.pickup_hour', 8)
+            ->where('site.return_hour', 20));
+    }
+
+    /** @test */
     public function update_rejects_invalid_url(): void
     {
         $this->actingAs($this->admin())->put(route('admin.settings.update'), [

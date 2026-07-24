@@ -86,11 +86,11 @@ class Product extends Model
         return $this->hasMany(Review::class);
     }
 
-    /** Vị trí phục vụ (Vinh, Hà Nội...) mà sản phẩm có cho thuê, kèm tồn kho tại nơi đó. */
+    /** Vị trí phục vụ (Vinh, Hà Nội...) mà sản phẩm có cho thuê, kèm tồn kho + đệm quay vòng tại nơi đó. */
     public function serviceLocations(): BelongsToMany
     {
         return $this->belongsToMany(ServiceLocation::class, 'product_service_location')
-            ->withPivot('quantity');
+            ->withPivot('quantity', 'buffer_days');
     }
 
     /** Tồn kho tại 1 cửa hàng (per-store stock). 0 nếu không phục vụ ở đó. */
@@ -100,6 +100,29 @@ class Product extends Model
         $loc = $this->serviceLocations->firstWhere('id', $serviceLocationId);
 
         return $loc ? (int) $loc->pivot->quantity : 0;
+    }
+
+    /**
+     * Đệm quay vòng (giặt/phơi) THEO KHO — số ngày sau ngày trả mà món chưa sẵn sàng
+     * cho thuê lại (adr_turnaround_buffer). 0 nếu không phục vụ ở đó.
+     */
+    public function bufferAt(int $serviceLocationId): int
+    {
+        $this->loadMissing('serviceLocations');
+        $loc = $this->serviceLocations->firstWhere('id', $serviceLocationId);
+
+        return $loc ? (int) $loc->pivot->buffer_days : 0;
+    }
+
+    /**
+     * Đệm lớn nhất trong các kho — dùng cho nhánh tính tồn TOÀN CỤC cũ ($location = null,
+     * dữ liệu chưa gắn store) để không cho thuê lại khi món ở kho nào đó còn đang phơi.
+     */
+    public function maxBufferAcrossLocations(): int
+    {
+        $this->loadMissing('serviceLocations');
+
+        return (int) ($this->serviceLocations->max('pivot.buffer_days') ?? 0);
     }
 
     /** Case 2 — "thường thuê cùng": phụ kiện admin gán tay, theo sort_order (US-08). */
