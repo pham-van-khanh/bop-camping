@@ -26,6 +26,8 @@ export type LookupOrder = {
     created_at: string;
     items: OrderItem[];
     timeline: TimelineStep[];
+    // Đơn gộp (bopcamping-wtuv T8): tra mã cha → các ĐỢT giao (mỗi đợt là 1 đơn con đầy đủ).
+    installments?: LookupOrder[];
 };
 
 export type LookupProps = {
@@ -153,31 +155,65 @@ export default function OrderLookupPanel({
                         <Box k="Trả khi nhận (COD)" v={money(order.amount_due)} accent />
                     </div>
 
-                    {/* Items */}
-                    <div className="mb-4 overflow-hidden rounded-[10px] border border-[#eef2e3]">
-                        <table className="w-full text-[13px]">
-                            <thead>
-                                <tr style={{ background: '#f8faf4' }} className="border-b border-[#eef2e3]">
-                                    <th className="px-3 py-2 text-left font-semibold text-moss">Thiết bị</th>
-                                    <th className="px-3 py-2 text-center font-semibold text-moss">SL</th>
-                                    <th className="px-3 py-2 text-center font-semibold text-moss">Ngày</th>
-                                    <th className="px-3 py-2 text-right font-semibold text-moss">Thành tiền</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {order.items.map((item, i) => (
-                                    <tr key={i} className="border-t border-[#eef2e3]">
-                                        <td className="px-3 py-2 text-ink">{item.name}</td>
-                                        <td className="px-3 py-2 text-center text-moss">{item.quantity}</td>
-                                        <td className="px-3 py-2 text-center text-moss">{item.days}</td>
-                                        <td className="px-3 py-2 text-right font-mono font-bold text-ink">
-                                            {money(item.subtotal)}
-                                        </td>
+                    {/* Đơn gộp: liệt kê TỪNG ĐỢT giao (mỗi đợt = đơn con) — bopcamping-wtuv T8. */}
+                    {order.installments && order.installments.length > 0 ? (
+                        <div className="mb-4 flex flex-col gap-3">
+                            {order.installments.map((inst, idx) => (
+                                <div key={inst.code} className="overflow-hidden rounded-[10px] border border-[#e3ecd2]">
+                                    <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2" style={{ background: '#eef5e0' }}>
+                                        <div className="text-[13px] font-bold text-pine">
+                                            Đợt {idx + 1} · <span className="font-mono text-grass">{inst.code}</span>
+                                            <span className="ml-2 font-mono font-normal text-moss">{inst.start_date} → {inst.end_date}</span>
+                                        </div>
+                                        <span className="rounded-pill px-2.5 py-1 text-[11px] font-bold" style={STATUS_STYLE[inst.status] ?? STATUS_STYLE.pending}>
+                                            {inst.status_label}
+                                        </span>
+                                    </div>
+                                    <table className="w-full text-[13px]">
+                                        <tbody>
+                                            {inst.items.map((item, i) => (
+                                                <tr key={i} className="border-t border-[#eef2e3]">
+                                                    <td className="px-3 py-2 text-ink">{item.name}</td>
+                                                    <td className="px-3 py-2 text-center text-moss">×{item.quantity}</td>
+                                                    <td className="px-3 py-2 text-center text-moss">{item.days} ngày</td>
+                                                    <td className="px-3 py-2 text-right font-mono font-bold text-ink">{money(item.subtotal)}</td>
+                                                </tr>
+                                            ))}
+                                            <tr className="border-t border-[#eef2e3]" style={{ background: '#fbfdf6' }}>
+                                                <td colSpan={3} className="px-3 py-1.5 text-right text-[12px] text-moss">COD đợt này {inst.discount_total > 0 ? `(đã giảm −${money(inst.discount_total)})` : ''}</td>
+                                                <td className="px-3 py-1.5 text-right font-mono font-bold text-pine">{money(inst.amount_due)}</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="mb-4 overflow-hidden rounded-[10px] border border-[#eef2e3]">
+                            <table className="w-full text-[13px]">
+                                <thead>
+                                    <tr style={{ background: '#f8faf4' }} className="border-b border-[#eef2e3]">
+                                        <th className="px-3 py-2 text-left font-semibold text-moss">Thiết bị</th>
+                                        <th className="px-3 py-2 text-center font-semibold text-moss">SL</th>
+                                        <th className="px-3 py-2 text-center font-semibold text-moss">Ngày</th>
+                                        <th className="px-3 py-2 text-right font-semibold text-moss">Thành tiền</th>
                                     </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
+                                </thead>
+                                <tbody>
+                                    {order.items.map((item, i) => (
+                                        <tr key={i} className="border-t border-[#eef2e3]">
+                                            <td className="px-3 py-2 text-ink">{item.name}</td>
+                                            <td className="px-3 py-2 text-center text-moss">{item.quantity}</td>
+                                            <td className="px-3 py-2 text-center text-moss">{item.days}</td>
+                                            <td className="px-3 py-2 text-right font-mono font-bold text-ink">
+                                                {money(item.subtotal)}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
 
                     {/* Note */}
                     {order.note && (

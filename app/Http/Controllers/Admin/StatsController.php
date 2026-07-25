@@ -32,19 +32,22 @@ class StatsController extends Controller
         };
 
         // Số đơn theo created_at (luôn hiển thị, không phụ thuộc kỳ).
+        // Đơn gộp (bopcamping-wtuv T8): loại đơn CHA — cha là container (tổng = Σ con),
+        // đếm cả cha lẫn con sẽ ĐÔI. "Đơn" = đơn thường + từng đợt giao (con).
         $orderCounts = [
-            'today' => Order::where('created_at', '>=', Carbon::today())->count(),
-            'week' => Order::where('created_at', '>=', Carbon::now()->startOfWeek())->count(),
-            'month' => Order::where('created_at', '>=', Carbon::now()->startOfMonth())->count(),
-            'total' => Order::count(),
+            'today' => Order::where('is_parent', false)->where('created_at', '>=', Carbon::today())->count(),
+            'week' => Order::where('is_parent', false)->where('created_at', '>=', Carbon::now()->startOfWeek())->count(),
+            'month' => Order::where('is_parent', false)->where('created_at', '>=', Carbon::now()->startOfMonth())->count(),
+            'total' => Order::where('is_parent', false)->count(),
         ];
 
         // Thu = tiền thuê (đã trừ giảm giá) của đơn ĐÃ TRẢ, tính theo mốc trả (updated_at).
-        $revenueQuery = Order::where('status', 'returned')
+        // (Cha không bao giờ 'returned' — lọc thêm cho tường minh.)
+        $revenueQuery = Order::where('is_parent', false)->where('status', 'returned')
             ->when($from, fn ($q) => $q->where('updated_at', '>=', $from))
             ->selectRaw('COALESCE(SUM(total_price - discount_total), 0) as s');
         $revenue = (int) $revenueQuery->value('s');
-        $returnedCount = Order::where('status', 'returned')
+        $returnedCount = Order::where('is_parent', false)->where('status', 'returned')
             ->when($from, fn ($q) => $q->where('updated_at', '>=', $from))
             ->count();
 
@@ -106,7 +109,7 @@ class StatsController extends Controller
     private function ordersPerDay(int $days): array
     {
         $start = Carbon::today()->subDays($days - 1);
-        $counts = Order::where('created_at', '>=', $start)
+        $counts = Order::where('is_parent', false)->where('created_at', '>=', $start)
             ->get(['created_at'])
             ->groupBy(fn (Order $o) => $o->created_at->toDateString())
             ->map->count();

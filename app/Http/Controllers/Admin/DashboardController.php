@@ -15,16 +15,19 @@ class DashboardController extends Controller
     /** Tổng quan cho chủ shop: số đơn theo trạng thái, doanh thu, đơn mới. */
     public function index(): Response
     {
-        $byStatus = Order::selectRaw('status, count(*) as c')->groupBy('status')->pluck('c', 'status');
+        // Đơn gộp (bopcamping-wtuv T8): loại đơn CHA khỏi mọi đếm/danh sách — cha là container
+        // (tổng = Σ con) nên tính cả cha lẫn con sẽ ĐÔI. Đơn = đơn thường + từng đợt (con).
+        $byStatus = Order::where('is_parent', false)->selectRaw('status, count(*) as c')->groupBy('status')->pluck('c', 'status');
 
         // Doanh thu = (tiền thuê − giảm giá) của đơn đã hoàn thành (returned). Cọc không tính.
-        $revenue = (int) Order::where('status', 'returned')
+        // (Cha không bao giờ 'returned' nên không double, vẫn lọc cho tường minh.)
+        $revenue = (int) Order::where('is_parent', false)->where('status', 'returned')
             ->selectRaw('COALESCE(SUM(total_price - discount_total), 0) as s')->value('s');
-        $revenueMonth = (int) Order::where('status', 'returned')
+        $revenueMonth = (int) Order::where('is_parent', false)->where('status', 'returned')
             ->where('updated_at', '>=', now()->startOfMonth())
             ->selectRaw('COALESCE(SUM(total_price - discount_total), 0) as s')->value('s');
 
-        $recent = Order::latest()->take(8)->get()->map(fn (Order $o) => [
+        $recent = Order::where('is_parent', false)->latest()->take(8)->get()->map(fn (Order $o) => [
             'id' => $o->id,
             'code' => $o->code,
             'customer_name' => $o->customer_name,
@@ -35,7 +38,7 @@ class DashboardController extends Controller
 
         return Inertia::render('Admin/Dashboard', [
             'stats' => [
-                'total' => Order::count(),
+                'total' => Order::where('is_parent', false)->count(),
                 'pending' => $byStatus['pending'] ?? 0,
                 'confirmed' => $byStatus['confirmed'] ?? 0,
                 'renting' => $byStatus['renting'] ?? 0,

@@ -30,14 +30,22 @@ class OrderController extends Controller
     public function index(Request $request): Response
     {
         $status = $request->query('status', 'all');
+        $q = trim((string) $request->query('q', ''));
 
-        $query = Order::with(['items.product', 'items.combo', 'vouchers', 'referralUse.referrer', 'serviceLocation'])->latest();
+        // Đơn cha/con (bopcamping-wtuv T6): danh sách chỉ TOP-LEVEL (đơn thường + cha, ẩn con);
+        // con nạp kèm trong cha. Search theo mã đơn (cả mã con)/tên/SĐT.
+        $relations = ['items.product', 'items.combo', 'vouchers', 'referralUse.referrer', 'serviceLocation'];
+        $query = Order::topLevel()->with(array_merge($relations, array_map(fn ($r) => "children.$r", $relations)))->latest();
 
-        if ($status !== 'all') {
-            $query->where('status', $status);
+        if ($q !== '') {
+            $query->where(fn ($w) => $w
+                ->where('code', 'like', "%{$q}%")
+                ->orWhere('customer_name', 'like', "%{$q}%")
+                ->orWhere('customer_phone', 'like', "%{$q}%")
+                ->orWhereHas('children', fn ($c) => $c->where('code', 'like', "%{$q}%")));
         }
 
-        $orders = $query->get()->map(fn ($o) => [
+        $mapOrder = fn ($o) => [
             'id' => $o->id,
             'code' => $o->code,
             'customer_name' => $o->customer_name,
@@ -88,18 +96,35 @@ class OrderController extends Controller
                 'referrer_name' => $o->referralUse->referrer?->name,
                 'status' => $o->referralUse->status,
             ] : null,
-        ]);
-
-        // Thống kê
-        $all = Order::selectRaw('status, count(*) as cnt')->groupBy('status')->pluck('cnt', 'status');
-        $stats = [
-            'total' => Order::count(),
-            'pending' => $all['pending'] ?? 0,
-            'confirmed' => $all['confirmed'] ?? 0,
-            'renting' => $all['renting'] ?? 0,
-            'returned' => $all['returned'] ?? 0,
-            'cancelled' => $all['cancelled'] ?? 0,
+            'is_parent' => (bool) $o->is_parent,
         ];
+
+        // Cha: trạng thái hiển thị suy từ con; kèm mảng children (map cùng shape để FE tái dùng UI).
+        $orders = $query->get()->map(function ($o) use ($mapOrder) {
+            $row = $mapOrder($o);
+            if ($o->is_parent) {
+                $row['status'] = $o->aggregateStatus();
+                $row['children'] = $o->children->map($mapOrder)->values();
+            }
+
+            return $row;
+        });
+
+        // Thống kê theo TOP-LEVEL (đơn cha đếm 1, trạng thái suy từ con — không đếm trùng con).
+        $byStatus = $orders->countBy('status');
+        $stats = [
+            'total' => $orders->count(),
+            'pending' => $byStatus['pending'] ?? 0,
+            'confirmed' => $byStatus['confirmed'] ?? 0,
+            'renting' => $byStatus['renting'] ?? 0,
+            'returned' => $byStatus['returned'] ?? 0,
+            'cancelled' => $byStatus['cancelled'] ?? 0,
+        ];
+
+        // Lọc trạng thái SAU khi suy trạng thái cha (in-collection — list không phân trang).
+        if ($status !== 'all') {
+            $orders = $orders->filter(fn ($row) => $row['status'] === $status)->values();
+        }
 
         // Tồn kho
         $inventory = Product::with('category')->orderBy('name')->get()->map(fn ($p) => [
@@ -116,7 +141,7 @@ class OrderController extends Controller
             'inventory' => $inventory,
             // Per-store: cửa hàng đang mở để admin đổi store cho đơn
             'service_locations' => ServiceLocation::open()->ordered()->get()->map(fn ($l) => ['id' => $l->id, 'name' => $l->name]),
-            'filters' => ['status' => $status],
+            'filters' => ['status' => $status, 'q' => $q],
             // Trần % giảm giá tối đa/đơn — preview đổi lịch dùng để kẹp giống server (bopcamping-lmk6).
             'max_discount_percent' => (float) PromotionSetting::current()->max_discount_percent_per_order,
         ]);
@@ -133,9 +158,37 @@ class OrderController extends Controller
         ]);
 
         $location = ServiceLocation::findOrFail($data['service_location_id']);
+
+        // Đơn gộp: cả cụm dùng CHUNG 1 cơ sở — kiểm tồn từng CON theo khoảng của nó,
+        // đủ hết mới đổi cha + toàn bộ con (bopcamping-wtuv T7).
+        $targets = $order->is_parent
+            ? $order->children()->where('status', '!=', 'cancelled')->get()
+            : collect([$order]);
+
+        foreach ($targets as $target) {
+            if ($err = $this->locationShortage($target, $location)) {
+                return back()->withErrors(['location' => $err]);
+            }
+        }
+
+        DB::transaction(function () use ($order, $location) {
+            $order->update(['service_location_id' => $location->id, 'location_auto_assigned' => false]);
+            if ($order->is_parent) {
+                $order->children()->update(['service_location_id' => $location->id, 'location_auto_assigned' => false]);
+            }
+        });
+
+        return back()->with('success', "Đơn {$order->code} → cơ sở {$location->name}");
+    }
+
+    /**
+     * Kiểm store đích có đủ MỌI món của đơn trong khoảng ngày của đơn không.
+     * Loại chính đơn khỏi "đã đặt" (không tự chặn mình). Trả message lỗi hoặc null nếu đủ.
+     */
+    private function locationShortage(Order $order, ServiceLocation $location): ?string
+    {
         $order->loadMissing('items.product.serviceLocations');
 
-        // Nhu cầu mỗi món của đơn (gộp theo product) trong khoảng đơn.
         $needed = [];
         foreach ($order->items as $item) {
             if ($item->product) {
@@ -143,18 +196,15 @@ class OrderController extends Controller
             }
         }
 
-        // Kiểm store đích: loại chính đơn này khỏi "đã đặt" (không tự chặn mình, không over-credit).
         foreach ($needed as $productId => $qty) {
             $product = $order->items->firstWhere('product_id', $productId)->product;
             $avail = $this->availability->availableQuantity($product, $order->start_date, $order->end_date, $location, $order->id);
             if ($avail < $qty) {
-                return back()->withErrors(['location' => "\"{$product->name}\" tại {$location->name} không đủ ({$avail}/{$qty}) cho khoảng đơn."]);
+                return "\"{$product->name}\" tại {$location->name} không đủ ({$avail}/{$qty}) cho khoảng {$order->code}.";
             }
         }
 
-        $order->update(['service_location_id' => $location->id, 'location_auto_assigned' => false]);
-
-        return back()->with('success', "Đơn {$order->code} → cơ sở {$location->name}");
+        return null;
     }
 
     /**
@@ -165,6 +215,10 @@ class OrderController extends Controller
      */
     public function changeDates(Request $request, Order $order): RedirectResponse
     {
+        // Đơn cha không có món — đổi lịch trên TỪNG CON (mỗi con 1 khoảng ngày riêng).
+        if ($order->is_parent) {
+            return back()->withErrors(['dates' => 'Đơn gộp: đổi lịch trên từng đợt (đơn con).']);
+        }
         if (! in_array($order->status, ['pending', 'confirmed'], true)) {
             return back()->withErrors(['dates' => 'Chỉ đổi lịch đơn chưa giao (chờ xác nhận / đã xác nhận).']);
         }
@@ -236,6 +290,12 @@ class OrderController extends Controller
             ]);
         });
 
+        // Con của đơn gộp đổi lịch → tổng/envelope/voucher của CHA phải tính lại + phân bổ lại
+        // (voucher % scale theo tổng mới, cap tái áp) — bopcamping-wtuv T7.
+        if ($order->parent_id) {
+            $this->recomputeParentAfterChildChange($order->parent()->first());
+        }
+
         if ($email = $order->notifiableEmail()) {
             Mail::to($email)->send(new OrderDatesChangedMail($order->fresh()->loadMissing('items.product'), $oldStart, $oldEnd));
         }
@@ -291,9 +351,81 @@ class OrderController extends Controller
             'status' => ['required', 'in:'.implode(',', self::VALID_STATUSES)],
         ]);
 
-        $order->update(['status' => $validated['status']]);
+        $was = $order->status;
+        $new = $validated['status'];
 
-        return back()->with('success', "Đơn {$order->code} → {$validated['status']}");
+        // Đơn cha chỉ gom đợt — vòng đời giao/thu nằm ở TỪNG CON (bopcamping-wtuv T7).
+        // Trên cha chỉ cho phép HUỶ CẢ CỤM; các trạng thái khác thao tác trên con.
+        if ($order->is_parent && $new !== 'cancelled') {
+            return back()->withErrors(['status' => 'Đơn gộp chỉ có thể Huỷ cả cụm — đổi trạng thái trên từng đợt (đơn con).']);
+        }
+
+        $order->update(['status' => $new]);
+
+        // Đơn cha/con (bopcamping-wtuv T4): huỷ cha → huỷ hết con; huỷ/khôi phục 1 con →
+        // tính lại voucher + phân bổ trên các con CÒN active.
+        if ($order->is_parent && $new === 'cancelled') {
+            $order->children()->update(['status' => 'cancelled']);
+        } elseif ($order->parent_id && ($new === 'cancelled' || $was === 'cancelled')) {
+            $this->recomputeParentAfterChildChange($order->parent);
+        }
+
+        return back()->with('success', "Đơn {$order->code} → {$new}");
+    }
+
+    /**
+     * Sau khi 1 con huỷ/khôi phục (bopcamping-wtuv T4): tính lại tổng + voucher của cha trên
+     * các con CÒN active rồi phân bổ lại. Voucher % scale theo tổng mới, tiền cố định giữ,
+     * áp lại trần % (van an toàn). Bất biến: Σ discount con active === discount cha.
+     */
+    private function recomputeParentAfterChildChange(?Order $parent): void
+    {
+        if (! $parent) {
+            return;
+        }
+        $parent->loadMissing('children');
+        $active = $parent->children->reject(fn (Order $c) => $c->status === 'cancelled')->values();
+        $newTotal = (int) $active->sum('total_price');
+        $oldTotal = (int) $parent->total_price;
+
+        $maxPercent = (float) PromotionSetting::current()->max_discount_percent_per_order;
+        $cap = (int) floor($newTotal * $maxPercent / 100);
+
+        // Tính lại discount cha: bỏ dòng cap cũ, scale dòng % theo tổng mới, giữ dòng cố định, kẹp.
+        $breakdown = $parent->discount_breakdown ?? [];
+        $lines = [];
+        foreach ($breakdown as $line) {
+            if (($line['source'] ?? null) === 'cap') {
+                continue;
+            }
+            if (! empty($line['percent'])) {
+                $line['amount'] = $oldTotal > 0 ? (int) round((int) $line['amount'] * $newTotal / $oldTotal) : 0;
+            }
+            $lines[] = $line;
+        }
+        $preCap = (int) array_sum(array_column($lines, 'amount'));
+        $discountTotal = max(0, min($preCap, $cap, $newTotal));
+        if ($lines && $discountTotal !== $preCap) {
+            $lines[] = ['source' => 'cap', 'amount' => $discountTotal - $preCap, 'percent' => true];
+        }
+
+        $parent->update([
+            'total_price' => $newTotal,
+            'deposit_total' => (int) $active->sum('deposit_total'),
+            'discount_total' => $discountTotal,
+            'discount_breakdown' => $lines ?: null,
+            // Envelope ngày của cha bám theo các con còn active (đổi lịch con / huỷ con).
+            ...($active->isNotEmpty() ? [
+                'start_date' => $active->min('start_date'),
+                'end_date' => $active->max('end_date'),
+            ] : []),
+        ]);
+
+        // Phân bổ lại xuống con active ∝ tiền thuê (nguồn chung ở Order model); con huỷ → 0.
+        $parent->allocateDiscountToChildren($active);
+        foreach ($parent->children->where('status', 'cancelled') as $c) {
+            $c->update(['discount_total' => 0, 'discount_breakdown' => null]);
+        }
     }
 
     /**
@@ -303,6 +435,9 @@ class OrderController extends Controller
      */
     public function updatePayment(Request $request, Order $order): RedirectResponse
     {
+        if ($order->is_parent) {
+            return back()->withErrors(['payment_status' => 'Đơn gộp: đánh dấu chuyển tiền trên từng đợt (đơn con).']);
+        }
         if ($order->status === 'returned') {
             return back()->withErrors(['payment_status' => 'Đơn đã trả — không đổi tình trạng chuyển tiền nữa.']);
         }
@@ -322,6 +457,9 @@ class OrderController extends Controller
      */
     public function updateRefund(Request $request, Order $order): RedirectResponse
     {
+        if ($order->is_parent) {
+            return back()->withErrors(['deposit_refund_status' => 'Đơn gộp: hoàn cọc trên từng đợt (đơn con).']);
+        }
         if ($order->status !== 'returned') {
             return back()->withErrors(['deposit_refund_status' => 'Chỉ hoàn cọc cho đơn đã trả.']);
         }

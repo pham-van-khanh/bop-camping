@@ -34,7 +34,11 @@ class EmailBonusService
             return $fail('no_verified_email');
         }
 
-        $hasPriorOrder = Order::where('user_id', $user->id)->where('id', '!=', $order->id)->exists();
+        // Chỉ đếm đơn TOP-LEVEL — đơn CON thuộc cụm hiện tại không phải "đơn trước đó" (bopcamping-wtuv T8).
+        $hasPriorOrder = Order::where('user_id', $user->id)
+            ->whereNull('parent_id')
+            ->where('id', '!=', $order->id)
+            ->exists();
         if ($hasPriorOrder) {
             return $fail('not_first_order');
         }

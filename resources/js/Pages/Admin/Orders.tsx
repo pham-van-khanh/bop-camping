@@ -32,6 +32,8 @@ const DISCOUNT_SOURCE_LABEL: Record<string, string> = {
     referral: 'Mã giới thiệu (đơn đầu)',
     email_bonus: 'Ưu đãi thêm email (đơn đầu)',
     cap: 'Điều chỉnh trần giảm giá',
+    // bopcamping-wtuv: phần giảm phân bổ từ voucher tính trên TỔNG đơn gộp (cha)
+    parent_alloc: 'Giảm phân bổ từ đơn gộp',
 };
 
 function groupItems(items: OrderItem[]): ItemGroup[] {
@@ -68,6 +70,9 @@ type Order = {
     // Per-store: cửa hàng thuê + đơn hệ thống tự gán (admin review theo địa chỉ)
     service_location: { id: number; name: string } | null;
     location_auto_assigned: boolean;
+    // Đơn cha/con (bopcamping-wtuv): cha gom N đợt giao; con nằm trong children của cha.
+    is_parent: boolean;
+    children?: Order[];
 };
 
 // Tình trạng chuyển tiền (marker admin — bopcamping-7be).
@@ -107,11 +112,14 @@ export default function AdminOrders({
 }: {
     orders: Order[]; stats: Stats; inventory: InventoryItem[];
     service_locations: { id: number; name: string }[];
-    filters: { status: string };
+    filters: { status: string; q: string };
     max_discount_percent: number;
 }) {
     const [expandedId, setExpandedId] = useState<number | null>(null);
     const [tab, setTab] = useState<'orders' | 'inventory'>('orders');
+    // Đơn cha đang mở danh sách con (bopcamping-wtuv T6) — bấm dòng cha để show/ẩn con.
+    const [openParents, setOpenParents] = useState<Record<number, boolean>>({});
+    const [search, setSearch] = useState(filters.q ?? '');
 
     const changeStatus = (order: Order, status: string) => {
         router.patch(route('admin.orders.update', order.id), { status }, { preserveScroll: true });
@@ -123,8 +131,27 @@ export default function AdminOrders({
     };
 
     const filterTab = (status: string) => {
-        router.get(route('admin.orders'), status === 'all' ? {} : { status }, { preserveState: true, replace: true });
+        router.get(route('admin.orders'), {
+            ...(status === 'all' ? {} : { status }),
+            ...(filters.q ? { q: filters.q } : {}),
+        }, { preserveState: true, replace: true });
     };
+
+    // Search theo mã đơn (cả mã con) / tên khách / SĐT — server lọc (bopcamping-wtuv T6).
+    const submitSearch = (e: React.FormEvent) => {
+        e.preventDefault();
+        router.get(route('admin.orders'), {
+            ...(filters.status !== 'all' ? { status: filters.status } : {}),
+            ...(search.trim() ? { q: search.trim() } : {}),
+        }, { preserveState: true, replace: true });
+    };
+
+    // Danh sách phẳng để render: cha đang mở → chèn các con NGAY DƯỚI (thụt vào).
+    const visibleRows: { order: Order; isChild: boolean }[] = orders.flatMap((o) =>
+        o.is_parent && openParents[o.id] && o.children?.length
+            ? [{ order: o, isChild: false }, ...o.children.map((c) => ({ order: c, isChild: true }))]
+            : [{ order: o, isChild: false }],
+    );
 
     return (
         <>
@@ -169,8 +196,8 @@ export default function AdminOrders({
 
                 {tab === 'orders' && (
                     <>
-                        {/* Status filter */}
-                        <div className="mb-4 flex flex-wrap gap-2">
+                        {/* Status filter + search */}
+                        <div className="mb-4 flex flex-wrap items-center gap-2">
                             {TABS.map((t) => (
                                 <button key={t.key} onClick={() => filterTab(t.key)}
                                     className={`rounded-pill border px-3.5 py-1.5 text-[12.5px] font-semibold transition ${
@@ -181,6 +208,20 @@ export default function AdminOrders({
                                     {t.label}
                                 </button>
                             ))}
+                            {/* Search mã đơn / tên / SĐT (bopcamping-wtuv T6) */}
+                            <form onSubmit={submitSearch} className="ml-auto flex items-center gap-1.5">
+                                <input
+                                    value={search}
+                                    onChange={(e) => setSearch(e.target.value)}
+                                    placeholder="Tìm mã đơn, tên, SĐT…"
+                                    className="h-9 w-[220px] rounded-[10px] border border-cardBorder bg-white px-3 text-[12.5px] text-ink outline-none focus:border-grass"
+                                />
+                                <button type="submit" className="h-9 rounded-[10px] border border-cardBorder bg-white px-3 text-[12.5px] font-semibold text-pine hover:border-grass">Tìm</button>
+                                {filters.q && (
+                                    <button type="button" onClick={() => { setSearch(''); router.get(route('admin.orders'), filters.status !== 'all' ? { status: filters.status } : {}, { preserveState: true, replace: true }); }}
+                                        className="h-9 rounded-[10px] px-2 text-[12.5px] text-[#8a967a] hover:text-[#b3493a]">✕</button>
+                                )}
+                            </form>
                         </div>
 
                         {/* Orders table */}
@@ -202,16 +243,72 @@ export default function AdminOrders({
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {orders.map((order) => {
+                                        {visibleRows.map(({ order, isChild }) => {
                                             const style = STATUS_STYLE[order.status] ?? STATUS_STYLE.pending;
                                             const nexts = NEXT_STATUSES[order.status] ?? [];
                                             const isExpanded = expandedId === order.id;
-                                            return (
-                                                <>
+
+                                            // Dòng ĐƠN CHA (bopcamping-wtuv T6): highlight + bấm để show/ẩn các đơn con.
+                                            // Cha là "bao" gom đợt — không có nút đổi trạng thái (vòng đời nằm ở con).
+                                            if (order.is_parent) {
+                                                const open = !!openParents[order.id];
+                                                return (
                                                     <tr key={order.id}
-                                                        className="cursor-pointer border-b border-[#f1f4ea] hover:bg-[#fafcf7]"
+                                                        className="cursor-pointer border-b border-[#e3ecd2]"
+                                                        style={{ background: '#eef5e0' }}
+                                                        onClick={() => setOpenParents((m) => ({ ...m, [order.id]: !open }))}>
+                                                        <td className="px-4 py-3">
+                                                            <span className="mr-1.5 inline-block w-3 text-center font-bold text-grass">{open ? '▾' : '▸'}</span>
+                                                            <span className="font-mono font-bold text-pine">{order.code}</span>
+                                                            <span className="ml-1.5 rounded-pill bg-grass px-2 py-0.5 text-[10px] font-bold text-white">GỒM {order.children?.length ?? 0} ĐỢT</span>
+                                                        </td>
+                                                        <td className="px-4 py-3">
+                                                            <div className="font-semibold text-ink">{order.customer_name}</div>
+                                                            <div className="font-mono text-[11px] text-moss">{order.customer_phone}</div>
+                                                        </td>
+                                                        <td className="px-4 py-3 font-mono text-[12px] text-pine">{order.start_date} → {order.end_date}</td>
+                                                        <td className="px-4 py-3 text-right">
+                                                            <div className="font-mono font-bold text-ink">{money(order.total_price)}</div>
+                                                            <div className="font-mono text-[11px] text-campfire">cọc {money(order.deposit_total)}</div>
+                                                            {order.discount_total > 0 && (
+                                                                <div className="font-mono text-[11px] text-grass">giảm −{money(order.discount_total)} <span className="font-sans">(voucher trên tổng)</span></div>
+                                                            )}
+                                                        </td>
+                                                        <td className="px-4 py-3">
+                                                            <span className="rounded-pill px-2.5 py-1 text-[11.5px] font-bold" style={{ color: style.color, background: style.bg }}>
+                                                                {STATUS_LABEL[order.status]}
+                                                            </span>
+                                                        </td>
+                                                        <td className="px-4 py-3">
+                                                            <div className="flex flex-wrap gap-1.5">
+                                                                <button onClick={(e) => { e.stopPropagation(); setOpenParents((m) => ({ ...m, [order.id]: !open })); }}
+                                                                    className="rounded-[8px] border border-grass px-2.5 py-1 text-[11px] font-semibold text-grass transition hover:bg-grass hover:text-white">
+                                                                    {open ? 'Thu gọn' : `Xem ${order.children?.length ?? 0} đợt`}
+                                                                </button>
+                                                                {/* Cha chỉ có thao tác HUỶ CẢ CỤM — vòng đời giao/thu nằm ở từng con (T7). */}
+                                                                {['pending', 'confirmed'].includes(order.status) && (
+                                                                    <button onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        if (window.confirm(`Huỷ CẢ ${order.children?.length ?? 0} đợt của đơn ${order.code}?`)) changeStatus(order, 'cancelled');
+                                                                    }}
+                                                                        className="rounded-[8px] border border-cardBorder px-2.5 py-1 text-[11px] font-semibold text-[#b3493a] transition hover:border-[#b3493a]">
+                                                                        Huỷ cả cụm
+                                                                    </button>
+                                                                )}
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            }
+
+                                            return (
+                                                <Fragment key={`${order.id}${isChild ? '-child' : ''}`}>
+                                                    <tr
+                                                        className={`cursor-pointer border-b border-[#f1f4ea] hover:bg-[#fafcf7] ${isChild ? 'bg-[#fbfdf6]' : ''}`}
                                                         onClick={() => setExpandedId(isExpanded ? null : order.id)}>
-                                                        <td className="px-4 py-3 font-mono font-bold text-pine">{order.code}</td>
+                                                        <td className={`px-4 py-3 font-mono font-bold text-pine ${isChild ? 'pl-9' : ''}`}>
+                                                            {isChild && <span className="mr-1.5 text-[#a9b58f]">└</span>}{order.code}
+                                                        </td>
                                                         <td className="px-4 py-3">
                                                             <div className="font-semibold text-ink">{order.customer_name}</div>
                                                             <div className="font-mono text-[11px] text-moss">{order.customer_phone}</div>
@@ -463,7 +560,7 @@ export default function AdminOrders({
                                                             </td>
                                                         </tr>
                                                     )}
-                                                </>
+                                                </Fragment>
                                             );
                                         })}
                                     </tbody>

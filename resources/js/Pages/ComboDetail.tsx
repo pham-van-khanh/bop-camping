@@ -3,8 +3,8 @@ import { ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import SiteLayout from '@/Layouts/SiteLayout';
 import DateRangeCalendar from '@/Components/site/DateRangeCalendar';
 import { COMBO_GRAD } from '@/Components/site/ComboCard';
-import { dayCount, ddmm, money, rangeText } from '@/lib/format';
-import { addLine, clearCart, locationConflict, type CartLine, type CartLocation } from '@/lib/cart';
+import { dayCount, ddmm, money, rangeText, toISO } from '@/lib/format';
+import { addLine, cartSuggestedRange, clearCart, locationConflict, type CartLine, type CartLocation } from '@/lib/cart';
 import { emit, EVENTS } from '@/lib/bus';
 
 type ComboItemRow = {
@@ -50,8 +50,13 @@ export default function ComboDetail({ combo }: Props) {
     const [lightboxOpen, setLightboxOpen] = useState(false);
     // Lịch thu gọn — bấm mới sổ popup (đồng bộ trang chi tiết sản phẩm)
     const [calOpen, setCalOpen] = useState(false);
-    const [start, setStart] = useState<string | null>(null);
-    const [end, setEnd] = useState<string | null>(null);
+    // Prefill ngày từ giỏ (bopcamping-wtuv T5) — đồng bộ trang chi tiết sản phẩm; bỏ khoảng quá khứ.
+    const suggested = useMemo(() => {
+        const r = cartSuggestedRange();
+        return r && r.start >= toISO(new Date()) ? r : null;
+    }, []);
+    const [start, setStart] = useState<string | null>(suggested?.start ?? null);
+    const [end, setEnd] = useState<string | null>(suggested?.end ?? null);
     const [qty, setQty] = useState(1);
     const [avail, setAvail] = useState<AvailabilityResult | null>(null);
     const [checking, setChecking] = useState(false);

@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 
 #[ObservedBy([OrderObserver::class])]
@@ -20,6 +21,8 @@ class Order extends Model
 
     protected $fillable = [
         'user_id',
+        'parent_id',
+        'is_parent',
         'service_location_id',
         'location_auto_assigned',
         'code',
@@ -58,6 +61,7 @@ class Order extends Model
         'deposit_total' => 'integer',
         'discount_total' => 'integer',
         'discount_breakdown' => 'array',
+        'is_parent' => 'boolean',
         'location_auto_assigned' => 'boolean',
         'review_invited_at' => 'datetime',
         'review_submitted_at' => 'datetime',
@@ -88,6 +92,81 @@ class Order extends Model
     public function items(): HasMany
     {
         return $this->hasMany(OrderItem::class);
+    }
+
+    /** Đơn cha (bopcamping-wtuv) — null nếu là đơn thường hoặc chính là cha. */
+    public function parent(): BelongsTo
+    {
+        return $this->belongsTo(Order::class, 'parent_id');
+    }
+
+    /** Các đơn con (mỗi con = 1 khoảng ngày) — rỗng với đơn thường. */
+    public function children(): HasMany
+    {
+        return $this->hasMany(Order::class, 'parent_id')->orderBy('start_date');
+    }
+
+    /**
+     * Đơn "cấp cao" cho danh sách/đếm: đơn thường + đơn cha, ẨN đơn con
+     * (con chỉ hiện trong cha). Tránh nhân đôi khi liệt kê/đếm.
+     */
+    public function scopeTopLevel($query)
+    {
+        return $query->whereNull('parent_id');
+    }
+
+    /**
+     * Trạng thái hiển thị của đơn CHA — suy từ các con (cha không có status thao tác riêng):
+     * còn con chờ xác nhận → pending; có con đang thuê → renting; mọi con đã trả → returned;
+     * mọi con huỷ → cancelled; còn lại → confirmed.
+     */
+    public function aggregateStatus(): string
+    {
+        $statuses = $this->children->pluck('status');
+        if ($statuses->isEmpty()) {
+            return $this->status;
+        }
+        if ($statuses->every(fn ($s) => $s === 'cancelled')) {
+            return 'cancelled';
+        }
+        $active = $statuses->reject(fn ($s) => $s === 'cancelled');
+        if ($active->contains('pending')) {
+            return 'pending';
+        }
+        if ($active->contains('renting')) {
+            return 'renting';
+        }
+        if ($active->every(fn ($s) => $s === 'returned')) {
+            return 'returned';
+        }
+
+        return 'confirmed';
+    }
+
+    /**
+     * Phân bổ discount của đơn CHA xuống các con ∝ tiền thuê con (bopcamping-wtuv) — NGUỒN
+     * CHÂN LÝ chung cho checkout lẫn recompute (huỷ/đổi lịch con). Dồn phần dư vào con cuối
+     * để Σ discount con === $this->discount_total. Con nhận = $children (thường là con active).
+     *
+     * @param  Collection<int, Order>  $children
+     */
+    public function allocateDiscountToChildren(Collection $children): void
+    {
+        $discount = (int) $this->discount_total;
+        $totalRental = (int) $children->sum('total_price');
+        $allocated = 0;
+        $last = $children->count() - 1;
+
+        foreach ($children->values() as $i => $child) {
+            $share = ($discount <= 0 || $totalRental <= 0)
+                ? 0
+                : ($i === $last ? $discount - $allocated : (int) floor($discount * (int) $child->total_price / $totalRental));
+            $allocated += $share;
+            $child->update([
+                'discount_total' => $share,
+                'discount_breakdown' => $share > 0 ? [['source' => 'parent_alloc', 'amount' => $share, 'percent' => true]] : null,
+            ]);
+        }
     }
 
     /** Voucher đã áp cho đơn này (đã dùng). */

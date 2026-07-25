@@ -102,7 +102,7 @@ class VoucherService
      *
      * @param  array<int,string>  $codes
      */
-    public function apply(Order $order, array $codes, ?PromotionSetting $settings = null): array
+    public function apply(Order $order, array $codes, ?PromotionSetting $settings = null, ?int $comboPartOverride = null): array
     {
         $settings ??= PromotionSetting::current();
 
@@ -112,7 +112,8 @@ class VoucherService
 
         $base = (int) $order->total_price;
         // Phần giá trị combo trong đơn — voucher thường không được giảm phần này (AC-8).
-        $comboPart = (int) $order->items()->whereNotNull('combo_id')->sum('subtotal');
+        // Đơn cha (bopcamping-wtuv) không có món → truyền comboPart gộp từ các con.
+        $comboPart = $comboPartOverride ?? (int) $order->items()->whereNotNull('combo_id')->sum('subtotal');
         $regularBase = $base - $comboPart;
 
         return DB::transaction(function () use ($order, $codes, $settings, $base, $regularBase) {

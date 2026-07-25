@@ -50,6 +50,17 @@ function save(lines: CartLine[]) {
     emit(EVENTS.cartChange, lines.length);
 }
 
+/**
+ * Khoảng ngày "đang dùng" của giỏ (bopcamping-wtuv T5) — prefill lịch cho sản phẩm mở sau.
+ * Mọi dòng cùng khoảng → khoảng đó; giỏ đã lẫn nhiều khoảng → khoảng của DÒNG THÊM GẦN NHẤT
+ * (khách đã cố ý tách); giỏ trống → null.
+ */
+export function cartSuggestedRange(lines = getCart()): { start: string; end: string } | null {
+    if (lines.length === 0) return null;
+    const last = lines[lines.length - 1];
+    return { start: last.start, end: last.end };
+}
+
 /** Gộp khi cùng sản phẩm/combo + cùng khoảng ngày (id product và combo là 2 không gian riêng) */
 export function addLine(line: CartLine) {
     const lines = getCart();

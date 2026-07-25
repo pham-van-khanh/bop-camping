@@ -23,6 +23,8 @@ class SendPickupReminders extends Command
     {
         $orders = Order::query()
             ->where('status', 'confirmed')
+            // Đơn cha chỉ gom đợt, không có món — nhắc lịch theo TỪNG CON (bopcamping-wtuv T7).
+            ->where('is_parent', false)
             ->whereNull('pickup_reminder_sent_at')
             ->whereDate('start_date', Carbon::tomorrow())
             ->with('items.product')
