@@ -58,6 +58,9 @@ class OrderController extends Controller
             'start_date_iso' => $o->start_date->format('Y-m-d'),
             'end_date_iso' => $o->end_date->format('Y-m-d'),
             'days' => $o->days,
+            // Giờ khách chọn khi thuê 1 ngày (bopcamping-n6mr) — admin thấy đơn muốn nhận/trả giờ nào.
+            'requested_pickup_time' => $o->requested_pickup_time,
+            'requested_return_time' => $o->requested_return_time,
             'total_price' => $o->total_price,
             'deposit_total' => $o->deposit_total,
             'discount_total' => $o->discount_total,

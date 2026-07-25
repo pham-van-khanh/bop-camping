@@ -465,9 +465,6 @@ class ProductController extends Controller
             'price_per_day' => $p->price_per_day,
             'quantity' => $p->quantity,
             'deposit' => $p->deposit ?? 0,
-            // Khung giờ nhận/trả riêng (null = theo shop) — FE fallback prop `site` (bopcamping-n6mr).
-            'pickup_hour' => $p->pickup_hour,
-            'return_hour' => $p->return_hour,
             'thumbnail' => $p->thumbnail ? Storage::disk('media')->url($p->thumbnail) : null,
             'status' => $p->status,
             'category' => [

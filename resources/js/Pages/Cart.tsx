@@ -13,7 +13,7 @@ import { emit, on, EVENTS } from '@/lib/bus';
 import { estimateDiscount, voucherValueText, type AvailableVoucher, type EmailBonusInfo, type PromoInfo } from '@/lib/voucher';
 import type { PageProps } from '@/types';
 
-type CheckoutItem = { product_id: number; quantity: number; start: string; end: string; location_id: number | null };
+type CheckoutItem = { product_id: number; quantity: number; start: string; end: string; location_id: number | null; requested_pickup_time: string | null; requested_return_time: string | null };
 type CheckoutCombo = { combo_id: number; quantity: number; start: string; end: string; location_id: number | null };
 
 // Gợi ý từ cart combo detection (PRD 5.4) — server trả tối đa 1 gợi ý.
@@ -759,7 +759,7 @@ export default function Cart() {
 function toCheckoutItems(lines: CartLine[]): CheckoutItem[] {
     return lines
         .filter((l) => !isComboLine(l))
-        .map((l) => ({ product_id: l.id, quantity: l.qty, start: l.start, end: l.end, location_id: l.location_id ?? null }));
+        .map((l) => ({ product_id: l.id, quantity: l.qty, start: l.start, end: l.end, location_id: l.location_id ?? null, requested_pickup_time: l.requested_pickup_time ?? null, requested_return_time: l.requested_return_time ?? null }));
 }
 
 function toCheckoutCombos(lines: CartLine[]): CheckoutCombo[] {

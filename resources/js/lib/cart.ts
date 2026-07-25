@@ -23,6 +23,9 @@ export type CartLine = {
     // Dòng combo (PRD combo): id trỏ vào combos, kèm danh sách món để mở rộng xem.
     kind?: 'product' | 'combo';
     comboItems?: { name: string; qty: number }[];
+    // Giờ khách chọn khi thuê 1 ngày (bopcamping-n6mr) — "HH:MM"; null = không chọn (nhiều ngày).
+    requested_pickup_time?: string | null;
+    requested_return_time?: string | null;
 };
 
 /** Cửa hàng đã chọn trong giỏ (per-store): id đầu tiên khác null, hoặc null nếu chưa dòng nào chọn. */

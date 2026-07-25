@@ -36,6 +36,8 @@ class Order extends Model
         'pickup_reminder_sent_at',
         'start_date',
         'end_date',
+        'requested_pickup_time',
+        'requested_return_time',
         'total_price',
         'deposit_total',
         'discount_total',

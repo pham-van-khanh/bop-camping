@@ -44,6 +44,8 @@ class OrderSplitter
             $order = Order::create($base + [
                 'start_date' => $g['start'],
                 'end_date' => $g['end'],
+                'requested_pickup_time' => $g['requested_pickup'],
+                'requested_return_time' => $g['requested_return'],
                 'status' => 'pending',
                 'payment_method' => 'cod',
             ]);
@@ -72,6 +74,8 @@ class OrderSplitter
                 'code' => $parent->code.'-'.($i + 1),
                 'start_date' => $g['start'],
                 'end_date' => $g['end'],
+                'requested_pickup_time' => $g['requested_pickup'],
+                'requested_return_time' => $g['requested_return'],
                 'status' => 'pending',
                 'payment_method' => 'cod',
             ]);
@@ -96,14 +100,30 @@ class OrderSplitter
         $groups = [];
         foreach ($itemLines as $line) {
             $key = $line['start'].'|'.$line['end'];
-            $groups[$key] ??= ['start' => $line['start'], 'end' => $line['end'], 'items' => [], 'combos' => []];
+            $groups[$key] ??= ['start' => $line['start'], 'end' => $line['end'], 'items' => [], 'combos' => [], 'requested_pickup' => null, 'requested_return' => null];
             $groups[$key]['items'][] = $line;
+            // Giờ khách chọn (thuê 1 ngày) — lấy giá trị đầu tiên có trong nhóm.
+            if (empty($groups[$key]['requested_pickup']) && ! empty($line['requested_pickup_time'])) {
+                $groups[$key]['requested_pickup'] = $line['requested_pickup_time'];
+            }
+            if (empty($groups[$key]['requested_return']) && ! empty($line['requested_return_time'])) {
+                $groups[$key]['requested_return'] = $line['requested_return_time'];
+            }
         }
         foreach ($comboLines as $line) {
             $key = $line['start'].'|'.$line['end'];
-            $groups[$key] ??= ['start' => $line['start'], 'end' => $line['end'], 'items' => [], 'combos' => []];
+            $groups[$key] ??= ['start' => $line['start'], 'end' => $line['end'], 'items' => [], 'combos' => [], 'requested_pickup' => null, 'requested_return' => null];
             $groups[$key]['combos'][] = $line;
         }
+
+        // Giờ khách chọn CHỈ hợp lệ khi thuê đúng 1 ngày (start === end).
+        foreach ($groups as &$g) {
+            if ($g['start'] !== $g['end']) {
+                $g['requested_pickup'] = null;
+                $g['requested_return'] = null;
+            }
+        }
+        unset($g);
 
         return collect($groups)->sortBy('start')->values()->all();
     }

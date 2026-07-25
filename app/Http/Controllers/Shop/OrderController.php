@@ -56,6 +56,9 @@ class OrderController extends Controller
             'items.*.start' => ['required', 'date_format:Y-m-d', 'after_or_equal:today'],
             'items.*.end' => ['required', 'date_format:Y-m-d', 'after_or_equal:items.*.start'],
             'items.*.location_id' => ['nullable', 'integer', 'exists:service_locations,id'],
+            // Giờ khách chọn khi thuê 1 ngày (bopcamping-n6mr) — "HH:MM" 24h; null với nhiều ngày.
+            'items.*.requested_pickup_time' => ['nullable', 'date_format:H:i'],
+            'items.*.requested_return_time' => ['nullable', 'date_format:H:i'],
             'combos' => ['nullable', 'array', 'max:20'],
             'combos.*.combo_id' => ['required', 'integer', 'exists:combos,id'],
             'combos.*.quantity' => ['required', 'integer', 'min:1', 'max:10'],

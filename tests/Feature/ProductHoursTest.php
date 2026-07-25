@@ -3,8 +3,9 @@
 namespace Tests\Feature;
 
 use App\Models\Category;
+use App\Models\Order;
 use App\Models\Product;
-use App\Models\ServiceLocation;
+use App\Models\PromotionSetting;
 use App\Models\SiteSetting;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -12,27 +13,26 @@ use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
 /**
- * bopcamping-n6mr — khung giờ nhận/trả: mặc định toàn shop (8/20) + override theo
- * sản phẩm (null = theo shop). Admin lưu được; resource khách phơi ra để FE fallback.
+ * bopcamping-n6mr — khung giờ nhận/trả:
+ *   - 8/20 là MẶC ĐỊNH TOÀN HỆ THỐNG (site_settings), admin sửa được.
+ *   - Ở trang sản phẩm, khách thuê ĐÚNG 1 NGÀY thì tự chọn giờ → lưu vào ĐƠN.
+ *     Thuê nhiều ngày: không có giờ (null).
  */
 class ProductHoursTest extends TestCase
 {
     use RefreshDatabase;
 
-    private function admin(): User
-    {
-        return User::factory()->create(['is_admin' => true]);
-    }
+    private Product $chair;
 
-    private function storePayload(array $extra = []): array
+    protected function setUp(): void
     {
-        $cat = Category::firstOrCreate(['slug' => 'leu'], ['name' => 'Lều']);
-        $loc = ServiceLocation::firstOrCreate(['name' => 'Vinh'], ['area' => 'Nghệ An', 'status' => 'open', 'sort_order' => 1]);
-
-        return array_merge([
-            'name' => 'Lều giờ riêng', 'category_id' => $cat->id, 'price_per_day' => 100000, 'status' => 'active',
-            'service_location_ids' => [$loc->id], 'stocks' => [$loc->id => 3],
-        ], $extra);
+        parent::setUp();
+        PromotionSetting::current()->update(['email_bonus_enabled' => false, 'max_discount_percent_per_order' => 50]);
+        $cat = Category::create(['name' => 'Ghế', 'slug' => 'ghe']);
+        $this->chair = Product::create([
+            'category_id' => $cat->id, 'name' => 'Ghế', 'slug' => 'ghe-test',
+            'price_per_day' => 100000, 'quantity' => 5, 'deposit' => 20000,
+        ]);
     }
 
     /** @test */
@@ -46,7 +46,8 @@ class ProductHoursTest extends TestCase
     /** @test */
     public function admin_updates_shop_default_hours(): void
     {
-        $this->actingAs($this->admin())->put(route('admin.settings.update'), [
+        $admin = User::factory()->create(['is_admin' => true]);
+        $this->actingAs($admin)->put(route('admin.settings.update'), [
             'pickup_hour' => 6, 'return_hour' => 22,
         ])->assertRedirect()->assertSessionHasNoErrors();
 
@@ -56,50 +57,53 @@ class ProductHoursTest extends TestCase
     }
 
     /** @test */
-    public function admin_saves_per_product_hours(): void
+    public function same_day_checkout_stores_customer_chosen_times(): void
     {
-        $this->actingAs($this->admin())->post(route('admin.products.store'), $this->storePayload([
-            'pickup_hour' => 7, 'return_hour' => 19,
-        ]))->assertRedirect()->assertSessionHasNoErrors();
+        $user = User::factory()->create(['phone' => '0911333001']);
+        $this->actingAs($user)->post(route('order.store'), [
+            'name' => $user->name, 'phone' => $user->phone,
+            'items' => [[
+                'product_id' => $this->chair->id, 'quantity' => 1,
+                'start' => '2030-07-01', 'end' => '2030-07-01',
+                'requested_pickup_time' => '09:30', 'requested_return_time' => '17:00',
+            ]],
+        ])->assertSessionHas('order_code');
 
-        $p = Product::where('name', 'Lều giờ riêng')->firstOrFail();
-        $this->assertSame(7, $p->pickup_hour);
-        $this->assertSame(19, $p->return_hour);
+        $order = Order::latest('id')->first();
+        $this->assertSame('09:30', $order->requested_pickup_time);
+        $this->assertSame('17:00', $order->requested_return_time);
     }
 
     /** @test */
-    public function empty_product_hours_stored_as_null(): void
+    public function multi_day_checkout_ignores_requested_times(): void
     {
-        $this->actingAs($this->admin())->post(route('admin.products.store'), $this->storePayload([
-            'pickup_hour' => '', 'return_hour' => '',
-        ]))->assertRedirect()->assertSessionHasNoErrors();
+        $user = User::factory()->create(['phone' => '0911333002']);
+        // 3 ngày — dù client gửi giờ, đơn KHÔNG lưu (chỉ áp thuê 1 ngày).
+        $this->actingAs($user)->post(route('order.store'), [
+            'name' => $user->name, 'phone' => $user->phone,
+            'items' => [[
+                'product_id' => $this->chair->id, 'quantity' => 1,
+                'start' => '2030-07-01', 'end' => '2030-07-03',
+                'requested_pickup_time' => '06:00', 'requested_return_time' => '22:00',
+            ]],
+        ])->assertSessionHas('order_code');
 
-        $p = Product::where('name', 'Lều giờ riêng')->firstOrFail();
-        $this->assertNull($p->pickup_hour);
-        $this->assertNull($p->return_hour);
+        $order = Order::latest('id')->first();
+        $this->assertNull($order->requested_pickup_time);
+        $this->assertNull($order->requested_return_time);
     }
 
     /** @test */
-    public function product_hours_reject_out_of_range(): void
+    public function checkout_rejects_invalid_time_format(): void
     {
-        $this->actingAs($this->admin())->post(route('admin.products.store'), $this->storePayload([
-            'pickup_hour' => 26,
-        ]))->assertSessionHasErrors('pickup_hour');
-    }
-
-    /** @test */
-    public function product_detail_exposes_per_product_hours(): void
-    {
-        $cat = Category::create(['name' => 'Bàn', 'slug' => 'ban']);
-        $p = Product::create([
-            'category_id' => $cat->id, 'name' => 'Bàn xếp', 'slug' => 'ban-xep',
-            'price_per_day' => 30000, 'quantity' => 5, 'pickup_hour' => 9, 'return_hour' => 21,
-        ]);
-
-        $this->get("/thiet-bi/{$p->slug}")
-            ->assertOk()
-            ->assertInertia(fn (Assert $page) => $page
-                ->where('product.pickup_hour', 9)
-                ->where('product.return_hour', 21));
+        $user = User::factory()->create(['phone' => '0911333003']);
+        $this->actingAs($user)->post(route('order.store'), [
+            'name' => $user->name, 'phone' => $user->phone,
+            'items' => [[
+                'product_id' => $this->chair->id, 'quantity' => 1,
+                'start' => '2030-07-01', 'end' => '2030-07-01',
+                'requested_pickup_time' => '25:99',
+            ]],
+        ])->assertSessionHasErrors('items.0.requested_pickup_time');
     }
 }

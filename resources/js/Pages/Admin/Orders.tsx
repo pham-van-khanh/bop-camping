@@ -59,6 +59,9 @@ type Order = {
     id: number; code: string; customer_name: string; customer_phone: string;
     customer_email: string | null; customer_address: string | null;
     start_date: string; end_date: string; days: number;
+    // Giờ khách chọn khi thuê 1 ngày (bopcamping-n6mr)
+    requested_pickup_time: string | null;
+    requested_return_time: string | null;
     // ISO (Y-m-d) cho form đổi lịch (bopcamping-5hjm)
     start_date_iso: string; end_date_iso: string;
     total_price: number; deposit_total: number; discount_total: number; amount_due: number;
@@ -358,6 +361,9 @@ export default function AdminOrders({
                                                                             <DetailRow label="Email" value={order.customer_email ?? '—'} mono />
                                                                             <DetailRow label="Địa chỉ" value={order.customer_address ?? '—'} />
                                                                             <DetailRow label="Khoảng thuê" value={`${order.start_date} → ${order.end_date} (${order.days} ngày)`} />
+                                                                            {(order.requested_pickup_time || order.requested_return_time) && (
+                                                                                <DetailRow label="Giờ khách chọn" value={`nhận ${order.requested_pickup_time ?? '—'} · trả ${order.requested_return_time ?? '—'}`} mono />
+                                                                            )}
                                                                             <DetailRow label="Đặt lúc" value={order.created_at} />
                                                                         </div>
 
