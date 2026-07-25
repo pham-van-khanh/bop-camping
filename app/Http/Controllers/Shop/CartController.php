@@ -113,6 +113,9 @@ class CartController extends Controller
                     'price_per_day' => (int) $p->price_per_day,
                     'deposit' => (int) ($p->deposit ?? 0),
                     'early_return_pct' => (int) $p->early_return_discount_pct,
+                    // Khung giờ override theo sản phẩm (null = theo shop) — bopcamping-fica.
+                    'pickup_hour' => $p->pickup_hour,
+                    'return_hour' => $p->return_hour,
                     'locations' => $open->map(fn (ServiceLocation $l) => ['slug' => $l->slug, 'name' => $l->name])->values(),
                     'all_locations' => $openCount > 0 && $open->count() === $openCount,
                 ]];

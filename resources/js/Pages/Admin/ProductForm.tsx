@@ -20,6 +20,8 @@ type Product = {
     quantity: number;
     deposit: number | null;
     early_return_discount_pct: number;
+    pickup_hour: number | null;
+    return_hour: number | null;
     thumbnail: string | null;
     status: 'active' | 'hidden';
     category: { id: number; name: string } | null;
@@ -41,6 +43,9 @@ type ProductFormData = {
     deposit: number | null;
     // Ưu đãi trả sớm trong ngày % (adr_pricing_models) — 0 = không giảm.
     early_return_discount_pct: number | '';
+    // Khung giờ nhận/trả riêng ('' = theo shop) — bopcamping-fica.
+    pickup_hour: number | '';
+    return_hour: number | '';
     status: 'active' | 'hidden';
     thumbnail: File | null;
     service_location_ids: number[];
@@ -91,6 +96,8 @@ export default function AdminProductForm({
                   price_per_day: product.price_per_day,
                   deposit: product.deposit ?? null,
                   early_return_discount_pct: product.early_return_discount_pct ?? 0,
+                  pickup_hour: product.pickup_hour ?? '',
+                  return_hour: product.return_hour ?? '',
                   status: product.status,
                   thumbnail: null,
                   service_location_ids: product.service_location_ids ?? [],
@@ -107,6 +114,8 @@ export default function AdminProductForm({
                   price_per_day: '',
                   deposit: null,
                   early_return_discount_pct: 0,
+                  pickup_hour: '',
+                  return_hour: '',
                   status: 'active',
                   thumbnail: null,
                   // Mặc định gắn tất cả vị trí đang mở khi thêm mới.
@@ -324,6 +333,40 @@ export default function AdminProductForm({
                                         placeholder="0"
                                     />
                                     {form.errors.early_return_discount_pct && <p className="mt-1 text-[12px] text-[#b3493a]">{form.errors.early_return_discount_pct}</p>}
+                                </div>
+
+                                <div>
+                                    <label className="mb-1.5 block text-[13px] font-semibold text-pine">
+                                        Khung giờ nhận/trả riêng
+                                        <span className="ml-1 font-normal text-moss">(để trống = theo khung giờ chung của shop)</span>
+                                    </label>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <label className="flex items-center gap-2 text-[13px] text-moss">
+                                            <span className="w-10">Nhận</span>
+                                            <input
+                                                type="number" min="0" max="23"
+                                                value={form.data.pickup_hour}
+                                                onChange={(e) => form.setData('pickup_hour', e.target.value === '' ? '' : Number(e.target.value))}
+                                                placeholder="8"
+                                                className="w-20 rounded-[10px] border border-cardBorder px-3 py-2.5 text-[13.5px] text-ink outline-none transition focus:border-grass"
+                                            />
+                                            <span className="text-[12px]">giờ</span>
+                                        </label>
+                                        <label className="flex items-center gap-2 text-[13px] text-moss">
+                                            <span className="w-8">Trả</span>
+                                            <input
+                                                type="number" min="0" max="23"
+                                                value={form.data.return_hour}
+                                                onChange={(e) => form.setData('return_hour', e.target.value === '' ? '' : Number(e.target.value))}
+                                                placeholder="20"
+                                                className="w-20 rounded-[10px] border border-cardBorder px-3 py-2.5 text-[13.5px] text-ink outline-none transition focus:border-grass"
+                                            />
+                                            <span className="text-[12px]">giờ</span>
+                                        </label>
+                                    </div>
+                                    {(form.errors.pickup_hour || form.errors.return_hour) && (
+                                        <p className="mt-1 text-[12px] text-[#b3493a]">{form.errors.pickup_hour || form.errors.return_hour}</p>
+                                    )}
                                 </div>
 
                                 <div>
