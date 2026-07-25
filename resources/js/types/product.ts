@@ -6,6 +6,9 @@ export interface ProductResource {
     price_per_day: number;
     quantity: number;
     deposit: number;
+    // Khung giờ nhận/trả riêng (null = theo shop) — bopcamping-n6mr.
+    pickup_hour?: number | null;
+    return_hour?: number | null;
     thumbnail: string | null;
     status: string;
     category: { id: number; name: string; slug: string };

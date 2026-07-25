@@ -27,6 +27,8 @@ class Product extends Model
         'price_per_day',
         'quantity',
         'deposit',
+        'pickup_hour',
+        'return_hour',
         'thumbnail',
         'status',
     ];
@@ -36,6 +38,8 @@ class Product extends Model
         'price_per_day' => 'integer',
         'quantity' => 'integer',
         'deposit' => 'integer',
+        'pickup_hour' => 'integer',
+        'return_hour' => 'integer',
     ];
 
     /** Tự cập nhật name_normalized (bỏ dấu) mỗi khi name thay đổi. */

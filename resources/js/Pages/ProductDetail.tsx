@@ -2,6 +2,7 @@ import { Head, Link, usePage } from '@inertiajs/react';
 import { ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import SiteLayout from '@/Layouts/SiteLayout';
 import DateRangeCalendar from '@/Components/site/DateRangeCalendar';
+import PickupReturnNote from '@/Components/site/PickupReturnNote';
 import MagazineContent from '@/Components/site/MagazineContent';
 import ProductCard from '@/Components/site/ProductCard';
 import { COMBO_GRAD } from '@/Components/site/ComboCard';
@@ -631,6 +632,7 @@ export default function ProductDetail({ product, unavailable_dates, unavailable_
                                 <div>
                                     <div className="text-[12px] text-[#8a967a]">Khoảng thuê</div>
                                     <div className="font-mono text-[15px] font-bold text-ink">{rangeText(start, end)}</div>
+                                    <PickupReturnNote className="mt-1" pickupHour={product.pickup_hour} returnHour={product.return_hour} />
                                 </div>
                                 <div className="flex items-center gap-2.5">
                                     <span className="text-[13px] text-moss">Số bộ</span>

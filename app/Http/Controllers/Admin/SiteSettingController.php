@@ -39,6 +39,9 @@ class SiteSettingController extends Controller
             'facebook_url' => 'nullable|url|max:255',
             'tiktok_url' => 'nullable|url|max:255',
             'working_hours' => 'nullable|string|max:100',
+            // Khung giờ giao/trả mặc định toàn shop (bopcamping-n6mr) — 'sometimes' để tương thích ngược.
+            'pickup_hour' => 'sometimes|integer|min:0|max:23',
+            'return_hour' => 'sometimes|integer|min:0|max:23',
             // SEO: GA4 dạng "G-XXXXXXXX"; mã xác minh Search Console là chuỗi token.
             'ga_measurement_id' => 'nullable|string|max:40|regex:/^G-[A-Z0-9]+$/i',
             'google_site_verification' => 'nullable|string|max:120',

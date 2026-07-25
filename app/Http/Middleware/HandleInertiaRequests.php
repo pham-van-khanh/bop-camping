@@ -147,6 +147,9 @@ class HandleInertiaRequests extends Middleware
             'facebook_url' => $s->facebook_url,
             'tiktok_url' => $s->tiktok_url,
             'working_hours' => $s->working_hours,
+            // Khung giờ giao/trả mặc định toàn shop (bopcamping-n6mr) — FE fallback khi món không đặt riêng.
+            'pickup_hour' => (int) $s->pickup_hour,
+            'return_hour' => (int) $s->return_hour,
             'addresses' => ServiceLocation::open()->ordered()->get(['name', 'area'])
                 ->map(fn (ServiceLocation $l) => ['name' => $l->name, 'area' => $l->area])
                 ->values(),
