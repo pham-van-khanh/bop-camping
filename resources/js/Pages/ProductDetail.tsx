@@ -230,6 +230,8 @@ export default function ProductDetail({ product, unavailable_dates, unavailable_
         locations,
         location_id: storeId, // per-store: cửa hàng khách chọn (null = checkout tự gán)
         early_return_pct: product.early_return_discount_pct ?? 0, // ưu đãi trả sớm trong ngày (adr_pricing_models)
+        pickup_hour: product.pickup_hour ?? null, // khung giờ riêng của món (null = theo shop) — bopcamping-fica
+        return_hour: product.return_hour ?? null,
     });
 
     const commitAdd = (lines: CartLine[]) => {
@@ -633,7 +635,7 @@ export default function ProductDetail({ product, unavailable_dates, unavailable_
                                 <div>
                                     <div className="text-[12px] text-[#8a967a]">Khoảng thuê</div>
                                     <div className="font-mono text-[15px] font-bold text-ink">{rangeText(start, end)}</div>
-                                    <PickupReturnNote className="mt-1" />
+                                    <PickupReturnNote className="mt-1" pickupHour={product.pickup_hour} returnHour={product.return_hour} />
                                 </div>
                                 <div className="flex items-center gap-2.5">
                                     <span className="text-[13px] text-moss">Số bộ</span>

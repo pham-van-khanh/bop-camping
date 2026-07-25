@@ -28,6 +28,8 @@ class Product extends Model
         'quantity',
         'deposit',
         'early_return_discount_pct',
+        'pickup_hour',
+        'return_hour',
         'thumbnail',
         'status',
     ];
@@ -38,6 +40,8 @@ class Product extends Model
         'quantity' => 'integer',
         'deposit' => 'integer',
         'early_return_discount_pct' => 'integer',
+        'pickup_hour' => 'integer',
+        'return_hour' => 'integer',
     ];
 
     /** Tự cập nhật name_normalized (bỏ dấu) mỗi khi name thay đổi. */
