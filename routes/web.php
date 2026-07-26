@@ -98,6 +98,7 @@ Route::middleware(['admin'])->prefix('admin')->name('admin.')->group(function ()
     Route::delete('/expenses/{expense}', [AdminStatsController::class, 'destroyExpense'])->name('expenses.destroy');
 
     Route::get('/orders', [AdminOrderController::class, 'index'])->name('orders');
+    Route::get('/orders/{order}', [AdminOrderController::class, 'show'])->name('orders.show');
     Route::patch('/orders/{order}', [AdminOrderController::class, 'updateStatus'])->name('orders.update');
     // Per-store: đổi cửa hàng của đơn (kiểm tồn store đích)
     Route::patch('/orders/{order}/location', [AdminOrderController::class, 'changeLocation'])->name('orders.location')->middleware('throttle:30,1');
