@@ -46,29 +46,30 @@ class RequestedTimesExtraFeeTest extends TestCase
     }
 
     /** @test */
-    public function checkout_stores_requested_times(): void
+    public function checkout_stores_session_and_derived_times(): void
     {
         $user = User::factory()->create(['phone' => '0911222001']);
         $this->actingAs($user)->post(route('order.store'), [
             'name' => $user->name, 'phone' => $user->phone,
-            // Giờ khách chọn khi thuê 1 ngày — gửi ở cấp DÒNG (bopcamping-n6mr).
-            'items' => [['product_id' => $this->chair->id, 'quantity' => 1, 'start' => '2030-07-01', 'end' => '2030-07-01', 'requested_pickup_time' => '06:00', 'requested_return_time' => '22:00']],
+            // Buổi khách chọn khi thuê 1 ngày — gửi ở cấp DÒNG; server suy giờ (spec 2026-07-26).
+            'items' => [['product_id' => $this->chair->id, 'quantity' => 1, 'start' => '2030-07-01', 'end' => '2030-07-01', 'session' => 'afternoon']],
         ])->assertSessionHas('order_code');
 
         $order = Order::latest('id')->first();
-        $this->assertSame('06:00', $order->requested_pickup_time);
-        $this->assertSame('22:00', $order->requested_return_time);
+        $this->assertSame('afternoon', $order->session);
+        $this->assertSame('14:00', $order->requested_pickup_time); // suy từ setting 8/14/20
+        $this->assertSame('20:00', $order->requested_return_time);
         $this->assertSame(0, (int) $order->extra_fee); // checkout không đặt phụ phí
     }
 
     /** @test */
-    public function checkout_rejects_invalid_time_format(): void
+    public function checkout_rejects_invalid_session(): void
     {
         $user = User::factory()->create(['phone' => '0911222002']);
         $this->actingAs($user)->post(route('order.store'), [
             'name' => $user->name, 'phone' => $user->phone,
-            'items' => [['product_id' => $this->chair->id, 'quantity' => 1, 'start' => '2030-07-01', 'end' => '2030-07-01', 'requested_pickup_time' => '25:99']],
-        ])->assertSessionHasErrors('items.0.requested_pickup_time');
+            'items' => [['product_id' => $this->chair->id, 'quantity' => 1, 'start' => '2030-07-01', 'end' => '2030-07-01', 'session' => 'evening']],
+        ])->assertSessionHasErrors('items.0.session');
     }
 
     /** @test */

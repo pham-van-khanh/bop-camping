@@ -3,6 +3,7 @@
 import { dayCount } from './format';
 import { emit, EVENTS } from './bus';
 import { netFromGross, type DurationTier } from './pricing';
+import { isHalfDaySession, type Session } from './session';
 
 export type CartLocation = { slug: string; name: string };
 
@@ -25,11 +26,9 @@ export type CartLine = {
     comboItems?: { name: string; qty: number }[];
     // Ưu đãi trả sớm trong ngày % của sản phẩm (adr_pricing_models) — 0/undefined = không có.
     early_return_pct?: number;
-    // Khách chọn "trả sớm trong ngày" cho dòng này — chỉ áp khi đơn cùng ngày (start === end).
-    half_day?: boolean;
-    // Giờ khách chọn khi thuê 1 ngày (bopcamping-n6mr) — "HH:MM"; null = không chọn (nhiều ngày).
-    requested_pickup_time?: string | null;
-    requested_return_time?: string | null;
+    // Buổi khách chọn khi thuê ĐÚNG 1 NGÀY (spec 2026-07-26): morning/afternoon = nửa ngày
+    // (áp early_return_pct), full = cả ngày. null = thuê nhiều ngày. Server suy giờ + is_half_day.
+    session?: Session | null;
 };
 
 /** Cửa hàng đã chọn trong giỏ (per-store): id đầu tiên khác null, hoặc null nếu chưa dòng nào chọn. */
@@ -111,23 +110,23 @@ export const halfDayEligible = (l: CartLine) => lineDays(l) === 1 && (l.early_re
 
 // Rent NET sau giảm giá thuê dài ngày (bopcamping-e36e) — mirror server RentalPricingService.
 // tiers rỗng (mặc định) → net = gross (giữ hành vi cũ khi caller chưa truyền bậc).
-// Nửa ngày (adr_pricing_models): khách chọn trả sớm + đơn cùng ngày → áp ưu đãi trả sớm
-// thay bậc dài ngày (bậc dài ngày = 0 khi 1 ngày). Mirror server priceLine().
+// Buổi sáng/chiều (spec 2026-07-26): đơn cùng ngày → áp ưu đãi trả sớm thay bậc dài ngày
+// (bậc dài ngày = 0 khi 1 ngày). Mirror server priceLine().
 export const lineRent = (l: CartLine, tiers: DurationTier[] = []) => {
     const days = lineDays(l);
     const gross = l.price * l.qty * days;
-    if (l.half_day && halfDayEligible(l)) {
+    if (isHalfDaySession(l.session) && halfDayEligible(l)) {
         return Math.round(gross * (1 - (l.early_return_pct as number) / 100));
     }
     return netFromGross(gross, days, tiers);
 };
 export const lineDeposit = (l: CartLine) => l.deposit * l.qty;
 
-/** Bật/tắt "trả sớm trong ngày" cho 1 dòng giỏ. */
-export function setHalfDay(index: number, on: boolean) {
+/** Đổi buổi cho 1 dòng giỏ (chỉ có nghĩa khi thuê 1 ngày). */
+export function setSession(index: number, session: Session) {
     const lines = getCart();
     if (!lines[index]) return;
-    lines[index].half_day = on;
+    lines[index].session = session;
     save(lines);
 }
 

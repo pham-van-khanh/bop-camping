@@ -4,16 +4,17 @@ import { ChangeEvent, ReactNode, useEffect, useMemo, useRef, useState } from 're
 import SiteLayout from '@/Layouts/SiteLayout';
 import { COMBO_GRAD } from '@/Components/site/ComboCard';
 import {
-    addLine, cartHasLocationConflict, cartTotals, clearCart, getCart, halfDayEligible, isComboLine, lineDays, lineDeposit,
-    lineRent, locationConflict as checkLocationConflict, removeLine, setCart, setHalfDay, setQty,
+    addLine, cartHasLocationConflict, cartTotals, clearCart, getCart, isComboLine, lineDays, lineDeposit,
+    lineRent, locationConflict as checkLocationConflict, removeLine, setCart, setQty,
     type CartLine, type CartLocation,
 } from '@/lib/cart';
+import { isHalfDaySession, sessionLabel, type Session } from '@/lib/session';
 import { money, rangeText } from '@/lib/format';
 import { emit, on, EVENTS } from '@/lib/bus';
 import { estimateDiscount, voucherValueText, type AvailableVoucher, type EmailBonusInfo, type PromoInfo } from '@/lib/voucher';
 import type { PageProps } from '@/types';
 
-type CheckoutItem = { product_id: number; quantity: number; start: string; end: string; location_id: number | null; half_day: boolean; requested_pickup_time: string | null; requested_return_time: string | null };
+type CheckoutItem = { product_id: number; quantity: number; start: string; end: string; location_id: number | null; session: Session | null };
 type CheckoutCombo = { combo_id: number; quantity: number; start: string; end: string; location_id: number | null };
 
 // Gợi ý từ cart combo detection (PRD 5.4) — server trả tối đa 1 gợi ý.
@@ -66,6 +67,10 @@ type Props = PageProps<{
 
 export default function Cart() {
     const { auth, flash, availableVouchers, referralRef, firstOrderEligible, promo, emailBonus, durationTiers } = usePage<Props>().props;
+    const site = (usePage().props as { site?: { pickup_hour?: number; return_hour?: number; session_split_hour?: number } }).site;
+    const shopPickup = site?.pickup_hour ?? 8;
+    const shopReturn = site?.return_hour ?? 20;
+    const shopSplit = site?.session_split_hour ?? 14;
     const user = auth.user;
     const promoOn = !!user && promo.enabled;
 
@@ -518,20 +523,17 @@ export default function Cart() {
                                             <div className="font-mono text-[11px] text-campfire">cọc {money(lineDeposit(it))}</div>
                                         </div>
                                     </div>
-                                    {/* Nửa ngày (adr_pricing_models): chỉ hiện khi thuê đúng 1 ngày + sản phẩm có ưu đãi trả sớm */}
-                                    {halfDayEligible(it) && (
-                                        <label className="mt-2 flex cursor-pointer items-center gap-2 rounded-[9px] px-2.5 py-1.5 text-[12.5px]" style={{ background: '#f4f8ec' }}>
-                                            <input
-                                                type="checkbox"
-                                                checked={!!it.half_day}
-                                                onChange={(e) => setHalfDay(i, e.target.checked)}
-                                                className="h-4 w-4 flex-none accent-grass"
-                                            />
+                                    {/* Buổi khách chọn (spec 2026-07-26) — thuê 1 ngày; chỉ hiển thị, đổi buổi ở trang sản phẩm. */}
+                                    {it.session && sessionLabel(it.session, shopPickup, shopSplit, shopReturn) && (
+                                        <div className="mt-2 flex items-center gap-2 rounded-[9px] px-2.5 py-1.5 text-[12.5px]" style={{ background: '#f4f8ec' }}>
+                                            <span aria-hidden>🕑</span>
                                             <span className="text-[#3f4a32]">
-                                                Trả sớm trong ngày <span className="font-semibold text-grass">−{it.early_return_pct}%</span>
-                                                <span className="ml-1 text-[#8a967a]">(nhận & trả trong cùng một ngày)</span>
+                                                {sessionLabel(it.session, shopPickup, shopSplit, shopReturn)}
+                                                {isHalfDaySession(it.session) && (it.early_return_pct ?? 0) > 0 && (
+                                                    <span className="ml-1 font-semibold text-grass">−{it.early_return_pct}%</span>
+                                                )}
                                             </span>
-                                        </label>
+                                        </div>
                                     )}
                                 </div>
                                 <button onClick={() => removeLine(i)} title="Xoá" className="self-start px-1 py-0.5 text-[18px]" style={{ color: '#b3493a' }}>×</button>
@@ -777,7 +779,7 @@ export default function Cart() {
 function toCheckoutItems(lines: CartLine[]): CheckoutItem[] {
     return lines
         .filter((l) => !isComboLine(l))
-        .map((l) => ({ product_id: l.id, quantity: l.qty, start: l.start, end: l.end, location_id: l.location_id ?? null, half_day: !!(l.half_day && halfDayEligible(l)), requested_pickup_time: l.requested_pickup_time ?? null, requested_return_time: l.requested_return_time ?? null }));
+        .map((l) => ({ product_id: l.id, quantity: l.qty, start: l.start, end: l.end, location_id: l.location_id ?? null, session: l.session ?? null }));
 }
 
 function toCheckoutCombos(lines: CartLine[]): CheckoutCombo[] {

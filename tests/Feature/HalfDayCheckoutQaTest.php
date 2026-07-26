@@ -48,8 +48,8 @@ class HalfDayCheckoutQaTest extends TestCase
         $this->actingAs($user)->post(route('order.store'), [
             'name' => $user->name, 'phone' => $user->phone,
             'items' => [
-                ['product_id' => $p->id, 'quantity' => 1, 'start' => '2030-07-01', 'end' => '2030-07-01', 'half_day' => true],
-                ['product_id' => $p->id, 'quantity' => 1, 'start' => '2030-07-05', 'end' => '2030-07-07', 'half_day' => false],
+                ['product_id' => $p->id, 'quantity' => 1, 'start' => '2030-07-01', 'end' => '2030-07-01', 'session' => 'morning'],
+                ['product_id' => $p->id, 'quantity' => 1, 'start' => '2030-07-05', 'end' => '2030-07-07', 'session' => 'full'],
             ],
         ])->assertSessionHas('order_code');
 
@@ -76,7 +76,7 @@ class HalfDayCheckoutQaTest extends TestCase
 
         $this->actingAs($user)->post(route('order.store'), [
             'name' => $user->name, 'phone' => $user->phone,
-            'items' => [['product_id' => $p->id, 'quantity' => 2, 'start' => '2030-07-01', 'end' => '2030-07-01', 'half_day' => true]],
+            'items' => [['product_id' => $p->id, 'quantity' => 2, 'start' => '2030-07-01', 'end' => '2030-07-01', 'session' => 'morning']],
         ])->assertSessionHas('order_code');
 
         $order = Order::latest('id')->first();
@@ -97,7 +97,7 @@ class HalfDayCheckoutQaTest extends TestCase
         $user = User::factory()->create(['phone' => '0912000003']);
         $this->actingAs($user)->post(route('order.store'), [
             'name' => $user->name, 'phone' => $user->phone,
-            'items' => [['product_id' => $standalone->id, 'quantity' => 1, 'start' => '2030-07-01', 'end' => '2030-07-01', 'half_day' => true]],
+            'items' => [['product_id' => $standalone->id, 'quantity' => 1, 'start' => '2030-07-01', 'end' => '2030-07-01', 'session' => 'morning']],
             'combos' => [['combo_id' => $combo->id, 'quantity' => 1, 'start' => '2030-07-01', 'end' => '2030-07-01']],
         ])->assertSessionHas('order_code');
 

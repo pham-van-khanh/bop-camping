@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Combo;
 use App\Models\Order;
 use App\Models\Product;
+use App\Models\SiteSetting;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
@@ -45,6 +46,7 @@ class OrderSplitter
                 'start_date' => $g['start'],
                 'end_date' => $g['end'],
                 'is_half_day' => $g['half_day'],
+                'session' => $g['session'],
                 'requested_pickup_time' => $g['req_pickup'],
                 'requested_return_time' => $g['req_return'],
                 'status' => 'pending',
@@ -76,6 +78,7 @@ class OrderSplitter
                 'start_date' => $g['start'],
                 'end_date' => $g['end'],
                 'is_half_day' => $g['half_day'],
+                'session' => $g['session'],
                 'requested_pickup_time' => $g['req_pickup'],
                 'requested_return_time' => $g['req_return'],
                 'status' => 'pending',
@@ -102,34 +105,29 @@ class OrderSplitter
         $groups = [];
         foreach ($itemLines as $line) {
             $key = $line['start'].'|'.$line['end'];
-            $groups[$key] ??= ['start' => $line['start'], 'end' => $line['end'], 'items' => [], 'combos' => [], 'half_day' => false, 'req_pickup' => null, 'req_return' => null];
+            $groups[$key] ??= ['start' => $line['start'], 'end' => $line['end'], 'items' => [], 'combos' => [], 'session' => null, 'half_day' => false, 'req_pickup' => null, 'req_return' => null];
             $groups[$key]['items'][] = $line;
-            // Ý định "trả sớm trong ngày" của khách (server áp % của sản phẩm, không tin client).
-            if (! empty($line['half_day'])) {
-                $groups[$key]['half_day'] = true;
-            }
-            // Giờ khách chọn (thuê 1 ngày) — lấy giá trị đầu tiên có trong nhóm (bopcamping-n6mr).
-            if (empty($groups[$key]['req_pickup']) && ! empty($line['requested_pickup_time'])) {
-                $groups[$key]['req_pickup'] = $line['requested_pickup_time'];
-            }
-            if (empty($groups[$key]['req_return']) && ! empty($line['requested_return_time'])) {
-                $groups[$key]['req_return'] = $line['requested_return_time'];
+            // Buổi khách chọn (thuê 1 ngày) — lấy giá trị đầu tiên có trong nhóm (spec 2026-07-26).
+            if (empty($groups[$key]['session']) && ! empty($line['session'])) {
+                $groups[$key]['session'] = $line['session'];
             }
         }
         foreach ($comboLines as $line) {
             $key = $line['start'].'|'.$line['end'];
-            $groups[$key] ??= ['start' => $line['start'], 'end' => $line['end'], 'items' => [], 'combos' => [], 'half_day' => false, 'req_pickup' => null, 'req_return' => null];
+            $groups[$key] ??= ['start' => $line['start'], 'end' => $line['end'], 'items' => [], 'combos' => [], 'session' => null, 'half_day' => false, 'req_pickup' => null, 'req_return' => null];
             $groups[$key]['combos'][] = $line;
         }
 
-        // Nửa ngày + giờ khách chọn CHỈ hợp lệ khi đơn cùng ngày (start === end) — bảo vệ dù client gửi sai.
+        // Buổi CHỈ hợp lệ khi đơn cùng ngày (start === end). Server suy giờ + is_half_day từ session
+        // (KHÔNG tin client về giờ/giá). Nhóm nhiều ngày → session=null, cả ngày, giờ mặc định.
+        $settings = SiteSetting::current();
         foreach ($groups as &$g) {
-            $sameDay = $g['start'] === $g['end'];
-            $g['half_day'] = $g['half_day'] && $sameDay;
-            if (! $sameDay) {
-                $g['req_pickup'] = null;
-                $g['req_return'] = null;
-            }
+            $session = $g['start'] === $g['end'] ? $g['session'] : null;
+            $derived = $this->sessionToTimes($session, $settings);
+            $g['session'] = $derived['session'];
+            $g['half_day'] = $derived['half_day'];
+            $g['req_pickup'] = $derived['pickup'];
+            $g['req_return'] = $derived['return'];
         }
         unset($g);
 
@@ -209,5 +207,28 @@ class OrderSplitter
     private function rentalDays(string $start, string $end): int
     {
         return (int) (Carbon::parse($start)->diffInDays(Carbon::parse($end)) + 1);
+    }
+
+    /**
+     * Suy giờ nhận/trả + cờ nửa ngày từ buổi khách chọn (spec 2026-07-26 — nguồn chân lý về giá):
+     * morning/afternoon → is_half_day=true (buildItems áp early_return_discount_pct của SP);
+     * full → cả ngày, không giảm; null (nhiều ngày) → không buổi, giờ mặc định.
+     * Giờ hiển thị lấy từ SiteSetting: pickup_hour P, session_split_hour S, return_hour R.
+     *
+     * @return array{session:?string, half_day:bool, pickup:?string, return:?string}
+     */
+    private function sessionToTimes(?string $session, SiteSetting $settings): array
+    {
+        $hhmm = fn (int $h): string => str_pad((string) $h, 2, '0', STR_PAD_LEFT).':00';
+        $p = (int) $settings->pickup_hour;
+        $r = (int) $settings->return_hour;
+        $s = (int) $settings->session_split_hour;
+
+        return match ($session) {
+            'morning' => ['session' => 'morning', 'half_day' => true, 'pickup' => $hhmm($p), 'return' => $hhmm($s)],
+            'afternoon' => ['session' => 'afternoon', 'half_day' => true, 'pickup' => $hhmm($s), 'return' => $hhmm($r)],
+            'full' => ['session' => 'full', 'half_day' => false, 'pickup' => $hhmm($p), 'return' => $hhmm($r)],
+            default => ['session' => null, 'half_day' => false, 'pickup' => null, 'return' => null],
+        };
     }
 }

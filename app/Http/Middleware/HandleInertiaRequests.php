@@ -150,6 +150,7 @@ class HandleInertiaRequests extends Middleware
             // Khung giờ giao/trả mặc định (adr_turnaround_buffer) — hiển thị kỳ vọng cho khách.
             'pickup_hour' => (int) $s->pickup_hour,
             'return_hour' => (int) $s->return_hour,
+            'session_split_hour' => (int) $s->session_split_hour,
             'addresses' => ServiceLocation::open()->ordered()->get(['name', 'area'])
                 ->map(fn (ServiceLocation $l) => ['name' => $l->name, 'area' => $l->area])
                 ->values(),

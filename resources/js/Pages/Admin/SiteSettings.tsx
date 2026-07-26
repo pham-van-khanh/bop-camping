@@ -17,6 +17,7 @@ type Settings = {
     working_hours: string | null;
     pickup_hour: number;
     return_hour: number;
+    session_split_hour: number;
     ga_measurement_id: string | null;
     google_site_verification: string | null;
 };
@@ -46,6 +47,7 @@ export default function AdminSiteSettings() {
         working_hours: settings.working_hours ?? '',
         pickup_hour: String(settings.pickup_hour ?? 8),
         return_hour: String(settings.return_hour ?? 20),
+        session_split_hour: String(settings.session_split_hour ?? 14),
         ga_measurement_id: settings.ga_measurement_id ?? '',
         google_site_verification: settings.google_site_verification ?? '',
     });
@@ -110,6 +112,12 @@ export default function AdminSiteSettings() {
                                 <label className="mb-1.5 block text-[13px] font-semibold text-pine">Giờ trả (0–23)</label>
                                 <input type="number" min="0" max="23" value={data.return_hour} onChange={(e) => setData('return_hour', e.target.value)} className={inputCls} />
                                 {errors.return_hour && <p className="mt-1 text-[12px] text-[#b3493a]">{errors.return_hour}</p>}
+                            </div>
+                            <div>
+                                <label className="mb-1.5 block text-[13px] font-semibold text-pine">Giờ chia buổi sáng/chiều (0–23)</label>
+                                <input type="number" min="0" max="23" value={data.session_split_hour} onChange={(e) => setData('session_split_hour', e.target.value)} className={inputCls} />
+                                <p className="mt-1 text-[11.5px] text-moss">Buổi sáng: giờ giao → giờ này. Buổi chiều: giờ này → giờ trả.</p>
+                                {errors.session_split_hour && <p className="mt-1 text-[12px] text-[#b3493a]">{errors.session_split_hour}</p>}
                             </div>
                         </div>
                     </section>

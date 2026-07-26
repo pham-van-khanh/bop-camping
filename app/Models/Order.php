@@ -37,6 +37,7 @@ class Order extends Model
         'start_date',
         'end_date',
         'is_half_day',
+        'session',
         'requested_pickup_time',
         'requested_return_time',
         'total_price',

@@ -10,6 +10,7 @@ import ProductReviews, { type ReviewItem, type ReviewSummary } from '@/Component
 import { dayCount, ddmm, fromISO, money, rangeText, toISO } from '@/lib/format';
 import { durationTierPercent, netFromGross } from '@/lib/pricing';
 import { addLine, cartSuggestedRange, clearCart, locationConflict, type CartLine, type CartLocation } from '@/lib/cart';
+import { isHalfDaySession, type Session } from '@/lib/session';
 import { emit, EVENTS } from '@/lib/bus';
 import { gradFor } from '@/lib/grad';
 import type { PageProps } from '@/types';
@@ -58,10 +59,13 @@ interface Props {
 export default function ProductDetail({ product, unavailable_dates, unavailable_by_location, accessories, combo_banner, reviews, review_summary, can_review, related_products, stock_by_location }: Props) {
     const { auth, durationTiers } = usePage<PageProps>().props;
     // Khung giờ mặc định hệ thống (bopcamping-n6mr) — prefill ô chọn giờ khi thuê 1 ngày.
-    const site = (usePage().props as { site?: { pickup_hour?: number; return_hour?: number } }).site;
+    const site = (usePage().props as {
+        site?: { pickup_hour?: number; return_hour?: number; session_split_hour?: number; zalo_1?: { url?: string | null } };
+    }).site;
     const shopPickup = site?.pickup_hour ?? 8;
     const shopReturn = site?.return_hour ?? 20;
-    const hhmm = (h: number) => `${String(h).padStart(2, '0')}:00`;
+    const shopSplit = site?.session_split_hour ?? 14;
+    const zaloUrl = site?.zalo_1?.url ?? null;
     const [activeImg, setActiveImg] = useState(0);
     const [lightboxOpen, setLightboxOpen] = useState(false);
     // Prefill ngày từ giỏ (bopcamping-wtuv T5): giỏ đã có khoảng ngày → sản phẩm mở sau tự
@@ -76,9 +80,8 @@ export default function ProductDetail({ product, unavailable_dates, unavailable_
     // 1.7: lịch mặc định thu gọn — bấm ô "Chọn ngày thuê" mới sổ ra.
     const [calOpen, setCalOpen] = useState(false);
     const [qty, setQty] = useState(1);
-    // Giờ nhận/trả khách tự chọn KHI THUÊ 1 NGÀY (bopcamping-n6mr) — mặc định khung giờ hệ thống.
-    const [pickupTime, setPickupTime] = useState(hhmm(shopPickup));
-    const [returnTime, setReturnTime] = useState(hhmm(shopReturn));
+    // Buổi khách chọn KHI THUÊ 1 NGÀY (spec 2026-07-26) — mặc định "cả ngày".
+    const [session, setSession] = useState<Session>('full');
     // Popup khi thêm món khác vị trí với giỏ hiện tại (1 món lẻ hoặc cả loạt phụ kiện).
     const [conflict, setConflict] = useState<{ pending: CartLine[]; cartLocations: CartLocation[] } | null>(null);
     // Tồn kho THỰC theo khoảng ngày từ server (bopcamping-1z1) — quantity tĩnh
@@ -211,7 +214,11 @@ export default function ProductDetail({ product, unavailable_dates, unavailable_
     // Giảm giá thuê dài ngày (bopcamping-e36e) — net theo bậc admin cấu hình (mirror server).
     const grossSub  = product.price_per_day * qty * days;
     const tierPct   = durationTierPercent(days, durationTiers);
-    const subtotal  = netFromGross(grossSub, days, durationTiers);
+    // Buổi sáng/chiều (spec 2026-07-26): thuê 1 ngày + SP có ưu đãi → áp % trả sớm (mirror server priceLine).
+    const earlyPct  = product.early_return_discount_pct ?? 0;
+    const isHalf    = days === 1 && isHalfDaySession(session) && earlyPct > 0;
+    const effPct    = isHalf ? earlyPct : tierPct;
+    const subtotal  = isHalf ? Math.round(grossSub * (1 - earlyPct / 100)) : netFromGross(grossSub, days, durationTiers);
     const subDeposit = product.deposit * qty;
     const lowStock  = product.quantity <= 2;
     const locations = product.locations ?? [];
@@ -238,9 +245,8 @@ export default function ProductDetail({ product, unavailable_dates, unavailable_
         locations,
         location_id: storeId, // per-store: cửa hàng khách chọn (null = checkout tự gán)
         early_return_pct: product.early_return_discount_pct ?? 0, // ưu đãi trả sớm trong ngày (adr_pricing_models)
-        // Giờ khách chọn — chỉ áp khi thuê ĐÚNG 1 NGÀY (bopcamping-n6mr); nhiều ngày = null.
-        requested_pickup_time: start && end && start === end ? pickupTime : null,
-        requested_return_time: start && end && start === end ? returnTime : null,
+        // Buổi khách chọn — chỉ áp khi thuê ĐÚNG 1 NGÀY (spec 2026-07-26); nhiều ngày = null.
+        session: start && end && start === end ? session : null,
     });
 
     const commitAdd = (lines: CartLine[]) => {
@@ -668,28 +674,48 @@ export default function ProductDetail({ product, unavailable_dates, unavailable_
                                             </svg>
                                         </span>
                                         <div>
-                                            <div className="text-[13px] font-bold text-ink">Chọn giờ nhận / trả trong ngày</div>
-                                            <div className="text-[11.5px] text-moss">Thuê trong ngày — bạn chọn giờ phù hợp (mặc định {shopPickup}h–{shopReturn}h)</div>
+                                            <div className="text-[13px] font-bold text-ink">Chọn buổi thuê</div>
+                                            <div className="text-[11.5px] text-moss">
+                                                Thuê trong ngày — chọn buổi phù hợp{earlyPct > 0 ? ', buổi sáng/chiều được giảm giá' : ''}.
+                                            </div>
                                         </div>
                                     </div>
-                                    <div className="grid grid-cols-2 gap-2.5">
-                                        <label className="rounded-[10px] border border-cardBorder bg-white px-3 py-2 transition focus-within:border-grass">
-                                            <span className="block text-[10.5px] font-semibold uppercase tracking-wide text-[#a3ad92]">Giờ nhận</span>
-                                            <input type="time" value={pickupTime} onChange={(e) => setPickupTime(e.target.value)}
-                                                className="w-full bg-transparent text-[15px] font-bold text-ink outline-none" />
-                                        </label>
-                                        <label className="rounded-[10px] border border-cardBorder bg-white px-3 py-2 transition focus-within:border-grass">
-                                            <span className="block text-[10.5px] font-semibold uppercase tracking-wide text-[#a3ad92]">Giờ trả</span>
-                                            <input type="time" value={returnTime} onChange={(e) => setReturnTime(e.target.value)}
-                                                className="w-full bg-transparent text-[15px] font-bold text-ink outline-none" />
-                                        </label>
+                                    <div className="grid grid-cols-3 gap-2">
+                                        {([
+                                            { key: 'morning', label: 'Buổi sáng', time: `${shopPickup}h–${shopSplit}h`, half: true },
+                                            { key: 'afternoon', label: 'Buổi chiều', time: `${shopSplit}h–${shopReturn}h`, half: true },
+                                            { key: 'full', label: 'Cả ngày', time: `${shopPickup}h–${shopReturn}h`, half: false },
+                                        ] as const).map((opt) => {
+                                            const active = session === opt.key;
+                                            return (
+                                                <button
+                                                    key={opt.key}
+                                                    type="button"
+                                                    onClick={() => setSession(opt.key)}
+                                                    aria-pressed={active}
+                                                    className={`rounded-[10px] border px-2 py-2 text-center transition ${active ? 'border-grass bg-[#eef5e1] ring-1 ring-grass' : 'border-cardBorder bg-white hover:border-grass'}`}
+                                                >
+                                                    <span className="block text-[12.5px] font-bold text-ink">{opt.label}</span>
+                                                    <span className="block text-[11px] text-moss">{opt.time}</span>
+                                                    {opt.half && earlyPct > 0 && (
+                                                        <span className="mt-0.5 block text-[10.5px] font-semibold text-grass">−{earlyPct}%</span>
+                                                    )}
+                                                </button>
+                                            );
+                                        })}
                                     </div>
-                                    {(pickupTime < hhmm(shopPickup) || returnTime > hhmm(shopReturn)) && (
-                                        <p className="mt-2 flex items-start gap-1.5 rounded-[9px] bg-[#fdf6ec] px-3 py-2 text-[12px] text-[#8a5a1f]">
-                                            <span aria-hidden>⏰</span>
-                                            <span>Ngoài khung {shopPickup}h–{shopReturn}h — shop sẽ liên hệ xác nhận, có thể tính phụ phí.</span>
-                                        </p>
-                                    )}
+                                    <p className="mt-2 flex items-start gap-1.5 rounded-[9px] bg-[#fdf6ec] px-3 py-2 text-[12px] text-[#8a5a1f]">
+                                        <span aria-hidden>⏰</span>
+                                        <span>
+                                            Muốn giờ nhận/trả khác?{' '}
+                                            {zaloUrl ? (
+                                                <a href={zaloUrl} target="_blank" rel="noopener noreferrer" className="font-semibold underline">Liên hệ Zalo</a>
+                                            ) : (
+                                                'Liên hệ shop'
+                                            )}{' '}
+                                            để sắp xếp thêm.
+                                        </span>
+                                    </p>
                                 </div>
                             )}
 
@@ -735,11 +761,11 @@ export default function ProductDetail({ product, unavailable_dates, unavailable_
                                     {/* Giá đã giảm nổi bật; giá gốc gạch ngang xuống DÒNG DƯỚI cho gọn (góp ý chủ shop). */}
                                     <div className="flex items-baseline gap-2">
                                         <span className="font-mono text-[20px] font-bold text-grass">{money(subtotal)}</span>
-                                        {tierPct > 0 && days > 0 && (
-                                            <span className="rounded-full bg-[#dcebc4] px-2 py-0.5 text-[11px] font-bold text-[#3a5a1f]">−{tierPct}%</span>
+                                        {effPct > 0 && days > 0 && (
+                                            <span className="rounded-full bg-[#dcebc4] px-2 py-0.5 text-[11px] font-bold text-[#3a5a1f]">−{effPct}%</span>
                                         )}
                                     </div>
-                                    {tierPct > 0 && days > 0 && (
+                                    {effPct > 0 && days > 0 && (
                                         <div className="font-mono text-[12px] text-[#8a967a] line-through">{money(grossSub)}</div>
                                     )}
                                     <div className="font-mono text-[11px] text-campfire">+ cọc {money(subDeposit)}</div>
