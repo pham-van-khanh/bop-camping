@@ -647,6 +647,18 @@ export default function ProductDetail({ product, unavailable_dates, unavailable_
                         {/* Ô riêng khung giờ nhận/trả — luôn hiện ngay dưới ô "Ngày thuê" (yêu cầu chủ shop). */}
                         <div className="mt-2.5 rounded-[12px] border border-cardBorder bg-[#fbfcf8] px-3.5 py-2.5">
                             <PickupReturnNote />
+                            <p className="mt-1.5 flex items-start gap-1.5 text-[12px] text-moss">
+                                <span aria-hidden>⏰</span>
+                                <span>
+                                    Muốn giờ nhận/trả khác?{' '}
+                                    {zaloUrl ? (
+                                        <a href={zaloUrl} target="_blank" rel="noopener noreferrer" className="font-semibold text-grass underline">Liên hệ Zalo</a>
+                                    ) : (
+                                        'Liên hệ shop'
+                                    )}{' '}
+                                    để sắp xếp thêm.
+                                </span>
+                            </p>
                         </div>
 
                         {/* range + qty + availability */}
@@ -707,18 +719,6 @@ export default function ProductDetail({ product, unavailable_dates, unavailable_
                                             );
                                         })}
                                     </div>
-                                    <p className="mt-2 flex items-start gap-1.5 rounded-[9px] bg-[#fdf6ec] px-3 py-2 text-[12px] text-[#8a5a1f]">
-                                        <span aria-hidden>⏰</span>
-                                        <span>
-                                            Muốn giờ nhận/trả khác?{' '}
-                                            {zaloUrl ? (
-                                                <a href={zaloUrl} target="_blank" rel="noopener noreferrer" className="font-semibold underline">Liên hệ Zalo</a>
-                                            ) : (
-                                                'Liên hệ shop'
-                                            )}{' '}
-                                            để sắp xếp thêm.
-                                        </span>
-                                    </p>
                                 </div>
                             )}
 
