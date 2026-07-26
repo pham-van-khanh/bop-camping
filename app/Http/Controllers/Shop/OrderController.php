@@ -49,9 +49,6 @@ class OrderController extends Controller
             'email' => ['nullable', 'email', 'max:255'],
             'address' => ['nullable', 'string', 'max:255'],
             'note' => ['nullable', 'string', 'max:500'],
-            // Giờ nhận/trả mong muốn (Phase 2 turnaround) — "HH:MM" 24h; null = theo khung giờ shop.
-            'requested_pickup_time' => ['nullable', 'date_format:H:i'],
-            'requested_return_time' => ['nullable', 'date_format:H:i'],
             // max:50 — chặn giỏ khổng lồ tạo hàng loạt đơn con/1 request (CWE-770, bopcamping-wtuv).
             'items' => ['nullable', 'array', 'max:50'],
             'items.*.product_id' => ['required', 'integer', 'exists:products,id'],
@@ -59,6 +56,9 @@ class OrderController extends Controller
             'items.*.start' => ['required', 'date_format:Y-m-d', 'after_or_equal:today'],
             'items.*.end' => ['required', 'date_format:Y-m-d', 'after_or_equal:items.*.start'],
             'items.*.location_id' => ['nullable', 'integer', 'exists:service_locations,id'],
+            // Giờ khách chọn khi thuê 1 ngày (bopcamping-n6mr) — "HH:MM"; null với nhiều ngày.
+            'items.*.requested_pickup_time' => ['nullable', 'date_format:H:i'],
+            'items.*.requested_return_time' => ['nullable', 'date_format:H:i'],
             // Ý định "trả sớm trong ngày" (nửa ngày) — chỉ áp khi đơn cùng ngày; server tính % (adr_pricing_models).
             'items.*.half_day' => ['nullable', 'boolean'],
             'combos' => ['nullable', 'array', 'max:20'],
@@ -155,9 +155,6 @@ class OrderController extends Controller
             'customer_email' => $customerEmail,
             'customer_address' => $validated['address'] ?? null,
             'note' => $validated['note'] ?? null,
-            // Giờ mong muốn áp cho cả đơn (đơn tách: cha + con cùng nhận giá trị này).
-            'requested_pickup_time' => $validated['requested_pickup_time'] ?? null,
-            'requested_return_time' => $validated['requested_return_time'] ?? null,
         ];
 
         // Tách đơn theo khoảng ngày (bopcamping-wtuv): 1 khoảng → đơn thường; ≥2 → cha + con.

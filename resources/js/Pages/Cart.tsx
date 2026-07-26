@@ -13,7 +13,7 @@ import { emit, on, EVENTS } from '@/lib/bus';
 import { estimateDiscount, voucherValueText, type AvailableVoucher, type EmailBonusInfo, type PromoInfo } from '@/lib/voucher';
 import type { PageProps } from '@/types';
 
-type CheckoutItem = { product_id: number; quantity: number; start: string; end: string; location_id: number | null; half_day: boolean };
+type CheckoutItem = { product_id: number; quantity: number; start: string; end: string; location_id: number | null; half_day: boolean; requested_pickup_time: string | null; requested_return_time: string | null };
 type CheckoutCombo = { combo_id: number; quantity: number; start: string; end: string; location_id: number | null };
 
 // Gợi ý từ cart combo detection (PRD 5.4) — server trả tối đa 1 gợi ý.
@@ -46,7 +46,7 @@ type Suggestion = {
 };
 
 // Dữ liệu mới nhất của sản phẩm/combo trả về từ /gio-thue/lam-tuoi.
-type FreshProduct = { name: string; price_per_day: number; deposit: number; early_return_pct?: number; pickup_hour?: number | null; return_hour?: number | null; locations: CartLocation[]; all_locations: boolean };
+type FreshProduct = { name: string; price_per_day: number; deposit: number; early_return_pct?: number; locations: CartLocation[]; all_locations: boolean };
 type FreshCombo = {
     name: string;
     combo_price: number;
@@ -69,11 +69,6 @@ export default function Cart() {
     const user = auth.user;
     const promoOn = !!user && promo.enabled;
 
-    // Khung giờ mặc định của shop (Phase 2 turnaround) — prefill giờ nhận/trả mong muốn.
-    const site = (usePage().props as { site?: { pickup_hour?: number; return_hour?: number } }).site;
-    const shopPickup = site?.pickup_hour ?? 8;
-    const shopReturn = site?.return_hour ?? 20;
-    const hhmm = (h: number) => `${String(h).padStart(2, '0')}:00`;
 
     const [lines, setLines] = useState<CartLine[]>([]);
     const [selectedCodes, setSelectedCodes] = useState<string[]>([]);
@@ -94,8 +89,6 @@ export default function Cart() {
         email: string;
         address: string;
         note: string;
-        requested_pickup_time: string;
-        requested_return_time: string;
         referral_code: string;
         voucher_codes: string[];
         items: CheckoutItem[];
@@ -106,38 +99,12 @@ export default function Cart() {
         email: userEmail,
         address: '',
         note: '',
-        requested_pickup_time: hhmm(shopPickup),
-        requested_return_time: hhmm(shopReturn),
         referral_code: firstOrderEligible ? (referralRef ?? '') : '',
         voucher_codes: [],
         items: [],
         combos: [],
     });
 
-    // Khung giờ GIAO NHAU của các món trong giỏ (bopcamping-fica): mỗi món có giờ riêng
-    // (hoặc theo shop) → nhận sớm nhất = MAX các giờ nhận, trả muộn nhất = MIN các giờ trả.
-    const timeWindow = useMemo(() => {
-        const products = lines.filter((l) => !isComboLine(l));
-        const pickups = products.map((l) => l.pickup_hour ?? shopPickup);
-        const returns = products.map((l) => l.return_hour ?? shopReturn);
-        return {
-            pickup: pickups.length ? Math.max(...pickups) : shopPickup,
-            ret: returns.length ? Math.min(...returns) : shopReturn,
-        };
-    }, [lines, shopPickup, shopReturn]);
-
-    // Auto prefill giờ mong muốn theo khung giao nhau — chỉ khi khách CHƯA sửa tay.
-    const autoTimes = useRef({ pickup: hhmm(shopPickup), ret: hhmm(shopReturn) });
-    useEffect(() => {
-        const np = hhmm(timeWindow.pickup);
-        const nr = hhmm(timeWindow.ret);
-        setData((prev) => ({
-            ...prev,
-            requested_pickup_time: prev.requested_pickup_time === autoTimes.current.pickup ? np : prev.requested_pickup_time,
-            requested_return_time: prev.requested_return_time === autoTimes.current.ret ? nr : prev.requested_return_time,
-        }));
-        autoTimes.current = { pickup: np, ret: nr };
-    }, [timeWindow.pickup, timeWindow.ret]);
 
     // Đồng bộ form với giỏ: tách dòng lẻ → items, dòng combo → combos (payload checkout).
     const syncForm = (cartLines: CartLine[]) => {
@@ -180,7 +147,7 @@ export default function Cart() {
                         }
                         const p = fresh[String(l.id)];
                         if (!p) { removed.push(l.name); continue; } // đã ẩn/xoá → gỡ
-                        next.push({ ...l, name: p.name, price: p.price_per_day, deposit: p.deposit, locations: p.locations, early_return_pct: p.early_return_pct ?? 0, pickup_hour: p.pickup_hour ?? null, return_hour: p.return_hour ?? null });
+                        next.push({ ...l, name: p.name, price: p.price_per_day, deposit: p.deposit, locations: p.locations, early_return_pct: p.early_return_pct ?? 0 });
                     }
                     setCart(next); // emit cartChange → listener cập nhật state + items
                     if (removed.length) {
@@ -382,7 +349,7 @@ export default function Cart() {
             ? 'Tick xác nhận điều khoản để đặt đơn.'
             : '';
 
-    const set = (k: 'name' | 'phone' | 'email' | 'address' | 'note' | 'requested_pickup_time' | 'requested_return_time') =>
+    const set = (k: 'name' | 'phone' | 'email' | 'address' | 'note') =>
         (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setData(k, e.target.value);
 
     const submit = () => post(route('order.store'));
@@ -644,52 +611,6 @@ export default function Cart() {
                                 {errors.address && <p className="mt-1 text-[12px] text-red-500">{errors.address}</p>}
                             </div>
 
-                            {/* Giờ nhận/trả mong muốn (Phase 2 + bopcamping-fica) — khung giao nhau của các món trong giỏ */}
-                            {(() => {
-                                const conflict = timeWindow.pickup > timeWindow.ret;
-                                const offHours = !conflict && (data.requested_pickup_time < hhmm(timeWindow.pickup) || data.requested_return_time > hhmm(timeWindow.ret));
-                                return (
-                                    <div className="rounded-[13px] border border-cardBorder bg-[#fbfcf8] p-3.5">
-                                        <div className="mb-2.5 flex items-center gap-2">
-                                            <span className="grid h-7 w-7 flex-none place-items-center rounded-full bg-[#eef5e1] text-grass">
-                                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
-                                                    <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2" />
-                                                    <path d="M12 7.5v5l3 2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                                                </svg>
-                                            </span>
-                                            <div>
-                                                <div className="text-[13px] font-bold text-ink">Giờ nhận / trả mong muốn</div>
-                                                {!conflict && <div className="text-[11.5px] text-moss">Khung gợi ý: {timeWindow.pickup}h–{timeWindow.ret}h</div>}
-                                            </div>
-                                        </div>
-                                        <div className="grid grid-cols-2 gap-2.5">
-                                            <label className="rounded-[10px] border border-cardBorder bg-white px-3 py-2 transition focus-within:border-grass">
-                                                <span className="block text-[10.5px] font-semibold uppercase tracking-wide text-[#a3ad92]">Giờ nhận</span>
-                                                <input type="time" value={data.requested_pickup_time} onChange={set('requested_pickup_time')}
-                                                    className="w-full bg-transparent text-[15px] font-bold text-ink outline-none" />
-                                            </label>
-                                            <label className="rounded-[10px] border border-cardBorder bg-white px-3 py-2 transition focus-within:border-grass">
-                                                <span className="block text-[10.5px] font-semibold uppercase tracking-wide text-[#a3ad92]">Giờ trả</span>
-                                                <input type="time" value={data.requested_return_time} onChange={set('requested_return_time')}
-                                                    className="w-full bg-transparent text-[15px] font-bold text-ink outline-none" />
-                                            </label>
-                                        </div>
-                                        {conflict && (
-                                            <p className="mt-2 flex items-start gap-1.5 rounded-[9px] bg-[#fdf3f1] px-3 py-2 text-[12px] font-medium text-[#b3493a]">
-                                                <span aria-hidden>⚠️</span>
-                                                <span>Các món trong giỏ có khung giờ lệch nhau — shop sẽ liên hệ sắp xếp giờ giao/trả.</span>
-                                            </p>
-                                        )}
-                                        {offHours && (
-                                            <p className="mt-2 flex items-start gap-1.5 rounded-[9px] bg-[#fdf6ec] px-3 py-2 text-[12px] text-[#8a5a1f]">
-                                                <span aria-hidden>⏰</span>
-                                                <span>Ngoài khung {timeWindow.pickup}h–{timeWindow.ret}h — shop sẽ liên hệ xác nhận, có thể tính phụ phí.</span>
-                                            </p>
-                                        )}
-                                    </div>
-                                );
-                            })()}
-
                             <textarea value={data.note} onChange={set('note')} placeholder="Ghi chú (tuỳ chọn)" rows={2}
                                 className="resize-y rounded-[11px] border border-cardBorder bg-white px-3.5 py-[11px] text-[14px] text-ink outline-none focus:border-grass" />
                         </div>
@@ -856,7 +777,7 @@ export default function Cart() {
 function toCheckoutItems(lines: CartLine[]): CheckoutItem[] {
     return lines
         .filter((l) => !isComboLine(l))
-        .map((l) => ({ product_id: l.id, quantity: l.qty, start: l.start, end: l.end, location_id: l.location_id ?? null, half_day: !!(l.half_day && halfDayEligible(l)) }));
+        .map((l) => ({ product_id: l.id, quantity: l.qty, start: l.start, end: l.end, location_id: l.location_id ?? null, half_day: !!(l.half_day && halfDayEligible(l)), requested_pickup_time: l.requested_pickup_time ?? null, requested_return_time: l.requested_return_time ?? null }));
 }
 
 function toCheckoutCombos(lines: CartLine[]): CheckoutCombo[] {

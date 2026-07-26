@@ -9,8 +9,6 @@ export interface ProductResource {
     // Ưu đãi trả sớm trong ngày % (adr_pricing_models) — 0 = không có.
     early_return_discount_pct?: number;
     // Khung giờ nhận/trả override theo sản phẩm (null = theo shop) — bopcamping-fica.
-    pickup_hour?: number | null;
-    return_hour?: number | null;
     thumbnail: string | null;
     status: string;
     category: { id: number; name: string; slug: string };

@@ -45,6 +45,8 @@ class OrderSplitter
                 'start_date' => $g['start'],
                 'end_date' => $g['end'],
                 'is_half_day' => $g['half_day'],
+                'requested_pickup_time' => $g['req_pickup'],
+                'requested_return_time' => $g['req_return'],
                 'status' => 'pending',
                 'payment_method' => 'cod',
             ]);
@@ -74,6 +76,8 @@ class OrderSplitter
                 'start_date' => $g['start'],
                 'end_date' => $g['end'],
                 'is_half_day' => $g['half_day'],
+                'requested_pickup_time' => $g['req_pickup'],
+                'requested_return_time' => $g['req_return'],
                 'status' => 'pending',
                 'payment_method' => 'cod',
             ]);
@@ -98,22 +102,34 @@ class OrderSplitter
         $groups = [];
         foreach ($itemLines as $line) {
             $key = $line['start'].'|'.$line['end'];
-            $groups[$key] ??= ['start' => $line['start'], 'end' => $line['end'], 'items' => [], 'combos' => [], 'half_day' => false];
+            $groups[$key] ??= ['start' => $line['start'], 'end' => $line['end'], 'items' => [], 'combos' => [], 'half_day' => false, 'req_pickup' => null, 'req_return' => null];
             $groups[$key]['items'][] = $line;
             // Ý định "trả sớm trong ngày" của khách (server áp % của sản phẩm, không tin client).
             if (! empty($line['half_day'])) {
                 $groups[$key]['half_day'] = true;
             }
+            // Giờ khách chọn (thuê 1 ngày) — lấy giá trị đầu tiên có trong nhóm (bopcamping-n6mr).
+            if (empty($groups[$key]['req_pickup']) && ! empty($line['requested_pickup_time'])) {
+                $groups[$key]['req_pickup'] = $line['requested_pickup_time'];
+            }
+            if (empty($groups[$key]['req_return']) && ! empty($line['requested_return_time'])) {
+                $groups[$key]['req_return'] = $line['requested_return_time'];
+            }
         }
         foreach ($comboLines as $line) {
             $key = $line['start'].'|'.$line['end'];
-            $groups[$key] ??= ['start' => $line['start'], 'end' => $line['end'], 'items' => [], 'combos' => [], 'half_day' => false];
+            $groups[$key] ??= ['start' => $line['start'], 'end' => $line['end'], 'items' => [], 'combos' => [], 'half_day' => false, 'req_pickup' => null, 'req_return' => null];
             $groups[$key]['combos'][] = $line;
         }
 
-        // Nửa ngày CHỈ hợp lệ khi đơn cùng ngày (start === end) — bảo vệ dù client gửi sai.
+        // Nửa ngày + giờ khách chọn CHỈ hợp lệ khi đơn cùng ngày (start === end) — bảo vệ dù client gửi sai.
         foreach ($groups as &$g) {
-            $g['half_day'] = $g['half_day'] && $g['start'] === $g['end'];
+            $sameDay = $g['start'] === $g['end'];
+            $g['half_day'] = $g['half_day'] && $sameDay;
+            if (! $sameDay) {
+                $g['req_pickup'] = null;
+                $g['req_return'] = null;
+            }
         }
         unset($g);
 

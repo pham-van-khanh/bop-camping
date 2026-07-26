@@ -57,6 +57,11 @@ interface Props {
 
 export default function ProductDetail({ product, unavailable_dates, unavailable_by_location, accessories, combo_banner, reviews, review_summary, can_review, related_products, stock_by_location }: Props) {
     const { auth, durationTiers } = usePage<PageProps>().props;
+    // Khung giờ mặc định hệ thống (bopcamping-n6mr) — prefill ô chọn giờ khi thuê 1 ngày.
+    const site = (usePage().props as { site?: { pickup_hour?: number; return_hour?: number } }).site;
+    const shopPickup = site?.pickup_hour ?? 8;
+    const shopReturn = site?.return_hour ?? 20;
+    const hhmm = (h: number) => `${String(h).padStart(2, '0')}:00`;
     const [activeImg, setActiveImg] = useState(0);
     const [lightboxOpen, setLightboxOpen] = useState(false);
     // Prefill ngày từ giỏ (bopcamping-wtuv T5): giỏ đã có khoảng ngày → sản phẩm mở sau tự
@@ -71,6 +76,9 @@ export default function ProductDetail({ product, unavailable_dates, unavailable_
     // 1.7: lịch mặc định thu gọn — bấm ô "Chọn ngày thuê" mới sổ ra.
     const [calOpen, setCalOpen] = useState(false);
     const [qty, setQty] = useState(1);
+    // Giờ nhận/trả khách tự chọn KHI THUÊ 1 NGÀY (bopcamping-n6mr) — mặc định khung giờ hệ thống.
+    const [pickupTime, setPickupTime] = useState(hhmm(shopPickup));
+    const [returnTime, setReturnTime] = useState(hhmm(shopReturn));
     // Popup khi thêm món khác vị trí với giỏ hiện tại (1 món lẻ hoặc cả loạt phụ kiện).
     const [conflict, setConflict] = useState<{ pending: CartLine[]; cartLocations: CartLocation[] } | null>(null);
     // Tồn kho THỰC theo khoảng ngày từ server (bopcamping-1z1) — quantity tĩnh
@@ -230,8 +238,9 @@ export default function ProductDetail({ product, unavailable_dates, unavailable_
         locations,
         location_id: storeId, // per-store: cửa hàng khách chọn (null = checkout tự gán)
         early_return_pct: product.early_return_discount_pct ?? 0, // ưu đãi trả sớm trong ngày (adr_pricing_models)
-        pickup_hour: product.pickup_hour ?? null, // khung giờ riêng của món (null = theo shop) — bopcamping-fica
-        return_hour: product.return_hour ?? null,
+        // Giờ khách chọn — chỉ áp khi thuê ĐÚNG 1 NGÀY (bopcamping-n6mr); nhiều ngày = null.
+        requested_pickup_time: start && end && start === end ? pickupTime : null,
+        requested_return_time: start && end && start === end ? returnTime : null,
     });
 
     const commitAdd = (lines: CartLine[]) => {
@@ -635,7 +644,8 @@ export default function ProductDetail({ product, unavailable_dates, unavailable_
                                 <div>
                                     <div className="text-[12px] text-[#8a967a]">Khoảng thuê</div>
                                     <div className="font-mono text-[15px] font-bold text-ink">{rangeText(start, end)}</div>
-                                    <PickupReturnNote className="mt-1" pickupHour={product.pickup_hour} returnHour={product.return_hour} />
+                                    {/* Nhiều ngày (hoặc chưa chọn) → khung giờ mặc định; 1 ngày → ô chọn giờ ở dưới */}
+                                    {!(start && end && start === end) && <PickupReturnNote className="mt-1" />}
                                 </div>
                                 <div className="flex items-center gap-2.5">
                                     <span className="text-[13px] text-moss">Số bộ</span>
@@ -646,6 +656,42 @@ export default function ProductDetail({ product, unavailable_dates, unavailable_
                                     </div>
                                 </div>
                             </div>
+
+                            {/* Thuê ĐÚNG 1 NGÀY → khách tự chọn giờ nhận/trả (bopcamping-n6mr) */}
+                            {start && end && start === end && (
+                                <div className="mb-3 rounded-[12px] border border-cardBorder bg-[#fbfcf8] p-3">
+                                    <div className="mb-2 flex items-center gap-2">
+                                        <span className="grid h-7 w-7 flex-none place-items-center rounded-full bg-[#eef5e1] text-grass">
+                                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
+                                                <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2" />
+                                                <path d="M12 7.5v5l3 2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                                            </svg>
+                                        </span>
+                                        <div>
+                                            <div className="text-[13px] font-bold text-ink">Chọn giờ nhận / trả trong ngày</div>
+                                            <div className="text-[11.5px] text-moss">Thuê trong ngày — bạn chọn giờ phù hợp (mặc định {shopPickup}h–{shopReturn}h)</div>
+                                        </div>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-2.5">
+                                        <label className="rounded-[10px] border border-cardBorder bg-white px-3 py-2 transition focus-within:border-grass">
+                                            <span className="block text-[10.5px] font-semibold uppercase tracking-wide text-[#a3ad92]">Giờ nhận</span>
+                                            <input type="time" value={pickupTime} onChange={(e) => setPickupTime(e.target.value)}
+                                                className="w-full bg-transparent text-[15px] font-bold text-ink outline-none" />
+                                        </label>
+                                        <label className="rounded-[10px] border border-cardBorder bg-white px-3 py-2 transition focus-within:border-grass">
+                                            <span className="block text-[10.5px] font-semibold uppercase tracking-wide text-[#a3ad92]">Giờ trả</span>
+                                            <input type="time" value={returnTime} onChange={(e) => setReturnTime(e.target.value)}
+                                                className="w-full bg-transparent text-[15px] font-bold text-ink outline-none" />
+                                        </label>
+                                    </div>
+                                    {(pickupTime < hhmm(shopPickup) || returnTime > hhmm(shopReturn)) && (
+                                        <p className="mt-2 flex items-start gap-1.5 rounded-[9px] bg-[#fdf6ec] px-3 py-2 text-[12px] text-[#8a5a1f]">
+                                            <span aria-hidden>⏰</span>
+                                            <span>Ngoài khung {shopPickup}h–{shopReturn}h — shop sẽ liên hệ xác nhận, có thể tính phụ phí.</span>
+                                        </p>
+                                    )}
+                                </div>
+                            )}
 
                             {start && end && (
                                 checking ? (

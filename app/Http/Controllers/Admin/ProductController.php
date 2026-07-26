@@ -116,9 +116,6 @@ class ProductController extends Controller
             'quantity' => $p->quantity,
             'deposit' => $p->deposit,
             'early_return_discount_pct' => (int) $p->early_return_discount_pct,
-            // Khung giờ override theo sản phẩm (null = theo shop) — bopcamping-fica.
-            'pickup_hour' => $p->pickup_hour,
-            'return_hour' => $p->return_hour,
             'thumbnail' => $p->thumbnail ? Storage::disk('media')->url($p->thumbnail) : null,
             'status' => $p->status,
             'category' => $p->category ? ['id' => $p->category->id, 'name' => $p->category->name] : null,
@@ -149,9 +146,6 @@ class ProductController extends Controller
             'deposit' => 'nullable|numeric|min:0',
             // Ưu đãi trả sớm trong ngày (adr_pricing_models) — % giảm cho đơn cùng ngày.
             'early_return_discount_pct' => 'sometimes|integer|min:0|max:50',
-            // Khung giờ nhận/trả override theo sản phẩm (bopcamping-fica) — null = theo shop.
-            'pickup_hour' => 'sometimes|nullable|integer|min:0|max:23',
-            'return_hour' => 'sometimes|nullable|integer|min:0|max:23',
             'status' => 'sometimes|in:active,hidden',
             'thumbnail' => 'nullable|file|mimes:jpg,jpeg,png,webp|max:4096',
             'service_location_ids' => 'required|array|min:1',
@@ -201,8 +195,6 @@ class ProductController extends Controller
             'quantity' => 0, // syncStocks cập nhật = tổng tồn theo store
             'deposit' => isset($data['deposit']) ? (int) $data['deposit'] : null,
             'early_return_discount_pct' => (int) ($data['early_return_discount_pct'] ?? 0),
-            'pickup_hour' => isset($data['pickup_hour']) ? (int) $data['pickup_hour'] : null,
-            'return_hour' => isset($data['return_hour']) ? (int) $data['return_hour'] : null,
             'status' => $data['status'] ?? 'active',
             'thumbnail' => $thumbnailPath,
         ]);
@@ -225,9 +217,6 @@ class ProductController extends Controller
             'deposit' => 'nullable|numeric|min:0',
             // Ưu đãi trả sớm trong ngày (adr_pricing_models) — % giảm cho đơn cùng ngày.
             'early_return_discount_pct' => 'sometimes|integer|min:0|max:50',
-            // Khung giờ nhận/trả override theo sản phẩm (bopcamping-fica) — null = theo shop.
-            'pickup_hour' => 'sometimes|nullable|integer|min:0|max:23',
-            'return_hour' => 'sometimes|nullable|integer|min:0|max:23',
             'status' => 'sometimes|in:active,hidden',
             'thumbnail' => 'nullable|file|mimes:jpg,jpeg,png,webp|max:4096',
             'service_location_ids' => 'required|array|min:1',
@@ -281,8 +270,6 @@ class ProductController extends Controller
             'price_per_day' => (int) $data['price_per_day'],
             'deposit' => isset($data['deposit']) ? (int) $data['deposit'] : null,
             'early_return_discount_pct' => (int) ($data['early_return_discount_pct'] ?? 0),
-            'pickup_hour' => isset($data['pickup_hour']) ? (int) $data['pickup_hour'] : null,
-            'return_hour' => isset($data['return_hour']) ? (int) $data['return_hour'] : null,
             'status' => $data['status'] ?? $product->status,
             'thumbnail' => $thumbnailPath,
         ]);

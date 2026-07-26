@@ -27,9 +27,9 @@ export type CartLine = {
     early_return_pct?: number;
     // Khách chọn "trả sớm trong ngày" cho dòng này — chỉ áp khi đơn cùng ngày (start === end).
     half_day?: boolean;
-    // Khung giờ nhận/trả riêng của món (null/undefined = theo shop) — bopcamping-fica.
-    pickup_hour?: number | null;
-    return_hour?: number | null;
+    // Giờ khách chọn khi thuê 1 ngày (bopcamping-n6mr) — "HH:MM"; null = không chọn (nhiều ngày).
+    requested_pickup_time?: string | null;
+    requested_return_time?: string | null;
 };
 
 /** Cửa hàng đã chọn trong giỏ (per-store): id đầu tiên khác null, hoặc null nếu chưa dòng nào chọn. */

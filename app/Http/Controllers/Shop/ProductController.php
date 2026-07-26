@@ -466,9 +466,6 @@ class ProductController extends Controller
             'quantity' => $p->quantity,
             'deposit' => $p->deposit ?? 0,
             'early_return_discount_pct' => (int) $p->early_return_discount_pct,
-            // Khung giờ override theo sản phẩm (null = theo shop) — FE fallback prop `site`.
-            'pickup_hour' => $p->pickup_hour,
-            'return_hour' => $p->return_hour,
             'thumbnail' => $p->thumbnail ? Storage::disk('media')->url($p->thumbnail) : null,
             'status' => $p->status,
             'category' => [

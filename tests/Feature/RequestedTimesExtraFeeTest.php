@@ -51,8 +51,8 @@ class RequestedTimesExtraFeeTest extends TestCase
         $user = User::factory()->create(['phone' => '0911222001']);
         $this->actingAs($user)->post(route('order.store'), [
             'name' => $user->name, 'phone' => $user->phone,
-            'requested_pickup_time' => '06:00', 'requested_return_time' => '22:00',
-            'items' => [['product_id' => $this->chair->id, 'quantity' => 1, 'start' => '2030-07-01', 'end' => '2030-07-01']],
+            // Giờ khách chọn khi thuê 1 ngày — gửi ở cấp DÒNG (bopcamping-n6mr).
+            'items' => [['product_id' => $this->chair->id, 'quantity' => 1, 'start' => '2030-07-01', 'end' => '2030-07-01', 'requested_pickup_time' => '06:00', 'requested_return_time' => '22:00']],
         ])->assertSessionHas('order_code');
 
         $order = Order::latest('id')->first();
@@ -67,9 +67,8 @@ class RequestedTimesExtraFeeTest extends TestCase
         $user = User::factory()->create(['phone' => '0911222002']);
         $this->actingAs($user)->post(route('order.store'), [
             'name' => $user->name, 'phone' => $user->phone,
-            'requested_pickup_time' => '25:99',
-            'items' => [['product_id' => $this->chair->id, 'quantity' => 1, 'start' => '2030-07-01', 'end' => '2030-07-01']],
-        ])->assertSessionHasErrors('requested_pickup_time');
+            'items' => [['product_id' => $this->chair->id, 'quantity' => 1, 'start' => '2030-07-01', 'end' => '2030-07-01', 'requested_pickup_time' => '25:99']],
+        ])->assertSessionHasErrors('items.0.requested_pickup_time');
     }
 
     /** @test */
