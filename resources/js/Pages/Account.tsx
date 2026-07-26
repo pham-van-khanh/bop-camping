@@ -9,6 +9,7 @@ import { emit, EVENTS } from '@/lib/bus';
 import { dayCount, money, rangeText } from '@/lib/format';
 import { gradFor } from '@/lib/grad';
 import { STATUS_LABEL, STATUS_STYLE } from '@/lib/orderStatus';
+import { sessionLabel, type Session } from '@/lib/session';
 import { VOUCHER_SOURCE_FALLBACK, VOUCHER_SOURCE_LABEL, voucherValueText, type VoucherType } from '@/lib/voucher';
 import type { PageProps } from '@/types';
 
@@ -39,6 +40,10 @@ type AccountOrder = {
     start_date: string;
     end_date: string;
     days: number;
+    // Buổi khách chọn + giờ nhận/trả (spec 2026-07-26) — hiển thị lại cho khách.
+    session: Session | null;
+    requested_pickup_time: string | null;
+    requested_return_time: string | null;
     address: string | null;
     phone: string;
     note: string | null;
@@ -434,6 +439,21 @@ function OrderDetail({
             <div>
                 <div className="mb-1 text-[12px] text-moss">Đặt ngày {order.created_at} · {order.days} ngày</div>
                 {order.address && <div className="mb-2.5 text-[13px] text-moss">📍 Giao nhận: {order.address}</div>}
+
+                {/* Khoảng thuê + buổi + giờ nhận/trả khách đã chọn (spec 2026-07-26) */}
+                {(() => {
+                    const site = (usePage().props as { site?: { pickup_hour?: number; return_hour?: number; session_split_hour?: number } }).site;
+                    const sessLabel = sessionLabel(order.session, site?.pickup_hour ?? 8, site?.session_split_hour ?? 14, site?.return_hour ?? 20);
+                    return (
+                        <div className="mb-2.5 rounded-[10px] border border-[#eef2e3] bg-white px-3 py-2 text-[12.5px]">
+                            <div><span className="text-moss">Khoảng thuê:</span> <span className="font-mono text-ink">{order.start_date} → {order.end_date}</span> <span className="text-moss">({order.days} ngày)</span></div>
+                            {sessLabel && <div className="mt-0.5"><span className="text-moss">Buổi:</span> <span className="font-semibold text-grass">{sessLabel}</span></div>}
+                            {(order.requested_pickup_time || order.requested_return_time) && (
+                                <div className="mt-0.5"><span className="text-moss">Giờ:</span> <span className="font-mono text-ink">nhận {order.requested_pickup_time ?? '—'} · trả {order.requested_return_time ?? '—'}</span></div>
+                            )}
+                        </div>
+                    );
+                })()}
 
                 <div className="mb-2 text-[12px] font-bold uppercase tracking-[0.04em] text-grass">Thiết bị</div>
                 <ul className="flex flex-col gap-1.5 rounded-[10px] border border-[#eef2e3] bg-white px-3 py-2.5 text-[14px] text-ink">

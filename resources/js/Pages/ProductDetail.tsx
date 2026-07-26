@@ -644,14 +644,17 @@ export default function ProductDetail({ product, unavailable_dates, unavailable_
                             </div>
                         )}
 
+                        {/* Ô riêng khung giờ nhận/trả — luôn hiện ngay dưới ô "Ngày thuê" (yêu cầu chủ shop). */}
+                        <div className="mt-2.5 rounded-[12px] border border-cardBorder bg-[#fbfcf8] px-3.5 py-2.5">
+                            <PickupReturnNote />
+                        </div>
+
                         {/* range + qty + availability */}
                         <div className="mt-4 rounded-[14px] border border-cardBorder bg-white p-4">
                             <div className="mb-3 flex items-center justify-between gap-3">
                                 <div>
                                     <div className="text-[12px] text-[#8a967a]">Khoảng thuê</div>
                                     <div className="font-mono text-[15px] font-bold text-ink">{rangeText(start, end)}</div>
-                                    {/* Nhiều ngày (hoặc chưa chọn) → khung giờ mặc định; 1 ngày → ô chọn giờ ở dưới */}
-                                    {!(start && end && start === end) && <PickupReturnNote className="mt-1" />}
                                 </div>
                                 <div className="flex items-center gap-2.5">
                                     <span className="text-[13px] text-moss">Số bộ</span>

@@ -102,6 +102,10 @@ class AccountController extends Controller
             'start_date' => $order->start_date->format('d/m/Y'),
             'end_date' => $order->end_date->format('d/m/Y'),
             'days' => $order->days,
+            // Buổi khách chọn + giờ nhận/trả (spec 2026-07-26) — hiện lại cho khách xem.
+            'session' => $order->session,
+            'requested_pickup_time' => $order->requested_pickup_time,
+            'requested_return_time' => $order->requested_return_time,
             'address' => $order->customer_address,
             'phone' => $order->customer_phone,
             'note' => $order->note,
