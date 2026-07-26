@@ -23,9 +23,20 @@ Chủ shop muốn thay bằng mô hình **3 buổi rõ ràng** — *Buổi sáng
 
 ## Phần A — Chọn buổi ở trang sản phẩm
 
+### Bám theo ADR đã chốt (`artifacts/adr_pricing_models.md`)
+
+ADR mục 2 **giữ INVARIANT**: giờ/buổi KHÔNG tham gia tính tồn kho — **mọi lượt khoá TRỌN NGÀY**. "Nửa ngày" = khoá cả ngày, chỉ **giảm giá trả sớm** (`early_return_discount_pct`), KHÔNG giải phóng capacity. Spec này **tuân thủ tuyệt đối** điều đó.
+
+**Hệ quả cho lo ngại vệ sinh/quay vòng:**
+- **Trường hợp A (ADR mục 4)** — khách chọn "buổi chiều" online: vì khoá trọn ngày, hệ thống chỉ chào unit **CÒN TRỐNG cả ngày** (vd cái ghế thứ 2), KHÔNG bao giờ chào một unit đã có đơn hôm đó. ⇒ Không có rủi ro giao đồ chưa vệ sinh. Tự chạy, không build gì thêm về tồn kho.
+- **Trường hợp B (ADR mục 6)** — cho thuê lại CHÍNH cái vừa về trong ngày ("đồ chỉ lau qua" = `buffer_days = 0`): **admin tự bấm `returned` sau khi lau xong, rồi TỰ TẠO đơn buổi chiều**. KHÔNG mở cửa sổ chiều tự động cho khách online. Đồ `buffer_days > 0` (lều/túi ngủ): **cấm quay vòng trong ngày**.
+- `session_split_hour` **chỉ để hiển thị khung giờ + phân biệt sáng/chiều cho GIÁ**, không tạo suất turnaround. Kiểm soát vệ sinh vẫn hoàn toàn là `buffer_days` (theo ngày) trong `AvailabilityService`.
+
 ### Nguyên tắc: tái dùng đường half-day sẵn có, không phá dữ liệu cũ
 
-Buổi sáng/chiều = một dạng "half-day" đã có. Nên **KHÔNG thêm logic giá mới**; chỉ thêm khái niệm `session` để phân biệt sáng/chiều (cùng half_day) và suy ra giờ hiển thị.
+Buổi sáng/chiều = một dạng "half-day" (ưu đãi trả sớm) đã có. Nên **KHÔNG thêm logic giá/tồn kho mới**; chỉ thêm nhãn `session` để phân biệt sáng/chiều (cùng `is_half_day`) và suy ra giờ hiển thị.
+
+**Sai lệch DUY NHẤT so với ADR** (ADR mục 3 nói "không thêm enum session" — trong bối cảnh *không làm tồn kho theo buổi*): ta thêm cột `orders.session` nhưng **thuần HIỂN THỊ + phân biệt giờ sáng/chiều**, KHÔNG dùng cho tồn kho. Cần nó vì yêu cầu mới của chủ shop là 3 lựa chọn có tên + khung giờ riêng, mà `is_half_day` (boolean) không phân biệt được sáng vs chiều. Giữ đúng tinh thần ADR: không có `session_price`, `session_buffer_minutes`, không nhánh tồn kho theo buổi.
 
 ### Mô hình dữ liệu
 
@@ -116,6 +127,7 @@ Với `pickup_hour=P` (mở), `return_hour=R` (đóng), `session_split_hour=S`:
 
 ## Ngoài phạm vi (YAGNI)
 
+- **Trường hợp B — quay vòng buổi chiều CHÍNH món vừa về (`buffer_days=0`): KHÔNG làm đợt này** (chủ shop chốt "chưa cần"). Không thêm công cụ admin tạo đơn tay. ⇒ "Buổi chiều" online chỉ là lựa chọn giờ + giá; luôn khoá trọn ngày (chỉ dùng được unit còn trống cả ngày — Trường hợp A). Để lại như hướng tương lai (ADR mục 10).
 - Không hỗ trợ chọn buổi cho thuê nhiều ngày.
 - Không thêm cổng thanh toán / không đụng tồn kho theo giờ (mọi lượt thuê vẫn khoá trọn ngày — INVARIANT giữ nguyên).
 - Không đổi logic buffer giặt/phơi, voucher, combo.
