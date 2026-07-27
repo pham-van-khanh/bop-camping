@@ -102,7 +102,14 @@ export default function HeroSlideshow({ children, aside, slides }: { children?: 
 
             {/* Điều khiển: thumbnail + mũi tên */}
             <div className="absolute inset-x-0 z-[3]" style={{ bottom: 'clamp(20px,3vh,34px)' }}>
-                <div className="mx-auto flex max-w-[1400px] items-end justify-between gap-4 px-5">
+                {/*
+                    Chừa chỗ bên phải cho cột nút nổi ở góc phải-dưới (ZaloFloatButton + FeedbackWidget),
+                    nếu không mũi tên chuyển ảnh bị chúng che và bấm không được.
+                    Bề rộng cần chừa = 20px cách mép + bề ngang nút rộng nhất + 10px hở:
+                    mobile nút "Góp ý" ẩn chữ nên rộng 50px → 80px; từ sm chữ hiện, rộng 98px → 128px.
+                    Chừa ở mọi bề rộng màn hình để mũi tên không bị nhảy vị trí theo viewport.
+                */}
+                <div className="mx-auto flex max-w-[1400px] items-end justify-between gap-4 px-5 pr-[80px] sm:pr-[128px]">
                     <div className="flex gap-2 overflow-x-auto pb-0.5">
                         {SLIDES.map((s, i) => {
                             const active = i === index;
