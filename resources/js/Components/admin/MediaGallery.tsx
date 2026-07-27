@@ -42,13 +42,18 @@ export default function MediaGallery({
     itemId,
     images,
     label,
+    reloadOnly,
 }: {
     kind: 'product' | 'combo';
     itemId: number;
     images: GalleryImage[];
     label: string;
+    // Prop trang cần refresh sau upload/xoá/sắp xếp. Mặc định là prop danh sách
+    // (kind số nhiều). Trang sửa 1 sản phẩm truyền ['product','flash'].
+    reloadOnly?: string[];
 }) {
     const r = ROUTES[kind];
+    const refreshOnly = reloadOnly ?? [r.prop, 'flash'];
     const [order, setOrder] = useState<GalleryImage[]>(images);
     const orderRef = useRef<GalleryImage[]>(images);
     const [uploading, setUploading] = useState(false);
@@ -81,7 +86,7 @@ export default function MediaGallery({
             {
                 preserveScroll: true,
                 preserveState: true,
-                only: [r.prop, 'flash'],
+                only: refreshOnly,
             },
         );
     };
@@ -96,7 +101,7 @@ export default function MediaGallery({
         router.post(route(r.store, itemId), formData, {
             forceFormData: true,
             preserveScroll: true,
-            only: [r.prop, 'flash'],
+            only: refreshOnly,
             onFinish: () => {
                 setUploading(false);
                 e.target.value = '';
@@ -107,7 +112,7 @@ export default function MediaGallery({
     const deleteImage = (imageId: number) => {
         router.delete(route(r.destroy, [itemId, imageId]), {
             preserveScroll: true,
-            only: [r.prop, 'flash'],
+            only: refreshOnly,
         });
     };
 
@@ -127,7 +132,7 @@ export default function MediaGallery({
             { sources },
             {
                 preserveScroll: true,
-                only: [r.prop, 'flash'],
+                only: refreshOnly,
                 onFinish: () => {
                     setAttaching(false);
                     setPickerOpen(false);

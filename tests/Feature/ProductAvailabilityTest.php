@@ -50,6 +50,29 @@ class ProductAvailabilityTest extends TestCase
      *
      * @test
      */
+    public function pending_order_does_not_lock_but_confirmed_does(): void
+    {
+        // Feedback 2026-07-27: đơn CHƯA xác nhận (pending) KHÔNG chiếm kho; xác nhận rồi mới chiếm.
+        $order = Order::create([
+            'code' => 'BOP-'.strtoupper(uniqid()), 'customer_name' => 'X', 'customer_phone' => '0900000000',
+            'start_date' => '2030-07-10', 'end_date' => '2030-07-12', 'status' => 'pending', 'payment_method' => 'cod',
+        ]);
+        $order->items()->create([
+            'product_id' => $this->chair->id, 'quantity' => 4, 'price_per_day' => 40000, 'days' => 3,
+            'start_date' => '2030-07-10', 'end_date' => '2030-07-12', 'subtotal' => 480000,
+        ]);
+
+        // pending → còn nguyên 6
+        $this->getJson('/thiet-bi/'.$this->chair->slug.'/kha-dung?start=2030-07-10&end=2030-07-12')
+            ->assertOk()->assertExactJson(['available' => 6]);
+
+        // xác nhận → chiếm 4, còn 2
+        $order->update(['status' => 'confirmed']);
+        $this->getJson('/thiet-bi/'.$this->chair->slug.'/kha-dung?start=2030-07-10&end=2030-07-12')
+            ->assertOk()->assertExactJson(['available' => 2]);
+    }
+
+    /** @test */
     public function combo_order_reduces_availability_for_range(): void
     {
         $combo = Combo::create(['name' => 'Combo Test', 'slug' => 'combo-test', 'combo_price' => 100000]);
@@ -61,7 +84,7 @@ class ProductAvailabilityTest extends TestCase
             'customer_phone' => '0900000000',
             'start_date' => '2030-07-10',
             'end_date' => '2030-07-12',
-            'status' => 'pending', // đơn chờ xác nhận vẫn chiếm kho
+            'status' => 'confirmed', // chỉ đơn đã xác nhận mới chiếm kho (feedback 2026-07-27)
             'payment_method' => 'cod',
         ]);
         $order->items()->create([

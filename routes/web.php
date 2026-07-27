@@ -34,6 +34,7 @@ use App\Http\Controllers\Shop\ReviewController;
 use App\Http\Controllers\Shop\ReviewInviteController;
 use App\Http\Controllers\Shop\SitemapController;
 use App\Http\Controllers\Shop\StaticPageController;
+use App\Models\StaticPage;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -67,6 +68,12 @@ Route::post('/dat-hang', [OrderController::class, 'store'])->name('order.store')
 Route::get('/tra-cuu', [OrderLookupController::class, 'index'])->name('lookup');
 // Trang giới thiệu — nội dung sửa trong admin "Trang nội dung" (Epic 4)
 Route::get('/gioi-thieu', [StaticPageController::class, 'about'])->name('about');
+// Trang chính sách — DRY: mỗi slug 1 route top-level, cùng controller policy()
+foreach (array_keys(StaticPage::POLICIES) as $policySlug) {
+    Route::get('/'.$policySlug, [StaticPageController::class, 'policy'])
+        ->defaults('slug', $policySlug)
+        ->name('policy.'.$policySlug);
+}
 // Góp ý trải nghiệm website — widget nổi mọi trang (Epic 2), throttle chống spam
 Route::post('/gop-y', [FeedbackController::class, 'store'])->name('feedback.store')->middleware('throttle:5,1');
 // Đánh giá sau chuyến đi qua link token (không cần đăng nhập)
@@ -91,6 +98,7 @@ Route::middleware(['admin'])->prefix('admin')->name('admin.')->group(function ()
     Route::delete('/expenses/{expense}', [AdminStatsController::class, 'destroyExpense'])->name('expenses.destroy');
 
     Route::get('/orders', [AdminOrderController::class, 'index'])->name('orders');
+    Route::get('/orders/{order}', [AdminOrderController::class, 'show'])->name('orders.show');
     Route::patch('/orders/{order}', [AdminOrderController::class, 'updateStatus'])->name('orders.update');
     // Per-store: đổi cửa hàng của đơn (kiểm tồn store đích)
     Route::patch('/orders/{order}/location', [AdminOrderController::class, 'changeLocation'])->name('orders.location')->middleware('throttle:30,1');
@@ -98,6 +106,8 @@ Route::middleware(['admin'])->prefix('admin')->name('admin.')->group(function ()
     Route::patch('/orders/{order}/dates', [AdminOrderController::class, 'changeDates'])->name('orders.dates')->middleware('throttle:30,1');
     // Đánh dấu tình trạng chuyển tiền (đã chuyển cọc / chuyển hết / chưa chuyển) — bopcamping-7be
     Route::patch('/orders/{order}/payment', [AdminOrderController::class, 'updatePayment'])->name('orders.payment');
+    // Phụ phí giao/trả ngoài khung giờ — admin nhập tay (Phase 2 turnaround, bopcamping-h4to)
+    Route::patch('/orders/{order}/extra-fee', [AdminOrderController::class, 'updateExtraFee'])->name('orders.fee')->middleware('throttle:30,1');
     // Hoàn cọc khi đơn đã trả (đã hoàn / chưa hoàn + lý do) — bopcamping-7be
     Route::patch('/orders/{order}/refund', [AdminOrderController::class, 'updateRefund'])->name('orders.refund');
 
@@ -110,7 +120,10 @@ Route::middleware(['admin'])->prefix('admin')->name('admin.')->group(function ()
     Route::post('/editor/images', [AdminEditorImageController::class, 'store'])->name('editor.images.store')->middleware('throttle:60,1');
 
     Route::get('/products', [AdminProductController::class, 'index'])->name('products');
+    // Thêm/sửa sản phẩm — màn hình riêng (thay popup cũ). 'create' đặt trước {product} để không nuốt route.
+    Route::get('/products/create', [AdminProductController::class, 'create'])->name('products.create');
     Route::post('/products', [AdminProductController::class, 'store'])->name('products.store');
+    Route::get('/products/{product}/sua', [AdminProductController::class, 'edit'])->name('products.edit');
     Route::put('/products/{product}', [AdminProductController::class, 'update'])->name('products.update');
     Route::delete('/products/{product}', [AdminProductController::class, 'destroy'])->name('products.destroy');
     // Nội dung chi tiết (setup/mô tả lớn) — màn soạn thảo riêng, editor full-width (Epic 1)
@@ -199,6 +212,7 @@ Route::get('/dashboard', function () {
 Route::middleware('auth')->group(function () {
     // Tài khoản của tôi (khách) — thống kê đơn + mã giới thiệu
     Route::get('/tai-khoan', [AccountController::class, 'index'])->name('account');
+    Route::get('/tai-khoan/dat-lai/{order}/kha-dung', [AccountController::class, 'reorderAvailability'])->name('account.reorder.availability')->middleware('throttle:60,1');
 
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');

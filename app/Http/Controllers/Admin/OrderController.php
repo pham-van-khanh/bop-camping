@@ -45,59 +45,7 @@ class OrderController extends Controller
                 ->orWhereHas('children', fn ($c) => $c->where('code', 'like', "%{$q}%")));
         }
 
-        $mapOrder = fn ($o) => [
-            'id' => $o->id,
-            'code' => $o->code,
-            'customer_name' => $o->customer_name,
-            'customer_phone' => $o->customer_phone,
-            'customer_email' => $o->customer_email,
-            'customer_address' => $o->customer_address,
-            'start_date' => $o->start_date->format('d/m/Y'),
-            'end_date' => $o->end_date->format('d/m/Y'),
-            // ISO cho input[type=date] ở form đổi lịch (bopcamping-5hjm)
-            'start_date_iso' => $o->start_date->format('Y-m-d'),
-            'end_date_iso' => $o->end_date->format('Y-m-d'),
-            'days' => $o->days,
-            'total_price' => $o->total_price,
-            'deposit_total' => $o->deposit_total,
-            'discount_total' => $o->discount_total,
-            // bopcamping-3ag: nguồn giảm từng dòng (voucher/referral/email_bonus/cap); đơn cũ null
-            'discount_breakdown' => $o->discount_breakdown,
-            'amount_due' => $o->amount_due,
-            'status' => $o->status,
-            'payment_status' => $o->payment_status,
-            'deposit_refund_status' => $o->deposit_refund_status,
-            'deposit_refund_note' => $o->deposit_refund_note,
-            'note' => $o->note,
-            'created_at' => $o->created_at->format('d/m/Y H:i'),
-            // Per-store: cửa hàng thuê + đơn hệ thống tự gán (admin review theo địa chỉ)
-            'service_location' => $o->serviceLocation ? ['id' => $o->serviceLocation->id, 'name' => $o->serviceLocation->name] : null,
-            'location_auto_assigned' => (bool) $o->location_auto_assigned,
-            'items' => $o->items->map(fn ($i) => [
-                'name' => $i->product?->name ?? '(đã xoá)',
-                'quantity' => $i->quantity,
-                'price_per_day' => (int) $i->price_per_day,
-                'days' => $i->days,
-                'subtotal' => $i->subtotal,
-                // % giảm thuê dài ngày đã snapshot (bopcamping-e36e) — admin thấy đã giảm bao nhiêu.
-                'duration_discount_percent' => (float) $i->duration_discount_percent,
-                // bopcamping-d7l: FE nhóm items combo thành 1 khối theo group uuid (AC-3)
-                'combo_group_uuid' => $i->combo_group_uuid,
-                'combo_name' => $i->combo_id ? ($i->combo?->name ?? 'Combo (đã xoá)') : null,
-                'allocated_price' => $i->allocated_price !== null ? (int) $i->allocated_price : null,
-            ]),
-            'vouchers' => $o->vouchers->map(fn ($v) => [
-                'code' => $v->code,
-                'type' => $v->type,
-                'value' => (int) $v->value,
-                'source' => $v->source,
-            ]),
-            'referral' => $o->referralUse ? [
-                'referrer_name' => $o->referralUse->referrer?->name,
-                'status' => $o->referralUse->status,
-            ] : null,
-            'is_parent' => (bool) $o->is_parent,
-        ];
+        $mapOrder = fn ($o) => $this->mapOrder($o);
 
         // Cha: trạng thái hiển thị suy từ con; kèm mảng children (map cùng shape để FE tái dùng UI).
         $orders = $query->get()->map(function ($o) use ($mapOrder) {
@@ -145,6 +93,102 @@ class OrderController extends Controller
             // Trần % giảm giá tối đa/đơn — preview đổi lịch dùng để kẹp giống server (bopcamping-lmk6).
             'max_discount_percent' => (float) PromotionSetting::current()->max_discount_percent_per_order,
         ]);
+    }
+
+    /**
+     * Màn hình riêng cho 1 đơn (spec 2026-07-26): gom toàn bộ chi tiết + action.
+     * Đơn cha kèm children; đơn con kèm link cha. Dùng chung mapOrder với danh sách.
+     */
+    public function show(Order $order): Response
+    {
+        $relations = ['items.product', 'items.combo', 'vouchers', 'referralUse.referrer', 'serviceLocation'];
+        $order->load(array_merge($relations, array_map(fn ($r) => "children.$r", $relations), ['parent:id,code']));
+
+        $row = $this->mapOrder($order);
+        if ($order->is_parent) {
+            $row['status'] = $order->aggregateStatus();
+            $row['children'] = $order->children->map(fn ($c) => $this->mapOrder($c))->values();
+        }
+        if ($order->parent_id && $order->parent) {
+            $row['parent'] = ['id' => $order->parent->id, 'code' => $order->parent->code];
+        }
+
+        return Inertia::render('Admin/Orders/Show', [
+            'order' => $row,
+            'service_locations' => ServiceLocation::open()->ordered()->get()->map(fn ($l) => ['id' => $l->id, 'name' => $l->name]),
+            'max_discount_percent' => (float) PromotionSetting::current()->max_discount_percent_per_order,
+        ]);
+    }
+
+    /**
+     * Chuẩn hoá 1 đơn → mảng cho FE (dùng chung index + show). Đơn cha bổ sung status/children ở caller.
+     *
+     * @return array<string,mixed>
+     */
+    private function mapOrder(Order $o): array
+    {
+        return [
+            'id' => $o->id,
+            'code' => $o->code,
+            'customer_name' => $o->customer_name,
+            'customer_phone' => $o->customer_phone,
+            'customer_email' => $o->customer_email,
+            'customer_address' => $o->customer_address,
+            'start_date' => $o->start_date->format('d/m/Y'),
+            'end_date' => $o->end_date->format('d/m/Y'),
+            // ISO cho input[type=date] ở form đổi lịch (bopcamping-5hjm)
+            'start_date_iso' => $o->start_date->format('Y-m-d'),
+            'end_date_iso' => $o->end_date->format('Y-m-d'),
+            'days' => $o->days,
+            // Nửa ngày (adr_pricing_models) — đơn cùng ngày trả sớm; admin thấy đơn trả trưa.
+            'is_half_day' => (bool) $o->is_half_day,
+            // Buổi khách chọn (spec 2026-07-26): morning|afternoon|full|null.
+            'session' => $o->session,
+            // Giờ nhận/trả mong muốn + phụ phí ngoài khung giờ (Phase 2 turnaround, bopcamping-h4to).
+            'requested_pickup_time' => $o->requested_pickup_time,
+            'requested_return_time' => $o->requested_return_time,
+            'extra_fee' => (int) $o->extra_fee,
+            'extra_fee_note' => $o->extra_fee_note,
+            'total_price' => $o->total_price,
+            'deposit_total' => $o->deposit_total,
+            'discount_total' => $o->discount_total,
+            // bopcamping-3ag: nguồn giảm từng dòng (voucher/referral/email_bonus/cap); đơn cũ null
+            'discount_breakdown' => $o->discount_breakdown,
+            'amount_due' => $o->amount_due,
+            'status' => $o->status,
+            'payment_status' => $o->payment_status,
+            'deposit_refund_status' => $o->deposit_refund_status,
+            'deposit_refund_note' => $o->deposit_refund_note,
+            'note' => $o->note,
+            'created_at' => $o->created_at->format('d/m/Y H:i'),
+            // Per-store: cửa hàng thuê + đơn hệ thống tự gán (admin review theo địa chỉ)
+            'service_location' => $o->serviceLocation ? ['id' => $o->serviceLocation->id, 'name' => $o->serviceLocation->name] : null,
+            'location_auto_assigned' => (bool) $o->location_auto_assigned,
+            'items' => $o->items->map(fn ($i) => [
+                'name' => $i->product?->name ?? '(đã xoá)',
+                'quantity' => $i->quantity,
+                'price_per_day' => (int) $i->price_per_day,
+                'days' => $i->days,
+                'subtotal' => $i->subtotal,
+                // % giảm thuê dài ngày đã snapshot (bopcamping-e36e) — admin thấy đã giảm bao nhiêu.
+                'duration_discount_percent' => (float) $i->duration_discount_percent,
+                // bopcamping-d7l: FE nhóm items combo thành 1 khối theo group uuid (AC-3)
+                'combo_group_uuid' => $i->combo_group_uuid,
+                'combo_name' => $i->combo_id ? ($i->combo?->name ?? 'Combo (đã xoá)') : null,
+                'allocated_price' => $i->allocated_price !== null ? (int) $i->allocated_price : null,
+            ]),
+            'vouchers' => $o->vouchers->map(fn ($v) => [
+                'code' => $v->code,
+                'type' => $v->type,
+                'value' => (int) $v->value,
+                'source' => $v->source,
+            ]),
+            'referral' => $o->referralUse ? [
+                'referrer_name' => $o->referralUse->referrer?->name,
+                'status' => $o->referralUse->status,
+            ] : null,
+            'is_parent' => (bool) $o->is_parent,
+        ];
     }
 
     /**
@@ -269,6 +313,9 @@ class OrderController extends Controller
                     : $this->pricing->priceLine((int) $item->price_per_day, (int) $item->quantity, $newDays);
                 $item->update([
                     'days' => $newDays,
+                    // Đổi lịch cấp ĐƠN → mọi món về cùng khoảng mới (bopcamping-u1nb).
+                    'start_date' => $start,
+                    'end_date' => $end,
                     'subtotal' => $line['net'],
                     'duration_discount_percent' => $line['percent'],
                 ]);
@@ -475,5 +522,30 @@ class OrderController extends Controller
         ]);
 
         return back()->with('success', "Đơn {$order->code}: đã cập nhật hoàn cọc");
+    }
+
+    /**
+     * Phụ phí giao/trả NGOÀI KHUNG GIỜ (bopcamping-h4to, Phase 2) — admin nhập tay sau khi
+     * liên hệ khách (giao sớm/trả muộn). Cộng vào amount_due; không dùng biểu phí tự động.
+     */
+    public function updateExtraFee(Request $request, Order $order): RedirectResponse
+    {
+        if ($order->is_parent) {
+            return back()->withErrors(['extra_fee' => 'Đơn gộp: nhập phụ phí trên từng đợt (đơn con).']);
+        }
+
+        $validated = $request->validate([
+            'extra_fee' => ['required', 'integer', 'min:0', 'max:100000000'],
+            'extra_fee_note' => ['nullable', 'string', 'max:255'],
+        ], [
+            'extra_fee.integer' => 'Phụ phí phải là số.',
+        ]);
+
+        $order->update([
+            'extra_fee' => $validated['extra_fee'],
+            'extra_fee_note' => $validated['extra_fee_note'] ?? null,
+        ]);
+
+        return back()->with('success', "Đơn {$order->code}: đã cập nhật phụ phí");
     }
 }

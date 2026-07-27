@@ -3,6 +3,7 @@
 import { dayCount } from './format';
 import { emit, EVENTS } from './bus';
 import { netFromGross, type DurationTier } from './pricing';
+import { isHalfDaySession, type Session } from './session';
 
 export type CartLocation = { slug: string; name: string };
 
@@ -23,6 +24,11 @@ export type CartLine = {
     // Dòng combo (PRD combo): id trỏ vào combos, kèm danh sách món để mở rộng xem.
     kind?: 'product' | 'combo';
     comboItems?: { name: string; qty: number }[];
+    // Ưu đãi trả sớm trong ngày % của sản phẩm (adr_pricing_models) — 0/undefined = không có.
+    early_return_pct?: number;
+    // Buổi khách chọn khi thuê ĐÚNG 1 NGÀY (spec 2026-07-26): morning/afternoon = nửa ngày
+    // (áp early_return_pct), full = cả ngày. null = thuê nhiều ngày. Server suy giờ + is_half_day.
+    session?: Session | null;
 };
 
 /** Cửa hàng đã chọn trong giỏ (per-store): id đầu tiên khác null, hoặc null nếu chưa dòng nào chọn. */
@@ -98,11 +104,21 @@ export function setCart(lines: CartLine[]) {
 }
 
 export const lineDays = (l: CartLine) => dayCount(l.start, l.end);
+
+/** Dòng đủ điều kiện "trả sớm trong ngày": thuê đúng 1 ngày + sản phẩm có ưu đãi. */
+export const halfDayEligible = (l: CartLine) => lineDays(l) === 1 && (l.early_return_pct ?? 0) > 0;
+
 // Rent NET sau giảm giá thuê dài ngày (bopcamping-e36e) — mirror server RentalPricingService.
 // tiers rỗng (mặc định) → net = gross (giữ hành vi cũ khi caller chưa truyền bậc).
+// Buổi sáng/chiều (spec 2026-07-26): đơn cùng ngày → áp ưu đãi trả sớm thay bậc dài ngày
+// (bậc dài ngày = 0 khi 1 ngày). Mirror server priceLine().
 export const lineRent = (l: CartLine, tiers: DurationTier[] = []) => {
     const days = lineDays(l);
-    return netFromGross(l.price * l.qty * days, days, tiers);
+    const gross = l.price * l.qty * days;
+    if (isHalfDaySession(l.session) && halfDayEligible(l)) {
+        return Math.round(gross * (1 - (l.early_return_pct as number) / 100));
+    }
+    return netFromGross(gross, days, tiers);
 };
 export const lineDeposit = (l: CartLine) => l.deposit * l.qty;
 

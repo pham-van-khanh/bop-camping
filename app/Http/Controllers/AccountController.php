@@ -8,8 +8,11 @@ use App\Models\OrderItem;
 use App\Models\Product;
 use App\Models\ServiceLocation;
 use App\Models\Voucher;
+use App\Services\AvailabilityService;
 use App\Services\OrderLookupService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -22,7 +25,33 @@ class AccountController extends Controller
     /** Giới hạn lịch sử đơn trả về trang tài khoản (đơn cũ hơn tra bằng mã). */
     private const ORDER_HISTORY_LIMIT = 20;
 
-    public function __construct(private OrderLookupService $lookup) {}
+    public function __construct(private OrderLookupService $lookup, private AvailabilityService $availability) {}
+
+    /**
+     * Ngày KHÔNG đặt lại được của 1 đơn tại 1 cửa hàng (feedback 2026-07-27) — union ngày hết
+     * của mọi sản phẩm trong đơn (kể cả món trong combo) qua AvailabilityService::unavailableDates.
+     * Dùng cho lịch modal "Đặt lại". location_id null = tính toàn hệ thống.
+     */
+    public function reorderAvailability(Request $request, Order $order): JsonResponse
+    {
+        $user = $request->user();
+        abort_unless($user && $user->relatedOrders()->whereKey($order->id)->exists(), 403);
+
+        $data = $request->validate(['location_id' => ['nullable', 'integer', 'exists:service_locations,id']]);
+        $location = ! empty($data['location_id']) ? ServiceLocation::find($data['location_id']) : null;
+
+        $from = Carbon::today();
+        $to = $from->copy()->addDays(120);
+
+        $productIds = $order->items->pluck('product_id')->filter()->unique();
+        $dates = [];
+        // eager-load serviceLocations: bufferAt()/stockAt() dùng trong loop → tránh N+1.
+        foreach (Product::with('serviceLocations')->whereIn('id', $productIds)->get() as $p) {
+            $dates = array_merge($dates, $this->availability->unavailableDates($p, $from, $to, $location));
+        }
+
+        return response()->json(['unavailable' => array_values(array_unique($dates))]);
+    }
 
     public function index(Request $request): Response
     {
@@ -102,6 +131,10 @@ class AccountController extends Controller
             'start_date' => $order->start_date->format('d/m/Y'),
             'end_date' => $order->end_date->format('d/m/Y'),
             'days' => $order->days,
+            // Buổi khách chọn + giờ nhận/trả (spec 2026-07-26) — hiện lại cho khách xem.
+            'session' => $order->session,
+            'requested_pickup_time' => $order->requested_pickup_time,
+            'requested_return_time' => $order->requested_return_time,
             'address' => $order->customer_address,
             'phone' => $order->customer_phone,
             'note' => $order->note,
@@ -216,6 +249,7 @@ class AccountController extends Controller
                 'price' => (int) $p->price_per_day,
                 'deposit' => (int) ($p->deposit ?? 0),
                 'qty' => (int) $qty,
+                'early_return_pct' => (int) ($p->early_return_discount_pct ?? 0),
                 'locations' => $p->serviceLocations->where('status', 'open')
                     ->map(fn (ServiceLocation $l) => ['slug' => $l->slug, 'name' => $l->name])
                     ->values(),
@@ -251,7 +285,27 @@ class AccountController extends Controller
             return null;
         }
 
-        return ['products' => $productLines, 'combos' => $comboLines, 'skipped' => $skipped];
+        // Cửa hàng chung (open) phục vụ MỌI món trong đơn — cho khách đổi store ở modal đặt lại.
+        $involved = collect();
+        foreach ($products as $p) {
+            $involved->push($p);
+        }
+        foreach ($combos as $c) {
+            foreach ($c->items as $it) {
+                if ($it->product) {
+                    $involved->push($it->product);
+                }
+            }
+        }
+        $storeOptions = [];
+        if ($involved->isNotEmpty()) {
+            $sets = $involved->map(fn (Product $p) => $p->serviceLocations->where('status', 'open')->pluck('id')->all());
+            $commonIds = array_values(array_intersect(...$sets->all()));
+            $storeOptions = ServiceLocation::whereIn('id', $commonIds)->where('status', 'open')->ordered()->get()
+                ->map(fn (ServiceLocation $l) => ['id' => $l->id, 'name' => $l->name])->values();
+        }
+
+        return ['products' => $productLines, 'combos' => $comboLines, 'skipped' => $skipped, 'store_options' => $storeOptions];
     }
 
     /** active = còn dùng được, used = đã dùng, expired = hết hạn/thu hồi. */

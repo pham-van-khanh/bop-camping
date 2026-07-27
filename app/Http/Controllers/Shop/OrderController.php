@@ -56,6 +56,9 @@ class OrderController extends Controller
             'items.*.start' => ['required', 'date_format:Y-m-d', 'after_or_equal:today'],
             'items.*.end' => ['required', 'date_format:Y-m-d', 'after_or_equal:items.*.start'],
             'items.*.location_id' => ['nullable', 'integer', 'exists:service_locations,id'],
+            // Buổi khách chọn khi thuê 1 ngày (spec 2026-07-26) — server tự suy giờ + is_half_day + % giảm.
+            // null = thuê nhiều ngày (khung mặc định). KHÔNG nhận giờ/half_day thô từ client.
+            'items.*.session' => ['nullable', 'in:morning,afternoon,full'],
             'combos' => ['nullable', 'array', 'max:20'],
             'combos.*.combo_id' => ['required', 'integer', 'exists:combos,id'],
             'combos.*.quantity' => ['required', 'integer', 'min:1', 'max:10'],

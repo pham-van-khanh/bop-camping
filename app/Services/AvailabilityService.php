@@ -30,37 +30,41 @@ class AvailabilityService
      */
     public function availableQuantity(Product $product, Carbon $start, Carbon $end, ?ServiceLocation $location = null, ?int $excludeOrderId = null): int
     {
-        if ($location === null) {
-            $booked = OrderItem::query()
-                ->whereHas('order', function ($q) use ($start, $end, $excludeOrderId) {
-                    $q->whereIn('status', Order::activeStatuses())
-                        ->where('start_date', '<=', $end)
-                        ->where('end_date', '>=', $start);
-                    if ($excludeOrderId !== null) {
-                        $q->where('id', '!=', $excludeOrderId);
-                    }
-                })
-                ->where('product_id', $product->id)
-                ->sum('quantity');
+        $booked = $this->bookedQuantity($product, $start, $end, $location, $excludeOrderId);
+        $stock = $location === null ? (int) $product->quantity : (int) $product->stockAt($location->id);
 
-            return max(0, $product->quantity - (int) $booked);
+        return max(0, $stock - $booked);
+    }
+
+    /**
+     * Tổng số lượng đã đặt của sản phẩm chồng khoảng [start,end], tính theo NGÀY TỪNG MÓN
+     * (bopcamping-u1nb) — đơn nhiều khoảng ngày không còn khoá tồn dư trên cả envelope.
+     * Fallback ngày ĐƠN khi món chưa có ngày (dữ liệu cũ chưa backfill / một số path test).
+     * DATE() chuẩn hoá datetime→ngày để so biên cùng ngày chính xác (MySQL + SQLite).
+     */
+    private function bookedQuantity(Product $product, Carbon $start, Carbon $end, ?ServiceLocation $location, ?int $excludeOrderId): int
+    {
+        // Đệm quay vòng: nới biên "đã đặt" thêm buffer ngày sau ngày trả (đồ còn giặt/phơi).
+        // Theo KHO đang hỏi; nhánh toàn cục lấy max buffer các kho (adr_turnaround_buffer).
+        $buffer = $location === null ? $product->maxBufferAcrossLocations() : $product->bufferAt($location->id);
+
+        $q = OrderItem::query()
+            ->join('orders', 'orders.id', '=', 'order_items.order_id')
+            ->whereIn('orders.status', Order::activeStatuses())
+            ->where('order_items.product_id', $product->id)
+            ->whereRaw('COALESCE(DATE(order_items.start_date), DATE(orders.start_date)) <= ?', [$end->toDateString()])
+            ->whereRaw('COALESCE(DATE(order_items.end_date), DATE(orders.end_date)) >= ?', [$start->copy()->subDays($buffer)->toDateString()]);
+
+        // Per-store: chỉ đếm đơn GẮN store đó (đơn NULL store — dữ liệu cũ — tính vào mọi store).
+        if ($location !== null) {
+            $q->where(fn ($sq) => $sq->where('orders.service_location_id', $location->id)->orWhereNull('orders.service_location_id'));
+        }
+        // Loại chính đơn này (đổi lịch/đổi cửa hàng — không tự chặn mình).
+        if ($excludeOrderId !== null) {
+            $q->where('orders.id', '!=', $excludeOrderId);
         }
 
-        // Per-store: tồn tại store − đơn active chồng lịch GẮN store đó (đơn NULL store — dữ liệu cũ — tính vào mọi store).
-        $booked = OrderItem::query()
-            ->whereHas('order', function ($q) use ($start, $end, $location, $excludeOrderId) {
-                $q->whereIn('status', Order::activeStatuses())
-                    ->where('start_date', '<=', $end)
-                    ->where('end_date', '>=', $start)
-                    ->where(fn ($sq) => $sq->where('service_location_id', $location->id)->orWhereNull('service_location_id'));
-                if ($excludeOrderId !== null) {
-                    $q->where('id', '!=', $excludeOrderId);
-                }
-            })
-            ->where('product_id', $product->id)
-            ->sum('quantity');
-
-        return max(0, $product->stockAt($location->id) - (int) $booked);
+        return (int) $q->sum('order_items.quantity');
     }
 
     /**
@@ -211,11 +215,16 @@ class AvailabilityService
             return [];
         }
 
-        // Đơn chồng lịch (nếu có store: gắn store đó hoặc chưa gắn — dữ liệu cũ).
+        // Đệm quay vòng: mỗi đơn chiếm [start, end + buffer] (đồ còn giặt/phơi sau ngày trả).
+        // Theo kho đang hỏi; nhánh toàn cục lấy max buffer các kho (adr_turnaround_buffer mục 3.3).
+        $buffer = $location === null ? $product->maxBufferAcrossLocations() : $product->bufferAt($location->id);
+
+        // Đơn chồng lịch — nới điều kiện end_date về trước theo buffer để bắt cả đơn mà
+        // cửa sổ phơi mới chạm vào [from, to].
         $orders = Order::query()
             ->whereIn('status', Order::activeStatuses())
             ->where('start_date', '<=', $to)
-            ->where('end_date', '>=', $from)
+            ->where('end_date', '>=', $from->copy()->subDays($buffer))
             ->when($location !== null, fn ($q) => $q->where(fn ($sq) => $sq->where('service_location_id', $location->id)->orWhereNull('service_location_id')))
             ->with(['items' => fn ($q) => $q->where('product_id', $product->id)])
             ->get()
@@ -227,7 +236,7 @@ class AvailabilityService
         while ($cursor->lte($to)) {
             $booked = 0;
             foreach ($orders as $order) {
-                if ($cursor->between($order->start_date, $order->end_date)) {
+                if ($cursor->between($order->start_date, $order->end_date->copy()->addDays($buffer))) {
                     $booked += $order->items->sum('quantity');
                 }
             }

@@ -211,8 +211,9 @@ class ComboAdminAndCheckoutTest extends TestCase
         $combo = $this->makeCombo(['combo_price' => 80_000]);
         $combo->items()->create(['product_id' => $mat->id, 'quantity' => 1]);
 
-        // Đơn 1 chiếm hết
+        // Đơn 1 chiếm hết — xác nhận để khoá tồn (feedback 2026-07-27: pending không khoá)
         $this->checkoutComboHelper($combo, '2030-07-12', '2030-07-14')->assertSessionHasNoErrors();
+        Order::latest('id')->first()->update(['status' => 'confirmed']);
 
         // Đơn 2 chồng khoảng ngày → lỗi validation 'items', không tạo thêm order
         $this->checkoutComboHelper($combo, '2030-07-13', '2030-07-15')

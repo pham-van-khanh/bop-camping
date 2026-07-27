@@ -147,6 +147,11 @@ class HandleInertiaRequests extends Middleware
             'facebook_url' => $s->facebook_url,
             'tiktok_url' => $s->tiktok_url,
             'working_hours' => $s->working_hours,
+            // Khung giờ giao/trả mặc định (adr_turnaround_buffer) — hiển thị kỳ vọng cho khách.
+            'pickup_hour' => (int) $s->pickup_hour,
+            'return_hour' => (int) $s->return_hour,
+            'morning_end_hour' => (int) $s->morning_end_hour,
+            'afternoon_start_hour' => (int) $s->afternoon_start_hour,
             'addresses' => ServiceLocation::open()->ordered()->get(['name', 'area'])
                 ->map(fn (ServiceLocation $l) => ['name' => $l->name, 'area' => $l->area])
                 ->values(),

@@ -1,6 +1,6 @@
 import { Head, Link, useForm, usePage } from '@inertiajs/react';
 import axios from 'axios';
-import { ChangeEvent, ReactNode, useEffect, useMemo, useState } from 'react';
+import { ChangeEvent, ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import SiteLayout from '@/Layouts/SiteLayout';
 import { COMBO_GRAD } from '@/Components/site/ComboCard';
 import {
@@ -8,12 +8,13 @@ import {
     lineRent, locationConflict as checkLocationConflict, removeLine, setCart, setQty,
     type CartLine, type CartLocation,
 } from '@/lib/cart';
+import { isHalfDaySession, sessionLabel, shopHours, type Session } from '@/lib/session';
 import { money, rangeText } from '@/lib/format';
 import { emit, on, EVENTS } from '@/lib/bus';
 import { estimateDiscount, voucherValueText, type AvailableVoucher, type EmailBonusInfo, type PromoInfo } from '@/lib/voucher';
 import type { PageProps } from '@/types';
 
-type CheckoutItem = { product_id: number; quantity: number; start: string; end: string; location_id: number | null };
+type CheckoutItem = { product_id: number; quantity: number; start: string; end: string; location_id: number | null; session: Session | null };
 type CheckoutCombo = { combo_id: number; quantity: number; start: string; end: string; location_id: number | null };
 
 // Gợi ý từ cart combo detection (PRD 5.4) — server trả tối đa 1 gợi ý.
@@ -46,7 +47,7 @@ type Suggestion = {
 };
 
 // Dữ liệu mới nhất của sản phẩm/combo trả về từ /gio-thue/lam-tuoi.
-type FreshProduct = { name: string; price_per_day: number; deposit: number; locations: CartLocation[]; all_locations: boolean };
+type FreshProduct = { name: string; price_per_day: number; deposit: number; early_return_pct?: number; locations: CartLocation[]; all_locations: boolean };
 type FreshCombo = {
     name: string;
     combo_price: number;
@@ -66,8 +67,10 @@ type Props = PageProps<{
 
 export default function Cart() {
     const { auth, flash, availableVouchers, referralRef, firstOrderEligible, promo, emailBonus, durationTiers } = usePage<Props>().props;
+    const hours = shopHours((usePage().props as { site?: Parameters<typeof shopHours>[0] }).site);
     const user = auth.user;
     const promoOn = !!user && promo.enabled;
+
 
     const [lines, setLines] = useState<CartLine[]>([]);
     const [selectedCodes, setSelectedCodes] = useState<string[]>([]);
@@ -103,6 +106,7 @@ export default function Cart() {
         items: [],
         combos: [],
     });
+
 
     // Đồng bộ form với giỏ: tách dòng lẻ → items, dòng combo → combos (payload checkout).
     const syncForm = (cartLines: CartLine[]) => {
@@ -145,7 +149,7 @@ export default function Cart() {
                         }
                         const p = fresh[String(l.id)];
                         if (!p) { removed.push(l.name); continue; } // đã ẩn/xoá → gỡ
-                        next.push({ ...l, name: p.name, price: p.price_per_day, deposit: p.deposit, locations: p.locations });
+                        next.push({ ...l, name: p.name, price: p.price_per_day, deposit: p.deposit, locations: p.locations, early_return_pct: p.early_return_pct ?? 0 });
                     }
                     setCart(next); // emit cartChange → listener cập nhật state + items
                     if (removed.length) {
@@ -516,6 +520,18 @@ export default function Cart() {
                                             <div className="font-mono text-[11px] text-campfire">cọc {money(lineDeposit(it))}</div>
                                         </div>
                                     </div>
+                                    {/* Buổi khách chọn (spec 2026-07-26) — thuê 1 ngày; chỉ hiển thị, đổi buổi ở trang sản phẩm. */}
+                                    {it.session && sessionLabel(it.session, hours) && (
+                                        <div className="mt-2 flex items-center gap-2 rounded-[9px] px-2.5 py-1.5 text-[12.5px]" style={{ background: '#f4f8ec' }}>
+                                            <span aria-hidden>🕑</span>
+                                            <span className="text-[#3f4a32]">
+                                                {sessionLabel(it.session, hours)}
+                                                {isHalfDaySession(it.session) && (it.early_return_pct ?? 0) > 0 && (
+                                                    <span className="ml-1 font-semibold text-grass">−{it.early_return_pct}%</span>
+                                                )}
+                                            </span>
+                                        </div>
+                                    )}
                                 </div>
                                 <button onClick={() => removeLine(i)} title="Xoá" className="self-start px-1 py-0.5 text-[18px]" style={{ color: '#b3493a' }}>×</button>
                             </div>
@@ -593,6 +609,7 @@ export default function Cart() {
                                     className={`${inputCls} ${errors.address ? 'border-red-400' : 'border-cardBorder'}`} />
                                 {errors.address && <p className="mt-1 text-[12px] text-red-500">{errors.address}</p>}
                             </div>
+
                             <textarea value={data.note} onChange={set('note')} placeholder="Ghi chú (tuỳ chọn)" rows={2}
                                 className="resize-y rounded-[11px] border border-cardBorder bg-white px-3.5 py-[11px] text-[14px] text-ink outline-none focus:border-grass" />
                         </div>
@@ -759,7 +776,7 @@ export default function Cart() {
 function toCheckoutItems(lines: CartLine[]): CheckoutItem[] {
     return lines
         .filter((l) => !isComboLine(l))
-        .map((l) => ({ product_id: l.id, quantity: l.qty, start: l.start, end: l.end, location_id: l.location_id ?? null }));
+        .map((l) => ({ product_id: l.id, quantity: l.qty, start: l.start, end: l.end, location_id: l.location_id ?? null, session: l.session ?? null }));
 }
 
 function toCheckoutCombos(lines: CartLine[]): CheckoutCombo[] {

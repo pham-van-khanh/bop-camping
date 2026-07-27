@@ -76,6 +76,26 @@ class AvailabilityServiceTest extends TestCase
     }
 
     /** @test */
+    public function item_occupies_only_its_own_dates_not_the_order_envelope(): void
+    {
+        // Đơn nhiều khoảng: envelope 01→04, nhưng MÓN này thực chỉ thuê 01→02.
+        $order = Order::create([
+            'code' => 'BOP-'.uniqid(), 'customer_name' => 'Khách', 'customer_phone' => '0900000000',
+            'start_date' => '2026-07-01', 'end_date' => '2026-07-04', 'status' => 'confirmed', 'payment_method' => 'cod',
+        ]);
+        OrderItem::create([
+            'order_id' => $order->id, 'product_id' => $this->product->id, 'quantity' => 3,
+            'price_per_day' => 100000, 'days' => 2, 'start_date' => '2026-07-01', 'end_date' => '2026-07-02',
+            'subtotal' => 600000,
+        ]);
+
+        // 03→04: món đã trả (01-02) → PHẢI còn đủ 3, không bị khoá theo envelope.
+        $this->assertSame(3, $this->service->availableQuantity($this->product, Carbon::parse('2026-07-03'), Carbon::parse('2026-07-04')));
+        // 02→03: chồng ngày 02 của món → bị trừ.
+        $this->assertSame(0, $this->service->availableQuantity($this->product, Carbon::parse('2026-07-02'), Carbon::parse('2026-07-03')));
+    }
+
+    /** @test */
     public function cancelled_order_does_not_reduce_quantity(): void
     {
         $this->makeOrder('2026-07-01', '2026-07-05', quantity: 3, status: 'cancelled');

@@ -166,6 +166,8 @@ class ComboCheckoutTest extends TestCase
         $this->checkout([
             'combos' => [['combo_id' => $this->combo->id, 'quantity' => 1, 'start' => '2030-07-01', 'end' => '2030-07-05']],
         ])->assertSessionHas('order_code');
+        // Chỉ đơn đã xác nhận mới khoá tồn (feedback 2026-07-27) — xác nhận để test chặn kho.
+        Order::latest('id')->first()->update(['status' => 'confirmed']);
 
         // Túi ngủ còn 5−3 = 2 → thuê lẻ 3 túi cùng khoảng phải bị chặn
         $this->checkout([

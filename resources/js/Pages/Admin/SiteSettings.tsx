@@ -15,6 +15,10 @@ type Settings = {
     facebook_url: string | null;
     tiktok_url: string | null;
     working_hours: string | null;
+    pickup_hour: number;
+    return_hour: number;
+    morning_end_hour: number;
+    afternoon_start_hour: number;
     ga_measurement_id: string | null;
     google_site_verification: string | null;
 };
@@ -42,6 +46,10 @@ export default function AdminSiteSettings() {
         facebook_url: settings.facebook_url ?? '',
         tiktok_url: settings.tiktok_url ?? '',
         working_hours: settings.working_hours ?? '',
+        pickup_hour: String(settings.pickup_hour ?? 8),
+        return_hour: String(settings.return_hour ?? 20),
+        morning_end_hour: String(settings.morning_end_hour ?? 12),
+        afternoon_start_hour: String(settings.afternoon_start_hour ?? 13),
         ga_measurement_id: settings.ga_measurement_id ?? '',
         google_site_verification: settings.google_site_verification ?? '',
     });
@@ -87,6 +95,38 @@ export default function AdminSiteSettings() {
                             {field('hotline_primary', 'Hotline chính', '0976544370', 'Khách bấm vào sẽ gọi trực tiếp')}
                             {field('hotline_secondary', 'Hotline phụ', '0373655008')}
                             {field('working_hours', 'Giờ làm việc', '8:00 – 21:00 hằng ngày')}
+                        </div>
+                    </section>
+
+                    {/* Khung giờ giao/trả mặc định (adr_turnaround_buffer) */}
+                    <section className="rounded-card border border-cardBorder bg-card p-5">
+                        <h2 className="mb-1 text-[15px] font-bold text-pine">Khung giờ giao/trả mặc định</h2>
+                        <p className="mb-3 text-[12.5px] text-moss">
+                            Hiển thị kỳ vọng cho khách (VD: nhận từ 8h, trả trước 20h). Ngoài khung giờ này khách liên hệ để sắp xếp thêm. Không ảnh hưởng tính tồn kho.
+                        </p>
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                            <div>
+                                <label className="mb-1.5 block text-[13px] font-semibold text-pine">Giờ giao (0–23)</label>
+                                <input type="number" min="0" max="23" value={data.pickup_hour} onChange={(e) => setData('pickup_hour', e.target.value)} className={inputCls} />
+                                {errors.pickup_hour && <p className="mt-1 text-[12px] text-[#b3493a]">{errors.pickup_hour}</p>}
+                            </div>
+                            <div>
+                                <label className="mb-1.5 block text-[13px] font-semibold text-pine">Giờ trả (0–23)</label>
+                                <input type="number" min="0" max="23" value={data.return_hour} onChange={(e) => setData('return_hour', e.target.value)} className={inputCls} />
+                                {errors.return_hour && <p className="mt-1 text-[12px] text-[#b3493a]">{errors.return_hour}</p>}
+                            </div>
+                            <div>
+                                <label className="mb-1.5 block text-[13px] font-semibold text-pine">Giờ kết thúc buổi sáng (0–23)</label>
+                                <input type="number" min="0" max="23" value={data.morning_end_hour} onChange={(e) => setData('morning_end_hour', e.target.value)} className={inputCls} />
+                                <p className="mt-1 text-[11.5px] text-moss">Buổi sáng: giờ giao → giờ này (vd 8h–12h).</p>
+                                {errors.morning_end_hour && <p className="mt-1 text-[12px] text-[#b3493a]">{errors.morning_end_hour}</p>}
+                            </div>
+                            <div>
+                                <label className="mb-1.5 block text-[13px] font-semibold text-pine">Giờ bắt đầu buổi chiều (0–23)</label>
+                                <input type="number" min="0" max="23" value={data.afternoon_start_hour} onChange={(e) => setData('afternoon_start_hour', e.target.value)} className={inputCls} />
+                                <p className="mt-1 text-[11.5px] text-moss">Buổi chiều: giờ này → giờ trả (vd 13h–21h). Khoảng giữa để chuẩn bị/ship.</p>
+                                {errors.afternoon_start_hour && <p className="mt-1 text-[12px] text-[#b3493a]">{errors.afternoon_start_hour}</p>}
+                            </div>
                         </div>
                     </section>
 

@@ -32,14 +32,25 @@ class RentalPricingService
     }
 
     /**
-     * Tính 1 dòng thuê: giá gốc, % bậc, giá sau giảm.
+     * Tính 1 dòng thuê: giá gốc, % giảm áp dụng, giá sau giảm.
+     *
+     * $earlyReturnPct: ưu đãi TRẢ SỚM TRONG NGÀY (adr_pricing_models) — CHỈ áp cho đơn
+     * cùng ngày (days === 1), thay cho bậc dài ngày (bậc dài ngày = 0 khi 1 ngày). Đơn
+     * nhiều ngày bỏ qua tham số này. Mặc định 0 → hành vi y hệt trước (tương thích ngược).
      *
      * @return array{gross:int, percent:float, net:int}
      */
-    public function priceLine(int $perDay, int $qty, int $days): array
+    public function priceLine(int $perDay, int $qty, int $days, int $earlyReturnPct = 0): array
     {
         $gross = max(0, $perDay) * max(0, $qty) * max(0, $days);
-        $percent = $this->tierPercentForDays($days);
+
+        if ($days === 1 && $earlyReturnPct > 0) {
+            // Nửa ngày: dùng ưu đãi trả sớm (đơn cùng ngày không có bậc dài ngày).
+            $percent = (float) min(100, max(0, $earlyReturnPct));
+        } else {
+            $percent = $this->tierPercentForDays($days);
+        }
+
         $net = (int) round($gross * (1 - $percent / 100));
 
         return ['gross' => $gross, 'percent' => $percent, 'net' => $net];
