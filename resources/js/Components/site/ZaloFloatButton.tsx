@@ -4,20 +4,22 @@ import { useEffect, useRef, useState } from 'react';
 import type { PageProps, SiteZalo } from '@/types';
 
 const EASE: [number, number, number, number] = [0.2, 0.7, 0.2, 1];
-const ZALO_BLUE = '#0068FF';
 
-function ZaloMark({ size = 26 }: { size?: number }) {
-    return (
-        <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className="flex-none">
-            <rect x="1.5" y="1.5" width="21" height="21" rx="6" fill="#fff" />
-            <path d="M7.5 8h6L7.7 16h6.3" stroke={ZALO_BLUE} strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-    );
+/**
+ * Icon Zalo (public/images/zalo-icon.png — nền trong suốt, đã sẵn khối bo góc + đuôi bong bóng).
+ * alt rỗng vì nút/link bọc ngoài đã có aria-label mô tả rồi.
+ */
+function ZaloMark({ size = 48 }: { size?: number }) {
+    return <img src="/images/zalo-icon.png" width={size} height={size} alt="" className="flex-none" />;
 }
 
-/** Class dùng chung cho nút tròn — giữ cùng chiều cao (h-12) với nút Góp ý bên dưới. */
+/**
+ * Class dùng chung cho nút — cùng chiều cao (h-12) với nút Góp ý bên dưới.
+ * Dùng drop-shadow (không phải box-shadow) để bóng ôm theo hình bo góc + đuôi của icon,
+ * thay vì đổ bóng thành khối vuông quanh vùng trong suốt.
+ */
 const BTN_CLS =
-    'grid h-12 w-12 place-items-center rounded-full shadow-lg outline-none transition hover:-translate-y-0.5 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#0068FF]';
+    'grid h-12 w-12 place-items-center rounded-[14px] outline-none transition [filter:drop-shadow(0_4px_10px_rgba(0,0,0,.3))] hover:-translate-y-0.5 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#0068FF]';
 
 /**
  * Nút Zalo nổi, nằm ngay TRÊN nút Góp ý (FeedbackWidget: bottom-5 + h-12 = chiếm 20→68px,
@@ -61,7 +63,6 @@ export default function ZaloFloatButton() {
                 aria-label={only.label ? `Liên hệ Zalo — ${only.label}` : 'Liên hệ Zalo'}
                 title={only.phone ? `Nhắn Zalo ${only.phone}` : 'Nhắn Zalo'}
                 className={`fixed bottom-[80px] right-5 z-[80] ${BTN_CLS}`}
-                style={{ background: ZALO_BLUE }}
             >
                 <ZaloMark />
             </a>
@@ -92,9 +93,7 @@ export default function ZaloFloatButton() {
                                 onClick={() => setOpen(false)}
                                 className="flex items-center gap-2.5 rounded-[10px] px-2 py-2 transition hover:bg-[#f1f4ea]"
                             >
-                                <span className="grid h-8 w-8 flex-none place-items-center rounded-[9px]" style={{ background: ZALO_BLUE }}>
-                                    <ZaloMark size={18} />
-                                </span>
+                                <ZaloMark size={32} />
                                 <span className="min-w-0 flex-1">
                                     <span className="block truncate text-[13.5px] font-bold text-ink">{z.label || 'Liên hệ Zalo'}</span>
                                     {z.phone && <span className="block font-mono text-[12.5px] text-moss">{z.phone}</span>}
@@ -112,7 +111,6 @@ export default function ZaloFloatButton() {
                 aria-expanded={open}
                 title="Nhắn Zalo cho BỐP CAMPING"
                 className={BTN_CLS}
-                style={{ background: ZALO_BLUE }}
             >
                 <ZaloMark />
             </button>
