@@ -145,7 +145,7 @@ export default function Account() {
     return (
         <>
             <Head title="Tài khoản của tôi" />
-            <main className="mx-auto max-w-[820px] px-5 pb-12 pt-[38px]">
+            <main className="mx-auto max-w-[1100px] px-5 pb-12 pt-[38px]">
                 <h1 className="mb-1 font-extrabold tracking-tight text-ink" style={{ fontSize: 'clamp(24px,3vw,32px)' }}>
                     Tài khoản của tôi
                 </h1>
