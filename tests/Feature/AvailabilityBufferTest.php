@@ -59,7 +59,7 @@ class AvailabilityBufferTest extends TestCase
             'customer_phone' => '0900000000',
             'start_date' => $start,
             'end_date' => $end,
-            'status' => 'pending',
+            'status' => 'confirmed', // chỉ đơn đã xác nhận mới khoá tồn (feedback 2026-07-27)
             'payment_method' => 'cod',
             'service_location_id' => $this->vinh->id,
         ]);

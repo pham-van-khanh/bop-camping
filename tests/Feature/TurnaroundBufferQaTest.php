@@ -50,7 +50,7 @@ class TurnaroundBufferQaTest extends TestCase
     {
         $o = Order::create([
             'code' => 'BOP-'.strtoupper(Str::random(6)), 'customer_name' => 'X', 'customer_phone' => '0900000000',
-            'start_date' => $start, 'end_date' => $end, 'status' => 'pending', 'payment_method' => 'cod',
+            'start_date' => $start, 'end_date' => $end, 'status' => 'confirmed', 'payment_method' => 'cod',
             'service_location_id' => $loc->id,
         ]);
         $o->items()->create([

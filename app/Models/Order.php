@@ -227,10 +227,15 @@ class Order extends Model
         return $email;
     }
 
-    /** Các trạng thái hợp lệ để tính tồn kho (đơn chưa huỷ) */
+    /**
+     * Các trạng thái KHOÁ tồn kho. Chỉ khi admin ĐÃ XÁC NHẬN (confirmed) trở đi mới chiếm
+     * kho + chừa ngày phơi (feedback 2026-07-27). Đơn 'pending' (chưa xác nhận) KHÔNG khoá
+     * — tránh giữ chỗ cho đơn bỏ dở; đổi lại 2 khách có thể cùng đặt 1 món khi chưa xác nhận,
+     * admin tự xử khi xác nhận.
+     */
     public static function activeStatuses(): array
     {
-        return ['pending', 'confirmed', 'renting'];
+        return ['confirmed', 'renting'];
     }
 
     /**

@@ -41,6 +41,8 @@ class PerItemDatesCheckoutTest extends TestCase
                 ['product_id' => $this->b->id, 'quantity' => 1, 'start' => '2030-07-03', 'end' => '2030-07-04'],
             ],
         ])->assertSessionHas('order_code');
+        // Chỉ đơn đã xác nhận mới khoá tồn (feedback 2026-07-27) — xác nhận để kiểm availability.
+        Order::query()->update(['status' => 'confirmed']);
 
         // 2 khoảng khác nhau → tách cha + 2 con (bopcamping-wtuv). Con A giữ ngày riêng.
         $parent = Order::where('is_parent', true)->with('children.items')->firstOrFail();
