@@ -1,9 +1,7 @@
-import { Head, Link, usePage } from '@inertiajs/react';
+import { Head, Link } from '@inertiajs/react';
 import { motion } from 'framer-motion';
 import { ReactNode, useState } from 'react';
 import SiteLayout from '@/Layouts/SiteLayout';
-import ZaloContactStrip from '@/Components/site/ZaloContactStrip';
-import type { PageProps } from '@/types';
 import HeroSlideshow from '@/Components/site/HeroSlideshow';
 import BiomeHero from '@/Components/site/BiomeHero';
 import ProductCard from '@/Components/site/ProductCard';
@@ -48,7 +46,6 @@ interface Props {
 }
 
 export default function Home({ featured, featured_combos, faqs, system_reviews, review_stat, service_locations, suggested_spots, camping_provinces, hero_banners, promo_banners }: Props) {
-    const { site } = usePage<PageProps>().props;
     const [guideOpen, setGuideOpen] = useState(false);
     const openCities = service_locations.filter((l) => l.status === 'open');
     const cities = openCities.map((l) => l.name).join(' hoặc ') || 'Vinh hoặc Hà Nội';
@@ -115,9 +112,6 @@ export default function Home({ featured, featured_combos, faqs, system_reviews, 
                     </div>
                 </motion.div>
             </HeroSlideshow>
-
-            {/* Liên hệ nhanh qua Zalo — ngay dưới hero (admin quản lý; ẩn khi chưa có Zalo) */}
-            <ZaloContactStrip accounts={[site.zalo_1, site.zalo_2]} />
 
             {/* Một bộ đồ, đi khắp địa hình (cảnh 3D đổi biôm) */}
             <section className="mx-auto grid max-w-[1400px] items-center gap-10 px-5 pb-2.5 pt-12" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(330px, 1fr))' }}>

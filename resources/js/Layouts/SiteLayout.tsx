@@ -5,6 +5,7 @@ import Footer from '@/Components/site/Footer';
 import Toast from '@/Components/site/Toast';
 import LoginModal from '@/Components/site/LoginModal';
 import FeedbackWidget from '@/Components/site/FeedbackWidget';
+import ZaloFloatButton from '@/Components/site/ZaloFloatButton';
 import { on, EVENTS } from '@/lib/bus';
 import { cartCount, getCart } from '@/lib/cart';
 import type { PageProps } from '@/types';
@@ -30,6 +31,7 @@ export default function SiteLayout({ children }: { children: ReactNode }) {
             <Footer />
             <Toast />
             <LoginModal />
+            <ZaloFloatButton />
             <FeedbackWidget />
         </>
     );
