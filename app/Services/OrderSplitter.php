@@ -213,20 +213,21 @@ class OrderSplitter
      * Suy giờ nhận/trả + cờ nửa ngày từ buổi khách chọn (spec 2026-07-26 — nguồn chân lý về giá):
      * morning/afternoon → is_half_day=true (buildItems áp early_return_discount_pct của SP);
      * full → cả ngày, không giảm; null (nhiều ngày) → không buổi, giờ mặc định.
-     * Giờ hiển thị lấy từ SiteSetting: pickup_hour P, session_split_hour S, return_hour R.
+     * Giờ hiển thị lấy từ SiteSetting: pickup_hour, morning_end_hour, afternoon_start_hour, return_hour.
      *
      * @return array{session:?string, half_day:bool, pickup:?string, return:?string}
      */
     private function sessionToTimes(?string $session, SiteSetting $settings): array
     {
         $hhmm = fn (int $h): string => str_pad((string) $h, 2, '0', STR_PAD_LEFT).':00';
-        $p = (int) $settings->pickup_hour;
-        $r = (int) $settings->return_hour;
-        $s = (int) $settings->session_split_hour;
+        $p = (int) $settings->pickup_hour;            // giờ mở
+        $r = (int) $settings->return_hour;            // giờ đóng
+        $me = (int) $settings->morning_end_hour;      // cuối buổi sáng
+        $as = (int) $settings->afternoon_start_hour;  // đầu buổi chiều
 
         return match ($session) {
-            'morning' => ['session' => 'morning', 'half_day' => true, 'pickup' => $hhmm($p), 'return' => $hhmm($s)],
-            'afternoon' => ['session' => 'afternoon', 'half_day' => true, 'pickup' => $hhmm($s), 'return' => $hhmm($r)],
+            'morning' => ['session' => 'morning', 'half_day' => true, 'pickup' => $hhmm($p), 'return' => $hhmm($me)],
+            'afternoon' => ['session' => 'afternoon', 'half_day' => true, 'pickup' => $hhmm($as), 'return' => $hhmm($r)],
             'full' => ['session' => 'full', 'half_day' => false, 'pickup' => $hhmm($p), 'return' => $hhmm($r)],
             default => ['session' => null, 'half_day' => false, 'pickup' => null, 'return' => null],
         };

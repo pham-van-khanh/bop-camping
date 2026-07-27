@@ -60,11 +60,12 @@ export default function ProductDetail({ product, unavailable_dates, unavailable_
     const { auth, durationTiers } = usePage<PageProps>().props;
     // Khung giờ mặc định hệ thống (bopcamping-n6mr) — prefill ô chọn giờ khi thuê 1 ngày.
     const site = (usePage().props as {
-        site?: { pickup_hour?: number; return_hour?: number; session_split_hour?: number; zalo_1?: { url?: string | null } };
+        site?: { pickup_hour?: number; return_hour?: number; morning_end_hour?: number; afternoon_start_hour?: number; zalo_1?: { url?: string | null } };
     }).site;
     const shopPickup = site?.pickup_hour ?? 8;
     const shopReturn = site?.return_hour ?? 20;
-    const shopSplit = site?.session_split_hour ?? 14;
+    const shopMorningEnd = site?.morning_end_hour ?? 12;
+    const shopAfternoonStart = site?.afternoon_start_hour ?? 13;
     const zaloUrl = site?.zalo_1?.url ?? null;
     const [activeImg, setActiveImg] = useState(0);
     const [lightboxOpen, setLightboxOpen] = useState(false);
@@ -697,8 +698,8 @@ export default function ProductDetail({ product, unavailable_dates, unavailable_
                                     </div>
                                     <div className="grid grid-cols-3 gap-2">
                                         {([
-                                            { key: 'morning', label: 'Buổi sáng', time: `${shopPickup}h–${shopSplit}h`, half: true },
-                                            { key: 'afternoon', label: 'Buổi chiều', time: `${shopSplit}h–${shopReturn}h`, half: true },
+                                            { key: 'morning', label: 'Buổi sáng', time: `${shopPickup}h–${shopMorningEnd}h`, half: true },
+                                            { key: 'afternoon', label: 'Buổi chiều', time: `${shopAfternoonStart}h–${shopReturn}h`, half: true },
                                             { key: 'full', label: 'Cả ngày', time: `${shopPickup}h–${shopReturn}h`, half: false },
                                         ] as const).map((opt) => {
                                             const active = session === opt.key;

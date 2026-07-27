@@ -57,7 +57,7 @@ class RequestedTimesExtraFeeTest extends TestCase
 
         $order = Order::latest('id')->first();
         $this->assertSame('afternoon', $order->session);
-        $this->assertSame('14:00', $order->requested_pickup_time); // suy từ setting 8/14/20
+        $this->assertSame('13:00', $order->requested_pickup_time); // đầu buổi chiều (setting 8/12/13/20)
         $this->assertSame('20:00', $order->requested_return_time);
         $this->assertSame(0, (int) $order->extra_fee); // checkout không đặt phụ phí
     }

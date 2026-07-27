@@ -4,7 +4,7 @@ import AdminLayout from '@/Layouts/AdminLayout';
 import ProductStatusPill from '@/Components/ProductStatusPill';
 import { money } from '@/lib/format';
 import { STATUS_LABEL, STATUS_STYLE } from '@/lib/orderStatus';
-import { sessionLabel } from '@/lib/session';
+import { sessionLabel, shopHours } from '@/lib/session';
 import { NEXT_STATUSES, type Order } from '@/Pages/Admin/orderShared';
 
 type Stats = { total: number; pending: number; confirmed: number; renting: number; returned: number; cancelled: number };
@@ -31,8 +31,8 @@ export default function AdminOrders({
     const [search, setSearch] = useState(filters.q ?? '');
 
     // Buổi (spec 2026-07-26) — nhãn ngắn theo setting shop; hiển thị ở cột ngày thuê.
-    const site = (usePage().props as { site?: { pickup_hour?: number; return_hour?: number; session_split_hour?: number } }).site;
-    const sessTag = (o: Order) => sessionLabel(o.session, site?.pickup_hour ?? 8, site?.session_split_hour ?? 14, site?.return_hour ?? 20);
+    const hours = shopHours((usePage().props as { site?: Parameters<typeof shopHours>[0] }).site);
+    const sessTag = (o: Order) => sessionLabel(o.session, hours);
 
     const openOrder = (order: Order) => router.visit(route('admin.orders.show', order.id));
 

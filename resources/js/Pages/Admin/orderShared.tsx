@@ -5,7 +5,7 @@ import { Fragment, useState } from 'react';
 import { router, usePage } from '@inertiajs/react';
 import DateRangeCalendar from '@/Components/site/DateRangeCalendar';
 import { money } from '@/lib/format';
-import { sessionLabel, type Session } from '@/lib/session';
+import { sessionLabel, shopHours, type Session } from '@/lib/session';
 import { voucherValueText, VOUCHER_SOURCE_LABEL, VOUCHER_SOURCE_FALLBACK, type VoucherType } from '@/lib/voucher';
 
 export type OrderItem = {
@@ -115,8 +115,8 @@ export function groupItems(items: OrderItem[]): ItemGroup[] {
 
 /** Nhãn buổi kèm giờ theo setting shop; null nếu đơn không có buổi (nhiều ngày). */
 export function useSessionLabel(session: Session | null): string | null {
-    const site = (usePage().props as { site?: { pickup_hour?: number; return_hour?: number; session_split_hour?: number } }).site;
-    return sessionLabel(session, site?.pickup_hour ?? 8, site?.session_split_hour ?? 14, site?.return_hour ?? 20);
+    const site = (usePage().props as { site?: Parameters<typeof shopHours>[0] }).site;
+    return sessionLabel(session, shopHours(site));
 }
 
 /** Không có dữ liệu ngày bận cho admin (server kiểm tồn khi lưu) — Set rỗng dùng chung. */

@@ -9,7 +9,7 @@ import { emit, EVENTS } from '@/lib/bus';
 import { dayCount, money, rangeText } from '@/lib/format';
 import { gradFor } from '@/lib/grad';
 import { STATUS_LABEL, STATUS_STYLE } from '@/lib/orderStatus';
-import { sessionLabel, type Session } from '@/lib/session';
+import { sessionLabel, shopHours, type Session } from '@/lib/session';
 import { VOUCHER_SOURCE_FALLBACK, VOUCHER_SOURCE_LABEL, voucherValueText, type VoucherType } from '@/lib/voucher';
 import type { PageProps } from '@/types';
 
@@ -442,8 +442,8 @@ function OrderDetail({
 
                 {/* Khoảng thuê + buổi + giờ nhận/trả khách đã chọn (spec 2026-07-26) */}
                 {(() => {
-                    const site = (usePage().props as { site?: { pickup_hour?: number; return_hour?: number; session_split_hour?: number } }).site;
-                    const sessLabel = sessionLabel(order.session, site?.pickup_hour ?? 8, site?.session_split_hour ?? 14, site?.return_hour ?? 20);
+                    const site = (usePage().props as { site?: Parameters<typeof shopHours>[0] }).site;
+                    const sessLabel = sessionLabel(order.session, shopHours(site));
                     return (
                         <div className="mb-2.5 rounded-[10px] border border-[#eef2e3] bg-white px-3 py-2 text-[12.5px]">
                             <div><span className="text-moss">Khoảng thuê:</span> <span className="font-mono text-ink">{order.start_date} → {order.end_date}</span> <span className="text-moss">({order.days} ngày)</span></div>

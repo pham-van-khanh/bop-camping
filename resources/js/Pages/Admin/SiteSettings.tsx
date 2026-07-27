@@ -17,7 +17,8 @@ type Settings = {
     working_hours: string | null;
     pickup_hour: number;
     return_hour: number;
-    session_split_hour: number;
+    morning_end_hour: number;
+    afternoon_start_hour: number;
     ga_measurement_id: string | null;
     google_site_verification: string | null;
 };
@@ -47,7 +48,8 @@ export default function AdminSiteSettings() {
         working_hours: settings.working_hours ?? '',
         pickup_hour: String(settings.pickup_hour ?? 8),
         return_hour: String(settings.return_hour ?? 20),
-        session_split_hour: String(settings.session_split_hour ?? 14),
+        morning_end_hour: String(settings.morning_end_hour ?? 12),
+        afternoon_start_hour: String(settings.afternoon_start_hour ?? 13),
         ga_measurement_id: settings.ga_measurement_id ?? '',
         google_site_verification: settings.google_site_verification ?? '',
     });
@@ -114,10 +116,16 @@ export default function AdminSiteSettings() {
                                 {errors.return_hour && <p className="mt-1 text-[12px] text-[#b3493a]">{errors.return_hour}</p>}
                             </div>
                             <div>
-                                <label className="mb-1.5 block text-[13px] font-semibold text-pine">Giờ chia buổi sáng/chiều (0–23)</label>
-                                <input type="number" min="0" max="23" value={data.session_split_hour} onChange={(e) => setData('session_split_hour', e.target.value)} className={inputCls} />
-                                <p className="mt-1 text-[11.5px] text-moss">Buổi sáng: giờ giao → giờ này. Buổi chiều: giờ này → giờ trả.</p>
-                                {errors.session_split_hour && <p className="mt-1 text-[12px] text-[#b3493a]">{errors.session_split_hour}</p>}
+                                <label className="mb-1.5 block text-[13px] font-semibold text-pine">Giờ kết thúc buổi sáng (0–23)</label>
+                                <input type="number" min="0" max="23" value={data.morning_end_hour} onChange={(e) => setData('morning_end_hour', e.target.value)} className={inputCls} />
+                                <p className="mt-1 text-[11.5px] text-moss">Buổi sáng: giờ giao → giờ này (vd 8h–12h).</p>
+                                {errors.morning_end_hour && <p className="mt-1 text-[12px] text-[#b3493a]">{errors.morning_end_hour}</p>}
+                            </div>
+                            <div>
+                                <label className="mb-1.5 block text-[13px] font-semibold text-pine">Giờ bắt đầu buổi chiều (0–23)</label>
+                                <input type="number" min="0" max="23" value={data.afternoon_start_hour} onChange={(e) => setData('afternoon_start_hour', e.target.value)} className={inputCls} />
+                                <p className="mt-1 text-[11.5px] text-moss">Buổi chiều: giờ này → giờ trả (vd 13h–21h). Khoảng giữa để chuẩn bị/ship.</p>
+                                {errors.afternoon_start_hour && <p className="mt-1 text-[12px] text-[#b3493a]">{errors.afternoon_start_hour}</p>}
                             </div>
                         </div>
                     </section>

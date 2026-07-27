@@ -17,13 +17,15 @@ class SiteSetting extends Model
     protected $attributes = [
         'pickup_hour' => 8,
         'return_hour' => 20,
-        'session_split_hour' => 14,
+        'morning_end_hour' => 12,
+        'afternoon_start_hour' => 13,
     ];
 
     protected $casts = [
         'pickup_hour' => 'integer',
         'return_hour' => 'integer',
-        'session_split_hour' => 'integer',
+        'morning_end_hour' => 'integer',
+        'afternoon_start_hour' => 'integer',
     ];
 
     /** Lấy bản ghi cấu hình duy nhất (tạo mặc định nếu chưa có). */

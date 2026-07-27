@@ -17,7 +17,7 @@ use Tests\TestCase;
  * QA gap-fill (spec 2026-07-26) cho các thay đổi trên nhánh session-picker + order-detail
  * chưa được test trực tiếp: (1) trang Tài khoản khách phản ánh buổi + giờ; (2) admin sửa
  * giờ chia buổi trong Cài đặt shop; (3) buổi bám đúng ĐƠN CON cùng ngày khi tách cha/con;
- * (4) shared prop `site` expose session_split_hour cho FE.
+ * (4) shared prop `site` expose khung giờ buổi (morning_end/afternoon_start) cho FE.
  */
 class SessionOrderDetailQaTest extends TestCase
 {
@@ -45,7 +45,7 @@ class SessionOrderDetailQaTest extends TestCase
             'customer_name' => $user->name, 'customer_phone' => $user->phone,
             'start_date' => $start, 'end_date' => $end, 'status' => 'returned', 'payment_method' => 'cod',
             'total_price' => 90000, 'deposit_total' => 50000, 'session' => $session,
-            'requested_pickup_time' => $session ? '14:00' : null,
+            'requested_pickup_time' => $session ? '13:00' : null,
             'requested_return_time' => $session ? '20:00' : null,
             'is_half_day' => $session === 'afternoon' || $session === 'morning',
         ]);
@@ -68,10 +68,11 @@ class SessionOrderDetailQaTest extends TestCase
             ->assertInertia(fn (Assert $page) => $page
                 ->component('Account')
                 ->where('orders.0.session', 'afternoon')
-                ->where('orders.0.requested_pickup_time', '14:00')
+                ->where('orders.0.requested_pickup_time', '13:00')
                 ->where('orders.0.requested_return_time', '20:00')
-                // shared prop site expose giờ chia buổi cho FE dựng nhãn buổi.
-                ->where('site.session_split_hour', 14));
+                // shared prop site expose khung giờ buổi cho FE dựng nhãn buổi.
+                ->where('site.morning_end_hour', 12)
+                ->where('site.afternoon_start_hour', 13));
     }
 
     /** @test */
@@ -88,23 +89,24 @@ class SessionOrderDetailQaTest extends TestCase
     }
 
     /** @test */
-    public function admin_updates_session_split_hour(): void
+    public function admin_updates_session_window_hours(): void
     {
         $admin = User::factory()->create(['is_admin' => true]);
-        $this->actingAs($admin)->put(route('admin.settings.update'), ['session_split_hour' => 12])
+        $this->actingAs($admin)->put(route('admin.settings.update'), ['morning_end_hour' => 11, 'afternoon_start_hour' => 14])
             ->assertRedirect();
 
-        $this->assertSame(12, (int) SiteSetting::current()->session_split_hour);
+        $this->assertSame(11, (int) SiteSetting::current()->morning_end_hour);
+        $this->assertSame(14, (int) SiteSetting::current()->afternoon_start_hour);
     }
 
     /** @test */
-    public function admin_rejects_out_of_range_split_hour(): void
+    public function admin_rejects_out_of_range_window_hour(): void
     {
         $admin = User::factory()->create(['is_admin' => true]);
-        $this->actingAs($admin)->put(route('admin.settings.update'), ['session_split_hour' => 25])
-            ->assertSessionHasErrors('session_split_hour');
+        $this->actingAs($admin)->put(route('admin.settings.update'), ['morning_end_hour' => 25])
+            ->assertSessionHasErrors('morning_end_hour');
 
-        $this->assertSame(14, (int) SiteSetting::current()->session_split_hour); // giữ mặc định
+        $this->assertSame(12, (int) SiteSetting::current()->morning_end_hour); // giữ mặc định
     }
 
     /** @test */
@@ -129,7 +131,7 @@ class SessionOrderDetailQaTest extends TestCase
 
         $this->assertSame('morning', $sameDay->session);
         $this->assertSame('08:00', $sameDay->requested_pickup_time);
-        $this->assertSame('14:00', $sameDay->requested_return_time);
+        $this->assertSame('12:00', $sameDay->requested_return_time); // cuối buổi sáng (mặc định 12)
         $this->assertNull($multiDay->session); // nhiều ngày → server ép null dù client gửi buổi
         $this->assertNull($multiDay->requested_pickup_time);
     }

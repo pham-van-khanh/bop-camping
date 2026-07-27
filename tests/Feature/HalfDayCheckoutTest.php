@@ -58,8 +58,8 @@ class HalfDayCheckoutTest extends TestCase
         $order = Order::latest('id')->with('items')->first();
         $this->assertTrue($order->is_half_day);
         $this->assertSame('morning', $order->session);
-        $this->assertSame('08:00', $order->requested_pickup_time);      // server suy từ setting 8/14/20
-        $this->assertSame('14:00', $order->requested_return_time);
+        $this->assertSame('08:00', $order->requested_pickup_time);      // server suy từ setting 8/12/13/20
+        $this->assertSame('12:00', $order->requested_return_time);      // cuối buổi sáng
         $this->assertSame(90000, $order->total_price);                 // 100k − 10%
         $this->assertSame(90000, (int) $order->items->first()->subtotal);
         $this->assertSame('10.00', (string) $order->items->first()->duration_discount_percent);
@@ -74,7 +74,7 @@ class HalfDayCheckoutTest extends TestCase
         $order = Order::latest('id')->first();
         $this->assertTrue($order->is_half_day);
         $this->assertSame('afternoon', $order->session);
-        $this->assertSame('14:00', $order->requested_pickup_time);
+        $this->assertSame('13:00', $order->requested_pickup_time);      // đầu buổi chiều
         $this->assertSame('20:00', $order->requested_return_time);
         $this->assertSame(90000, $order->total_price);
     }
@@ -106,15 +106,21 @@ class HalfDayCheckoutTest extends TestCase
     }
 
     /** @test */
-    public function derived_times_follow_session_split_setting(): void
+    public function derived_times_follow_session_window_settings(): void
     {
-        SiteSetting::current()->update(['session_split_hour' => 12]);
+        // 2 cửa sổ có khoảng nghỉ (feedback 2026-07-27): sáng 8→11, chiều 13→20.
+        SiteSetting::current()->update(['morning_end_hour' => 11, 'afternoon_start_hour' => 13]);
         $user = User::factory()->create(['phone' => '0911000106']);
-        $this->checkout($user, '2030-07-01', '2030-07-01', session: 'morning')->assertSessionHas('order_code');
 
-        $order = Order::latest('id')->first();
-        $this->assertSame('08:00', $order->requested_pickup_time);
-        $this->assertSame('12:00', $order->requested_return_time); // theo split=12
+        $this->checkout($user, '2030-07-01', '2030-07-01', session: 'morning')->assertSessionHas('order_code');
+        $morning = Order::latest('id')->first();
+        $this->assertSame('08:00', $morning->requested_pickup_time);
+        $this->assertSame('11:00', $morning->requested_return_time); // theo morning_end=11
+
+        $this->checkout($user, '2030-07-02', '2030-07-02', session: 'afternoon')->assertSessionHas('order_code');
+        $afternoon = Order::latest('id')->first();
+        $this->assertSame('13:00', $afternoon->requested_pickup_time); // theo afternoon_start=13
+        $this->assertSame('20:00', $afternoon->requested_return_time);
     }
 
     /** @test */

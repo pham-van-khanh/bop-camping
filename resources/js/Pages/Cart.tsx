@@ -8,7 +8,7 @@ import {
     lineRent, locationConflict as checkLocationConflict, removeLine, setCart, setQty,
     type CartLine, type CartLocation,
 } from '@/lib/cart';
-import { isHalfDaySession, sessionLabel, type Session } from '@/lib/session';
+import { isHalfDaySession, sessionLabel, shopHours, type Session } from '@/lib/session';
 import { money, rangeText } from '@/lib/format';
 import { emit, on, EVENTS } from '@/lib/bus';
 import { estimateDiscount, voucherValueText, type AvailableVoucher, type EmailBonusInfo, type PromoInfo } from '@/lib/voucher';
@@ -67,10 +67,7 @@ type Props = PageProps<{
 
 export default function Cart() {
     const { auth, flash, availableVouchers, referralRef, firstOrderEligible, promo, emailBonus, durationTiers } = usePage<Props>().props;
-    const site = (usePage().props as { site?: { pickup_hour?: number; return_hour?: number; session_split_hour?: number } }).site;
-    const shopPickup = site?.pickup_hour ?? 8;
-    const shopReturn = site?.return_hour ?? 20;
-    const shopSplit = site?.session_split_hour ?? 14;
+    const hours = shopHours((usePage().props as { site?: Parameters<typeof shopHours>[0] }).site);
     const user = auth.user;
     const promoOn = !!user && promo.enabled;
 
@@ -524,11 +521,11 @@ export default function Cart() {
                                         </div>
                                     </div>
                                     {/* Buổi khách chọn (spec 2026-07-26) — thuê 1 ngày; chỉ hiển thị, đổi buổi ở trang sản phẩm. */}
-                                    {it.session && sessionLabel(it.session, shopPickup, shopSplit, shopReturn) && (
+                                    {it.session && sessionLabel(it.session, hours) && (
                                         <div className="mt-2 flex items-center gap-2 rounded-[9px] px-2.5 py-1.5 text-[12.5px]" style={{ background: '#f4f8ec' }}>
                                             <span aria-hidden>🕑</span>
                                             <span className="text-[#3f4a32]">
-                                                {sessionLabel(it.session, shopPickup, shopSplit, shopReturn)}
+                                                {sessionLabel(it.session, hours)}
                                                 {isHalfDaySession(it.session) && (it.early_return_pct ?? 0) > 0 && (
                                                     <span className="ml-1 font-semibold text-grass">−{it.early_return_pct}%</span>
                                                 )}
