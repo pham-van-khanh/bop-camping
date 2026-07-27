@@ -7,6 +7,7 @@ use App\Models\ServiceLocation;
 use App\Models\SiteSetting;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -56,7 +57,20 @@ class SiteSettingController extends Controller
             'ga_measurement_id.regex' => 'Mã GA4 có dạng G-XXXXXXXX.',
         ]);
 
-        SiteSetting::current()->update($data);
+        // Ràng buộc thứ tự khung giờ (feedback 2026-07-27): giao ≤ cuối sáng ≤ đầu chiều ≤ trả.
+        // Dùng giá trị hiện tại làm fallback cho field không gửi → chặn được cả khi gửi 1 phần.
+        $s = SiteSetting::current();
+        $pickup = (int) ($data['pickup_hour'] ?? $s->pickup_hour);
+        $morningEnd = (int) ($data['morning_end_hour'] ?? $s->morning_end_hour);
+        $afternoonStart = (int) ($data['afternoon_start_hour'] ?? $s->afternoon_start_hour);
+        $return = (int) ($data['return_hour'] ?? $s->return_hour);
+        if (! ($pickup <= $morningEnd && $morningEnd <= $afternoonStart && $afternoonStart <= $return)) {
+            throw ValidationException::withMessages([
+                'afternoon_start_hour' => 'Khung giờ phải theo thứ tự: giờ giao ≤ kết thúc sáng ≤ bắt đầu chiều ≤ giờ trả.',
+            ]);
+        }
+
+        $s->update($data);
 
         return back()->with('success', 'Đã lưu thông tin liên hệ.');
     }

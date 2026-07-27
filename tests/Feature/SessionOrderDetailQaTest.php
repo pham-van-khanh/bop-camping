@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Category;
+use App\Models\Combo;
 use App\Models\Order;
 use App\Models\Product;
 use App\Models\PromotionSetting;
@@ -107,6 +108,35 @@ class SessionOrderDetailQaTest extends TestCase
             ->assertSessionHasErrors('morning_end_hour');
 
         $this->assertSame(12, (int) SiteSetting::current()->morning_end_hour); // giữ mặc định
+    }
+
+    /** @test */
+    public function admin_rejects_inverted_session_window(): void
+    {
+        // đầu chiều (5) < cuối sáng (mặc định 12) → sai thứ tự (feedback 2026-07-27).
+        $admin = User::factory()->create(['is_admin' => true]);
+        $this->actingAs($admin)->put(route('admin.settings.update'), ['afternoon_start_hour' => 5])
+            ->assertSessionHasErrors('afternoon_start_hour');
+
+        $this->assertSame(13, (int) SiteSetting::current()->afternoon_start_hour); // giữ mặc định
+    }
+
+    /** @test */
+    public function combo_only_same_day_order_has_no_session(): void
+    {
+        // Combo không mang buổi (không có ưu đãi trả sớm) → đơn combo-only cùng ngày = full/null.
+        $combo = Combo::create(['name' => 'Combo QA', 'slug' => 'combo-qa-'.uniqid(), 'combo_price' => 80000, 'is_active' => true]);
+        $combo->items()->create(['product_id' => $this->chair->id, 'quantity' => 1]);
+        $user = User::factory()->create(['phone' => '0912999009']);
+
+        $this->actingAs($user)->post(route('order.store'), [
+            'name' => $user->name, 'phone' => $user->phone,
+            'combos' => [['combo_id' => $combo->id, 'quantity' => 1, 'start' => '2030-07-01', 'end' => '2030-07-01']],
+        ])->assertSessionHas('order_code');
+
+        $order = Order::latest('id')->first();
+        $this->assertNull($order->session);
+        $this->assertFalse($order->is_half_day);
     }
 
     /** @test */

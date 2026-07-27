@@ -122,14 +122,6 @@ export const lineRent = (l: CartLine, tiers: DurationTier[] = []) => {
 };
 export const lineDeposit = (l: CartLine) => l.deposit * l.qty;
 
-/** Đổi buổi cho 1 dòng giỏ (chỉ có nghĩa khi thuê 1 ngày). */
-export function setSession(index: number, session: Session) {
-    const lines = getCart();
-    if (!lines[index]) return;
-    lines[index].session = session;
-    save(lines);
-}
-
 export function cartCount(lines = getCart()) {
     return lines.reduce((s, l) => s + l.qty, 0);
 }

@@ -435,6 +435,10 @@ function OrderDetail({
     onReorder: () => void;
     onViewProgress: () => void;
 }) {
+    // Hook gọi ở top-level component (không trong IIFE) — tuân rules-of-hooks.
+    const site = (usePage().props as { site?: Parameters<typeof shopHours>[0] }).site;
+    const sessLabel = sessionLabel(order.session, shopHours(site));
+
     return (
         <div className="grid gap-4 lg:grid-cols-2">
             {/* Cột trái: thông tin nhận + thiết bị */}
@@ -443,19 +447,13 @@ function OrderDetail({
                 {order.address && <div className="mb-2.5 text-[13px] text-moss">📍 Giao nhận: {order.address}</div>}
 
                 {/* Khoảng thuê + buổi + giờ nhận/trả khách đã chọn (spec 2026-07-26) */}
-                {(() => {
-                    const site = (usePage().props as { site?: Parameters<typeof shopHours>[0] }).site;
-                    const sessLabel = sessionLabel(order.session, shopHours(site));
-                    return (
-                        <div className="mb-2.5 rounded-[10px] border border-[#eef2e3] bg-white px-3 py-2 text-[12.5px]">
-                            <div><span className="text-moss">Khoảng thuê:</span> <span className="font-mono text-ink">{order.start_date} → {order.end_date}</span> <span className="text-moss">({order.days} ngày)</span></div>
-                            {sessLabel && <div className="mt-0.5"><span className="text-moss">Buổi:</span> <span className="font-semibold text-grass">{sessLabel}</span></div>}
-                            {(order.requested_pickup_time || order.requested_return_time) && (
-                                <div className="mt-0.5"><span className="text-moss">Giờ:</span> <span className="font-mono text-ink">nhận {order.requested_pickup_time ?? '—'} · trả {order.requested_return_time ?? '—'}</span></div>
-                            )}
-                        </div>
-                    );
-                })()}
+                <div className="mb-2.5 rounded-[10px] border border-[#eef2e3] bg-white px-3 py-2 text-[12.5px]">
+                    <div><span className="text-moss">Khoảng thuê:</span> <span className="font-mono text-ink">{order.start_date} → {order.end_date}</span> <span className="text-moss">({order.days} ngày)</span></div>
+                    {sessLabel && <div className="mt-0.5"><span className="text-moss">Buổi:</span> <span className="font-semibold text-grass">{sessLabel}</span></div>}
+                    {(order.requested_pickup_time || order.requested_return_time) && (
+                        <div className="mt-0.5"><span className="text-moss">Giờ:</span> <span className="font-mono text-ink">nhận {order.requested_pickup_time ?? '—'} · trả {order.requested_return_time ?? '—'}</span></div>
+                    )}
+                </div>
 
                 <div className="mb-2 text-[12px] font-bold uppercase tracking-[0.04em] text-grass">Thiết bị</div>
                 <ul className="flex flex-col gap-1.5 rounded-[10px] border border-[#eef2e3] bg-white px-3 py-2.5 text-[14px] text-ink">
@@ -662,7 +660,7 @@ function ReorderModal({
                             {storeOptions.map((s) => {
                                 const on = storeId === s.id;
                                 return (
-                                    <button key={s.id} type="button" onClick={() => setStoreId(s.id)}
+                                    <button key={s.id} type="button" onClick={() => setStoreId(s.id)} aria-pressed={on}
                                         className={`rounded-[9px] border px-3 py-1.5 text-[12.5px] font-semibold transition ${on ? 'border-grass bg-grass text-white' : 'border-cardBorder text-pine hover:border-grass'}`}>
                                         {s.name}
                                     </button>

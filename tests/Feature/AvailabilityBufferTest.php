@@ -88,6 +88,22 @@ class AvailabilityBufferTest extends TestCase
     }
 
     /** @test */
+    public function pending_order_does_not_reserve_rental_or_buffer(): void
+    {
+        // Feedback 2026-07-27: đơn CHƯA xác nhận không khoá ngày thuê lẫn ngày phơi.
+        $p = $this->tent(stock: 1, buffer: 2);
+        $o = Order::create([
+            'code' => 'BOP-'.strtoupper(Str::random(6)), 'customer_name' => 'X', 'customer_phone' => '0900000000',
+            'start_date' => '2030-07-10', 'end_date' => '2030-07-12', 'status' => 'pending', 'payment_method' => 'cod',
+            'service_location_id' => $this->vinh->id,
+        ]);
+        $o->items()->create(['product_id' => $p->id, 'quantity' => 1, 'price_per_day' => 50000, 'days' => 3, 'subtotal' => 150000]);
+
+        $this->assertSame(1, $this->avail($p, '2030-07-11', '2030-07-11')); // ngày thuê vẫn trống (pending)
+        $this->assertSame(1, $this->avail($p, '2030-07-13', '2030-07-13')); // ngày phơi cũng trống
+    }
+
+    /** @test */
     public function buffer_blocks_drying_days_then_frees(): void
     {
         $p = $this->tent(stock: 1, buffer: 2);

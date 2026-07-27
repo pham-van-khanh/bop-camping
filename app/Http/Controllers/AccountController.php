@@ -45,7 +45,8 @@ class AccountController extends Controller
 
         $productIds = $order->items->pluck('product_id')->filter()->unique();
         $dates = [];
-        foreach (Product::whereIn('id', $productIds)->get() as $p) {
+        // eager-load serviceLocations: bufferAt()/stockAt() dùng trong loop → tránh N+1.
+        foreach (Product::with('serviceLocations')->whereIn('id', $productIds)->get() as $p) {
             $dates = array_merge($dates, $this->availability->unavailableDates($p, $from, $to, $location));
         }
 
