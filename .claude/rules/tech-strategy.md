@@ -43,8 +43,15 @@ This is the **SINGLE SOURCE OF TRUTH** for technology choices on BopCamping
 | JS/TS lint + format | **ESLint + Prettier** | `npm run lint` (do Breeze tạo) |
 | Type check | **TypeScript (`tsc`)** | `npx tsc --noEmit` |
 | Test (backend) | **PHPUnit** (Laravel mặc định) | `php artisan test` |
+| Test (component React) | **Vitest + @testing-library/react** (jsdom) | `npm test` |
 
-> Tất cả phải pass trước khi commit: `php artisan test` · `./vendor/bin/pint --test` · `npm run build`.
+> Tất cả phải pass trước khi commit: `php artisan test` · `npm test` · `npx tsc --noEmit` · `npm run lint` · `./vendor/bin/pint --test` · `npm run build`.
+
+**Test component React** — cấu hình ở `vitest.config.ts`, test đặt trong `tests/js/`.
+Truy vấn theo vai trò/nhãn (`getByRole`), mock ranh giới ngoài (Inertia `usePage`,
+framer-motion), không mock logic đang kiểm. jsdom **không** kiểm được layout thật
+(chồng lấn, z-index) — việc đó vẫn phải đo trên trình duyệt.
+Xem `artifacts/adr_frontend_component_testing.md`.
 
 ## Dev Commands
 
