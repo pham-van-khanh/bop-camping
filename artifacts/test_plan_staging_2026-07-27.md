@@ -1,7 +1,7 @@
 # Kế hoạch test staging trước khi lên production
 
 - **Ngày:** 2026-07-27
-- **Môi trường test:** staging — **https://staging.bopcamping.cloud** (nhánh `develop`, bản `7c2c99b`)
+- **Môi trường test:** staging — **https://staging.bopcamping.cloud** (nhánh `develop`, bản `7bc9531`)
 - **Đích deploy:** production — bopcamping.com (`feat/scaffold-laravel`)
 - **Mục tiêu:** xác nhận toàn bộ tính năng trong bảng tổng hợp chạy đúng, rồi mới deploy 1 lượt.
 
@@ -38,7 +38,7 @@ Mô hình mới: thuê **đúng 1 ngày** → chọn **Buổi sáng / Buổi chi
 **1.4 Khách xem lại**
 - [ ] Đăng nhập khách → **Tài khoản** → mở đơn → thấy **Buổi** + **Giờ nhận/trả**.
 
-_Ghi chú/lỗi:_ ______________________________________________
+_Ghi chú/lỗi:_ ___________ok rồi___________________________________
 
 ---
 
@@ -47,7 +47,7 @@ _Ghi chú/lỗi:_ ______________________________________________
 - [ ] Ô có 2 dòng: "🕗 Nhận từ 8h, trả trước 20h…" và "⏰ Muốn giờ nhận/trả khác? **Liên hệ Zalo**…".
 - [ ] Bấm **Liên hệ Zalo** → mở đúng Zalo của shop (tab mới).
 
-_Ghi chú/lỗi:_ ______________________________________________
+_Ghi chú/lỗi:_ ____________ok rồi__________________________________
 
 ---
 
@@ -60,7 +60,7 @@ _Ghi chú/lỗi:_ ______________________________________________
 - [ ] Với **đơn gộp (cha)**: màn chi tiết liệt kê **các đợt con**, bấm 1 đợt → mở màn riêng đợt đó; đợt con có link **về đơn gộp**.
 - [ ] Đổi trạng thái nhanh **trên danh sách** vẫn hoạt động (không mở chi tiết khi bấm nút).
 
-_Ghi chú/lỗi:_ ______________________________________________
+_Ghi chú/lỗi:_ ________ok rồi______________________________________
 
 ---
 
@@ -70,7 +70,7 @@ _Ghi chú/lỗi:_ ______________________________________________
 - [ ] Thuê 1 ngày + Cả ngày → **không** giảm.
 - [ ] Đơn có **combo**: combo **không** được giảm ưu đãi trả sớm (chỉ sản phẩm lẻ).
 
-_Ghi chú/lỗi:_ ______________________________________________
+_Ghi chú/lỗi:_ _________ok rồi_____________________________________
 
 ---
 
@@ -80,14 +80,16 @@ _Ghi chú/lỗi:_ ______________________________________________
 - [ ] Nhập số **âm** → bị chặn (báo lỗi).
 - [ ] Với **đơn gộp (cha)**: không cho đặt phụ phí trực tiếp (chỉ trên đợt con).
 
-_Ghi chú/lỗi:_ ______________________________________________
+_Ghi chú/lỗi:_ _______ok rồi_______________________________________
 
 ---
 
-## 6. Buffer giặt/phơi per-kho (s1ij)
+## 6. Buffer giặt/phơi per-kho (s1ij) + CHỈ khoá khi đã xác nhận *(đã sửa 27/07)*
+> Quy tắc mới: **đơn CHƯA xác nhận (pending) KHÔNG khoá ngày**. Chỉ khi admin chuyển **Đã xác nhận** (hoặc Đang thuê) thì ngày thuê + ngày phơi mới bị chặn.
 - [ ] `/admin` → Sản phẩm → sửa 1 SP → đặt **số ngày giặt/phơi (buffer)** cho 1 kho (vd 2 ngày).
-- [ ] Đặt 1 đơn thuê SP đó tại kho đó, trả vào ngày X.
-- [ ] Thử đặt tiếp SP đó **trong khoảng X+1..X+buffer** → hệ thống báo **hết/không đủ** (đang phơi).
+- [ ] Đặt 1 đơn thuê SP đó tại kho đó (đơn ở trạng thái **Chờ xác nhận**), ngày X.
+- [ ] **Khi đơn còn Chờ xác nhận** → thử đặt tiếp SP đó trùng ngày X → **VẪN đặt được** (chưa khoá).
+- [ ] Admin chuyển đơn sang **Đã xác nhận** → giờ đặt trùng ngày X **bị chặn**; và ngày **X+1..X+buffer** cũng bị chặn (đang phơi).
 - [ ] Sau khoảng buffer → đặt lại được bình thường.
 - [ ] Kho khác (buffer khác) không bị ảnh hưởng lẫn nhau.
 
@@ -95,12 +97,13 @@ _Ghi chú/lỗi:_ ______________________________________________
 
 ---
 
-## 7. Giờ giao/trả mặc định của shop (pickup/return + giờ chia buổi)
-- [ ] `/admin` → **Cài đặt shop** → có ô **Giờ giao**, **Giờ trả**, **Giờ chia buổi sáng/chiều**.
-- [ ] Đổi "Giờ chia buổi" = 12 → Lưu.
-- [ ] Quay lại trang sản phẩm (1 ngày) → **Buổi sáng = 8h–12h**, **Buổi chiều = 12h–20h** (cập nhật theo cài đặt).
+## 7. Khung giờ buổi 2 cửa sổ có khoảng nghỉ *(đã sửa 27/07)*
+> Mới: thay 1 "giờ chia buổi" bằng **2 mốc** — *Giờ kết thúc buổi sáng* + *Giờ bắt đầu buổi chiều* — để có khoảng chuẩn bị/ship. Mặc định: sáng 8–12, chiều 13–20.
+- [ ] `/admin` → **Cài đặt shop** → có 4 ô: **Giờ giao**, **Giờ trả**, **Giờ kết thúc buổi sáng**, **Giờ bắt đầu buổi chiều**.
+- [ ] Đặt vd: giao 8, kết thúc sáng 12, bắt đầu chiều 13, trả 21 → Lưu.
+- [ ] Trang sản phẩm (1 ngày) → **Buổi sáng = 8h–12h**, **Buổi chiều = 13h–21h**, **Cả ngày = 8h–21h**.
+- [ ] Giỏ + đơn (admin & tài khoản khách) hiển thị đúng khung giờ đã đặt.
 - [ ] Nhập giá trị ngoài 0–23 → bị chặn.
-- [ ] (Nhớ đặt lại **14** sau khi test nếu muốn về mặc định.)
 
 _Ghi chú/lỗi:_ ______________________________________________
 
@@ -112,7 +115,7 @@ _Ghi chú/lỗi:_ ______________________________________________
 - [ ] Thêm/sắp xếp **ảnh phụ** hoạt động.
 - [ ] Lưu → quay lại danh sách, dữ liệu cập nhật đúng.
 
-_Ghi chú/lỗi:_ ______________________________________________
+_Ghi chú/lỗi:_ __________ok rồi____________________________________
 
 ---
 
@@ -125,13 +128,25 @@ _Ghi chú/lỗi:_ ______________________________________________
 
 ---
 
+## 9B. Modal "Đặt lại" đơn *(đã sửa 27/07)*
+> Mới: lịch **disable ngày đã hết theo cửa hàng**, cho **chọn cửa hàng**, thuê **1 ngày → chọn buổi**, và modal **rộng hơn**.
+- [ ] Tài khoản → mở 1 đơn đã kết thúc → **Đặt lại đơn này** → modal mở (rộng ~860px).
+- [ ] Có phần **"Cửa hàng nhận đồ"** với các kho phục vụ mọi món (vd Vinh / Hà Nội).
+- [ ] Đổi cửa hàng → lịch **cập nhật ngày bận** theo kho đó (ngày đã cho thuê hết ở kho bị mờ/không chọn được).
+- [ ] Chọn **1 ngày** (nhận = trả) → hiện **3 nút buổi** (sáng/chiều/cả ngày) theo khung giờ shop.
+- [ ] Bấm "Thêm vào giỏ" → sang giỏ: đúng cửa hàng + đúng buổi (nếu 1 ngày) + đúng ngày.
+
+_Ghi chú/lỗi:_ ______________________________________________
+
+---
+
 ## 10. Hồi quy — đơn cha/con (wtuv) — đã có trên prod, kiểm tra không vỡ
 - [ ] Giỏ có **≥ 2 khoảng ngày** → đặt đơn → sinh **1 đơn gộp (cha) + các đợt con**.
 - [ ] Voucher/giảm giá áp trên tổng đơn gộp, phân bổ về con đúng.
 - [ ] Huỷ **cả cụm** từ đơn cha hoạt động.
 - [ ] Email xác nhận từng đợt gửi đúng (nếu bật).
 
-_Ghi chú/lỗi:_ ______________________________________________
+_Ghi chú/lỗi:_ ____________ok rôì__________________________________
 
 ---
 
@@ -140,7 +155,7 @@ _Ghi chú/lỗi:_ ______________________________________________
 - [ ] Đăng nhập/đăng xuất khách (OTP email) hoạt động.
 - [ ] Không có lỗi hiển thị rõ ràng (trang trắng, vỡ giao diện) trên mobile + desktop.
 
-_Ghi chú/lỗi:_ ______________________________________________
+_Ghi chú/lỗi:_ ________________ok rồi__________
 
 ---
 
@@ -153,6 +168,6 @@ Claude sẽ chạy:
 ```bash
 git checkout feat/scaffold-laravel
 git merge --no-ff develop
-git push origin feat/scaffold-laravel   # auto-deploy bopcamping.com + chạy 8 migration
+git push origin feat/scaffold-laravel   # auto-deploy bopcamping.com + chạy 9 migration
 ```
 Sau deploy: kiểm nhanh bopcamping.com (mục 1, 3, 11) để chắc chắn.
