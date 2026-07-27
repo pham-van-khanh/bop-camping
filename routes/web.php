@@ -212,6 +212,7 @@ Route::get('/dashboard', function () {
 Route::middleware('auth')->group(function () {
     // Tài khoản của tôi (khách) — thống kê đơn + mã giới thiệu
     Route::get('/tai-khoan', [AccountController::class, 'index'])->name('account');
+    Route::get('/tai-khoan/dat-lai/{order}/kha-dung', [AccountController::class, 'reorderAvailability'])->name('account.reorder.availability')->middleware('throttle:60,1');
 
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');

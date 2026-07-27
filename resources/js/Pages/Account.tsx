@@ -1,5 +1,5 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { Fragment, ReactNode, useMemo, useState } from 'react';
+import { Fragment, ReactNode, useEffect, useMemo, useState } from 'react';
 import SiteLayout from '@/Layouts/SiteLayout';
 import OrderLookupPanel, { type LookupProps } from '@/Components/site/OrderLookupPanel';
 import DateRangeCalendar from '@/Components/site/DateRangeCalendar';
@@ -26,9 +26,11 @@ type OrderGroup = {
 type OrderDiscount = { label: string; amount: number };
 
 type ReorderPayload = {
-    products: { id: number; name: string; cat: string; price: number; deposit: number; qty: number; locations: CartLocation[] }[];
+    products: { id: number; name: string; cat: string; price: number; deposit: number; qty: number; early_return_pct: number; locations: CartLocation[] }[];
     combos: { id: number; name: string; price: number; deposit: number; qty: number; comboItems: { name: string; qty: number }[]; locations: CartLocation[] }[];
     skipped: number;
+    // Cửa hàng phục vụ mọi món (feedback 2026-07-27) — cho khách đổi store ở modal đặt lại.
+    store_options: { id: number; name: string }[];
 };
 
 type AccountOrder = {
@@ -567,21 +569,42 @@ function ReorderModal({
 }) {
     const { order, start, end } = state;
     const r = order.reorder as ReorderPayload;
-    const noUnavailable = useMemo(() => new Set<string>(), []);
     const cartHadItems = useMemo(() => getCart().length > 0, []);
+    const hours = shopHours((usePage().props as { site?: Parameters<typeof shopHours>[0] }).site);
+    const storeOptions = r.store_options ?? [];
+
+    // Cửa hàng khách chọn cho lần đặt lại (mặc định store đầu tiên phục vụ mọi món).
+    const [storeId, setStoreId] = useState<number | null>(storeOptions[0]?.id ?? null);
+    // Buổi khi thuê đúng 1 ngày (feedback 2026-07-27).
+    const [session, setSession] = useState<Session>('full');
+    // Ngày đã hết theo store — nạp từ server, disable trên lịch.
+    const [unavailable, setUnavailable] = useState<Set<string>>(new Set());
+
+    // Nạp ngày bận mỗi khi mở / đổi store (per-store availability).
+    useEffect(() => {
+        const q = storeId != null ? `?location_id=${storeId}` : '';
+        let alive = true;
+        fetch(`/tai-khoan/dat-lai/${order.id}/kha-dung${q}`, { headers: { Accept: 'application/json' } })
+            .then((res) => (res.ok ? res.json() : { unavailable: [] }))
+            .then((d: { unavailable?: string[] }) => { if (alive) setUnavailable(new Set<string>(d.unavailable ?? [])); })
+            .catch(() => { if (alive) setUnavailable(new Set()); });
+        return () => { alive = false; };
+    }, [order.id, storeId]);
 
     const days = start && end ? dayCount(start, end) : 0;
+    const isOneDay = !!start && !!end && start === end;
     const canConfirm = !!start && !!end;
 
     const buildLines = (): CartLine[] => [
         ...r.products.map((p) => ({
             id: p.id, name: p.name, cat: p.cat, grad: gradFor(p.cat),
             price: p.price, deposit: p.deposit, qty: p.qty, start: start as string, end: end as string, locations: p.locations,
+            location_id: storeId, early_return_pct: p.early_return_pct, session: isOneDay ? session : null,
         })),
         ...r.combos.map((c) => ({
             id: c.id, kind: 'combo' as const, name: c.name, cat: 'combo', grad: COMBO_GRAD,
             price: c.price, deposit: c.deposit, qty: c.qty, start: start as string, end: end as string,
-            locations: c.locations, comboItems: c.comboItems,
+            locations: c.locations, comboItems: c.comboItems, location_id: storeId,
         })),
     ];
 
@@ -602,7 +625,7 @@ function ReorderModal({
 
     return (
         <div className="fixed inset-0 z-[200] grid place-items-center overflow-y-auto p-4" style={{ background: 'rgba(24,35,15,.45)' }}>
-            <div className="my-auto w-full max-w-[680px] rounded-[18px] border border-cardBorder bg-white p-5">
+            <div className="my-auto w-full max-w-[860px] rounded-[18px] border border-cardBorder bg-white p-5">
                 <div className="mb-1 flex items-start justify-between gap-3">
                     <div className="text-[17px] font-bold text-ink">
                         Đặt lại đơn <span className="font-mono text-grass">{order.code}</span>
@@ -631,16 +654,57 @@ function ReorderModal({
                     </p>
                 )}
 
-                {/* Chọn lại ngày — lịch 2 tháng nằm ngang (component tự bố trí side-by-side khi đủ rộng) */}
+                {/* Chọn cửa hàng (feedback 2026-07-27) — đổi store → lịch cập nhật ngày bận theo store. */}
+                {storeOptions.length > 0 && (
+                    <div className="mb-3">
+                        <div className="mb-1.5 text-[12.5px] font-semibold text-pine">Cửa hàng nhận đồ</div>
+                        <div className="flex flex-wrap gap-2">
+                            {storeOptions.map((s) => {
+                                const on = storeId === s.id;
+                                return (
+                                    <button key={s.id} type="button" onClick={() => setStoreId(s.id)}
+                                        className={`rounded-[9px] border px-3 py-1.5 text-[12.5px] font-semibold transition ${on ? 'border-grass bg-grass text-white' : 'border-cardBorder text-pine hover:border-grass'}`}>
+                                        {s.name}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
+                )}
+
+                {/* Chọn lại ngày — lịch 2 tháng nằm ngang; ngày đã hết theo store bị disable. */}
                 <DateRangeCalendar
                     start={start}
                     end={end}
-                    unavailable={noUnavailable}
+                    unavailable={unavailable}
                     onChange={(s, e) => setState({ order, start: s, end: e })}
                 />
                 <div className="mt-2 text-center text-[13px] text-moss">
                     {canConfirm ? <>Thuê <strong className="text-ink">{rangeText(start, end)}</strong> · {days} ngày</> : 'Chạm chọn ngày nhận và ngày trả.'}
                 </div>
+
+                {/* Thuê đúng 1 ngày → cho chọn buổi (feedback 2026-07-27). */}
+                {isOneDay && (
+                    <div className="mt-3 rounded-[12px] border border-cardBorder bg-[#fbfcf8] p-3">
+                        <div className="mb-2 text-[12.5px] font-bold text-ink">Chọn buổi thuê</div>
+                        <div className="grid grid-cols-3 gap-2">
+                            {([
+                                { key: 'morning', label: 'Buổi sáng', time: `${hours.pickup}h–${hours.morningEnd}h` },
+                                { key: 'afternoon', label: 'Buổi chiều', time: `${hours.afternoonStart}h–${hours.close}h` },
+                                { key: 'full', label: 'Cả ngày', time: `${hours.pickup}h–${hours.close}h` },
+                            ] as const).map((opt) => {
+                                const on = session === opt.key;
+                                return (
+                                    <button key={opt.key} type="button" onClick={() => setSession(opt.key)} aria-pressed={on}
+                                        className={`rounded-[10px] border px-2 py-2 text-center transition ${on ? 'border-grass bg-[#eef5e1] ring-1 ring-grass' : 'border-cardBorder bg-white hover:border-grass'}`}>
+                                        <span className="block text-[12.5px] font-bold text-ink">{opt.label}</span>
+                                        <span className="block text-[11px] text-moss">{opt.time}</span>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
+                )}
 
                 {cartHadItems && (
                     <p className="mt-2 rounded-[8px] px-3 py-2 text-[12.5px]" style={{ background: '#f6ede3', color: '#8a5a2a' }}>
