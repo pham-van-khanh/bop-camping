@@ -1,6 +1,7 @@
 import { Link, router, usePage } from '@inertiajs/react';
 import { ReactNode } from 'react';
 import type { PageProps } from '@/types';
+import Logo from '@/Components/Logo';
 
 const NAV = [
     {
@@ -212,12 +213,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
             <aside className="flex w-[220px] flex-none flex-col border-r border-cardBorder" style={{ background: '#fff' }}>
                 {/* Logo */}
                 <div className="flex h-[60px] items-center gap-2.5 border-b border-cardBorder px-5">
-                    <span className="grid h-8 w-8 place-items-center rounded-[9px] bg-grass">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                            <path d="M12 3 3 20h18L12 3Z" fill="#cfe0a8" />
-                            <path d="M12 9 7 20h10L12 9Z" fill="#557A2B" />
-                        </svg>
-                    </span>
+                    <Logo size={32} />
                     <div>
                         <div className="text-[13px] font-extrabold leading-none text-pine">BopCamping</div>
                         <div className="mt-0.5 text-[10px] font-mono text-moss">ADMIN</div>

@@ -20,7 +20,7 @@ class SeoMetaTest extends TestCase
         $res = $this->get('/');
 
         $res->assertSee('rel="canonical"', false);
-        $res->assertSee('/favicon.svg', false);
+        $res->assertSee('/favicon-32.png', false);
         $res->assertSee('property="og:site_name"', false);
         $res->assertSee('name="twitter:card"', false);
         $res->assertSee('application/ld+json', false);
