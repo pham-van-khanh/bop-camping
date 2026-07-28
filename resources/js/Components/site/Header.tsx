@@ -1,6 +1,7 @@
 import { Link, useForm, usePage } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
 import { emit, EVENTS } from '@/lib/bus';
+import Logo from '@/Components/Logo';
 
 const NAV = [
     { label: 'Trang chủ', href: '/' },
@@ -50,12 +51,7 @@ export default function Header({ cartCount = 0, userName }: { cartCount?: number
             <div className="mx-auto flex h-16 max-w-[1400px] items-center gap-4 px-4 sm:px-5">
                 {/* Logo — chữ ẩn trên mobile, chỉ còn icon */}
                 <Link href="/" className="flex shrink-0 items-center gap-2.5">
-                    <span className="grid h-[38px] w-[38px] place-items-center rounded-[11px] bg-grass">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinejoin="round">
-                            <path d="M12 4 L21 20 H3 Z" />
-                            <path d="M12 4 V20 M9 20 l3 -6 3 6" />
-                        </svg>
-                    </span>
+                    <Logo size={38} />
                     <span className="leading-tight">
                         <span className="block text-[15px] font-extrabold tracking-tight text-pine sm:text-[17px]">BỐP CAMPING</span>
                         <span className="hidden font-mono text-[10px] tracking-[0.14em] text-moss sm:block">THUÊ ĐỒ DÃ NGOẠI</span>
