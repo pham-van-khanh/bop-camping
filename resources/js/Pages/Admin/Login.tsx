@@ -1,5 +1,6 @@
 import { Head, useForm } from '@inertiajs/react';
 import { FormEventHandler } from 'react';
+import Logo from '@/Components/Logo';
 
 export default function AdminLogin() {
     const { data, setData, post, processing, errors } = useForm({
@@ -19,12 +20,7 @@ export default function AdminLogin() {
                 <div className="w-full max-w-[380px]">
                     {/* Logo */}
                     <div className="mb-8 flex flex-col items-center gap-3">
-                        <span className="grid h-14 w-14 place-items-center rounded-[16px] bg-grass shadow-lg">
-                            <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
-                                <path d="M12 3 3 20h18L12 3Z" fill="#cfe0a8" />
-                                <path d="M12 9 7 20h10L12 9Z" fill="#557A2B" />
-                            </svg>
-                        </span>
+                        <Logo size={72} className="shadow-lg" />
                         <div className="text-center">
                             <div className="text-[22px] font-extrabold text-pine">BopCamping Admin</div>
                             <div className="mt-0.5 text-[13px] text-moss">Đăng nhập để quản trị</div>

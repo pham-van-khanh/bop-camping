@@ -51,7 +51,7 @@
                     <table role="presentation" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
                         <tr>
                             <td style="vertical-align:middle;">
-                                <div style="width:34px;height:34px;background:rgba(255,255,255,.18);border-radius:9px;text-align:center;line-height:34px;font-size:16px;color:#ffffff;">▲</div>
+                                <img src="{{ url('/images/logo-128.png') }}" width="34" height="34" alt="Bốp Camping" style="display:block;width:34px;height:34px;border-radius:50%;">
                             </td>
                             <td style="vertical-align:middle;padding-left:10px;">
                                 <div style="font-size:17px;font-weight:800;letter-spacing:.5px;color:#ffffff;">BỐP CAMPING</div>

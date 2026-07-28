@@ -1,5 +1,6 @@
 import { Link, usePage } from '@inertiajs/react';
 import type { PageProps } from '@/types';
+import Logo from '@/Components/Logo';
 
 /** Icon mạng xã hội (chỉ render khi có URL). */
 function SocialIcon({ kind }: { kind: 'facebook' | 'tiktok' | 'zalo' }) {
@@ -33,9 +34,7 @@ export default function Footer() {
             <div className="mx-auto grid max-w-[1400px] gap-7 px-5 pb-[30px] pt-10" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
                 <div>
                     <div className="mb-3 flex items-center gap-2.5">
-                        <span className="grid h-8 w-8 place-items-center rounded-[9px] bg-grass">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 4 4 19h16L12 4Z" fill="#cfe0a8" /><path d="M12 10l-4 9h8l-4-9Z" fill="#557A2B" /></svg>
-                        </span>
+                        <Logo size={120} />
                         <span className="text-base font-extrabold text-pine">BỐP CAMPING</span>
                     </div>
                     <p className="m-0 mb-4 max-w-[240px] text-[13.5px] leading-[1.6] text-[#8a967a]">
