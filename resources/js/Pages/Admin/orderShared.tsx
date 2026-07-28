@@ -41,6 +41,11 @@ export type Order = {
     // Giờ nhận/trả mong muốn + phụ phí ngoài khung giờ (Phase 2 turnaround, bopcamping-h4to)
     requested_pickup_time: string | null;
     requested_return_time: string | null;
+    // Giờ giao/thu admin ĐÃ CHỐT (bopcamping-641t) — null = chưa chốt. schedule_note chỉ nội bộ.
+    confirmed_pickup_time: string | null;
+    confirmed_return_time: string | null;
+    schedule_note: string | null;
+    schedule_confirmed_at: string | null;
     extra_fee: number;
     extra_fee_note: string | null;
     // ISO (Y-m-d) cho form đổi lịch (bopcamping-5hjm)

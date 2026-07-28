@@ -147,6 +147,11 @@ class OrderController extends Controller
             // Giờ nhận/trả mong muốn + phụ phí ngoài khung giờ (Phase 2 turnaround, bopcamping-h4to).
             'requested_pickup_time' => $o->requested_pickup_time,
             'requested_return_time' => $o->requested_return_time,
+            // Giờ giao/thu admin ĐÃ CHỐT + ghi chú nội bộ cho shipper (bopcamping-641t).
+            'confirmed_pickup_time' => $o->confirmed_pickup_time,
+            'confirmed_return_time' => $o->confirmed_return_time,
+            'schedule_note' => $o->schedule_note,
+            'schedule_confirmed_at' => $o->schedule_confirmed_at?->format('d/m H:i'),
             'extra_fee' => (int) $o->extra_fee,
             'extra_fee_note' => $o->extra_fee_note,
             'total_price' => $o->total_price,

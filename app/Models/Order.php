@@ -40,6 +40,11 @@ class Order extends Model
         'session',
         'requested_pickup_time',
         'requested_return_time',
+        // Giờ giao/thu shop ĐÃ CHỐT + ghi chú nội bộ cho shipper (bopcamping-641t).
+        'confirmed_pickup_time',
+        'confirmed_return_time',
+        'schedule_note',
+        'schedule_confirmed_at',
         'total_price',
         'deposit_total',
         'extra_fee',
@@ -74,6 +79,7 @@ class Order extends Model
         'review_invited_at' => 'datetime',
         'review_submitted_at' => 'datetime',
         'pickup_reminder_sent_at' => 'datetime',
+        'schedule_confirmed_at' => 'datetime',
     ];
 
     /** Tự sinh mã đơn khi tạo */
