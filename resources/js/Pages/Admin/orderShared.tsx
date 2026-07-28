@@ -127,11 +127,11 @@ export function useSessionLabel(session: Session | null): string | null {
 /** Không có dữ liệu ngày bận cho admin (server kiểm tồn khi lưu) — Set rỗng dùng chung. */
 const NO_UNAVAILABLE = new Set<string>();
 
-function DetailRow({ label, value, mono, accent }: { label: string; value: string; mono?: boolean; accent?: string }) {
+function DetailRow({ label, value, mono, accent, bold }: { label: string; value: string; mono?: boolean; accent?: string; bold?: boolean }) {
     return (
         <div className="flex items-start justify-between gap-3 py-0.5">
             <span className="shrink-0 text-moss">{label}</span>
-            <span className={`text-right text-ink ${mono ? 'font-mono' : ''}`} style={accent ? { color: accent } : undefined}>{value}</span>
+            <span className={`text-right text-ink ${mono ? 'font-mono' : ''} ${bold ? 'font-bold' : ''}`} style={accent ? { color: accent } : undefined}>{value}</span>
         </div>
     );
 }
@@ -238,6 +238,83 @@ function ExtraFeeEditor({ order }: { order: Order }) {
                     {saving ? 'Đang lưu…' : 'Lưu phụ phí'}
                 </button>
             </div>
+        </div>
+    );
+}
+
+/**
+ * Chốt giờ giao/thu cho đơn (bopcamping-641t) — theo khuôn ExtraFeeEditor (inline card,
+ * không modal). 2 × input[type=time] (giao/thu) + ghi chú nội bộ shipper + nút Lưu.
+ * Xoá trắng 1 ô giờ = gửi null = huỷ chốt ô đó. Không ghi đè requested_* (giờ khách xin).
+ */
+export function ScheduleEditor({ order }: { order: Order }) {
+    const errors = usePage().props.errors as Record<string, string>;
+    const [pickup, setPickup] = useState<string>(order.confirmed_pickup_time ?? '');
+    const [returnTime, setReturnTime] = useState<string>(order.confirmed_return_time ?? '');
+    const [note, setNote] = useState<string>(order.schedule_note ?? '');
+    const [saving, setSaving] = useState(false);
+
+    const save = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        setSaving(true);
+        router.patch(
+            route('admin.orders.schedule', order.id),
+            {
+                confirmed_pickup_time: pickup || null,
+                confirmed_return_time: returnTime || null,
+                schedule_note: note || null,
+            },
+            { preserveScroll: true, onFinish: () => setSaving(false) },
+        );
+    };
+
+    const scheduleError = errors.confirmed_pickup_time ?? errors.confirmed_return_time ?? errors.schedule_note;
+
+    return (
+        <div className="mt-3">
+            <div className="mb-2 text-[12px] font-bold uppercase tracking-[0.04em] text-grass">Giờ giao/thu đã chốt</div>
+            <div className="flex flex-wrap items-end gap-2 rounded-[10px] border border-[#eef2e3] bg-white p-3">
+                <label className="min-w-[110px] flex-1">
+                    <span className="mb-1 block text-[11.5px] text-moss">Giờ giao</span>
+                    <input
+                        type="time"
+                        value={pickup}
+                        onClick={(e) => e.stopPropagation()}
+                        onChange={(e) => setPickup(e.target.value)}
+                        className="w-full rounded-[9px] border border-cardBorder px-2.5 py-1.5 text-[13px] outline-none focus:border-grass"
+                    />
+                </label>
+                <label className="min-w-[110px] flex-1">
+                    <span className="mb-1 block text-[11.5px] text-moss">Giờ thu</span>
+                    <input
+                        type="time"
+                        value={returnTime}
+                        onClick={(e) => e.stopPropagation()}
+                        onChange={(e) => setReturnTime(e.target.value)}
+                        className="w-full rounded-[9px] border border-cardBorder px-2.5 py-1.5 text-[13px] outline-none focus:border-grass"
+                    />
+                </label>
+                <label className="min-w-[150px] flex-[2]">
+                    <span className="mb-1 block text-[11.5px] text-moss">Ghi chú cho shipper</span>
+                    <input
+                        type="text"
+                        value={note}
+                        maxLength={255}
+                        onClick={(e) => e.stopPropagation()}
+                        onChange={(e) => setNote(e.target.value)}
+                        placeholder="VD: gọi trước 15 phút, nhà cuối hẻm"
+                        className="w-full rounded-[9px] border border-cardBorder px-2.5 py-1.5 text-[13px] outline-none focus:border-grass"
+                    />
+                </label>
+                <button
+                    onClick={save}
+                    disabled={saving}
+                    className="rounded-[9px] bg-grass px-4 py-1.5 text-[13px] font-bold text-white transition hover:bg-pine disabled:opacity-60"
+                >
+                    {saving ? 'Đang lưu…' : 'Lưu giờ'}
+                </button>
+            </div>
+            {scheduleError && <p className="mt-1.5 text-[12px] text-[#b3493a]">{scheduleError}</p>}
         </div>
     );
 }
@@ -427,10 +504,24 @@ export function OrderDetailPanel({ order, locations, maxDiscountPercent }: { ord
                     <DetailRow label="Khoảng thuê" value={`${order.start_date} → ${order.end_date} (${order.days} ngày)`} />
                     {sessLabel && <DetailRow label="Buổi" value={sessLabel} />}
                     {(order.requested_pickup_time || order.requested_return_time) && (
-                        <DetailRow label="Giờ nhận/trả" value={`nhận ${order.requested_pickup_time ?? '—'} · trả ${order.requested_return_time ?? '—'}`} mono />
+                        <DetailRow label="Giờ khách xin" value={`giao ${order.requested_pickup_time ?? '—'} · thu ${order.requested_return_time ?? '—'}`} mono />
                     )}
+                    <DetailRow
+                        label="Giờ đã chốt"
+                        value={
+                            order.confirmed_pickup_time || order.confirmed_return_time
+                                ? `giao ${order.confirmed_pickup_time ?? '—'} · thu ${order.confirmed_return_time ?? '—'}${order.schedule_confirmed_at ? ` · chốt ${order.schedule_confirmed_at}` : ''}`
+                                : 'chưa chốt'
+                        }
+                        mono={!!(order.confirmed_pickup_time || order.confirmed_return_time)}
+                        bold={!!(order.confirmed_pickup_time || order.confirmed_return_time)}
+                        accent={order.confirmed_pickup_time || order.confirmed_return_time ? '#3a5a1f' : undefined}
+                    />
                     <DetailRow label="Đặt lúc" value={order.created_at} />
                 </div>
+
+                {/* Chốt giờ giao/thu (bopcamping-641t) — đơn con/thường, chưa trả/huỷ */}
+                {!order.is_parent && !['returned', 'cancelled'].includes(order.status) && <ScheduleEditor order={order} />}
 
                 {/* Per-store: cửa hàng thuê + đổi store */}
                 <div className="mb-2 mt-3 flex items-center gap-2 text-[12px] font-bold uppercase tracking-[0.04em] text-grass">

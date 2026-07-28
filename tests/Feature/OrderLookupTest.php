@@ -63,4 +63,27 @@ class OrderLookupTest extends TestCase
                 ->where('not_found', false)
                 ->where('order', null));
     }
+
+    /** @test bopcamping-2ded — giờ shop đã chốt hiện cho khách tra cứu vãng lai. */
+    public function shows_confirmed_schedule_times_when_set(): void
+    {
+        $order = $this->makeOrder();
+        $order->update(['confirmed_pickup_time' => '14:30', 'confirmed_return_time' => '09:00']);
+
+        $this->get(route('lookup', ['code' => 'BOP-ABC123', 'phone' => '0912345678']))
+            ->assertInertia(fn (Assert $p) => $p
+                ->where('order.confirmed_pickup_time', '14:30')
+                ->where('order.confirmed_return_time', '09:00'));
+    }
+
+    /** @test bopcamping-2ded — chưa chốt giờ → null, không lỗi. */
+    public function confirmed_schedule_times_are_null_when_not_set(): void
+    {
+        $this->makeOrder();
+
+        $this->get(route('lookup', ['code' => 'BOP-ABC123', 'phone' => '0912345678']))
+            ->assertInertia(fn (Assert $p) => $p
+                ->where('order.confirmed_pickup_time', null)
+                ->where('order.confirmed_return_time', null));
+    }
 }

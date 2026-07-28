@@ -39,6 +39,18 @@ const NAV = [
         ),
     },
     {
+        href: '/admin/lich-giao',
+        name: 'admin.schedule',
+        label: 'Lịch giao',
+        icon: (
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                <rect x="3" y="4" width="18" height="17" rx="2" stroke="currentColor" strokeWidth="1.8" />
+                <path d="M3 9h18M8 2.5v3M16 2.5v3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                <path d="M8 13.5h3M8 17h6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+            </svg>
+        ),
+    },
+    {
         href: '/admin/products',
         name: 'admin.products',
         label: 'Sản phẩm',

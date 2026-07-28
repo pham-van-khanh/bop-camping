@@ -46,6 +46,9 @@ type AccountOrder = {
     session: Session | null;
     requested_pickup_time: string | null;
     requested_return_time: string | null;
+    // Giờ shop ĐÃ CHỐT (spec 2026-07-28) — ưu tiên hiện thay cho giờ mong muốn.
+    confirmed_pickup_time: string | null;
+    confirmed_return_time: string | null;
     address: string | null;
     phone: string;
     note: string | null;
@@ -450,8 +453,11 @@ function OrderDetail({
                 <div className="mb-2.5 rounded-[10px] border border-[#eef2e3] bg-white px-3 py-2 text-[12.5px]">
                     <div><span className="text-moss">Khoảng thuê:</span> <span className="font-mono text-ink">{order.start_date} → {order.end_date}</span> <span className="text-moss">({order.days} ngày)</span></div>
                     {sessLabel && <div className="mt-0.5"><span className="text-moss">Buổi:</span> <span className="font-semibold text-grass">{sessLabel}</span></div>}
-                    {(order.requested_pickup_time || order.requested_return_time) && (
-                        <div className="mt-0.5"><span className="text-moss">Giờ:</span> <span className="font-mono text-ink">nhận {order.requested_pickup_time ?? '—'} · trả {order.requested_return_time ?? '—'}</span></div>
+                    {/* Giờ shop đã chốt (spec 2026-07-28) ưu tiên hơn giờ khách mong muốn */}
+                    {(order.confirmed_pickup_time || order.confirmed_return_time) ? (
+                        <div className="mt-0.5"><span className="text-moss">Giờ đã chốt:</span> <span className="font-mono font-bold text-grass">giao {order.confirmed_pickup_time ?? '—'} · thu {order.confirmed_return_time ?? '—'}</span></div>
+                    ) : (order.requested_pickup_time || order.requested_return_time) && (
+                        <div className="mt-0.5"><span className="text-moss">Giờ (mong muốn):</span> <span className="font-mono text-ink">nhận {order.requested_pickup_time ?? '—'} · trả {order.requested_return_time ?? '—'}</span></div>
                     )}
                 </div>
 

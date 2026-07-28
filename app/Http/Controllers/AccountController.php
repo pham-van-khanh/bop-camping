@@ -135,6 +135,9 @@ class AccountController extends Controller
             'session' => $order->session,
             'requested_pickup_time' => $order->requested_pickup_time,
             'requested_return_time' => $order->requested_return_time,
+            // Giờ shop đã chốt (spec 2026-07-28) — ưu tiên hiện thay cho giờ khách xin.
+            'confirmed_pickup_time' => $order->confirmed_pickup_time,
+            'confirmed_return_time' => $order->confirmed_return_time,
             'address' => $order->customer_address,
             'phone' => $order->customer_phone,
             'note' => $order->note,
