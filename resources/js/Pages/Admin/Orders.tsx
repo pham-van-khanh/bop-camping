@@ -168,16 +168,12 @@ export default function AdminOrders({
                                                     <td className="px-4 py-3">
                                                         <div className="font-mono text-[12px] text-pine">{order.start_date} → {order.end_date}</div>
                                                         {tag && <div className="text-[11px] text-grass">{tag}</div>}
-                                                        {order.confirmed_pickup_time || order.confirmed_return_time ? (
-                                                            <div className="font-mono text-[11px] text-moss">
+                                                        {/* Giờ admin đã chốt = giờ shipper phải theo → highlight (feedback 2026-07-28).
+                                                            Chưa chốt thì chỉ có nhãn buổi ở trên, không thêm gì. */}
+                                                        {(order.confirmed_pickup_time || order.confirmed_return_time) && (
+                                                            <div className="font-mono text-[11px] font-bold" style={{ color: '#b3493a' }}>
                                                                 Giao {order.confirmed_pickup_time ?? '—'} · Thu {order.confirmed_return_time ?? '—'}
                                                             </div>
-                                                        ) : (
-                                                            !order.is_parent && (
-                                                                <span className="mt-0.5 inline-block rounded-pill bg-[#f1f4ea] px-1.5 py-0.5 text-[10px] font-semibold text-[#8a967a]">
-                                                                    Chưa chốt giờ
-                                                                </span>
-                                                            )
                                                         )}
                                                     </td>
                                                     <td className="px-4 py-3 text-right">

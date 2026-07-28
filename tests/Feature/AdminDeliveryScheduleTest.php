@@ -10,8 +10,8 @@ use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
 /**
- * bopcamping-rtkh — trang "Lịch giao theo ngày" (/admin/lich-giao) cho shipper:
- * 1 trang thấy hôm nay/ngày chọn cần giao đơn nào, thu đơn nào, lúc mấy giờ.
+ * bopcamping-rtkh — trang "Lịch giao" (/admin/lich-giao) cho shipper: lịch THÁNG (ngày có
+ * đơn bôi đỏ, ngày đã qua khoá) + bấm 1 ngày ra danh sách cần giao/thu, sắp theo giờ chốt.
  * Xem plan_delivery_schedule.md mục 2.6 + 4, prd_delivery_schedule.md FR-5.
  */
 class AdminDeliveryScheduleTest extends TestCase
@@ -140,6 +140,57 @@ class AdminDeliveryScheduleTest extends TestCase
                 ->where('stats.pickups', 2)
                 ->where('stats.returns', 1)
                 ->where('stats.unscheduled', 2));
+    }
+
+    /** @test */
+    public function month_grid_marks_days_that_have_orders(): void
+    {
+        $this->travelTo(Carbon::parse('2030-08-01'));
+        // 03/08: 2 đơn cần giao · 06/08: 1 đơn cần thu (đơn thuê 03→06).
+        $this->order(['code' => 'BOP-M1', 'start_date' => '2030-08-03', 'end_date' => '2030-08-06', 'status' => 'confirmed']);
+        $this->order(['code' => 'BOP-M2', 'start_date' => '2030-08-03', 'end_date' => '2030-08-09', 'status' => 'pending']);
+        // Đơn cha + đơn huỷ không được tính vào lịch.
+        $this->order(['code' => 'BOP-M3', 'is_parent' => true, 'start_date' => '2030-08-04', 'end_date' => '2030-08-04', 'status' => 'confirmed']);
+        $this->order(['code' => 'BOP-M4', 'start_date' => '2030-08-05', 'end_date' => '2030-08-05', 'status' => 'cancelled']);
+        // Tháng khác — không lọt vào lưới tháng 8.
+        $this->order(['code' => 'BOP-M5', 'start_date' => '2030-09-02', 'end_date' => '2030-09-03', 'status' => 'confirmed']);
+
+        $admin = $this->admin();
+
+        $this->actingAs($admin)->get(route('admin.schedule'))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('month', '2030-08')
+                ->where('month_label', 'Tháng 8 · 2030')
+                ->where('prev_month', '2030-07')
+                ->where('next_month', '2030-09')
+                // 03 (2 giao) · 06 (1 thu). Loại: 04 (đơn cha), 05 (đơn huỷ), 02/09 (khác tháng)
+                // và 09/08 — ngày thu của BOP-M2 chưa tính vì đơn còn pending (chưa xác nhận).
+                ->has('days', 2)
+                ->where('days.0', ['date' => '2030-08-03', 'pickups' => 2, 'returns' => 0])
+                ->where('days.1', ['date' => '2030-08-06', 'pickups' => 0, 'returns' => 1]));
+    }
+
+    /** @test */
+    public function month_param_browses_other_month_and_invalid_month_falls_back(): void
+    {
+        $this->travelTo(Carbon::parse('2030-08-01'));
+        $this->order(['code' => 'BOP-SEP', 'start_date' => '2030-09-10', 'end_date' => '2030-09-12', 'status' => 'confirmed']);
+        $admin = $this->admin();
+
+        // Xem tháng 9 nhưng ngày đang chọn vẫn là ngày cũ (danh sách dưới không đổi).
+        $this->actingAs($admin)->get(route('admin.schedule', ['month' => '2030-09', 'date' => '2030-08-01']))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('month', '2030-09')
+                ->where('date', '2030-08-01')
+                ->has('days', 2)
+                ->where('days.0.date', '2030-09-10'));
+
+        // Tháng không hợp lệ → tháng của ngày đang chọn, KHÔNG 500.
+        $this->actingAs($admin)->get(route('admin.schedule', ['month' => 'xyz']))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page->where('month', '2030-08'));
     }
 
     /** @test */

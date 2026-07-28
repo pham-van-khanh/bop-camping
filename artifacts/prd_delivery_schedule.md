@@ -115,7 +115,38 @@ Thêm vào bảng `orders` (nullable ⇒ đơn cũ không cần backfill):
 | Đơn `pending` lọt vào lịch giao gây giao sai | Thấp | Có nhãn "chờ xác nhận" ngay trên card; không ẩn để admin thấy còn đơn cần xác nhận |
 | Sort giờ khác nhau giữa SQLite và MySQL | Thấp | `ORDER BY col IS NULL, col, code` — cú pháp chạy đúng cả hai (rule collation-safe trong CLAUDE.md) |
 
-## 8. Liên quan
+## 8. Cập nhật vòng 2 (28/07/2026 — feedback chủ shop sau khi xem bản đầu)
+
+Ghi đè FR-1 (phần hiển thị) và FR-5. Phần dữ liệu, validate, mail giữ nguyên.
+
+### 8.1 Nhãn thời gian trong admin (thay FR-1 phần hiển thị)
+
+| Trước | Sau | Điều kiện hiện |
+|---|---|---|
+| "Buổi" (`sessionLabel`, kể cả *Cả ngày*) + "Giờ khách xin" | **"Thời gian"** | Chỉ khi là **nửa ngày** (ca sáng/ca chiều) → hiện nhãn ca kèm khung giờ. Đơn **cả ngày** hoặc **nhiều ngày** → **không hiện dòng nào**. Đơn cũ không có buổi nhưng có giờ khách xin → hiện giờ đó. |
+| "Giờ đã chốt" (luôn hiện, null → "chưa chốt") | **"Thời gian thay đổi"** (highlight đỏ đất `#b3493a`, in đậm) | **Chỉ khi admin đã chốt giờ**. Chưa chốt → không có dòng này. |
+
+Danh sách `/admin/orders` theo cùng quy tắc: bỏ pill "Chưa chốt giờ" (nhãn buổi đã đủ), giờ đã chốt hiện thành dòng highlight đỏ.
+
+Logic dùng chung: `defaultTimeLabel()` trong `resources/js/Pages/Admin/orderShared.tsx`.
+
+### 8.2 Lịch giao = lịch THÁNG (thay FR-5)
+
+- Đầu trang là **lịch tháng** (tuần bắt đầu **Thứ 2**), điều hướng ‹ / › theo **tháng** + link "Về hôm nay".
+- Ngày **có đơn** → **bôi đỏ** (`#f6ddd6` / chữ `#b3493a`) kèm số đơn `N↓` (giao) · `M↑` (thu).
+- Ngày **đã qua** → **khoá** (`disabled`, mờ 45%), vẫn thấy được hôm đó từng có đơn; hôm nay gạch chân.
+- Bấm 1 ngày → phần dưới liệt kê **Cần giao** / **Cần thu** của ngày đó (giữ nguyên card như bản đầu).
+- Params: `date` (ngày đang chọn) và `month` (tháng đang xem) độc lập — đổi tháng không mất ngày đang chọn. Cả hai sai định dạng đều fallback, không 500.
+- Props mới: `month`, `month_label`, `prev_month`, `next_month`, `days[] = {date, pickups, returns}` (chỉ ngày có đơn).
+- Lưới ngày tách thành hàm thuần `buildMonthGrid()` (`resources/js/lib/monthGrid.ts`) để test được bằng vitest.
+
+**Lưu ý nghiệp vụ:** ngày *thu* của đơn còn `pending` chưa được tính vào lịch (đơn chưa xác nhận thì chưa chắc có lượt thu) — có test khoá hành vi này.
+
+### 8.3 Chưa áp dụng
+
+Nhãn phía khách (`/tai-khoan`, `/tra-cuu`) vẫn là "Giờ đã chốt" / "Giờ (mong muốn)" — đổi tên "Thời gian / Thời gian thay đổi" chỉ áp dụng cho admin. Cần thì mở việc riêng.
+
+## 9. Liên quan
 
 - [design_spec_admin_order_reschedule.md](artifacts/design_spec_admin_order_reschedule.md) — pattern admin đổi lịch + mail thông báo, tái dùng nguyên cấu trúc.
 - [adr_pricing_models.md](artifacts/adr_pricing_models.md) — nửa ngày/buổi, nguồn của `requested_*`.

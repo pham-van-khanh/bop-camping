@@ -127,6 +127,22 @@ export function useSessionLabel(session: Session | null): string | null {
 /** Không có dữ liệu ngày bận cho admin (server kiểm tồn khi lưu) — Set rỗng dùng chung. */
 const NO_UNAVAILABLE = new Set<string>();
 
+/**
+ * Thời gian MẶC ĐỊNH của đơn khi admin chưa chốt giờ (feedback 2026-07-28):
+ * nửa ngày → nhãn ca sáng/ca chiều kèm khung giờ shop; đơn CẢ NGÀY hoặc nhiều ngày
+ * → null (không hiện gì, vì giao lúc nào trong ngày cũng được). Đơn cũ không có buổi
+ * nhưng có giờ khách xin thì hiện giờ đó. Khi đã chốt giờ, UI hiện "Thời gian thay đổi".
+ */
+export function defaultTimeLabel(order: Order, sessLabel: string | null): string | null {
+    if (order.session === 'morning' || order.session === 'afternoon') return sessLabel;
+    if (order.session === 'full') return null;
+    if (order.requested_pickup_time || order.requested_return_time) {
+        return `giao ${order.requested_pickup_time ?? '—'} · thu ${order.requested_return_time ?? '—'}`;
+    }
+
+    return null;
+}
+
 function DetailRow({ label, value, mono, accent, bold }: { label: string; value: string; mono?: boolean; accent?: string; bold?: boolean }) {
     return (
         <div className="flex items-start justify-between gap-3 py-0.5">
@@ -486,6 +502,7 @@ function StoreChanger({ order, locations }: { order: Order; locations: StoreOpti
  */
 export function OrderDetailPanel({ order, locations, maxDiscountPercent }: { order: Order; locations: StoreOption[]; maxDiscountPercent: number }) {
     const sessLabel = useSessionLabel(order.session);
+    const defaultTimeText = defaultTimeLabel(order, sessLabel);
     const changePayment = (payment_status: string) => {
         if (order.payment_status === payment_status) return;
         router.patch(route('admin.orders.payment', order.id), { payment_status }, { preserveScroll: true });
@@ -502,21 +519,19 @@ export function OrderDetailPanel({ order, locations, maxDiscountPercent }: { ord
                     <DetailRow label="Email" value={order.customer_email ?? '—'} mono />
                     <DetailRow label="Địa chỉ" value={order.customer_address ?? '—'} />
                     <DetailRow label="Khoảng thuê" value={`${order.start_date} → ${order.end_date} (${order.days} ngày)`} />
-                    {sessLabel && <DetailRow label="Buổi" value={sessLabel} />}
-                    {(order.requested_pickup_time || order.requested_return_time) && (
-                        <DetailRow label="Giờ khách xin" value={`giao ${order.requested_pickup_time ?? '—'} · thu ${order.requested_return_time ?? '—'}`} mono />
+                    {/* Thời gian mặc định (chưa chốt giờ): ca sáng/chiều theo buổi khách chọn, hoặc
+                        giờ khách xin. Đơn CẢ NGÀY / nhiều ngày không hiện gì (feedback 2026-07-28). */}
+                    {defaultTimeText && <DetailRow label="Thời gian" value={defaultTimeText} />}
+                    {/* Chỉ hiện khi admin ĐÃ chốt giờ — đây là giờ shipper phải theo. */}
+                    {(order.confirmed_pickup_time || order.confirmed_return_time) && (
+                        <DetailRow
+                            label="Thời gian thay đổi"
+                            value={`giao ${order.confirmed_pickup_time ?? '—'} · thu ${order.confirmed_return_time ?? '—'}${order.schedule_confirmed_at ? ` · chốt ${order.schedule_confirmed_at}` : ''}`}
+                            mono
+                            bold
+                            accent="#b3493a"
+                        />
                     )}
-                    <DetailRow
-                        label="Giờ đã chốt"
-                        value={
-                            order.confirmed_pickup_time || order.confirmed_return_time
-                                ? `giao ${order.confirmed_pickup_time ?? '—'} · thu ${order.confirmed_return_time ?? '—'}${order.schedule_confirmed_at ? ` · chốt ${order.schedule_confirmed_at}` : ''}`
-                                : 'chưa chốt'
-                        }
-                        mono={!!(order.confirmed_pickup_time || order.confirmed_return_time)}
-                        bold={!!(order.confirmed_pickup_time || order.confirmed_return_time)}
-                        accent={order.confirmed_pickup_time || order.confirmed_return_time ? '#3a5a1f' : undefined}
-                    />
                     <DetailRow label="Đặt lúc" value={order.created_at} />
                 </div>
 
