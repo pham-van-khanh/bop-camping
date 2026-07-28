@@ -16,6 +16,9 @@ export type LookupOrder = {
     customer_phone: string;
     start_date: string;
     end_date: string;
+    // Giờ shop ĐÃ CHỐT (spec 2026-07-28) — null = chưa chốt, khách chờ shop liên hệ.
+    confirmed_pickup_time: string | null;
+    confirmed_return_time: string | null;
     total_price: number;
     deposit_total: number;
     discount_total: number;
@@ -143,8 +146,9 @@ export default function OrderLookupPanel({
 
                     {/* Summary boxes */}
                     <div className="mb-5 flex flex-wrap gap-3.5 text-[14px]">
-                        <Box k="Nhận đồ" v={order.start_date} />
-                        <Box k="Trả đồ" v={order.end_date} />
+                        {/* Kèm giờ shop đã chốt nếu có (spec 2026-07-28) */}
+                        <Box k="Nhận đồ" v={order.start_date + (order.confirmed_pickup_time ? ` · ${order.confirmed_pickup_time}` : '')} />
+                        <Box k="Trả đồ" v={order.end_date + (order.confirmed_return_time ? ` · ${order.confirmed_return_time}` : '')} />
                         {order.discount_total > 0 && (
                             <Box k="Đã giảm" v={`−${money(order.discount_total)}`} />
                         )}

@@ -7,6 +7,7 @@ use App\Http\Controllers\Admin\CampingSpotController as AdminCampingSpotControll
 use App\Http\Controllers\Admin\CategoryController as AdminCategoryController;
 use App\Http\Controllers\Admin\ComboController as AdminComboController;
 use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
+use App\Http\Controllers\Admin\DeliveryScheduleController as AdminDeliveryScheduleController;
 use App\Http\Controllers\Admin\EditorImageController as AdminEditorImageController;
 use App\Http\Controllers\Admin\FaqController as AdminFaqController;
 use App\Http\Controllers\Admin\FeedbackController as AdminFeedbackController;
@@ -110,6 +111,11 @@ Route::middleware(['admin'])->prefix('admin')->name('admin.')->group(function ()
     Route::patch('/orders/{order}/extra-fee', [AdminOrderController::class, 'updateExtraFee'])->name('orders.fee')->middleware('throttle:30,1');
     // Hoàn cọc khi đơn đã trả (đã hoàn / chưa hoàn + lý do) — bopcamping-7be
     Route::patch('/orders/{order}/refund', [AdminOrderController::class, 'updateRefund'])->name('orders.refund');
+    // Chốt giờ giao/thu + ghi chú nội bộ cho shipper (bopcamping-5xir, prd_delivery_schedule)
+    Route::patch('/orders/{order}/schedule', [AdminOrderController::class, 'updateSchedule'])->name('orders.schedule')->middleware('throttle:30,1');
+
+    // Lịch giao/thu theo ngày cho shipper (bopcamping-rtkh, prd_delivery_schedule)
+    Route::get('/lich-giao', [AdminDeliveryScheduleController::class, 'index'])->name('schedule');
 
     Route::get('/categories', [AdminCategoryController::class, 'index'])->name('categories');
     Route::post('/categories', [AdminCategoryController::class, 'store'])->name('categories.store');

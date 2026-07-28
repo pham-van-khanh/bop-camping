@@ -3,20 +3,27 @@
     $fmtDay = fn ($d) => \Illuminate\Support\Str::ucfirst($d->locale('vi')->isoFormat('dddd, DD/MM/YYYY'));
 @endphp
 <x-mail.brand variant="orange" eyebrow="Sắp đến ngày nhận đồ" heading="Còn 1 ngày nữa!"
-    :preheader="'Ngày mai ('.$order->start_date->format('d/m').') nhận đồ cho đơn '.$order->code.'.'">
+    :preheader="'Ngày mai ('.$order->start_date->format('d/m').($order->confirmed_pickup_time ? ' lúc '.$order->confirmed_pickup_time : '').') nhận đồ cho đơn '.$order->code.'.'">
     <p style="font-size:14.5px;line-height:1.65;margin:0 0 2px;color:#5a5445;">
         Chào {{ $order->customer_name }}, ngày mai tụi mình sẽ giao đồ cho đơn
         <strong style="font-family:{{ $mono }};color:#c06a2a;">#{{ $order->code }}</strong>. Kiểm tra lại thông tin bên dưới giúp tụi mình nhé.
     </p>
 
-    {{-- Thẻ NHẬN ĐỒ (nền vàng nhạt) — chỉ ngày, không giờ (hệ thống không lưu giờ) --}}
+    {{-- Thẻ NHẬN ĐỒ (nền vàng nhạt) — hiện giờ đã chốt nếu có, chưa chốt thì hẹn liên hệ trước --}}
     <div style="margin:16px 0;background:#f6efd8;border-radius:14px;padding:16px 18px;">
         <div style="font-family:{{ $mono }};font-size:10.5px;letter-spacing:1.5px;text-transform:uppercase;color:#a5843f;">Nhận đồ</div>
-        <div style="font-size:15px;font-weight:800;color:#2e2a20;margin-top:4px;">{{ $fmtDay($order->start_date) }}</div>
+        <div style="font-size:15px;font-weight:800;color:#2e2a20;margin-top:4px;">
+            {{ $fmtDay($order->start_date) }}
+            @if ($order->confirmed_pickup_time)
+                — Giao lúc <strong>{{ $order->confirmed_pickup_time }}</strong>
+            @endif
+        </div>
         @if ($order->customer_address)
             <div style="font-size:14px;color:#5a5445;margin-top:4px;">{{ $order->customer_address }}</div>
         @endif
-        <div style="font-size:12.5px;color:#a5843f;margin-top:6px;">Tụi mình sẽ liên hệ trước khi giao để hẹn giờ.</div>
+        @unless ($order->confirmed_pickup_time)
+            <div style="font-size:12.5px;color:#a5843f;margin-top:6px;">Tụi mình sẽ liên hệ trước khi giao để hẹn giờ.</div>
+        @endunless
     </div>
 
     <div style="margin:6px 0 4px;">

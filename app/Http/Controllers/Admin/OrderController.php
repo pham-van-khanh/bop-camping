@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Mail\OrderDatesChangedMail;
+use App\Mail\OrderScheduleConfirmedMail;
 use App\Models\Order;
 use App\Models\Product;
 use App\Models\PromotionSetting;
@@ -147,6 +148,11 @@ class OrderController extends Controller
             // Giờ nhận/trả mong muốn + phụ phí ngoài khung giờ (Phase 2 turnaround, bopcamping-h4to).
             'requested_pickup_time' => $o->requested_pickup_time,
             'requested_return_time' => $o->requested_return_time,
+            // Giờ giao/thu admin ĐÃ CHỐT + ghi chú nội bộ cho shipper (bopcamping-641t).
+            'confirmed_pickup_time' => $o->confirmed_pickup_time,
+            'confirmed_return_time' => $o->confirmed_return_time,
+            'schedule_note' => $o->schedule_note,
+            'schedule_confirmed_at' => $o->schedule_confirmed_at?->format('d/m H:i'),
             'extra_fee' => (int) $o->extra_fee,
             'extra_fee_note' => $o->extra_fee_note,
             'total_price' => $o->total_price,
@@ -547,5 +553,52 @@ class OrderController extends Controller
         ]);
 
         return back()->with('success', "Đơn {$order->code}: đã cập nhật phụ phí");
+    }
+
+    /**
+     * Chốt/sửa giờ giao + giờ thu do SHOP quyết định, kèm ghi chú nội bộ cho shipper
+     * (bopcamping-641t, prd_delivery_schedule). KHÔNG ghi đè `requested_*` (giờ khách xin) —
+     * hai cột tách biệt để đối chiếu. Chỉ đơn con/đơn thường, chưa trả/chưa huỷ mới chốt được.
+     * Xoá trắng cả hai giờ = huỷ chốt (set null). Gửi mail xác nhận CHỈ khi giờ đổi thật.
+     */
+    public function updateSchedule(Request $request, Order $order): RedirectResponse
+    {
+        if ($order->is_parent) {
+            return back()->withErrors(['confirmed_pickup_time' => 'Đơn gộp: chốt giờ trên từng đợt (đơn con).']);
+        }
+        if (in_array($order->status, ['returned', 'cancelled'], true)) {
+            return back()->withErrors(['confirmed_pickup_time' => 'Đơn đã trả/đã huỷ — không chốt giờ nữa.']);
+        }
+
+        $validated = $request->validate([
+            'confirmed_pickup_time' => ['nullable', 'date_format:H:i'],
+            'confirmed_return_time' => ['nullable', 'date_format:H:i'],
+            'schedule_note' => ['nullable', 'string', 'max:255'],
+        ]);
+
+        $pickup = $validated['confirmed_pickup_time'] ?? null;
+        $return = $validated['confirmed_return_time'] ?? null;
+
+        // Đơn cùng ngày (trả sớm/nửa ngày) → giờ thu phải sau giờ giao (so sánh chuỗi HH:MM là đủ).
+        if ($order->start_date->isSameDay($order->end_date) && $pickup && $return && $return <= $pickup) {
+            return back()->withErrors(['confirmed_return_time' => 'Giờ thu phải sau giờ giao (đơn trong cùng ngày).']);
+        }
+
+        $changed = $pickup !== $order->confirmed_pickup_time || $return !== $order->confirmed_return_time;
+
+        $order->update([
+            'confirmed_pickup_time' => $pickup,
+            'confirmed_return_time' => $return,
+            'schedule_note' => $validated['schedule_note'] ?? null,
+            'schedule_confirmed_at' => ($pickup || $return) ? now() : null,
+        ]);
+
+        // Xoá trắng cả hai giờ = huỷ chốt → KHÔNG gửi mail "đã chốt giờ" rỗng nghĩa;
+        // admin gọi khách như trước khi có giờ. Chỉ báo khi còn ít nhất 1 giờ.
+        if ($changed && ($pickup || $return) && ($email = $order->notifiableEmail())) {
+            Mail::to($email)->send(new OrderScheduleConfirmedMail($order->fresh()->loadMissing('items.product')));
+        }
+
+        return back()->with('success', "Đơn {$order->code}: đã cập nhật giờ giao/thu");
     }
 }

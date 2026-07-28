@@ -214,4 +214,30 @@ class AccountOrdersTest extends TestCase
             ->has('orders', 2)
             ->where('stats.activeOrderCount', 1));
     }
+
+    /** @test bopcamping-2ded — giờ shop đã chốt hiện trong props /tai-khoan. */
+    public function orders_expose_confirmed_schedule_times(): void
+    {
+        $user = User::factory()->create(['phone' => '0900000212']);
+        $order = $this->order($user, $user->phone);
+        $order->update(['confirmed_pickup_time' => '14:30', 'confirmed_return_time' => '09:00']);
+
+        $this->actingAs($user)->get(route('account'))->assertInertia(fn (Assert $p) => $p
+            ->where('orders.0.confirmed_pickup_time', '14:30')
+            ->where('orders.0.confirmed_return_time', '09:00'));
+    }
+
+    /** @test bopcamping-2ded — giờ đã chốt cũng có trong lookup section trong /tai-khoan. */
+    public function lookup_in_account_exposes_confirmed_schedule_times(): void
+    {
+        $user = User::factory()->create(['phone' => '0900000213']);
+        $order = $this->order($user, $user->phone);
+        $order->update(['confirmed_pickup_time' => '14:30', 'confirmed_return_time' => '09:00']);
+
+        $this->actingAs($user)
+            ->get(route('account', ['code' => $order->code, 'phone' => $user->phone]))
+            ->assertInertia(fn (Assert $p) => $p
+                ->where('lookup.order.confirmed_pickup_time', '14:30')
+                ->where('lookup.order.confirmed_return_time', '09:00'));
+    }
 }
