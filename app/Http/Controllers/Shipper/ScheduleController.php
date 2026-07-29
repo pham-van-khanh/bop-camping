@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Shipper;
 use App\Http\Controllers\Controller;
 use App\Models\Order;
 use App\Services\DeliveryScheduleService;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
@@ -46,6 +47,49 @@ class ScheduleController extends Controller
             'pickups' => $pickups,
             'returns' => $returns,
         ]);
+    }
+
+    /**
+     * Shipper đánh dấu ĐÃ GIAO: confirmed → renting. Chỉ người được gán lượt GIAO của đúng
+     * đơn này mới làm được (chống IDOR — CWE-639). Đi qua status sẵn có nên OrderObserver
+     * vẫn gửi mail cho khách như khi admin bấm.
+     */
+    public function markDelivered(Request $request, Order $order): RedirectResponse
+    {
+        $this->authorizeLeg($request, $order, 'pickup');
+
+        if ($order->status !== 'confirmed') {
+            return back()->withErrors(['status' => 'Đơn chưa được xác nhận hoặc đã giao rồi.']);
+        }
+
+        $order->update(['status' => 'renting']);
+
+        return back()->with('success', "Đơn {$order->code}: đã giao");
+    }
+
+    /** Shipper đánh dấu ĐÃ THU: renting → returned. Chỉ người được gán lượt THU của đơn này. */
+    public function markCollected(Request $request, Order $order): RedirectResponse
+    {
+        $this->authorizeLeg($request, $order, 'return');
+
+        if ($order->status !== 'renting') {
+            return back()->withErrors(['status' => 'Đơn chưa ở trạng thái đang thuê.']);
+        }
+
+        $order->update(['status' => 'returned']);
+
+        return back()->with('success', "Đơn {$order->code}: đã thu đồ");
+    }
+
+    /**
+     * Chốt cửa uỷ quyền theo BẢN GHI: đơn phải được gán đúng lượt đó cho chính người đang
+     * đăng nhập. 404 (không phải 403) để không tiết lộ đơn đó có tồn tại hay không.
+     */
+    private function authorizeLeg(Request $request, Order $order, string $leg): void
+    {
+        $column = $leg === 'pickup' ? 'pickup_shipper_id' : 'return_shipper_id';
+
+        abort_unless($order->{$column} === $request->user()->id, 404);
     }
 
     /** Ngày yêu cầu → ngày hợp lệ trong khoảng cho phép; sai định dạng thì về hôm nay. */

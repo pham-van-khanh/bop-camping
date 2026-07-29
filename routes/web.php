@@ -98,6 +98,9 @@ Route::middleware(['shipper'])->prefix('shipper')->name('shipper.')->group(funct
     Route::get('/', fn () => redirect()->route('shipper.schedule'));
     // Chỉ đơn được gán cho chính shipper đang đăng nhập (kẹp trong controller).
     Route::get('/lich-giao', [ShipperScheduleController::class, 'index'])->name('schedule');
+    // Shipper tự đánh dấu — chỉ trên đơn được gán cho mình (kiểm trong controller).
+    Route::patch('/don/{order}/da-giao', [ShipperScheduleController::class, 'markDelivered'])->name('orders.delivered')->middleware('throttle:60,1');
+    Route::patch('/don/{order}/da-thu', [ShipperScheduleController::class, 'markCollected'])->name('orders.collected')->middleware('throttle:60,1');
 });
 
 // Admin — panel (bảo vệ bằng middleware 'admin')
