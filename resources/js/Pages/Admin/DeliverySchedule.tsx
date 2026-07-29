@@ -1,12 +1,13 @@
 // Lịch giao/thu cho shipper (bopcamping-rtkh, prd_delivery_schedule FR-5).
 // Lịch THÁNG: ngày có đơn bôi đỏ + đếm đơn, ngày đã qua bị khoá; bấm 1 ngày → danh sách
 // đơn cần giao/thu hôm đó (feedback 2026-07-28). Mobile-first, KHÔNG dùng <table> cho đơn.
+import ScheduleAssignList, { type ShipperOption } from '@/Components/admin/ScheduleAssignList';
 import AdminLayout from '@/Layouts/AdminLayout';
 import { money } from '@/lib/format';
 import { buildMonthGrid, WEEKDAY_LABELS } from '@/lib/monthGrid';
 import { sessionLabel, shopHours, type Session } from '@/lib/session';
 import { Head, router, usePage } from '@inertiajs/react';
-import { ReactNode } from 'react';
+import { ReactNode, useState } from 'react';
 
 type ScheduleItem = { name: string; quantity: number };
 
@@ -25,12 +26,16 @@ type ScheduleOrder = {
     deposit_total: number;
     schedule_note: string | null;
     items: ScheduleItem[];
+    // Gán shipper theo lượt + thứ tự đi admin đã sắp (bopcamping-yc7d)
+    shipper_id: number | null;
+    shipper_name: string | null;
+    sort: number | null;
 };
 
 /** Số đơn giao/thu của 1 ngày trong tháng — chỉ những ngày CÓ đơn được trả về. */
 type DayCount = { date: string; pickups: number; returns: number };
 
-type Stats = { pickups: number; returns: number; unscheduled: number };
+type Stats = { pickups: number; returns: number; unscheduled: number; unassigned: number };
 
 // Lượt đi của shipper: giao đồ (thu tiền COD) hoặc thu đồ (hoàn cọc).
 type TripKind = 'pickup' | 'return';
@@ -57,6 +62,8 @@ export default function AdminDeliverySchedule({
     pickups,
     returns,
     stats,
+    shippers,
+    filters,
 }: {
     month: string;
     month_label: string;
@@ -69,16 +76,22 @@ export default function AdminDeliverySchedule({
     pickups: ScheduleOrder[];
     returns: ScheduleOrder[];
     stats: Stats;
+    shippers: ShipperOption[];
+    filters: { shipper: string };
 }) {
     const weeks = buildMonthGrid(month);
     const byDate = new Map(days.map((d) => [d.date, d]));
 
-    const goMonth = (m: string) =>
-        router.get(route('admin.schedule'), { month: m, date }, { preserveState: true, preserveScroll: true });
-    const goDate = (d: string) =>
-        router.get(route('admin.schedule'), { month, date: d }, { preserveState: true, preserveScroll: true });
-    const goToday = () =>
-        router.get(route('admin.schedule'), { date: today }, { preserveState: true, preserveScroll: true });
+    // Bộ lọc shipper đi kèm mọi lần điều hướng ngày/tháng để không bị mất khi bấm lịch.
+    const nav = (params: Record<string, string>) =>
+        router.get(
+            route('admin.schedule'),
+            { month, date, shipper: filters.shipper, ...params },
+            { preserveState: true, preserveScroll: true },
+        );
+    const goMonth = (m: string) => nav({ month: m });
+    const goDate = (d: string) => nav({ date: d });
+    const goToday = () => nav({ month: today.slice(0, 7), date: today });
 
     return (
         <>
@@ -154,7 +167,26 @@ export default function AdminDeliverySchedule({
                 </div>
 
                 {/* Ngày đang chọn */}
-                <h2 className="mb-3 text-[16px] font-bold text-pine">{date_label}</h2>
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                    <h2 className="text-[16px] font-bold text-pine">{date_label}</h2>
+                    {/* Lọc theo shipper — áp dụng cho cả lịch tháng và danh sách dưới */}
+                    <label className="flex items-center gap-2 text-[12.5px] text-moss">
+                        Shipper
+                        <select
+                            value={filters.shipper}
+                            onChange={(e) => nav({ shipper: e.target.value })}
+                            className="min-h-[36px] rounded-[9px] border border-cardBorder bg-white px-2 text-[13px] text-ink outline-none focus:border-grass"
+                        >
+                            <option value="">Tất cả</option>
+                            <option value="none">Chưa gán</option>
+                            {shippers.map((s) => (
+                                <option key={s.id} value={String(s.id)}>
+                                    {s.name}
+                                </option>
+                            ))}
+                        </select>
+                    </label>
+                </div>
                 <div className="mb-6 flex flex-wrap gap-2 text-[13px] font-semibold">
                     <span className="rounded-pill border border-cardBorder bg-white px-3 py-1.5 text-pine">
                         {stats.pickups} giao
@@ -167,18 +199,27 @@ export default function AdminDeliverySchedule({
                             {stats.unscheduled} chưa chốt giờ
                         </span>
                     )}
+                    {stats.unassigned > 0 && (
+                        <span className="rounded-pill px-3 py-1.5" style={{ background: '#f6ddd6', color: '#b3493a' }}>
+                            {stats.unassigned} chưa có shipper
+                        </span>
+                    )}
                 </div>
 
                 <ScheduleSection
                     title="Cần giao"
                     kind="pickup"
+                    date={date}
                     orders={pickups}
+                    shippers={shippers}
                     emptyText="Không có đơn nào cần giao ngày này."
                 />
                 <ScheduleSection
                     title="Cần thu"
                     kind="return"
+                    date={date}
                     orders={returns}
+                    shippers={shippers}
                     emptyText="Không có đơn nào cần thu ngày này."
                 />
             </div>
@@ -244,30 +285,89 @@ function DayCell({
 function ScheduleSection({
     title,
     kind,
+    date,
     orders,
+    shippers,
     emptyText,
 }: {
     title: string;
     kind: TripKind;
+    date: string;
     orders: ScheduleOrder[];
+    shippers: ShipperOption[];
     emptyText: string;
 }) {
+    const unassigned = orders.filter((o) => o.shipper_id === null).length;
+
     return (
         <div className="mb-8">
-            <h3 className="mb-3 text-[15px] font-bold text-pine">
-                {title} <span className="font-mono text-[13px] font-normal text-moss">({orders.length})</span>
-            </h3>
-            {orders.length === 0 ? (
-                <div className="rounded-[16px] border border-cardBorder bg-white py-10 text-center text-[13px] text-moss">
-                    {emptyText}
-                </div>
-            ) : (
-                <div className="flex flex-col gap-3">
-                    {orders.map((order) => (
-                        <ScheduleOrderCard key={order.id} order={order} kind={kind} />
-                    ))}
-                </div>
-            )}
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                <h3 className="text-[15px] font-bold text-pine">
+                    {title} <span className="font-mono text-[13px] font-normal text-moss">({orders.length})</span>
+                </h3>
+                {unassigned > 0 && shippers.length > 0 && (
+                    <AssignAll kind={kind} date={date} shippers={shippers} count={unassigned} />
+                )}
+            </div>
+            <ScheduleAssignList
+                leg={kind}
+                date={date}
+                orders={orders}
+                shippers={shippers}
+                emptyText={emptyText}
+                renderCard={(order) => <ScheduleOrderCard order={order} kind={kind} />}
+            />
+        </div>
+    );
+}
+
+/** Gán 1 shipper cho mọi đơn CHƯA có người của mục này — không ghi đè đơn đã gán. */
+function AssignAll({
+    kind,
+    date,
+    shippers,
+    count,
+}: {
+    kind: TripKind;
+    date: string;
+    shippers: ShipperOption[];
+    count: number;
+}) {
+    const [shipperId, setShipperId] = useState('');
+    const [saving, setSaving] = useState(false);
+
+    const submit = () => {
+        if (!shipperId) return;
+        setSaving(true);
+        router.post(
+            route('admin.schedule.assignAll'),
+            { leg: kind, date, shipper_id: Number(shipperId) },
+            { preserveScroll: true, preserveState: true, onFinish: () => setSaving(false) },
+        );
+    };
+
+    return (
+        <div className="flex flex-wrap items-center gap-2">
+            <select
+                value={shipperId}
+                onChange={(e) => setShipperId(e.target.value)}
+                className="min-h-[36px] rounded-[9px] border border-cardBorder bg-white px-2 text-[13px] text-ink outline-none focus:border-grass"
+            >
+                <option value="">Chọn shipper…</option>
+                {shippers.map((s) => (
+                    <option key={s.id} value={String(s.id)}>
+                        {s.name}
+                    </option>
+                ))}
+            </select>
+            <button
+                type="button"
+                onClick={submit}
+                disabled={!shipperId || saving}
+                className="min-h-[36px] rounded-[9px] bg-grass px-3 text-[12.5px] font-bold text-white transition hover:bg-pine disabled:opacity-60"
+            >
+                {saving ? 'Đang gán…' : `Gán ${count} đơn chưa có người`}
+            </button>
         </div>
     );
 }

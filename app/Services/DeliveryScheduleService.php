@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Order;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Carbon;
 
@@ -41,40 +42,65 @@ class DeliveryScheduleService
      * là đơn chưa chốt giờ. 'col IS NULL, col' chạy đúng cả sqlite lẫn MySQL.
      *
      * @param  int|null  $shipperId  Chỉ lấy đơn gán cho shipper này (null = không lọc theo người)
+     * @param  bool  $unassignedOnly  Chỉ lấy đơn CHƯA gán shipper (bỏ qua $shipperId)
      * @return Collection<int,Order>
      */
-    public function legOrders(string $leg, Carbon $date, ?int $shipperId = null): Collection
+    public function legOrders(string $leg, Carbon $date, ?int $shipperId = null, bool $unassignedOnly = false): Collection
+    {
+        $cfg = $this->leg($leg);
+
+        return $this->legQuery($leg, $date)
+            ->with(['items.product', 'serviceLocation', 'pickupShipper:id,name', 'returnShipper:id,name'])
+            ->when($unassignedOnly, fn ($q) => $q->whereNull($cfg['shipper']))
+            ->when(! $unassignedOnly && $shipperId !== null, fn ($q) => $q->where($cfg['shipper'], $shipperId))
+            ->orderByRaw("{$cfg['sort']} IS NULL, {$cfg['sort']}, {$cfg['time']} IS NULL, {$cfg['time']}, code")
+            ->get();
+    }
+
+    /**
+     * Query gốc "đơn của lượt này trong ngày này" — dùng chung cho đọc danh sách và cho
+     * các hành động ghi (gán shipper cả ngày, lưu thứ tự) để phạm vi luôn khớp nhau.
+     *
+     * @return Builder<Order>
+     */
+    public function legQuery(string $leg, Carbon $date)
     {
         $cfg = $this->leg($leg);
 
         return Order::query()
             ->where('is_parent', false)   // đơn cha chỉ gom đợt, không có món để giao
-            ->with(['items.product', 'serviceLocation', 'pickupShipper:id,name', 'returnShipper:id,name'])
             ->whereDate($cfg['date'], $date)
-            ->whereIn('status', $cfg['statuses'])
-            ->when($shipperId !== null, fn ($q) => $q->where($cfg['shipper'], $shipperId))
-            ->orderByRaw("{$cfg['sort']} IS NULL, {$cfg['sort']}, {$cfg['time']} IS NULL, {$cfg['time']}, code")
-            ->get();
+            ->whereIn('status', $cfg['statuses']);
+    }
+
+    /** Tên cột theo lượt — cho caller cần ghi trực tiếp (gán shipper, lưu thứ tự). */
+    public function columns(string $leg): array
+    {
+        return $this->leg($leg);
     }
 
     /**
      * Số đơn giao/thu từng ngày trong tháng — FE bôi đỏ ô ngày có đơn.
      * Chỉ trả những ngày CÓ đơn (tháng rỗng = mảng rỗng).
      *
+     * @param  int|null  $shipperId  Đếm theo shipper này (null = tất cả)
+     * @param  bool  $unassignedOnly  Chỉ đếm đơn chưa gán shipper
      * @return list<array{date:string,pickups:int,returns:int}>
      */
-    public function monthDays(Carbon $month): array
+    public function monthDays(Carbon $month, ?int $shipperId = null, bool $unassignedOnly = false): array
     {
         $start = $month->copy()->startOfMonth()->toDateString();
         $end = $month->copy()->endOfMonth()->toDateString();
 
-        $countBy = function (string $leg) use ($start, $end) {
+        $countBy = function (string $leg) use ($start, $end, $shipperId, $unassignedOnly) {
             $cfg = $this->leg($leg);
 
             return Order::query()
                 ->where('is_parent', false)
                 ->whereIn('status', $cfg['statuses'])
                 ->whereBetween($cfg['date'], [$start, $end])
+                ->when($unassignedOnly, fn ($q) => $q->whereNull($cfg['shipper']))
+                ->when(! $unassignedOnly && $shipperId !== null, fn ($q) => $q->where($cfg['shipper'], $shipperId))
                 ->pluck($cfg['date'])
                 ->countBy(fn (Carbon $d) => $d->toDateString());
         };
