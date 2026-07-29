@@ -46,7 +46,7 @@ class OrderActionAttributionTest extends TestCase
     }
 
     /** @test */
-    public function admin_collecting_money_is_labelled_admin(): void
+    public function admin_collecting_money_records_the_admin_name(): void
     {
         $admin = $this->admin('Chủ shop');
         $order = $this->order();
@@ -56,21 +56,19 @@ class OrderActionAttributionTest extends TestCase
         $entry = $this->entry($order, 'rental_paid');
         $this->assertTrue($entry['done']);
         $this->assertSame('Chủ shop', $entry['by']);
-        $this->assertSame('Admin', $entry['role']);
+        $this->assertArrayNotHasKey('role', $entry, 'chủ shop 31/07: chỉ cần TÊN, không ghi vai');
         $this->assertNotNull($entry['at']);
     }
 
     /** @test */
-    public function shipper_collecting_money_is_labelled_shipper(): void
+    public function shipper_collecting_money_records_the_shipper_name(): void
     {
         $shipper = $this->shipper('Shipper An');
         $order = $this->order(['pickup_shipper_id' => $shipper->id]);
 
         $this->actingAs($shipper)->patch(route('shipper.orders.collect', ['order' => $order->id, 'kind' => 'deposit']));
 
-        $entry = $this->entry($order, 'deposit_paid');
-        $this->assertSame('Shipper An', $entry['by']);
-        $this->assertSame('Shipper', $entry['role']);
+        $this->assertSame('Shipper An', $this->entry($order, 'deposit_paid')['by']);
     }
 
     /** @test */
@@ -80,13 +78,13 @@ class OrderActionAttributionTest extends TestCase
         $shipper = $this->shipper();
         $byShipper = $this->order(['pickup_shipper_id' => $shipper->id]);
         $this->actingAs($shipper)->patch(route('shipper.orders.delivered', $byShipper));
-        $this->assertSame('Shipper', $this->entry($byShipper, 'delivered')['role']);
+        $this->assertSame($shipper->name, $this->entry($byShipper, 'delivered')['by']);
 
         // Admin bấm đã giao (đổi trạng thái trong panel).
         $admin = $this->admin();
         $byAdmin = $this->order();
         $this->actingAs($admin)->patch(route('admin.orders.update', $byAdmin), ['status' => 'renting']);
-        $this->assertSame('Admin', $this->entry($byAdmin, 'delivered')['role']);
+        $this->assertSame($admin->name, $this->entry($byAdmin, 'delivered')['by']);
     }
 
     /** @test */
@@ -99,7 +97,7 @@ class OrderActionAttributionTest extends TestCase
 
         $entry = $this->entry($order, 'collected');
         $this->assertTrue($entry['done']);
-        $this->assertSame('Shipper', $entry['role']);
+        $this->assertSame($shipper->name, $entry['by']);
     }
 
     /** @test */
@@ -120,7 +118,6 @@ class OrderActionAttributionTest extends TestCase
         $this->actingAs($admin)->patch(route('admin.orders.refund', $byAdmin), ['deposit_refund_status' => 'refunded']);
 
         $this->assertSame('Chủ shop', $this->entry($byAdmin, 'deposit_refunded')['by']);
-        $this->assertSame('Admin', $this->entry($byAdmin, 'deposit_refunded')['role']);
     }
 
     /** @test */
@@ -184,7 +181,6 @@ class OrderActionAttributionTest extends TestCase
                 ->has('order.actions', 5)
                 ->where('order.actions.1.key', 'deposit_paid')
                 ->where('order.actions.1.done', true)
-                ->where('order.actions.1.role', 'Admin')
                 ->where('order.actions.1.by', 'Chủ shop'));
     }
 

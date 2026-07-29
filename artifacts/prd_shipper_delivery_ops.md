@@ -188,8 +188,8 @@ Chủ shop: *"action trong admin khó để biết ai đã nhận cọc/tiền t
 giao đồ · thu đồ · hoàn cọc. Thu tiền đã có dấu từ mục 7.1; migration `2026_08_01_000001`
 thêm `deposit_refunded_at|by`, `delivered_at|by`, `collected_at|by`.
 
-- Nhãn hiển thị có **vai**: "Admin Chủ shop · 30/07 15:20" / "Shipper An · 30/07 16:40".
-  Vai suy từ cờ user hiện tại (`User::roleLabel()`), đủ cho shop một cửa hàng.
+- Nhãn hiển thị **chỉ TÊN người làm**: "Chủ shop · 30/07 15:20" / "An · 30/07 16:40".
+  (Chủ shop 31/07: không cần ghi rõ vai Admin/Shipper — nhìn tên là biết ai.)
 - **Lối vào duy nhất**: `stampAction()` (giao/thu) và `markRefunded()` (hoàn cọc) — admin và
   shipper dùng chung, nên không có đường nào đổi dữ liệu mà không để lại dấu.
 - **Giữ dấu người làm ĐẦU TIÊN**: admin đổi trạng thái qua lại không xoá được dấu shipper đã
