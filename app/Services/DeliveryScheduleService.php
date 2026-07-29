@@ -94,7 +94,14 @@ class DeliveryScheduleService
 
         return $this->legQuery($leg, $date)
             // phone: để admin mở Zalo đúng shipper đã gán (bopcamping-dolb)
-            ->with(['items.product', 'serviceLocation', 'pickupShipper:id,name,phone', 'returnShipper:id,name,phone'])
+            ->with([
+                'items.product', 'serviceLocation',
+                'pickupShipper:id,name,phone', 'returnShipper:id,name,phone',
+                // Ai đã làm gì (bopcamping-3wfk) — cần cả cờ vai để hiện Admin/Shipper.
+                'rentalPaidBy:id,name,is_admin,is_shipper', 'depositPaidBy:id,name,is_admin,is_shipper',
+                'depositRefundedBy:id,name,is_admin,is_shipper',
+                'deliveredBy:id,name,is_admin,is_shipper', 'collectedBy:id,name,is_admin,is_shipper',
+            ])
             ->when($unassignedOnly, fn ($q) => $q->whereNull($cfg['shipper']))
             ->when(! $unassignedOnly && $shipperId !== null, fn ($q) => $q->where($cfg['shipper'], $shipperId))
             ->orderBy('code')
@@ -248,6 +255,41 @@ class DeliveryScheduleService
     }
 
     /**
+     * "Ai phải làm gì" cho lượt này (bopcamping-3wfk): việc còn lại theo đúng thứ tự làm.
+     * Rỗng = lượt này xong việc. Tiền tính theo khoản CHƯA thu, không nhắc khoản đã thu.
+     *
+     * @return list<string>
+     */
+    public function todo(Order $o, string $leg): array
+    {
+        $vnd = fn (int $n) => number_format($n, 0, ',', '.').'đ';
+        $todo = [];
+
+        if ($leg === 'pickup') {
+            if ($o->status === 'pending') {
+                $todo[] = 'Chờ shop xác nhận đơn';
+            } elseif ($o->status === 'confirmed') {
+                $todo[] = 'Giao đồ';
+            }
+        } elseif ($o->status === 'renting') {
+            $todo[] = 'Thu đồ';
+        }
+
+        if (! $o->rentalPaid()) {
+            $todo[] = 'Thu tiền thuê '.$vnd($o->rental_due);
+        }
+        if (! $o->depositPaid()) {
+            $todo[] = 'Thu cọc '.$vnd((int) $o->deposit_total);
+        }
+        // Hoàn cọc chỉ là việc của lượt THU, và chỉ khi đã thu cọc của khách trước đó.
+        if ($leg === 'return' && $o->depositPaid() && $o->deposit_refund_status !== 'refunded') {
+            $todo[] = 'Hoàn cọc '.$vnd((int) $o->deposit_total);
+        }
+
+        return $todo;
+    }
+
+    /**
      * Chuẩn hoá 1 đơn cho danh sách 1 lượt — dùng chung mọi nơi (web admin/shipper),
      * chỉ khác field giờ nào được lấy làm 'time'.
      *
@@ -290,6 +332,9 @@ class DeliveryScheduleService
             'deposit_refund_status' => $o->deposit_refund_status,
             'deposit_refund_note' => $o->deposit_refund_note,
             'schedule_note' => $o->schedule_note,
+            // Ai đã làm gì + việc còn lại của lượt này (bopcamping-3wfk)
+            'actions' => $o->actionLog(),
+            'todo' => $this->todo($o, $leg),
             'items' => $o->items->map(fn ($i) => [
                 'name' => $i->product?->name ?? '(đã xoá)',
                 'quantity' => $i->quantity,

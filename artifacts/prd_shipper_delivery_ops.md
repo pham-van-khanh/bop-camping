@@ -180,6 +180,31 @@ chỉ ghi qua `Order::markPaid()`. Accessor `rental_due` = thuê + phụ phí �
   và trong **nội dung Zalo**. Nhãn "mặc định" chuyển xuống dòng mốc. Card admin vẫn giữ badge
   **"Chưa chốt giờ"** khi đơn không có giờ nào — đó là việc admin cần gọi khách, không phải giờ.
 
+### 7.5 Ai đã làm gì / ai phải làm gì (31/07/2026 — bopcamping-24wj)
+
+Chủ shop: *"action trong admin khó để biết ai đã nhận cọc/tiền thuê/hoàn cọc"*.
+
+**5 mốc có ghi dấu người + giờ** (`Order::TRACKED_ACTIONS`): nhận tiền thuê · nhận cọc ·
+giao đồ · thu đồ · hoàn cọc. Thu tiền đã có dấu từ mục 7.1; migration `2026_08_01_000001`
+thêm `deposit_refunded_at|by`, `delivered_at|by`, `collected_at|by`.
+
+- Nhãn hiển thị có **vai**: "Admin Chủ shop · 30/07 15:20" / "Shipper An · 30/07 16:40".
+  Vai suy từ cờ user hiện tại (`User::roleLabel()`), đủ cho shop một cửa hàng.
+- **Lối vào duy nhất**: `stampAction()` (giao/thu) và `markRefunded()` (hoàn cọc) — admin và
+  shipper dùng chung, nên không có đường nào đổi dữ liệu mà không để lại dấu.
+- **Giữ dấu người làm ĐẦU TIÊN**: admin đổi trạng thái qua lại không xoá được dấu shipper đã
+  giao thật. Đặt hoàn cọc về "chưa hoàn" thì xoá dấu (coi như chưa làm).
+- **KHÔNG backfill đơn cũ**: trạng thái đã nói việc xảy ra rồi, nhưng ai làm thì thật sự
+  không biết → UI ghi **"không rõ ai"**. Điền `updated_at` + người bất kỳ là bịa dữ liệu đối soát.
+- **"Ai phải làm gì"**: `DeliveryScheduleService::todo()` trả việc còn lại theo lượt — giao đồ /
+  thu đồ, thu tiền thuê, thu cọc, hoàn cọc — **bỏ khoản đã thu**, và hoàn cọc chỉ xuất hiện sau
+  khi đã thu cọc của khách. Card lịch giao hiện "Việc còn lại: … — Shipper An" hoặc
+  "✓ Lượt này xong việc".
+
+**Nơi hiển thị:** chi tiết đơn admin có khối **"Ai đã làm gì"** (5 dòng, mốc chưa làm để mờ);
+card lịch giao có dòng việc còn lại + người phụ trách + tóm tắt việc đã làm; màn shipper hiện
+ai đã nhận từng khoản và ai đã hoàn cọc.
+
 ## 8. Liên quan
 
 - [plan_shipper_delivery_ops.md](artifacts/plan_shipper_delivery_ops.md) — kế hoạch triển khai + phân rã task.

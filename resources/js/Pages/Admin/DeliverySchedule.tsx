@@ -36,6 +36,9 @@ type ScheduleOrder = {
     shipper_phone: string | null;
     // Lượt của dòng này ('pickup'|'return') — dùng để tô đúng mốc trong nội dung Zalo.
     leg: TripKind;
+    // Ai đã làm gì + việc còn lại của lượt này (bopcamping-3wfk)
+    actions: { key: string; label: string; done: boolean; at: string | null; by: string | null; role: string | null }[];
+    todo: string[];
 };
 
 /** Số đơn giao/thu của 1 ngày trong tháng — chỉ những ngày CÓ đơn được trả về. */
@@ -482,6 +485,30 @@ function ScheduleOrderCard({ order, kind }: { order: ScheduleOrder; kind: TripKi
                             </span>
                         )}
                     </>
+                )}
+            </div>
+
+            {/* Ai phải làm gì / ai đã làm gì (bopcamping-3wfk) */}
+            <div className="mt-2 border-t border-[#f1f4ea] pt-2 text-[12.5px]">
+                {order.todo.length > 0 ? (
+                    <div>
+                        <span className="font-bold" style={{ color: RED.fg }}>Việc còn lại: </span>
+                        <span className="text-ink">{order.todo.join(' · ')}</span>
+                        <span className="text-moss">
+                            {' — '}
+                            {order.shipper_name ? `${order.shipper_name}` : 'chưa gán shipper'}
+                        </span>
+                    </div>
+                ) : (
+                    <div style={{ color: '#3a5a1f' }}>✓ Lượt này xong việc</div>
+                )}
+                {order.actions.filter((a) => a.done).length > 0 && (
+                    <div className="mt-1 text-[12px] text-moss">
+                        {order.actions
+                            .filter((a) => a.done)
+                            .map((a) => `${a.label}: ${a.by ? `${a.role ? a.role + ' ' : ''}${a.by}` : 'không rõ ai'}${a.at ? ` (${a.at})` : ''}`)
+                            .join(' · ')}
+                    </div>
                 )}
             </div>
 

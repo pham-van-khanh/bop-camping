@@ -28,6 +28,16 @@ export type ItemGroup = { key: string; combo: string | null; items: OrderItem[] 
 // bopcamping-3ag: nguồn giảm giá từng dòng, lưu lúc checkout (đơn cũ = null).
 export type DiscountLine = { source: string; amount: number; code?: string; percent?: boolean };
 
+/** 1 mốc việc trên đơn: đã làm chưa, ai làm (kèm vai), lúc nào. */
+export type OrderAction = {
+    key: string;
+    label: string;
+    done: boolean;
+    at: string | null;
+    by: string | null;
+    role: string | null;
+};
+
 export type UsedVoucher = { code: string; type: VoucherType; value: number; source: string };
 
 export type Order = {
@@ -57,6 +67,8 @@ export type Order = {
     rental_due: number;
     rental_paid: boolean; rental_paid_at: string | null; rental_paid_by: string | null;
     deposit_paid: boolean; deposit_paid_at: string | null; deposit_paid_by: string | null;
+    // Ai đã làm gì: 5 mốc kèm người + vai + giờ (bopcamping-3wfk)
+    actions: OrderAction[];
     deposit_refund_status: string; deposit_refund_note: string | null;
     note: string | null; created_at: string; items: OrderItem[];
     vouchers: UsedVoucher[]; referral: { referrer_name: string | null; status: string } | null;
@@ -150,6 +162,43 @@ function DetailRow({ label, value, mono, accent, bold }: { label: string; value:
 }
 
 /**
+ * "Ai đã làm gì" trên đơn (bopcamping-3wfk): 5 mốc theo thứ tự việc diễn ra, kèm người +
+ * vai + giờ. Mốc đã xảy ra nhưng không có dấu (đơn cũ trước khi có tính năng) ghi rõ
+ * "không rõ ai" — thà nói không biết còn hơn đoán sai khi đối soát tiền.
+ */
+function ActionLog({ actions }: { actions: OrderAction[] }) {
+    return (
+        <>
+            <div className="mb-2 mt-3 text-[12px] font-bold uppercase tracking-[0.04em] text-grass">Ai đã làm gì</div>
+            <div className="rounded-[10px] border border-[#eef2e3] bg-white p-3 text-[12.5px]">
+                {actions.map((a) => (
+                    <div key={a.key} className="flex items-start justify-between gap-3 border-b border-[#f1f4ea] py-1.5 last:border-0">
+                        <span className={a.done ? 'font-semibold text-ink' : 'text-[#a3ad92]'}>
+                            {a.done ? '✓ ' : '○ '}
+                            {a.label}
+                        </span>
+                        <span className="text-right text-moss">
+                            {!a.done ? (
+                                <span className="text-[#c4cca8]">chưa làm</span>
+                            ) : a.by ? (
+                                <>
+                                    <span className="font-semibold text-ink">
+                                        {a.role ? `${a.role} ${a.by}` : a.by}
+                                    </span>
+                                    {a.at && <span className="ml-1 font-mono text-[11.5px]">{a.at}</span>}
+                                </>
+                            ) : (
+                                <span style={{ color: '#9a5a1f' }}>không rõ ai</span>
+                            )}
+                        </span>
+                    </div>
+                ))}
+            </div>
+        </>
+    );
+}
+
+/**
  * Một dòng "đã thu / chưa thu" cho 1 khoản tiền (bopcamping-q7i0). Bấm để đảo trạng thái;
  * khi đã thu thì hiện AI thu và LÚC NÀO — cần cho đối soát khi shipper thu hộ.
  */
@@ -159,6 +208,7 @@ function PaidToggle({
     paid,
     at,
     by,
+    role,
     disabled,
     onToggle,
 }: {
@@ -167,6 +217,7 @@ function PaidToggle({
     paid: boolean;
     at: string | null;
     by: string | null;
+    role: string | null;
     disabled?: boolean;
     onToggle: (paid: boolean) => void;
 }) {
@@ -175,9 +226,9 @@ function PaidToggle({
             <div className="min-w-0">
                 <span className="text-[12.5px] font-semibold text-ink">{label}</span>
                 <span className="ml-1.5 font-mono text-[12.5px] text-moss">{money(amount)}</span>
-                {paid && (at || by) && (
+                {paid && (
                     <div className="text-[11px] text-[#a3ad92]">
-                        {by ? `${by} thu` : 'đã thu'}
+                        {by ? `${role ? role + ' ' : ''}${by} nhận` : 'đã nhận (không rõ ai)'}
                         {at ? ` · ${at}` : ''}
                     </div>
                 )}
@@ -741,6 +792,7 @@ export function OrderDetailPanel({ order, locations, maxDiscountPercent }: { ord
                         paid={order.rental_paid}
                         at={order.rental_paid_at}
                         by={order.rental_paid_by}
+                        role={order.actions.find((a) => a.key === 'rental_paid')?.role ?? null}
                         disabled={order.status === 'cancelled'}
                         onToggle={(paid) => togglePaid('rental', paid)}
                     />
@@ -750,6 +802,7 @@ export function OrderDetailPanel({ order, locations, maxDiscountPercent }: { ord
                         paid={order.deposit_paid}
                         at={order.deposit_paid_at}
                         by={order.deposit_paid_by}
+                        role={order.actions.find((a) => a.key === 'deposit_paid')?.role ?? null}
                         disabled={order.status === 'cancelled'}
                         onToggle={(paid) => togglePaid('deposit', paid)}
                     />
@@ -759,6 +812,8 @@ export function OrderDetailPanel({ order, locations, maxDiscountPercent }: { ord
                 </div>
 
                 {order.status === 'returned' && <RefundControl order={order} />}
+
+                <ActionLog actions={order.actions} />
 
                 {order.note && (
                     <p className="mt-3 rounded-[10px] border border-[#eef2e3] bg-white p-3 text-[12.5px] text-moss">

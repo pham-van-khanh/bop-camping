@@ -50,6 +50,7 @@ function makeOrder(overrides: Partial<Order> = {}): Order {
         status: 'confirmed',
         payment_status: 'unpaid',
         rental_due: 100000,
+        actions: [],
         rental_paid: false, rental_paid_at: null, rental_paid_by: null,
         deposit_paid: false, deposit_paid_at: null, deposit_paid_by: null,
         deposit_refund_status: 'pending',
