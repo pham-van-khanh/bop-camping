@@ -1,6 +1,11 @@
 # ADR — Sinh PDF trên server (lịch giao)
 
-**Ngày:** 2026-07-29 · **Trạng thái:** Accepted · **Reversibility:** Two-Way Door (gỡ package + 1 route là xong)
+**Ngày:** 2026-07-29 · **Trạng thái:** ❌ **Rejected (29/07/2026)** · **Reversibility:** Two-Way Door
+
+> **Không áp dụng.** Chủ shop bỏ hẳn tính năng in / PDF / CSV lịch giao ngay trong ngày (29/07),
+> trước khi code. Package `barryvdh/laravel-dompdf` đã được cài thử rồi **gỡ lại**; `composer.json`
+> và golden path trong `tech-strategy.md` KHÔNG còn dòng nào về PDF. Giữ ADR này để nếu sau
+> này cần in lịch thì không phải khảo sát lại — kết luận vẫn là dompdf, lý do ở mục 3.
 
 ## 1. Bối cảnh
 

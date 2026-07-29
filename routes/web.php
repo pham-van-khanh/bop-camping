@@ -136,6 +136,8 @@ Route::middleware(['admin'])->prefix('admin')->name('admin.')->group(function ()
     // Gán shipper cho từng lượt + gán cả ngày (bopcamping-yc7d)
     Route::patch('/lich-giao/don/{order}/shipper', [AdminDeliveryScheduleController::class, 'assign'])->name('schedule.assign')->middleware('throttle:60,1');
     Route::post('/lich-giao/gan-tat-ca', [AdminDeliveryScheduleController::class, 'assignAll'])->name('schedule.assignAll')->middleware('throttle:30,1');
+    // Gửi lịch trong ngày cho shipper qua email (bopcamping-5r5m)
+    Route::post('/lich-giao/gui-email', [AdminDeliveryScheduleController::class, 'sendEmail'])->name('schedule.email')->middleware('throttle:20,1');
 
     Route::get('/categories', [AdminCategoryController::class, 'index'])->name('categories');
     Route::post('/categories', [AdminCategoryController::class, 'store'])->name('categories.store');

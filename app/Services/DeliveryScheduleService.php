@@ -9,7 +9,7 @@ use Illuminate\Support\Carbon;
 
 /**
  * Nguồn chân lý cho lịch giao/thu (bopcamping-4gy0). Rút ra khỏi Admin\DeliveryScheduleController
- * để trang admin, trang shipper, bản in, PDF, CSV và email lịch đều đọc CÙNG một dữ liệu —
+ * để trang admin, trang shipper và email lịch đều đọc CÙNG một dữ liệu —
  * không lặp query, không lệch số liệu giữa các nơi.
  *
  * Khái niệm "lượt" (leg): 'pickup' = đi GIAO đồ (mở khoảng thuê) · 'return' = đi THU đồ
@@ -122,7 +122,7 @@ class DeliveryScheduleService
     }
 
     /**
-     * Chuẩn hoá 1 đơn cho danh sách 1 lượt — dùng chung mọi nơi (web/in/PDF/CSV/mail),
+     * Chuẩn hoá 1 đơn cho danh sách 1 lượt — dùng chung mọi nơi (web admin/shipper/mail),
      * chỉ khác field giờ nào được lấy làm 'time'.
      *
      * @return array<string,mixed>

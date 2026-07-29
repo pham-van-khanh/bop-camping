@@ -1,7 +1,7 @@
 # Plan — Vận hành giao nhận (shipper, gán đơn, in/xuất, thông báo)
 
 **PRD:** [prd_shipper_delivery_ops.md](artifacts/prd_shipper_delivery_ops.md) · **ADR:** [adr_shipper_role_and_access.md](artifacts/adr_shipper_role_and_access.md), [adr_pdf_generation.md](artifacts/adr_pdf_generation.md)
-**Ngày:** 2026-07-29 · **Loại:** Large (~11–13 ngày) · **Nhánh:** `feature/shipper-ops` tách từ `feature/delivery-schedule` (đợt này refactor code của nhánh đó; nó đang trên staging chờ test nên chưa có ở `feat/scaffold-laravel`)
+**Ngày:** 2026-07-29 · **Loại:** Large (~9–11 ngày sau khi bỏ in/PDF/CSV) · **Nhánh:** `feature/shipper-ops` tách từ `feature/delivery-schedule` (đợt này refactor code của nhánh đó; nó đang trên staging chờ test nên chưa có ở `feat/scaffold-laravel`)
 
 > Điều kiện tiên quyết: `feature/delivery-schedule` (giờ đã chốt + lịch tháng) đã merge vào `feat/scaffold-laravel` — đợt này build lên trên nó.
 
@@ -13,13 +13,13 @@
 | Login admin | [Admin/AuthController.php](app/Http/Controllers/Admin/AuthController.php) | `Auth::attempt(phone+password)` + `session()->regenerate()` + logout guard `web` |
 | CRUD user | [Admin/UserController.php:113](app/Http/Controllers/Admin/UserController.php:113) | `store/update/updateRole/destroy` + validate `phone` regex/unique, `password` min 6, chặn tự đổi quyền mình |
 | Shared props | [HandleInertiaRequests.php:44](app/Http/Middleware/HandleInertiaRequests.php:44) | Thêm `is_shipper` vào `auth.user` |
-| Lịch giao | [Admin/DeliveryScheduleController.php](app/Http/Controllers/Admin/DeliveryScheduleController.php), [DeliverySchedule.tsx](resources/js/Pages/Admin/DeliverySchedule.tsx) | `ordersOf()`, `row()`, `monthDays()` — tách thành service dùng chung cho web/in/PDF/CSV/shipper |
+| Lịch giao | [Admin/DeliveryScheduleController.php](app/Http/Controllers/Admin/DeliveryScheduleController.php), [DeliverySchedule.tsx](resources/js/Pages/Admin/DeliverySchedule.tsx) | `ordersOf()`, `row()`, `monthDays()` — tách thành service dùng chung cho web admin / trang shipper / mail |
 | Kéo-thả | [MediaGallery.tsx:216](resources/js/Components/admin/MediaGallery.tsx:216) | `Reorder.Group` / `Reorder.Item` của framer-motion + `persistOrder` gọi route reorder |
 | Mail hàng loạt | [SendPickupReminders.php](app/Console/Commands/SendPickupReminders.php), [routes/console.php](routes/console.php) | Khuôn command + `Schedule::command(...)->dailyAt()` + cờ idempotent |
 | Mail | `app/Mail/*` (ShouldQueue) + component `x-mail.brand` | Khuôn `ShipperScheduleMail` |
 | Chuyển trạng thái | [OrderController::updateStatus](app/Http/Controllers/Admin/OrderController.php:395) + [OrderObserver](app/Observers/OrderObserver.php) | Shipper "đã giao/đã thu" đi đúng luồng này để mail khách vẫn gửi |
 
-**Chưa có:** vai shipper, gán đơn, thứ tự đi, khu vực `/shipper/*`, thư viện PDF, export CSV, mail cho shipper.
+**Chưa có:** vai shipper, gán đơn, khu vực `/shipper/*`, mail lịch cho shipper.
 
 ## 2. Thiết kế
 
@@ -57,7 +57,7 @@ Route::middleware(['shipper'])->prefix('shipper')->name('shipper.')->group(funct
 
 ### 2.3 Service dùng chung — `app/Services/DeliveryScheduleService.php`
 
-Rút logic khỏi `Admin\DeliveryScheduleController` (đang có `ordersOf`/`row`/`monthDays`) thành service để **web admin, trang shipper, in, PDF, CSV, mail** dùng đúng 1 nguồn:
+Rút logic khỏi `Admin\DeliveryScheduleController` (đang có `ordersOf`/`row`/`monthDays`) thành service để **web admin, trang shipper, mail lịch** dùng đúng 1 nguồn:
 
 ```php
 legOrders(string $leg /* pickup|return */, Carbon $date, ?int $shipperId = null, bool $onlyAssigned = false): Collection
@@ -87,17 +87,6 @@ FE: `select` shipper trên card + bộ lọc shipper (Tất cả / từng ngư�
 - `markCollected`: `return_shipper_id` khớp + `status === 'renting'`; đổi `status = returned`.
 - Điều hướng ngày: chỉ trong khoảng `[hôm nay − 2, hôm nay + 14]`.
 
-### 2.6 In / PDF / CSV
-
-| Route | Trả về |
-|---|---|
-| `admin/lich-giao/in` | Inertia page `Admin/DeliverySchedulePrint` — A4, `@media print`, `window.print()` khi mở |
-| `admin/lich-giao/pdf` | `Pdf::loadView('pdf.delivery_schedule', …)->download("lich-giao-{$date}.pdf")` |
-| `admin/lich-giao/csv` | `response()->streamDownload(...)` — BOM `\xEF\xBB\xBF` + `fputcsv` |
-
-`composer require barryvdh/laravel-dompdf`; config `defaultFont = 'DejaVu Sans'`; Blade PDF dùng `<table>` + inline style (KHÔNG Tailwind).
-Cả 3 nhận `?date=&shipper=`, gọi cùng `DeliveryScheduleService`.
-
 ### 2.7 Thông báo
 
 - `app/Mail/ShipperScheduleMail.php` (ShouldQueue) + `resources/views/emails/shipper_schedule.blade.php` — bảng theo thứ tự, giờ, khách, SĐT, địa chỉ, tiền thu/hoàn, ghi chú.
@@ -115,13 +104,12 @@ Cả 3 nhận `?date=&shipper=`, gọi cùng `DeliveryScheduleService`.
 | S4 | `bopcamping-2xf6` | Admin quản lý tài khoản shipper (tab Shipper trong `/admin/users`, cảnh báo khi xoá/tắt vai người đang có đơn) | 1.5 | S2 |
 | S5 | `bopcamping-yc7d` | Admin gán shipper + gán cả ngày + lọc theo shipper (bỏ kéo-thả) | 2 | S1, S2 |
 | S6 | `bopcamping-w2yl` | Trang `/shipper/lich-giao` + nút Chỉ đường + Đã giao / Đã thu (kèm test IDOR) | 2.5 | S3, S5 |
-| S7 | `bopcamping-g24l` | In A4 + PDF (dompdf, font Việt) + CSV (BOM) | 2 | S1, S5 |
 | S8 | `bopcamping-5r5m` | Email lịch cho shipper (nút gửi tay + command 06:00) + nút Chat Zalo | 1.5 | S5 |
 | S9 | `bopcamping-zzhm` | Review bảo mật (OWASP A01 / IDOR / rò dữ liệu khách) + full gates + merge/push | 1 | S4, S6, S7, S8 |
 
 Epic: `bopcamping-hae4`. Việc mở đầu (không bị chặn): **S1** và **S2**.
 
-Song song được: S1‖S2 → S3‖S4 → S5 → S6‖S7‖S8 → S9.
+Song song được: S1‖S2 → S3‖S4 → S5 → S6‖S8 → S9. **S7 (in/PDF/CSV) đã bị bỏ 29/07/2026.**
 
 ## 4. Test cần viết
 
@@ -131,7 +119,6 @@ Song song được: S1‖S2 → S3‖S4 → S5 → S6‖S7‖S8 → S9.
 - `ShipperScheduleTest`: chỉ thấy đơn được gán cho mình; **không** thấy đơn của shipper khác; đánh dấu Đã giao/Đã thu đúng chuyển trạng thái + mail khách vẫn queue; **đổi id đơn của người khác → 403** (IDOR); sai trạng thái → chặn.
 - `AdminShipperAssignmentTest`: gán đúng cột theo lượt; gán cả ngày không ghi đè đơn đã gán; thứ tự theo giờ chốt; chặn đơn cha/đã trả/đã huỷ; `shipper_id` không phải shipper → lỗi.
 - `AdminShipperUsersTest`: CRUD tài khoản shipper; cảnh báo khi xoá người đang có đơn tương lai.
-- `DeliveryScheduleExportTest`: 3 định dạng cùng ngày+shipper ra cùng số đơn; CSV có BOM; **PDF chứa chữ có dấu** (assert byte tiếng Việt trong stream); lọc theo shipper áp dụng cho export.
 - `ShipperScheduleMailTest` + `SendShipperDailyScheduleTest`: gửi đúng người, nội dung đúng thứ tự, chạy 2 lần không gửi trùng, email placeholder bị bỏ qua.
 
 **Component (vitest)**: `ShipperScheduleCard.test.tsx` (nút Đã giao chỉ hiện đúng trạng thái, link Chỉ đường encode địa chỉ đúng, xác nhận trước khi đổi) · `ShipperAssign.test.tsx` (chọn shipper → patch đúng route/payload).
@@ -144,7 +131,6 @@ Test phải collation-safe (chạy cả sqlite `:memory:` và MySQL) theo `CLAUD
 |---|---|---|
 | Rút service làm lệch hành vi lịch giao hiện tại | Trung bình | Two Hats: refactor riêng 1 commit, test cũ **không được sửa** mà vẫn phải xanh |
 | Rò dữ liệu khách qua `/shipper/*` | **Cao** | Query luôn kẹp `shipper_id`; test IDOR; S9 review bảo mật riêng trước merge |
-| dompdf font Việt ra ô vuông | Trung bình | Nhúng DejaVu Sans + test assert chữ có dấu trong PDF |
 | Email 06:00 không chạy vì thiếu cron | Trung bình | Nút gửi tay luôn có; nêu rõ phụ thuộc `bopcamping-ybsm` khi bàn giao |
 | Xung đột với `bopcamping-vo4` (Basic Auth admin) | Thấp | Login shipper tách route/controller riêng — không dùng chung form admin |
 

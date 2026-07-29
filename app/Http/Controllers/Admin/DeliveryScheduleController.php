@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Order;
 use App\Models\User;
 use App\Services\DeliveryScheduleService;
+use App\Services\ShipperScheduleNotifier;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -22,14 +23,17 @@ use Inertia\Response;
  * đơn cần giao / cần thu, sắp theo giờ đã chốt. Admin gán shipper cho từng LƯỢT (giao/thu)
  * và lọc lịch theo người.
  *
- * Dữ liệu lấy qua DeliveryScheduleService để trang in/PDF/CSV/shipper dùng chung 1 nguồn.
+ * Dữ liệu lấy qua DeliveryScheduleService để trang shipper và mail lịch dùng chung 1 nguồn.
  */
 class DeliveryScheduleController extends Controller
 {
     /** Giá trị lọc đặc biệt: chỉ xem đơn chưa gán shipper. */
     private const FILTER_UNASSIGNED = 'none';
 
-    public function __construct(private DeliveryScheduleService $schedule) {}
+    public function __construct(
+        private DeliveryScheduleService $schedule,
+        private ShipperScheduleNotifier $notifier,
+    ) {}
 
     public function index(Request $request): Response
     {
@@ -76,7 +80,13 @@ class DeliveryScheduleController extends Controller
                 'unassigned' => $pickupRows->concat($returnRows)->whereNull('shipper_id')->count(),
             ],
             // Gán shipper (bopcamping-yc7d)
-            'shippers' => User::shippers()->get(['id', 'name'])->map(fn (User $u) => ['id' => $u->id, 'name' => $u->name]),
+            'shippers' => User::shippers()->get(['id', 'name', 'phone', 'email'])->map(fn (User $u) => [
+                'id' => $u->id,
+                'name' => $u->name,
+                // SĐT cho nút Chat Zalo (mở zalo.me — không gửi API); email để cảnh báo nếu chưa đặt.
+                'phone' => $u->phone,
+                'has_email' => ! $u->hasPlaceholderEmail() && filled($u->email),
+            ]),
             'filters' => ['shipper' => $filter],
         ]);
     }
@@ -128,6 +138,45 @@ class DeliveryScheduleController extends Controller
         return back()->with('success', $affected > 0
             ? "Đã gán shipper cho {$affected} đơn chưa có người."
             : 'Không còn đơn nào chưa có shipper.');
+    }
+
+    /**
+     * Gửi lịch trong ngày cho shipper qua email. Đang lọc 1 shipper → gửi đúng người đó;
+     * lọc "Tất cả"/"Chưa gán" → gửi cho mọi shipper CÓ lượt hôm đó (bopcamping-5r5m).
+     */
+    public function sendEmail(Request $request): RedirectResponse
+    {
+        $data = $request->validate([
+            'date' => ['required', 'date'],
+            'shipper_id' => ['nullable', 'integer', Rule::exists('users', 'id')->where('is_shipper', true)],
+        ], [
+            'shipper_id.exists' => 'Tài khoản này không phải shipper.',
+        ]);
+
+        $date = Carbon::parse($data['date']);
+
+        if (! empty($data['shipper_id'])) {
+            $shipper = User::findOrFail($data['shipper_id']);
+
+            return match ($this->notifier->send($shipper, $date)) {
+                'sent' => back()->with('success', "Đã gửi lịch cho {$shipper->name}."),
+                'no_legs' => back()->withErrors(['message' => "{$shipper->name} không có lượt nào ngày này."]),
+                default => back()->withErrors(['message' => "{$shipper->name} chưa có email thật — vào Người dùng ➝ Shipper để bổ sung."]),
+            };
+        }
+
+        ['sent' => $sent, 'no_email' => $noEmail] = $this->notifier->sendToAllWithLegs($date);
+
+        if ($sent === 0 && $noEmail === []) {
+            return back()->withErrors(['message' => 'Không có shipper nào có lượt trong ngày này.']);
+        }
+
+        $message = "Đã gửi lịch cho {$sent} shipper.";
+        if ($noEmail !== []) {
+            $message .= ' Chưa có email thật: '.implode(', ', $noEmail).'.';
+        }
+
+        return back()->with('success', $message);
     }
 
     /**

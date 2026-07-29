@@ -1,7 +1,7 @@
 // Lịch giao/thu cho shipper (bopcamping-rtkh, prd_delivery_schedule FR-5).
 // Lịch THÁNG: ngày có đơn bôi đỏ + đếm đơn, ngày đã qua bị khoá; bấm 1 ngày → danh sách
 // đơn cần giao/thu hôm đó (feedback 2026-07-28). Mobile-first, KHÔNG dùng <table> cho đơn.
-import ScheduleAssignList, { type ShipperOption } from '@/Components/admin/ScheduleAssignList';
+import ScheduleAssignList from '@/Components/admin/ScheduleAssignList';
 import AdminLayout from '@/Layouts/AdminLayout';
 import { money } from '@/lib/format';
 import { buildMonthGrid, WEEKDAY_LABELS } from '@/lib/monthGrid';
@@ -35,6 +35,9 @@ type ScheduleOrder = {
 type DayCount = { date: string; pickups: number; returns: number };
 
 type Stats = { pickups: number; returns: number; unscheduled: number; unassigned: number };
+
+/** Shipper để gán + nhắn Zalo + gửi email lịch (bopcamping-5r5m). */
+type ShipperOption = { id: number; name: string; phone: string | null; has_email: boolean };
 
 // Lượt đi của shipper: giao đồ (thu tiền COD) hoặc thu đồ (hoàn cọc).
 type TripKind = 'pickup' | 'return';
@@ -186,6 +189,8 @@ export default function AdminDeliverySchedule({
                         </select>
                     </label>
                 </div>
+                <ShipperActions date={date} shippers={shippers} filter={filters.shipper} />
+
                 <div className="mb-6 flex flex-wrap gap-2 text-[13px] font-semibold">
                     <span className="rounded-pill border border-cardBorder bg-white px-3 py-1.5 text-pine">
                         {stats.pickups} giao
@@ -223,6 +228,65 @@ export default function AdminDeliverySchedule({
                 />
             </div>
         </>
+    );
+}
+
+/**
+ * Gửi lịch qua email + nhắn Zalo cho shipper (bopcamping-5r5m). Đang lọc 1 người thì gửi
+ * đúng người đó và hiện nút Zalo của họ; lọc "Tất cả" thì gửi cho mọi shipper có lượt.
+ * Zalo mở link zalo.me để chủ shop tự nhắn — KHÔNG có API tự động.
+ */
+function ShipperActions({ date, shippers, filter }: { date: string; shippers: ShipperOption[]; filter: string }) {
+    const errors = usePage().props.errors as Record<string, string>;
+    const [sending, setSending] = useState(false);
+
+    if (shippers.length === 0) return null;
+
+    const selected = shippers.find((s) => String(s.id) === filter) ?? null;
+
+    const send = () => {
+        setSending(true);
+        router.post(
+            route('admin.schedule.email'),
+            { date, shipper_id: selected?.id ?? null },
+            { preserveScroll: true, preserveState: true, onFinish: () => setSending(false) },
+        );
+    };
+
+    return (
+        <div className="mb-4">
+            <div className="flex flex-wrap items-center gap-2">
+                <button
+                    type="button"
+                    onClick={send}
+                    disabled={sending}
+                    className="min-h-[38px] rounded-[10px] border border-cardBorder bg-white px-3 text-[13px] font-semibold text-pine transition hover:border-grass hover:text-grass disabled:opacity-60"
+                >
+                    {sending
+                        ? 'Đang gửi…'
+                        : selected
+                          ? `Gửi lịch qua email cho ${selected.name}`
+                          : 'Gửi lịch qua email cho tất cả shipper'}
+                </button>
+                {selected?.phone && (
+                    <a
+                        href={`https://zalo.me/${selected.phone}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="min-h-[38px] rounded-[10px] px-3 text-[13px] font-semibold leading-[38px] text-white"
+                        style={{ background: '#0068FF' }}
+                    >
+                        Chat Zalo với {selected.name}
+                    </a>
+                )}
+            </div>
+            {selected && !selected.has_email && (
+                <p className="mt-1.5 text-[12px]" style={{ color: '#9a5a1f' }}>
+                    {selected.name} chưa có email thật — bổ sung ở Người dùng ➝ Shipper để gửi được lịch.
+                </p>
+            )}
+            {errors.message && <p className="mt-1.5 text-[12px] text-[#b3493a]">{errors.message}</p>}
+        </div>
     );
 }
 
