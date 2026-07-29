@@ -76,8 +76,8 @@ class ParentChildLifecycleTest extends TestCase
         $this->patch(route('admin.orders.update', $parent), ['status' => 'confirmed'])
             ->assertSessionHasErrors('status');
         // …không payment/refund/đổi lịch trên cha.
-        $this->patch(route('admin.orders.payment', $parent), ['payment_status' => 'deposit'])
-            ->assertSessionHasErrors('payment_status');
+        $this->patch(route('admin.orders.payment', $parent), ['kind' => 'deposit', 'paid' => true])
+            ->assertSessionHasErrors('payment');
         $this->patch(route('admin.orders.refund', $parent), ['deposit_refund_status' => 'refunded'])
             ->assertSessionHasErrors('deposit_refund_status');
         $this->patch(route('admin.orders.dates', $parent), [

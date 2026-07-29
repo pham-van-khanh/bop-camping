@@ -53,6 +53,10 @@ export type Order = {
     total_price: number; deposit_total: number; discount_total: number; amount_due: number;
     discount_breakdown: DiscountLine[] | null;
     status: string; payment_status: string;
+    // Thu tiền theo 2 khoản ĐỘC LẬP (bopcamping-q7i0) — payment_status chỉ là tóm tắt suy ra.
+    rental_due: number;
+    rental_paid: boolean; rental_paid_at: string | null; rental_paid_by: string | null;
+    deposit_paid: boolean; deposit_paid_at: string | null; deposit_paid_by: string | null;
     deposit_refund_status: string; deposit_refund_note: string | null;
     note: string | null; created_at: string; items: OrderItem[];
     vouchers: UsedVoucher[]; referral: { referrer_name: string | null; status: string } | null;
@@ -76,13 +80,6 @@ const DISCOUNT_SOURCE_LABEL: Record<string, string> = {
     // bopcamping-wtuv: phần giảm phân bổ từ voucher tính trên TỔNG đơn gộp (cha)
     parent_alloc: 'Giảm phân bổ từ đơn gộp',
 };
-
-// Tình trạng chuyển tiền (marker admin — bopcamping-7be).
-const PAYMENT_OPTIONS: { key: string; label: string; active: { bg: string; color: string } }[] = [
-    { key: 'unpaid',  label: 'Chưa chuyển',    active: { bg: '#f6ddd6', color: '#b3493a' } },
-    { key: 'deposit', label: 'Đã chuyển cọc',  active: { bg: '#fbf2d8', color: '#9a7a2a' } },
-    { key: 'full',    label: 'Chuyển hết',     active: { bg: '#dcebc4', color: '#3a5a1f' } },
-];
 
 // Hoàn cọc — chỉ dùng khi đơn ĐÃ TRẢ (bopcamping-7be).
 const REFUND_OPTIONS: { key: string; label: string; active: { bg: string; color: string } }[] = [
@@ -148,6 +145,55 @@ function DetailRow({ label, value, mono, accent, bold }: { label: string; value:
         <div className="flex items-start justify-between gap-3 py-0.5">
             <span className="shrink-0 text-moss">{label}</span>
             <span className={`text-right text-ink ${mono ? 'font-mono' : ''} ${bold ? 'font-bold' : ''}`} style={accent ? { color: accent } : undefined}>{value}</span>
+        </div>
+    );
+}
+
+/**
+ * Một dòng "đã thu / chưa thu" cho 1 khoản tiền (bopcamping-q7i0). Bấm để đảo trạng thái;
+ * khi đã thu thì hiện AI thu và LÚC NÀO — cần cho đối soát khi shipper thu hộ.
+ */
+function PaidToggle({
+    label,
+    amount,
+    paid,
+    at,
+    by,
+    disabled,
+    onToggle,
+}: {
+    label: string;
+    amount: number;
+    paid: boolean;
+    at: string | null;
+    by: string | null;
+    disabled?: boolean;
+    onToggle: (paid: boolean) => void;
+}) {
+    return (
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#f1f4ea] py-2 last:border-0">
+            <div className="min-w-0">
+                <span className="text-[12.5px] font-semibold text-ink">{label}</span>
+                <span className="ml-1.5 font-mono text-[12.5px] text-moss">{money(amount)}</span>
+                {paid && (at || by) && (
+                    <div className="text-[11px] text-[#a3ad92]">
+                        {by ? `${by} thu` : 'đã thu'}
+                        {at ? ` · ${at}` : ''}
+                    </div>
+                )}
+            </div>
+            <button
+                type="button"
+                disabled={disabled}
+                aria-pressed={paid}
+                onClick={(e) => { e.stopPropagation(); onToggle(!paid); }}
+                className="shrink-0 rounded-[9px] border px-2.5 py-1.5 text-[12px] font-bold transition disabled:cursor-not-allowed disabled:opacity-60"
+                style={paid
+                    ? { background: '#dcebc4', color: '#3a5a1f', borderColor: '#3a5a1f' }
+                    : { background: '#fff', color: '#b3493a', borderColor: '#f0cfc6' }}
+            >
+                {paid ? '✓ Đã thu' : 'Chưa thu'}
+            </button>
         </div>
     );
 }
@@ -503,9 +549,8 @@ function StoreChanger({ order, locations }: { order: Order; locations: StoreOpti
 export function OrderDetailPanel({ order, locations, maxDiscountPercent }: { order: Order; locations: StoreOption[]; maxDiscountPercent: number }) {
     const sessLabel = useSessionLabel(order.session);
     const defaultTimeText = defaultTimeLabel(order, sessLabel);
-    const changePayment = (payment_status: string) => {
-        if (order.payment_status === payment_status) return;
-        router.patch(route('admin.orders.payment', order.id), { payment_status }, { preserveScroll: true });
+    const togglePaid = (kind: 'rental' | 'deposit', paid: boolean) => {
+        router.patch(route('admin.orders.payment', order.id), { kind, paid }, { preserveScroll: true });
     };
 
     return (
@@ -686,43 +731,34 @@ export function OrderDetailPanel({ order, locations, maxDiscountPercent }: { ord
                     )}
                 </div>
 
-                {/* Tình trạng chuyển tiền — admin bấm sau khi xác nhận với khách (bopcamping-7be). */}
-                {(() => {
-                    const isReturned = order.status === 'returned';
-                    return (
-                        <>
-                            <div className="mb-2 mt-3 text-[12px] font-bold uppercase tracking-[0.04em] text-grass">Tình trạng chuyển tiền</div>
-                            <div className="rounded-[10px] border border-[#eef2e3] bg-white p-3">
-                                <div className="grid grid-cols-3 gap-2">
-                                    {PAYMENT_OPTIONS.map((opt) => {
-                                        const active = (order.payment_status ?? 'unpaid') === opt.key;
-                                        return (
-                                            <button
-                                                key={opt.key}
-                                                disabled={isReturned}
-                                                onClick={(e) => { e.stopPropagation(); changePayment(opt.key); }}
-                                                aria-pressed={active}
-                                                className={`rounded-[9px] border px-2 py-2 text-[12px] font-bold transition ${isReturned ? 'cursor-not-allowed opacity-70' : ''}`}
-                                                style={active
-                                                    ? { background: opt.active.bg, color: opt.active.color, borderColor: opt.active.color }
-                                                    : { background: '#fff', color: '#8a967a', borderColor: '#e3e8d6' }}
-                                            >
-                                                {active && '✓ '}{opt.label}
-                                            </button>
-                                        );
-                                    })}
-                                </div>
-                                <p className="mt-2 text-[11.5px] text-[#a3ad92]">
-                                    {isReturned
-                                        ? 'Đơn đã trả — tình trạng chuyển tiền đã chốt, xem hoàn cọc bên dưới.'
-                                        : <>Bấm để đánh dấu sau khi xác nhận với khách. Cọc {money(order.deposit_total)} · tổng thu {money(order.amount_due)}.</>}
-                                </p>
-                            </div>
+                {/* Thu tiền: 2 khoản ĐỘC LẬP (bopcamping-q7i0) — khách có thể chuyển tiền thuê
+                    trước, cọc trả khi nhận đồ. Shipper cũng đánh dấu được trong app của họ. */}
+                <div className="mb-2 mt-3 text-[12px] font-bold uppercase tracking-[0.04em] text-grass">Thu tiền</div>
+                <div className="rounded-[10px] border border-[#eef2e3] bg-white p-3">
+                    <PaidToggle
+                        label="Tiền thuê"
+                        amount={order.rental_due}
+                        paid={order.rental_paid}
+                        at={order.rental_paid_at}
+                        by={order.rental_paid_by}
+                        disabled={order.status === 'cancelled'}
+                        onToggle={(paid) => togglePaid('rental', paid)}
+                    />
+                    <PaidToggle
+                        label="Tiền cọc"
+                        amount={order.deposit_total}
+                        paid={order.deposit_paid}
+                        at={order.deposit_paid_at}
+                        by={order.deposit_paid_by}
+                        disabled={order.status === 'cancelled'}
+                        onToggle={(paid) => togglePaid('deposit', paid)}
+                    />
+                    <p className="mt-2 border-t border-[#f1f4ea] pt-2 text-[11.5px] text-[#a3ad92]">
+                        Tổng phải thu khi giao {money(order.amount_due)}. Khoản nào chưa thu thì shipper thu hộ được.
+                    </p>
+                </div>
 
-                            {isReturned && <RefundControl order={order} />}
-                        </>
-                    );
-                })()}
+                {order.status === 'returned' && <RefundControl order={order} />}
 
                 {order.note && (
                     <p className="mt-3 rounded-[10px] border border-[#eef2e3] bg-white p-3 text-[12.5px] text-moss">
