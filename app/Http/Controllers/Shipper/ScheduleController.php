@@ -24,10 +24,12 @@ use Inertia\Response;
  */
 class ScheduleController extends Controller
 {
-    /** Xem lịch quá khứ 2 ngày (đối chiếu việc hôm qua) và tối đa 14 ngày tới. */
-    private const DAYS_BACK = 2;
-
-    private const DAYS_AHEAD = 14;
+    /**
+     * Xem lịch quá khứ 7 ngày để đối chiếu việc tuần trước với chủ shop (chủ shop 31/07).
+     * Phía TƯƠNG LAI không giới hạn: shipper chỉ thấy đơn được gán cho chính mình nên xem
+     * xa cũng không rò thêm dữ liệu, mà đơn đặt trước vài tháng thì vẫn phải xem được.
+     */
+    private const DAYS_BACK = 7;
 
     public function __construct(private DeliveryScheduleService $schedule) {}
 
@@ -54,7 +56,6 @@ class ScheduleController extends Controller
             'date_label' => Str::ucfirst($date->locale('vi')->isoFormat('dddd, DD/MM/YYYY')),
             'today' => Carbon::today()->toDateString(),
             'min_date' => Carbon::today()->subDays(self::DAYS_BACK)->toDateString(),
-            'max_date' => Carbon::today()->addDays(self::DAYS_AHEAD)->toDateString(),
             'pickups' => $rows('pickup'),
             'returns' => $rows('return'),
         ]);
@@ -189,11 +190,11 @@ class ScheduleController extends Controller
         );
     }
 
+    /** Chỉ kẹp phía quá khứ; ngày tương lai để nguyên (không giới hạn). */
     private function clamp(Carbon $date): Carbon
     {
         $min = Carbon::today()->subDays(self::DAYS_BACK);
-        $max = Carbon::today()->addDays(self::DAYS_AHEAD);
 
-        return $date->lessThan($min) ? $min : ($date->greaterThan($max) ? $max : $date);
+        return $date->lessThan($min) ? $min : $date;
     }
 }

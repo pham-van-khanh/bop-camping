@@ -63,8 +63,7 @@ const PROPS = {
     date: '2030-08-01',
     date_label: 'Thứ năm, 01/08/2030',
     today: '2030-08-01',
-    min_date: '2030-07-30',
-    max_date: '2030-08-15',
+    min_date: '2030-07-25',
     pickups: [ORDER],
     returns: [],
 };

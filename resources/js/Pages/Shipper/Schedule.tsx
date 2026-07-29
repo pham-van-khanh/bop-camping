@@ -58,7 +58,6 @@ export default function ShipperSchedule({
     date_label,
     today,
     min_date,
-    max_date,
     pickups,
     returns,
 }: {
@@ -70,8 +69,8 @@ export default function ShipperSchedule({
     date: string;
     date_label: string;
     today: string;
+    // Chỉ khoá phía quá khứ; ngày tương lai xem được hết (chủ shop 31/07).
     min_date: string;
-    max_date: string;
     pickups: ScheduleOrder[];
     returns: ScheduleOrder[];
 }) {
@@ -137,8 +136,8 @@ export default function ShipperSchedule({
                                         key={cell}
                                         date={cell}
                                         counts={byDate.get(cell)}
-                                        // Ngoài khoảng được xem thì khoá — server cũng kẹp lại.
-                                        disabled={cell < min_date || cell > max_date}
+                                        // Chỉ khoá ngày quá cũ — server cũng kẹp lại như vậy.
+                                        disabled={cell < min_date}
                                         selected={cell === date}
                                         isToday={cell === today}
                                         onSelect={(d) => nav({ date: d })}

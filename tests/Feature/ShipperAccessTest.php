@@ -98,18 +98,20 @@ class ShipperAccessTest extends TestCase
     }
 
     /** @test */
-    public function date_is_clamped_to_allowed_window_and_invalid_input_falls_back(): void
+    public function date_is_clamped_only_in_the_past_and_invalid_input_falls_back(): void
     {
         $me = User::factory()->create(['is_shipper' => true]);
 
-        // Quá xa trong tương lai → kẹp về +14 ngày; quá khứ xa → kẹp về −2 ngày.
-        $this->actingAs($me)->get(route('shipper.schedule', ['date' => now()->addYear()->toDateString()]))
+        // Tương lai KHÔNG giới hạn (chủ shop 31/07): đơn đặt trước vài tháng vẫn xem được.
+        $far = now()->addMonths(3)->toDateString();
+        $this->actingAs($me)->get(route('shipper.schedule', ['date' => $far]))
             ->assertOk()
-            ->assertInertia(fn (Assert $page) => $page->where('date', now()->addDays(14)->toDateString()));
+            ->assertInertia(fn (Assert $page) => $page->where('date', $far));
 
+        // Quá khứ vẫn kẹp về −7 ngày.
         $this->actingAs($me)->get(route('shipper.schedule', ['date' => now()->subYear()->toDateString()]))
             ->assertOk()
-            ->assertInertia(fn (Assert $page) => $page->where('date', now()->subDays(2)->toDateString()));
+            ->assertInertia(fn (Assert $page) => $page->where('date', now()->subDays(7)->toDateString()));
 
         $this->actingAs($me)->get(route('shipper.schedule', ['date' => 'khong-phai-ngay']))
             ->assertOk()
