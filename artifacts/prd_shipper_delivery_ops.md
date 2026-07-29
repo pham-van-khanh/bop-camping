@@ -132,6 +132,10 @@ chỉ ghi qua `Order::markPaid()`. Accessor `rental_due` = thuê + phụ phí �
 
 - **Lịch tháng lớn** thay điều hướng từng ngày: ngày có lượt của CHÍNH MÌNH thì bôi đỏ kèm
   `N↓` giao · `M↑` thu; ngày ngoài khoảng `[hôm nay−2, hôm nay+14]` bị khoá.
+- **Khoảng ngày xem được** (chủ shop 31/07): quá khứ **7 ngày** (đối chiếu việc tuần trước với
+  chủ shop), tương lai **không giới hạn** — shipper chỉ thấy đơn được gán cho mình nên xem xa
+  không rò thêm dữ liệu, mà đơn đặt trước vài tháng thì vẫn phải xem được. (Bản đầu giới hạn
+  −2 → +14 ngày khiến ngày thứ 15 trở đi bị khoá.)
 - Card đơn **đóng mặc định**, bấm mở chi tiết: sản phẩm + số lượng, **tiền thuê** và
   **tiền cọc** kèm đã/chưa thu, tổng còn phải thu, ghi chú, Chỉ đường, bấm gọi.
 - Khoản nào **chưa thu** thì shipper bấm thu ngay (hỏi lại 1 bước). **Không cần admin uỷ
