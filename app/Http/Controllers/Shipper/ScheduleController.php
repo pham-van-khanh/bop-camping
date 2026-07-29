@@ -88,8 +88,11 @@ class ScheduleController extends Controller
     private function authorizeLeg(Request $request, Order $order, string $leg): void
     {
         $column = $leg === 'pickup' ? 'pickup_shipper_id' : 'return_shipper_id';
+        $assigned = $order->{$column};
 
-        abort_unless($order->{$column} === $request->user()->id, 404);
+        // Ép (int) cả hai bên: driver DB có thể trả id dạng chuỗi, so sánh === kiểu chéo sẽ
+        // luôn sai và khoá cả người ĐÚNG. Chưa gán (null) → 0, không khớp id thật nào.
+        abort_unless($assigned !== null && (int) $assigned === (int) $request->user()->id, 404);
     }
 
     /** Ngày yêu cầu → ngày hợp lệ trong khoảng cho phép; sai định dạng thì về hôm nay. */

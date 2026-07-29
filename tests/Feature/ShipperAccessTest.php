@@ -122,4 +122,31 @@ class ShipperAccessTest extends TestCase
         $this->actingAs(User::factory()->create(['is_shipper' => true]))->get(route('shipper.schedule'))
             ->assertInertia(fn (Assert $page) => $page->where('auth.user.is_shipper', true));
     }
+
+    /** @test */
+    public function shipper_pages_do_not_leak_admin_counters(): void
+    {
+        // Badge sidebar admin (số đơn chờ, đánh giá chờ, góp ý mới) là thông tin quản trị —
+        // shipper không được thấy dù chỉ là con số (bopcamping-zzhm).
+        $shipper = User::factory()->create(['is_shipper' => true]);
+        $this->order(['status' => 'pending']);
+
+        $this->actingAs($shipper)->get(route('shipper.schedule'))
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('pending_orders', null)
+                ->where('pending_reviews', null)
+                ->where('pending_feedback', null));
+    }
+
+    /** @test */
+    public function shipper_page_does_not_expose_customer_email(): void
+    {
+        // Shipper cần tên/SĐT/địa chỉ để giao — KHÔNG cần email khách.
+        $me = User::factory()->create(['is_shipper' => true]);
+        $this->order(['pickup_shipper_id' => $me->id, 'customer_email' => 'khach@example.com']);
+
+        $response = $this->actingAs($me)->get(route('shipper.schedule'))->assertOk();
+
+        $this->assertStringNotContainsString('khach@example.com', $response->getContent());
+    }
 }
