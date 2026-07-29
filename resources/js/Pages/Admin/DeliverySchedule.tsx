@@ -34,6 +34,8 @@ type ScheduleOrder = {
     // Tin nhắn giao việc sinh ở server + SĐT shipper để mở Zalo (bopcamping-dolb)
     zalo_message: string;
     shipper_phone: string | null;
+    // Lượt của dòng này ('pickup'|'return') — dùng để tô đúng mốc trong nội dung Zalo.
+    leg: TripKind;
 };
 
 /** Số đơn giao/thu của 1 ngày trong tháng — chỉ những ngày CÓ đơn được trả về. */
@@ -230,6 +232,28 @@ export default function AdminDeliverySchedule({
                     emptyText="Không có đơn nào cần thu ngày này."
                 />
             </div>
+        </>
+    );
+}
+
+/**
+ * 1 dòng trong nội dung Zalo. Dòng mốc của lượt đang làm việc được tô: nhãn đen đậm,
+ * giờ đỏ — để admin đọc nhanh đúng mốc trước khi gửi cho shipper.
+ */
+function ZaloLine({ line, leg }: { line: string; leg: TripKind }) {
+    const activeLabel = leg === 'pickup' ? 'Ngày giờ giao: ' : 'Ngày giờ thu: ';
+
+    if (! line.startsWith(activeLabel)) {
+        return <>{line + '\n'}</>;
+    }
+
+    return (
+        <>
+            <span className="font-bold text-ink">{activeLabel}</span>
+            <span className="font-bold" style={{ color: RED.fg }}>
+                {line.slice(activeLabel.length)}
+            </span>
+            {'\n'}
         </>
     );
 }
@@ -508,13 +532,15 @@ function ZaloMessageBox({ order }: { order: ScheduleOrder }) {
 
             {open && (
                 <div className="mt-2">
-                    <textarea
-                        readOnly
-                        value={order.zalo_message}
-                        rows={Math.min(14, order.zalo_message.split('\n').length + 1)}
-                        onClick={(e) => (e.target as HTMLTextAreaElement).select()}
-                        className="w-full resize-y rounded-[10px] border border-cardBorder bg-[#fafcf7] px-2.5 py-2 font-mono text-[12px] leading-relaxed text-ink outline-none"
-                    />
+                    {/* Hiện dạng <pre> (không phải textarea) để tô được dòng của LƯỢT ĐANG LÀM:
+                        nhãn đen đậm + giờ đỏ. Vẫn bôi-chọn tay được; nút Copy lấy từ prop nên
+                        không phụ thuộc DOM. Lưu ý: dán vào Zalo thì là text trơn, Zalo không
+                        hiển thị màu — màu chỉ để admin đọc nhanh ở đây (feedback 31/07). */}
+                    <pre className="max-h-[320px] overflow-auto whitespace-pre-wrap rounded-[10px] border border-cardBorder bg-[#fafcf7] px-2.5 py-2 font-mono text-[12px] leading-relaxed text-ink">
+                        {order.zalo_message.split('\n').map((line, i) => (
+                            <ZaloLine key={i} line={line} leg={order.leg} />
+                        ))}
+                    </pre>
                     <div className="mt-2 flex flex-wrap gap-2">
                         <button
                             type="button"

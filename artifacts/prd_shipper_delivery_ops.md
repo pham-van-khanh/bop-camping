@@ -170,6 +170,11 @@ chỉ ghi qua `Order::markPaid()`. Accessor `rental_due` = thuê + phụ phí �
   đúng **ngày của lượt đó** (lượt giao → ngày giao, lượt thu → ngày thu).
 - **Màn shipper hiện cả hai mốc**: chi tiết đơn có dòng "Giao dd/mm · HH:MM" và "Thu dd/mm ·
   HH:MM"; tin nhắn Zalo cũng in cả hai (lượt đang giao việc để trước).
+- **Nhấn mốc của lượt đang làm** (feedback 31/07): trong chi tiết đơn (màn shipper) và trong
+  nội dung Zalo (màn admin), dòng mốc của lượt đang giao việc có **nhãn đen đậm + giờ đỏ**;
+  mốc còn lại để mờ cho dễ phân biệt. Nội dung Zalo hiện dạng `<pre>` thay `<textarea>` để tô
+  được màu — vẫn bôi-chọn tay được, nút Copy lấy từ prop nên không phụ thuộc DOM. **Lưu ý:**
+  dán vào Zalo thì là text trơn, Zalo không hiển thị màu — màu chỉ để admin đọc nhanh.
 - **Giờ KHÔNG in ở đầu card** (feedback 31/07): bỏ con giờ cỡ lớn trên card ở cả màn shipper
   và màn admin lịch giao. Giờ chỉ xuất hiện ở 2 nơi: dòng mốc Giao/Thu trong **chi tiết đơn**
   và trong **nội dung Zalo**. Nhãn "mặc định" chuyển xuống dòng mốc. Card admin vẫn giữ badge

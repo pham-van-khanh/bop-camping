@@ -203,8 +203,9 @@ describe('Lịch giao của shipper', () => {
         render(<ShipperSchedule {...PROPS} />);
         await openDetail(user);
 
-        expect(screen.getByText('01/08/2030 · 14:30')).toBeInTheDocument();
-        expect(screen.getByText('03/08/2030 · 12:00')).toBeInTheDocument();
+        // Tiêu đề trang cũng chứa ngày → khoanh vùng trong 2 dòng mốc Giao/Thu.
+        expect(screen.getByText('Giao').parentElement).toHaveTextContent('01/08/2030 · 14:30');
+        expect(screen.getByText('Thu').parentElement).toHaveTextContent('03/08/2030 · 12:00');
     });
 
     it('KHÔNG in giờ ở đầu card — giờ chỉ nằm trong chi tiết (feedback 31/07)', () => {
@@ -225,8 +226,28 @@ describe('Lịch giao của shipper', () => {
         );
         await openDetail(user);
 
-        expect(screen.getByText('01/08/2030 · 08:00')).toBeInTheDocument();
+        expect(screen.getByText('08:00')).toBeInTheDocument();
         expect(screen.getByText('mặc định')).toBeInTheDocument();
+    });
+
+    it('nhấn mốc của lượt đang làm: nhãn đậm + giờ đỏ, mốc còn lại để mờ', async () => {
+        const user = userEvent.setup();
+        render(<ShipperSchedule {...PROPS} />);
+        await openDetail(user);
+
+        // Lượt GIAO đang làm → giờ giao 14:30 màu đỏ đất.
+        expect(screen.getByText('14:30')).toHaveStyle({ color: '#b3493a' });
+        // Mốc thu chỉ để tham khảo → không tô đỏ.
+        expect(screen.getByText('12:00')).not.toHaveStyle({ color: '#b3493a' });
+    });
+
+    it('lượt THU thì giờ thu mới được tô đỏ', async () => {
+        const user = userEvent.setup();
+        render(<ShipperSchedule {...PROPS} pickups={[]} returns={[{ ...ORDER, status: 'renting' }]} />);
+        await openDetail(user);
+
+        expect(screen.getByText('12:00')).toHaveStyle({ color: '#b3493a' });
+        expect(screen.getByText('14:30')).not.toHaveStyle({ color: '#b3493a' });
     });
 
     it('mốc không có giờ thì ghi "chưa chốt giờ" ở dòng đó', async () => {
@@ -239,7 +260,7 @@ describe('Lịch giao của shipper', () => {
         );
         await openDetail(user);
 
-        expect(screen.getByText('01/08/2030 · chưa chốt giờ')).toBeInTheDocument();
+        expect(screen.getByText('Giao').parentElement).toHaveTextContent('01/08/2030 · chưa chốt giờ');
     });
 
     it('hiện lỗi trạng thái trả về từ server', async () => {
