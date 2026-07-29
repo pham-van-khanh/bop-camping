@@ -298,8 +298,21 @@ function OrderDetail({ order, kind }: { order: ScheduleOrder; kind: TripKind }) 
 
             {/* Cả 2 mốc để shipper biết đơn này giao lúc nào và thu lúc nào (feedback 30/07) */}
             <div className="mt-2 border-t border-[#f1f4ea] pt-2 text-[13.5px]">
-                <LegTime label="Giao" date={order.pickup_date} time={order.pickup_time} isDefault={order.pickup_time_is_default} />
-                <LegTime label="Thu" date={order.return_date} time={order.return_time} isDefault={order.return_time_is_default} />
+                {/* Lượt đang làm: nhãn đen đậm + giờ đỏ; lượt còn lại làm mờ (feedback 31/07) */}
+                <LegTime
+                    label="Giao"
+                    date={order.pickup_date}
+                    time={order.pickup_time}
+                    isDefault={order.pickup_time_is_default}
+                    active={kind === 'pickup'}
+                />
+                <LegTime
+                    label="Thu"
+                    date={order.return_date}
+                    time={order.return_time}
+                    isDefault={order.return_time_is_default}
+                    active={kind === 'return'}
+                />
             </div>
 
             {order.items.length > 0 && (
@@ -345,24 +358,35 @@ function OrderDetail({ order, kind }: { order: ScheduleOrder; kind: TripKind }) 
     );
 }
 
-/** 1 mốc thời gian của đơn; ghi rõ khi giờ chỉ là mặc định (chủ shop chưa chốt). */
+/**
+ * 1 mốc thời gian của đơn. Mốc của LƯỢT ĐANG LÀM được nhấn: nhãn đen đậm + giờ đỏ, để
+ * shipper không đọc nhầm sang mốc còn lại. Ghi rõ khi giờ chỉ là mặc định (chưa chốt).
+ */
 function LegTime({
     label,
     date,
     time,
     isDefault,
+    active,
 }: {
     label: string;
     date: string;
     time: string | null;
     isDefault: boolean;
+    active: boolean;
 }) {
     return (
         <div className="flex justify-between gap-3 py-0.5">
-            <span className="text-moss">{label}</span>
-            <span className="text-right font-mono text-ink">
-                {date}
-                {time ? ` · ${time}` : ' · chưa chốt giờ'}
+            <span className={active ? 'font-bold text-ink' : 'text-moss'}>{label}</span>
+            <span className={`text-right font-mono ${active ? 'text-ink' : 'text-moss'}`}>
+                {date} ·{' '}
+                {time ? (
+                    <span className={active ? 'font-bold' : ''} style={active ? { color: RED.fg } : undefined}>
+                        {time}
+                    </span>
+                ) : (
+                    'chưa chốt giờ'
+                )}
                 {time && isDefault && <span className="ml-1 font-sans text-[11px] text-[#a3ad92]">mặc định</span>}
             </span>
         </div>
