@@ -23,33 +23,37 @@ class DeliveryScheduleService
     public const RETURN_STATUSES = ['confirmed', 'renting'];
 
     /**
-     * Cấu hình từng lượt: cột ngày, trạng thái hợp lệ, cột giờ đã chốt.
+     * Cấu hình từng lượt: cột ngày, trạng thái hợp lệ, cột giờ đã chốt, cột shipper, cột thứ tự.
      *
-     * @return array{date:string,statuses:list<string>,time:string}
+     * @return array{date:string,statuses:list<string>,time:string,shipper:string,sort:string}
      */
     private function leg(string $leg): array
     {
         return $leg === 'pickup'
-            ? ['date' => 'start_date', 'statuses' => self::PICKUP_STATUSES, 'time' => 'confirmed_pickup_time']
-            : ['date' => 'end_date', 'statuses' => self::RETURN_STATUSES, 'time' => 'confirmed_return_time'];
+            ? ['date' => 'start_date', 'statuses' => self::PICKUP_STATUSES, 'time' => 'confirmed_pickup_time', 'shipper' => 'pickup_shipper_id', 'sort' => 'pickup_sort']
+            : ['date' => 'end_date', 'statuses' => self::RETURN_STATUSES, 'time' => 'confirmed_return_time', 'shipper' => 'return_shipper_id', 'sort' => 'return_sort'];
     }
 
     /**
-     * Đơn cần giao/thu trong 1 ngày, sắp theo giờ đã chốt — chưa chốt giờ xuống cuối.
-     * 'col IS NULL, col, code' chạy đúng cả sqlite lẫn MySQL.
+     * Đơn cần giao/thu trong 1 ngày.
      *
+     * Thứ tự: đơn admin đã sắp tay trước (theo `*_sort`), rồi theo giờ đã chốt, cuối cùng
+     * là đơn chưa chốt giờ. 'col IS NULL, col' chạy đúng cả sqlite lẫn MySQL.
+     *
+     * @param  int|null  $shipperId  Chỉ lấy đơn gán cho shipper này (null = không lọc theo người)
      * @return Collection<int,Order>
      */
-    public function legOrders(string $leg, Carbon $date): Collection
+    public function legOrders(string $leg, Carbon $date, ?int $shipperId = null): Collection
     {
         $cfg = $this->leg($leg);
 
         return Order::query()
             ->where('is_parent', false)   // đơn cha chỉ gom đợt, không có món để giao
-            ->with(['items.product', 'serviceLocation'])
+            ->with(['items.product', 'serviceLocation', 'pickupShipper:id,name', 'returnShipper:id,name'])
             ->whereDate($cfg['date'], $date)
             ->whereIn('status', $cfg['statuses'])
-            ->orderByRaw("{$cfg['time']} IS NULL, {$cfg['time']}, code")
+            ->when($shipperId !== null, fn ($q) => $q->where($cfg['shipper'], $shipperId))
+            ->orderByRaw("{$cfg['sort']} IS NULL, {$cfg['sort']}, {$cfg['time']} IS NULL, {$cfg['time']}, code")
             ->get();
     }
 
@@ -99,10 +103,17 @@ class DeliveryScheduleService
      */
     public function row(Order $o, string $leg): array
     {
+        $cfg = $this->leg($leg);
+        $shipper = $leg === 'pickup' ? $o->pickupShipper : $o->returnShipper;
+
         return [
             'id' => $o->id,
             'code' => $o->code,
-            'time' => $leg === 'pickup' ? $o->confirmed_pickup_time : $o->confirmed_return_time,
+            'time' => $o->{$cfg['time']},
+            'leg' => $leg,
+            'sort' => $o->{$cfg['sort']} !== null ? (int) $o->{$cfg['sort']} : null,
+            'shipper_id' => $o->{$cfg['shipper']},
+            'shipper_name' => $shipper?->name,
             'customer_name' => $o->customer_name,
             'customer_phone' => $o->customer_phone,
             'customer_address' => $o->customer_address,

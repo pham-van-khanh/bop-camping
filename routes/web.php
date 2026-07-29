@@ -24,6 +24,8 @@ use App\Http\Controllers\Admin\StatsController as AdminStatsController;
 use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\Admin\VoucherController as AdminVoucherController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\Shipper\AuthController as ShipperAuthController;
+use App\Http\Controllers\Shipper\ScheduleController as ShipperScheduleController;
 use App\Http\Controllers\Shop\CartController;
 use App\Http\Controllers\Shop\ComboController;
 use App\Http\Controllers\Shop\FeedbackController;
@@ -85,6 +87,18 @@ Route::post('/danh-gia/{token}', [ReviewInviteController::class, 'store'])->name
 Route::get('/admin/login', [AdminAuthController::class, 'showLogin'])->name('admin.login');
 Route::post('/admin/login', [AdminAuthController::class, 'login'])->name('admin.login.store')->middleware('throttle:10,1');
 Route::post('/admin/logout', [AdminAuthController::class, 'logout'])->name('admin.logout');
+
+// Shipper — auth + khu vực riêng (bopcamping-lsch, adr_shipper_role_and_access)
+// Tách hẳn khỏi form login admin: bopcamping-vo4 sẽ đổi admin sang HTTP Basic Auth.
+Route::get('/shipper/dang-nhap', [ShipperAuthController::class, 'showLogin'])->name('shipper.login');
+Route::post('/shipper/dang-nhap', [ShipperAuthController::class, 'login'])->name('shipper.login.store')->middleware('throttle:10,1');
+Route::post('/shipper/dang-xuat', [ShipperAuthController::class, 'logout'])->name('shipper.logout');
+
+Route::middleware(['shipper'])->prefix('shipper')->name('shipper.')->group(function () {
+    Route::get('/', fn () => redirect()->route('shipper.schedule'));
+    // Chỉ đơn được gán cho chính shipper đang đăng nhập (kẹp trong controller).
+    Route::get('/lich-giao', [ShipperScheduleController::class, 'index'])->name('schedule');
+});
 
 // Admin — panel (bảo vệ bằng middleware 'admin')
 // Chỉ dùng 'admin' (EnsureAdmin đã check auth bên trong, redirect về /admin/login)
