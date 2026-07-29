@@ -35,8 +35,10 @@ const ORDER = {
     time_is_default: false,
     pickup_date: '01/08/2030',
     pickup_time: '14:30',
+    pickup_time_is_default: false,
     return_date: '03/08/2030',
     return_time: '12:00',
+    return_time_is_default: false,
     customer_name: 'Nguyễn Test',
     customer_phone: '0912345678',
     customer_address: '12 Ngõ 5, Hà Nội',
@@ -205,24 +207,39 @@ describe('Lịch giao của shipper', () => {
         expect(screen.getByText('03/08/2030 · 12:00')).toBeInTheDocument();
     });
 
-    it('giờ mặc định (chủ shop chưa chốt) được ghi rõ là mặc định', async () => {
-        const user = userEvent.setup();
-        render(<ShipperSchedule {...PROPS} pickups={[{ ...ORDER, time: '08:00', time_is_default: true }]} />);
+    it('KHÔNG in giờ ở đầu card — giờ chỉ nằm trong chi tiết (feedback 31/07)', () => {
+        render(<ShipperSchedule {...PROPS} />);
 
-        expect(screen.getByText('giờ mặc định')).toBeInTheDocument();
-        expect(screen.queryByText('Chưa chốt giờ')).not.toBeInTheDocument();
-        await openDetail(user);
+        // Card đóng: chỉ có mã đơn + tên + địa chỉ, không có con giờ nào.
+        expect(screen.queryByText('14:30')).not.toBeInTheDocument();
+        expect(screen.getByText('BOP-ABC123')).toBeInTheDocument();
     });
 
-    it('không có giờ nào thì mới hiện "Chưa chốt giờ"', () => {
+    it('giờ mặc định được ghi rõ ở dòng mốc trong chi tiết', async () => {
+        const user = userEvent.setup();
         render(
             <ShipperSchedule
                 {...PROPS}
-                pickups={[{ ...ORDER, time: null, time_is_default: false, pickup_time: null }]}
+                pickups={[{ ...ORDER, pickup_time: '08:00', pickup_time_is_default: true }]}
             />,
         );
+        await openDetail(user);
 
-        expect(screen.getByText('Chưa chốt giờ')).toBeInTheDocument();
+        expect(screen.getByText('01/08/2030 · 08:00')).toBeInTheDocument();
+        expect(screen.getByText('mặc định')).toBeInTheDocument();
+    });
+
+    it('mốc không có giờ thì ghi "chưa chốt giờ" ở dòng đó', async () => {
+        const user = userEvent.setup();
+        render(
+            <ShipperSchedule
+                {...PROPS}
+                pickups={[{ ...ORDER, time: null, pickup_time: null, pickup_time_is_default: false }]}
+            />,
+        );
+        await openDetail(user);
+
+        expect(screen.getByText('01/08/2030 · chưa chốt giờ')).toBeInTheDocument();
     });
 
     it('hiện lỗi trạng thái trả về từ server', async () => {

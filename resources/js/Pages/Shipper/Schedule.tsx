@@ -17,10 +17,13 @@ type ScheduleOrder = {
     // Giờ đang hiện chỉ là giờ mặc định theo khung giờ shop (chủ shop chưa chốt).
     time_is_default: boolean;
     // Cả hai mốc của đơn — shipper biết luôn giao lúc nào, thu lúc nào (feedback 30/07).
+    // Giờ CHỈ hiện ở đây (trong chi tiết), không hiện to ở đầu card (feedback 31/07).
     pickup_date: string;
     pickup_time: string | null;
+    pickup_time_is_default: boolean;
     return_date: string;
     return_time: string | null;
+    return_time_is_default: boolean;
     customer_name: string;
     customer_phone: string;
     customer_address: string | null;
@@ -248,27 +251,7 @@ function OrderCard({ order, kind }: { order: ScheduleOrder; kind: TripKind }) {
                 className="flex w-full items-start justify-between gap-3 p-4 text-left"
             >
                 <div className="min-w-0">
-                    <div className="flex flex-wrap items-baseline gap-x-2">
-                        {order.time ? (
-                            <span
-                                className="font-mono text-[20px] font-bold"
-                                style={{ color: order.time_is_default ? '#8a967a' : RED.fg }}
-                            >
-                                {order.time}
-                                {order.time_is_default && (
-                                    <span className="ml-1 text-[11px] font-normal text-[#a3ad92]">giờ mặc định</span>
-                                )}
-                            </span>
-                        ) : (
-                            <span
-                                className="rounded-pill px-2.5 py-1 text-[12px] font-bold"
-                                style={{ background: '#fbe9d8', color: '#9a5a1f' }}
-                            >
-                                Chưa chốt giờ
-                            </span>
-                        )}
-                        <span className="font-mono text-[12.5px] text-moss">{order.code}</span>
-                    </div>
+                    <div className="font-mono text-[12.5px] text-moss">{order.code}</div>
                     <div className="mt-1 text-[15px] font-semibold text-ink">{order.customer_name}</div>
                     {order.customer_address && (
                         <div className="mt-0.5 line-clamp-2 text-[13px] text-moss">{order.customer_address}</div>
@@ -315,20 +298,8 @@ function OrderDetail({ order, kind }: { order: ScheduleOrder; kind: TripKind }) 
 
             {/* Cả 2 mốc để shipper biết đơn này giao lúc nào và thu lúc nào (feedback 30/07) */}
             <div className="mt-2 border-t border-[#f1f4ea] pt-2 text-[13.5px]">
-                <div className="flex justify-between gap-3 py-0.5">
-                    <span className="text-moss">Giao</span>
-                    <span className="font-mono text-ink">
-                        {order.pickup_date}
-                        {order.pickup_time ? ` · ${order.pickup_time}` : ' · chưa chốt giờ'}
-                    </span>
-                </div>
-                <div className="flex justify-between gap-3 py-0.5">
-                    <span className="text-moss">Thu</span>
-                    <span className="font-mono text-ink">
-                        {order.return_date}
-                        {order.return_time ? ` · ${order.return_time}` : ' · chưa chốt giờ'}
-                    </span>
-                </div>
+                <LegTime label="Giao" date={order.pickup_date} time={order.pickup_time} isDefault={order.pickup_time_is_default} />
+                <LegTime label="Thu" date={order.return_date} time={order.return_time} isDefault={order.return_time_is_default} />
             </div>
 
             {order.items.length > 0 && (
@@ -370,6 +341,30 @@ function OrderDetail({ order, kind }: { order: ScheduleOrder; kind: TripKind }) 
 
             {kind === 'return' && <RefundDeposit order={order} />}
             <MarkDoneButton order={order} kind={kind} />
+        </div>
+    );
+}
+
+/** 1 mốc thời gian của đơn; ghi rõ khi giờ chỉ là mặc định (chủ shop chưa chốt). */
+function LegTime({
+    label,
+    date,
+    time,
+    isDefault,
+}: {
+    label: string;
+    date: string;
+    time: string | null;
+    isDefault: boolean;
+}) {
+    return (
+        <div className="flex justify-between gap-3 py-0.5">
+            <span className="text-moss">{label}</span>
+            <span className="text-right font-mono text-ink">
+                {date}
+                {time ? ` · ${time}` : ' · chưa chốt giờ'}
+                {time && isDefault && <span className="ml-1 font-sans text-[11px] text-[#a3ad92]">mặc định</span>}
+            </span>
         </div>
     );
 }

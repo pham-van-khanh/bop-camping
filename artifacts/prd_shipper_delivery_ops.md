@@ -170,6 +170,10 @@ chỉ ghi qua `Order::markPaid()`. Accessor `rental_due` = thuê + phụ phí �
   đúng **ngày của lượt đó** (lượt giao → ngày giao, lượt thu → ngày thu).
 - **Màn shipper hiện cả hai mốc**: chi tiết đơn có dòng "Giao dd/mm · HH:MM" và "Thu dd/mm ·
   HH:MM"; tin nhắn Zalo cũng in cả hai (lượt đang giao việc để trước).
+- **Giờ KHÔNG in ở đầu card** (feedback 31/07): bỏ con giờ cỡ lớn trên card ở cả màn shipper
+  và màn admin lịch giao. Giờ chỉ xuất hiện ở 2 nơi: dòng mốc Giao/Thu trong **chi tiết đơn**
+  và trong **nội dung Zalo**. Nhãn "mặc định" chuyển xuống dòng mốc. Card admin vẫn giữ badge
+  **"Chưa chốt giờ"** khi đơn không có giờ nào — đó là việc admin cần gọi khách, không phải giờ.
 
 ## 8. Liên quan
 

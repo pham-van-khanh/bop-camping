@@ -14,9 +14,9 @@ type ScheduleItem = { name: string; quantity: number };
 type ScheduleOrder = {
     id: number;
     code: string;
+    // Giờ của lượt (đã chốt hoặc mặc định) — chỉ dùng để biết đơn đã có giờ chưa;
+    // không in ra card nữa, giờ nằm trong "Nội dung Zalo" (feedback 31/07).
     time: string | null;
-    // Giờ đang hiện chỉ là giờ mặc định theo khung giờ shop (admin chưa chốt) — feedback 30/07.
-    time_is_default: boolean;
     customer_name: string;
     customer_phone: string;
     customer_address: string | null;
@@ -385,22 +385,17 @@ function ScheduleOrderCard({ order, kind }: { order: ScheduleOrder; kind: TripKi
     return (
         <div className="rounded-[16px] border border-cardBorder bg-white p-4">
             <div className="flex items-start justify-between gap-3">
-                {order.time ? (
-                    <div>
-                        <span className="font-mono text-[20px] font-bold" style={{ color: order.time_is_default ? '#8a967a' : RED.fg }}>
-                            {order.time}
-                        </span>
-                        {order.time_is_default && (
-                            <span className="ml-1.5 text-[11px] text-[#a3ad92]">giờ mặc định</span>
-                        )}
-                    </div>
-                ) : (
+                {/* Giờ KHÔNG hiện to ở đây (feedback 31/07) — xem trong "Nội dung Zalo" bên dưới.
+                    Chỉ giữ cảnh báo đơn chưa có giờ nào, vì đó là việc admin cần gọi khách. */}
+                {order.time === null ? (
                     <span
                         className="rounded-pill px-2.5 py-1 text-[12px] font-bold"
                         style={{ background: '#fbe9d8', color: '#9a5a1f' }}
                     >
                         Chưa chốt giờ
                     </span>
+                ) : (
+                    <span />
                 )}
                 <a
                     href={route('admin.orders.show', order.id)}
