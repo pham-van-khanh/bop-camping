@@ -45,6 +45,9 @@ class Order extends Model
         'confirmed_return_time',
         'schedule_note',
         'schedule_confirmed_at',
+        // Gán shipper cho từng lượt giao/thu (bopcamping-xdvx).
+        'pickup_shipper_id',
+        'return_shipper_id',
         'total_price',
         'deposit_total',
         'extra_fee',
@@ -101,6 +104,18 @@ class Order extends Model
     public function serviceLocation(): BelongsTo
     {
         return $this->belongsTo(ServiceLocation::class);
+    }
+
+    /** Shipper đi GIAO đơn này (null = chưa gán) — bopcamping-xdvx. */
+    public function pickupShipper(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'pickup_shipper_id');
+    }
+
+    /** Shipper đi THU đơn này (null = chưa gán). */
+    public function returnShipper(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'return_shipper_id');
     }
 
     public function items(): HasMany

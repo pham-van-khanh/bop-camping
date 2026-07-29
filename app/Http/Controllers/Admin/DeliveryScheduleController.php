@@ -4,26 +4,36 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Order;
-use Illuminate\Database\Eloquent\Collection;
+use App\Models\User;
+use App\Services\DeliveryScheduleService;
+use App\Services\ShipperScheduleNotifier;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 
 /**
- * Lịch giao/thu cho shipper (bopcamping-rtkh, prd_delivery_schedule FR-5).
- * Lịch THÁNG: ngày nào có đơn thì bôi đỏ + đếm số đơn, ngày đã qua bị khoá; bấm 1 ngày
- * thì liệt kê đơn cần giao / cần thu của ngày đó, sắp theo giờ đã chốt (feedback 2026-07-28).
- * Không có role/tài khoản shipper riêng — dùng chung đăng nhập admin (out of scope theo PRD).
+ * Lịch giao/thu cho shipper (bopcamping-rtkh + yc7d, prd_delivery_schedule FR-5,
+ * prd_shipper_delivery_ops FR-2).
+ *
+ * Lịch THÁNG: ngày có đơn bôi đỏ + đếm số đơn, ngày đã qua bị khoá; bấm 1 ngày thì liệt kê
+ * đơn cần giao / cần thu, sắp theo giờ đã chốt. Admin gán shipper cho từng LƯỢT (giao/thu)
+ * và lọc lịch theo người.
+ *
+ * Dữ liệu lấy qua DeliveryScheduleService để trang shipper và mail lịch dùng chung 1 nguồn.
  */
 class DeliveryScheduleController extends Controller
 {
-    /** Đơn CẦN GIAO ngày X: mở khoảng thuê hôm đó, chưa giao xong. */
-    private const PICKUP_STATUSES = ['pending', 'confirmed'];
+    /** Giá trị lọc đặc biệt: chỉ xem đơn chưa gán shipper. */
+    private const FILTER_UNASSIGNED = 'none';
 
-    /** Đơn CẦN THU ngày X: kết thúc khoảng thuê hôm đó, đang thuê/đã xác nhận. */
-    private const RETURN_STATUSES = ['confirmed', 'renting'];
+    public function __construct(
+        private DeliveryScheduleService $schedule,
+        private ShipperScheduleNotifier $notifier,
+    ) {}
 
     public function index(Request $request): Response
     {
@@ -40,11 +50,15 @@ class DeliveryScheduleController extends Controller
             false,
         );
 
-        $pickups = $this->ordersOf('start_date', self::PICKUP_STATUSES, $date, 'confirmed_pickup_time');
-        $returns = $this->ordersOf('end_date', self::RETURN_STATUSES, $date, 'confirmed_return_time');
+        [$shipperId, $unassignedOnly, $filter] = $this->resolveFilter($request->input('shipper'));
 
-        $pickupRows = $pickups->map(fn (Order $o) => $this->row($o, 'pickup'))->values();
-        $returnRows = $returns->map(fn (Order $o) => $this->row($o, 'return'))->values();
+        $rows = fn (string $leg) => $this->schedule
+            ->legOrders($leg, $date, $shipperId, $unassignedOnly)
+            ->map(fn (Order $o) => $this->schedule->row($o, $leg))
+            ->values();
+
+        $pickupRows = $rows('pickup');
+        $returnRows = $rows('return');
 
         return Inertia::render('Admin/DeliverySchedule', [
             // Lịch tháng
@@ -52,7 +66,7 @@ class DeliveryScheduleController extends Controller
             'month_label' => 'Tháng '.$month->month.' · '.$month->year,
             'prev_month' => $month->copy()->subMonth()->format('Y-m'),
             'next_month' => $month->copy()->addMonth()->format('Y-m'),
-            'days' => $this->monthDays($month),
+            'days' => $this->schedule->monthDays($month, $shipperId, $unassignedOnly),
             // Ngày đang chọn
             'date' => $date->toDateString(),
             'date_label' => Str::ucfirst($date->locale('vi')->isoFormat('dddd, DD/MM/YYYY')),
@@ -63,88 +77,124 @@ class DeliveryScheduleController extends Controller
                 'pickups' => $pickupRows->count(),
                 'returns' => $returnRows->count(),
                 'unscheduled' => $pickupRows->concat($returnRows)->whereNull('time')->count(),
+                'unassigned' => $pickupRows->concat($returnRows)->whereNull('shipper_id')->count(),
             ],
+            // Gán shipper (bopcamping-yc7d)
+            'shippers' => User::shippers()->get(['id', 'name', 'phone', 'email'])->map(fn (User $u) => [
+                'id' => $u->id,
+                'name' => $u->name,
+                // SĐT cho nút Chat Zalo (mở zalo.me — không gửi API); email để cảnh báo nếu chưa đặt.
+                'phone' => $u->phone,
+                'has_email' => ! $u->hasPlaceholderEmail() && filled($u->email),
+            ]),
+            'filters' => ['shipper' => $filter],
         ]);
     }
 
     /**
-     * Đơn cần giao/thu trong 1 ngày, sắp theo giờ đã chốt — chưa chốt giờ xuống cuối.
-     * 'col IS NULL, col, code' chạy đúng cả sqlite lẫn MySQL.
-     *
-     * @param  list<string>  $statuses
-     * @return Collection<int,Order>
+     * Gán / bỏ gán shipper cho 1 LƯỢT của 1 đơn. Lượt giao và lượt thu độc lập nhau
+     * (hai ngày khác nhau, có thể hai người khác nhau).
      */
-    private function ordersOf(string $dateColumn, array $statuses, Carbon $date, string $timeColumn)
+    public function assign(Request $request, Order $order): RedirectResponse
     {
-        return Order::query()
-            ->where('is_parent', false)   // đơn cha chỉ gom đợt, không có món để giao
-            ->with(['items.product', 'serviceLocation'])
-            ->whereDate($dateColumn, $date)
-            ->whereIn('status', $statuses)
-            ->orderByRaw("$timeColumn IS NULL, $timeColumn, code")
-            ->get();
+        $data = $request->validate([
+            'leg' => ['required', 'in:pickup,return'],
+            'shipper_id' => ['nullable', 'integer', Rule::exists('users', 'id')->where('is_shipper', true)],
+        ], [
+            'shipper_id.exists' => 'Tài khoản này không phải shipper.',
+        ]);
+
+        if ($order->is_parent) {
+            return back()->withErrors(['shipper_id' => 'Đơn gộp: gán shipper trên từng đợt (đơn con).']);
+        }
+        if (in_array($order->status, ['returned', 'cancelled'], true)) {
+            return back()->withErrors(['shipper_id' => 'Đơn đã trả/đã huỷ — không gán shipper nữa.']);
+        }
+
+        $column = $this->schedule->columns($data['leg'])['shipper'];
+        $order->update([$column => $data['shipper_id'] ?? null]);
+
+        return back()->with('success', "Đơn {$order->code}: đã cập nhật shipper");
+    }
+
+    /** Gán 1 shipper cho MỌI đơn CHƯA có shipper của (ngày, lượt) — không ghi đè đơn đã gán. */
+    public function assignAll(Request $request): RedirectResponse
+    {
+        $data = $request->validate([
+            'leg' => ['required', 'in:pickup,return'],
+            'date' => ['required', 'date'],
+            'shipper_id' => ['required', 'integer', Rule::exists('users', 'id')->where('is_shipper', true)],
+        ], [
+            'shipper_id.exists' => 'Tài khoản này không phải shipper.',
+        ]);
+
+        $column = $this->schedule->columns($data['leg'])['shipper'];
+
+        $affected = $this->schedule
+            ->legQuery($data['leg'], Carbon::parse($data['date']))
+            ->whereNull($column)
+            ->update([$column => $data['shipper_id']]);
+
+        return back()->with('success', $affected > 0
+            ? "Đã gán shipper cho {$affected} đơn chưa có người."
+            : 'Không còn đơn nào chưa có shipper.');
     }
 
     /**
-     * Số đơn giao/thu từng ngày trong tháng — FE bôi đỏ ô ngày có đơn.
-     * Chỉ trả những ngày CÓ đơn (tháng rỗng = mảng rỗng).
-     *
-     * @return list<array{date:string,pickups:int,returns:int}>
+     * Gửi lịch trong ngày cho shipper qua email. Đang lọc 1 shipper → gửi đúng người đó;
+     * lọc "Tất cả"/"Chưa gán" → gửi cho mọi shipper CÓ lượt hôm đó (bopcamping-5r5m).
      */
-    private function monthDays(Carbon $month): array
+    public function sendEmail(Request $request): RedirectResponse
     {
-        $start = $month->copy()->startOfMonth()->toDateString();
-        $end = $month->copy()->endOfMonth()->toDateString();
+        $data = $request->validate([
+            'date' => ['required', 'date'],
+            'shipper_id' => ['nullable', 'integer', Rule::exists('users', 'id')->where('is_shipper', true)],
+        ], [
+            'shipper_id.exists' => 'Tài khoản này không phải shipper.',
+        ]);
 
-        $countBy = fn (string $column, array $statuses) => Order::query()
-            ->where('is_parent', false)
-            ->whereIn('status', $statuses)
-            ->whereBetween($column, [$start, $end])
-            ->pluck($column)
-            ->countBy(fn (Carbon $d) => $d->toDateString());
+        $date = Carbon::parse($data['date']);
 
-        $pickups = $countBy('start_date', self::PICKUP_STATUSES);
-        $returns = $countBy('end_date', self::RETURN_STATUSES);
+        if (! empty($data['shipper_id'])) {
+            $shipper = User::findOrFail($data['shipper_id']);
 
-        return $pickups->keys()
-            ->merge($returns->keys())
-            ->unique()
-            ->sort()
-            ->values()
-            ->map(fn (string $d) => [
-                'date' => $d,
-                'pickups' => (int) ($pickups[$d] ?? 0),
-                'returns' => (int) ($returns[$d] ?? 0),
-            ])
-            ->all();
+            return match ($this->notifier->send($shipper, $date)) {
+                'sent' => back()->with('success', "Đã gửi lịch cho {$shipper->name}."),
+                'no_legs' => back()->withErrors(['message' => "{$shipper->name} không có lượt nào ngày này."]),
+                default => back()->withErrors(['message' => "{$shipper->name} chưa có email thật — vào Người dùng ➝ Shipper để bổ sung."]),
+            };
+        }
+
+        ['sent' => $sent, 'no_email' => $noEmail] = $this->notifier->sendToAllWithLegs($date);
+
+        if ($sent === 0 && $noEmail === []) {
+            return back()->withErrors(['message' => 'Không có shipper nào có lượt trong ngày này.']);
+        }
+
+        $message = "Đã gửi lịch cho {$sent} shipper.";
+        if ($noEmail !== []) {
+            $message .= ' Chưa có email thật: '.implode(', ', $noEmail).'.';
+        }
+
+        return back()->with('success', $message);
     }
 
     /**
-     * Chuẩn hoá 1 đơn cho danh sách giao ('pickup') hoặc thu ('return') — dùng chung shape,
-     * chỉ khác field giờ nào được lấy làm 'time'.
+     * Đọc param lọc `shipper`: '' hoặc null = tất cả · 'none' = chưa gán · số = 1 shipper.
      *
-     * @return array<string,mixed>
+     * @return array{0:int|null,1:bool,2:string}
      */
-    private function row(Order $o, string $type): array
+    private function resolveFilter(mixed $input): array
     {
-        return [
-            'id' => $o->id,
-            'code' => $o->code,
-            'time' => $type === 'pickup' ? $o->confirmed_pickup_time : $o->confirmed_return_time,
-            'customer_name' => $o->customer_name,
-            'customer_phone' => $o->customer_phone,
-            'customer_address' => $o->customer_address,
-            'service_location' => $o->serviceLocation?->name,
-            'session' => $o->session,
-            'status' => $o->status,
-            'payment_status' => $o->payment_status,
-            'amount_due' => $o->amount_due,
-            'deposit_total' => $o->deposit_total,
-            'schedule_note' => $o->schedule_note,
-            'items' => $o->items->map(fn ($i) => [
-                'name' => $i->product?->name ?? '(đã xoá)',
-                'quantity' => $i->quantity,
-            ])->values(),
-        ];
+        $raw = is_string($input) || is_int($input) ? (string) $input : '';
+
+        if ($raw === self::FILTER_UNASSIGNED) {
+            return [null, true, self::FILTER_UNASSIGNED];
+        }
+        if ($raw !== '' && ctype_digit($raw)) {
+            return [(int) $raw, false, $raw];
+        }
+
+        return [null, false, ''];
     }
 }

@@ -49,6 +49,8 @@ class HandleInertiaRequests extends Middleware
                     'phone' => $user->phone,
                     'email' => $user->email,
                     'email_verified_at' => $user->email_verified_at,
+                    // Vai shipper — FE dùng để điều hướng đúng khu vực (bopcamping-lsch).
+                    'is_shipper' => $user->isShipper(),
                 ] : null,
             ],
             'flash' => [

@@ -53,6 +53,8 @@ class User extends Authenticatable
         'email',
         'password',
         'is_admin',
+        // Vai shipper — người đi giao/thu đồ (bopcamping-xdvx).
+        'is_shipper',
     ];
 
     /**
@@ -76,7 +78,35 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'is_admin' => 'boolean',
+            'is_shipper' => 'boolean',
         ];
+    }
+
+    /**
+     * Vai shipper (adr_shipper_role_and_access): người đi giao/thu đồ. Admin KHÔNG tự động
+     * là shipper — muốn tự đi giao thì bật thêm cờ này cho chính tài khoản đó.
+     */
+    public function isShipper(): bool
+    {
+        return (bool) $this->is_shipper;
+    }
+
+    /** @param  Builder<User>  $query */
+    public function scopeShippers(Builder $query): void
+    {
+        $query->where('is_shipper', true)->orderBy('name');
+    }
+
+    /** Lượt GIAO được gán cho shipper này. */
+    public function pickupOrders(): HasMany
+    {
+        return $this->hasMany(Order::class, 'pickup_shipper_id');
+    }
+
+    /** Lượt THU được gán cho shipper này. */
+    public function returnOrders(): HasMany
+    {
+        return $this->hasMany(Order::class, 'return_shipper_id');
     }
 
     /** Đơn đã liên kết tài khoản (user_id) — dùng cho thống kê list. */
