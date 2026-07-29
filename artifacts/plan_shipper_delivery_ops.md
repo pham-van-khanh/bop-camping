@@ -1,7 +1,7 @@
 # Plan — Vận hành giao nhận (shipper, gán đơn, in/xuất, thông báo)
 
 **PRD:** [prd_shipper_delivery_ops.md](artifacts/prd_shipper_delivery_ops.md) · **ADR:** [adr_shipper_role_and_access.md](artifacts/adr_shipper_role_and_access.md), [adr_pdf_generation.md](artifacts/adr_pdf_generation.md)
-**Ngày:** 2026-07-29 · **Loại:** Large (~11–13 ngày) · **Nhánh:** `feature/shipper-ops` tách từ `feat/scaffold-laravel`
+**Ngày:** 2026-07-29 · **Loại:** Large (~11–13 ngày) · **Nhánh:** `feature/shipper-ops` tách từ `feature/delivery-schedule` (đợt này refactor code của nhánh đó; nó đang trên staging chờ test nên chưa có ở `feat/scaffold-laravel`)
 
 > Điều kiện tiên quyết: `feature/delivery-schedule` (giờ đã chốt + lịch tháng) đã merge vào `feat/scaffold-laravel` — đợt này build lên trên nó.
 
