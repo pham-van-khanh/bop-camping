@@ -131,6 +131,64 @@ class ShipperZaloMessageTest extends TestCase
     }
 
     /** @test */
+    public function message_shows_both_legs_and_a_link_to_the_shipper_app(): void
+    {
+        $order = $this->order(['confirmed_return_time' => '09:00']);
+
+        $text = $this->message($order);
+
+        // Lượt đang giao việc để trước, mốc còn lại để sau (feedback 30/07).
+        $this->assertStringContainsString('Ngày giờ giao: 05/11/2030 · 14:30', $text);
+        $this->assertStringContainsString('Ngày giờ thu: 07/11/2030 · 09:00', $text);
+        // Link mở đúng NGÀY của lượt này trong app shipper.
+        $this->assertStringContainsString('/shipper/lich-giao?date=2030-11-05&month=2030-11', $text);
+    }
+
+    /** @test */
+    public function return_leg_link_points_to_the_return_date(): void
+    {
+        $text = $this->message($this->order(), 'return');
+
+        $this->assertStringContainsString('/shipper/lich-giao?date=2030-11-07&month=2030-11', $text);
+    }
+
+    /** @test */
+    public function half_day_order_without_confirmed_times_falls_back_to_shop_hours(): void
+    {
+        // Thuê trong ngày, buổi sáng: giờ mặc định 08:00–12:00 do OrderSplitter suy lúc checkout.
+        $order = $this->order([
+            'code' => 'BOP-HALF',
+            'end_date' => self::DATE,
+            'session' => 'morning',
+            'is_half_day' => true,
+            'confirmed_pickup_time' => null,
+            'requested_pickup_time' => '08:00',
+            'requested_return_time' => '12:00',
+        ]);
+
+        $text = $this->message($order);
+
+        $this->assertStringContainsString('Ngày giờ giao: 05/11/2030 · 08:00 (giờ mặc định)', $text);
+        $this->assertStringContainsString('Ngày giờ thu: 05/11/2030 · 12:00 (giờ mặc định)', $text);
+    }
+
+    /** @test */
+    public function confirmed_time_wins_over_the_default_and_is_not_labelled_default(): void
+    {
+        $order = $this->order([
+            'end_date' => self::DATE,
+            'session' => 'morning',
+            'requested_pickup_time' => '08:00',
+            'confirmed_pickup_time' => '07:30',
+        ]);
+
+        $text = $this->message($order);
+
+        $this->assertStringContainsString('Ngày giờ giao: 05/11/2030 · 07:30', $text);
+        $this->assertStringNotContainsString('07:30 (giờ mặc định)', $text);
+    }
+
+    /** @test */
     public function the_email_schedule_feature_is_gone(): void
     {
         // Chốt 30/07: bỏ hẳn email lịch, chỉ còn Copy + Zalo — không để lại tính năng chết.

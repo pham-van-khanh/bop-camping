@@ -151,6 +151,20 @@ chỉ ghi qua `Order::markPaid()`. Accessor `rental_due` = thuê + phụ phí �
   file test tương ứng. Có test khẳng định các lớp/route đó không còn tồn tại.
 - Vẫn **không** dùng Zalo OA/ZNS (không gửi tự động) — đúng quyết định 29/07.
 
+### 7.4 Bổ sung cuối vòng 3 (30/07/2026)
+
+- **Giờ mặc định khi chưa chốt**: đơn thuê **≤ 1 ngày** mà admin chưa chốt giờ thì lấy luôn
+  khung giờ của buổi khách chọn (sáng 08:00–12:00 · chiều 13:00–20:00 · cả ngày 08:00–20:00).
+  Dùng lại `requested_*` đã được `OrderSplitter` suy sẵn lúc checkout — **không suy lại**, giữ
+  một nguồn chân lý. Đơn **nhiều ngày** vẫn là "chưa chốt giờ" (không có mặc định nào hợp lý).
+  UI ghi rõ **"giờ mặc định"** để phân biệt với giờ admin đã chốt. Danh sách **sắp theo giờ
+  thực dụng** (`COALESCE(đã chốt, mặc định)`) nên đơn giờ mặc định không bị đẩy xuống cuối;
+  chip "chưa chốt giờ" giờ chỉ đếm đơn **không có giờ nào**.
+- **Link đơn trong tin nhắn Zalo**: thêm dòng `Xem đơn: …/shipper/lich-giao?date=&month=` mở
+  đúng **ngày của lượt đó** (lượt giao → ngày giao, lượt thu → ngày thu).
+- **Màn shipper hiện cả hai mốc**: chi tiết đơn có dòng "Giao dd/mm · HH:MM" và "Thu dd/mm ·
+  HH:MM"; tin nhắn Zalo cũng in cả hai (lượt đang giao việc để trước).
+
 ## 8. Liên quan
 
 - [plan_shipper_delivery_ops.md](artifacts/plan_shipper_delivery_ops.md) — kế hoạch triển khai + phân rã task.

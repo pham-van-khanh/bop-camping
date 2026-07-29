@@ -161,6 +161,62 @@ class ShipperCollectMoneyTest extends TestCase
     }
 
     /** @test */
+    public function schedule_uses_default_shop_hours_when_time_is_not_confirmed(): void
+    {
+        // Thuê trong ngày buổi chiều: mặc định 13:00–20:00 (requested_* suy lúc checkout).
+        $me = $this->shipper();
+        $order = $this->order([
+            'end_date' => now()->toDateString(),
+            'session' => 'afternoon',
+            'is_half_day' => true,
+            'requested_pickup_time' => '13:00',
+            'requested_return_time' => '20:00',
+            'pickup_shipper_id' => $me->id,
+            'return_shipper_id' => $me->id,
+        ]);
+
+        $this->actingAs($me)->get(route('shipper.schedule'))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where('pickups.0.time', '13:00')
+                ->where('pickups.0.time_is_default', true)
+                // Cả hai mốc luôn có mặt để shipper biết giao/thu lúc nào.
+                ->where('pickups.0.pickup_time', '13:00')
+                ->where('pickups.0.return_time', '20:00')
+                ->where('returns.0.time', '20:00'));
+
+        // Chốt giờ khác → giờ đã chốt thắng và không còn bị coi là mặc định.
+        $order->update(['confirmed_pickup_time' => '12:30']);
+        $this->actingAs($me)->get(route('shipper.schedule'))
+            ->assertInertia(fn ($page) => $page
+                ->where('pickups.0.time', '12:30')
+                ->where('pickups.0.time_is_default', false));
+    }
+
+    /** @test */
+    public function orders_with_default_hours_sort_by_that_hour_not_last(): void
+    {
+        $me = $this->shipper();
+        $today = now()->toDateString();
+
+        // 08:00 là giờ MẶC ĐỊNH (chưa chốt) — phải xếp trước đơn đã chốt 10:00.
+        $this->order([
+            'code' => 'BOP-DEFAULT8', 'end_date' => $today, 'session' => 'morning',
+            'requested_pickup_time' => '08:00', 'pickup_shipper_id' => $me->id,
+        ]);
+        $this->order([
+            'code' => 'BOP-FIXED10', 'confirmed_pickup_time' => '10:00', 'pickup_shipper_id' => $me->id,
+        ]);
+        $this->order(['code' => 'BOP-NOTIME', 'pickup_shipper_id' => $me->id]);
+
+        $this->actingAs($me)->get(route('shipper.schedule'))
+            ->assertInertia(fn ($page) => $page
+                ->where('pickups.0.code', 'BOP-DEFAULT8')
+                ->where('pickups.1.code', 'BOP-FIXED10')
+                ->where('pickups.2.code', 'BOP-NOTIME'));
+    }
+
+    /** @test */
     public function guests_and_non_shippers_cannot_collect(): void
     {
         $shipper = $this->shipper();

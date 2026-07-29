@@ -24,22 +24,45 @@ class DeliveryScheduleService
     public const RETURN_STATUSES = ['confirmed', 'renting'];
 
     /**
-     * Cấu hình từng lượt: cột ngày, trạng thái hợp lệ, cột giờ đã chốt, cột shipper.
+     * Cấu hình từng lượt: cột ngày, trạng thái hợp lệ, cột giờ đã chốt, cột giờ MẶC ĐỊNH,
+     * cột shipper.
      *
-     * @return array{date:string,statuses:list<string>,time:string,shipper:string}
+     * @return array{date:string,statuses:list<string>,time:string,default_time:string,shipper:string}
      */
     private function leg(string $leg): array
     {
         return $leg === 'pickup'
-            ? ['date' => 'start_date', 'statuses' => self::PICKUP_STATUSES, 'time' => 'confirmed_pickup_time', 'shipper' => 'pickup_shipper_id']
-            : ['date' => 'end_date', 'statuses' => self::RETURN_STATUSES, 'time' => 'confirmed_return_time', 'shipper' => 'return_shipper_id'];
+            ? ['date' => 'start_date', 'statuses' => self::PICKUP_STATUSES, 'time' => 'confirmed_pickup_time', 'default_time' => 'requested_pickup_time', 'shipper' => 'pickup_shipper_id']
+            : ['date' => 'end_date', 'statuses' => self::RETURN_STATUSES, 'time' => 'confirmed_return_time', 'default_time' => 'requested_return_time', 'shipper' => 'return_shipper_id'];
+    }
+
+    /**
+     * Giờ THỰC DỤNG của 1 lượt (feedback 30/07/2026): giờ admin đã chốt, nếu chưa chốt thì
+     * lấy giờ mặc định của khung giờ shop — chỉ đơn thuê ≤ 1 ngày mới có (buổi sáng 8–12h,
+     * chiều 13–20h, cả ngày 8–20h; `requested_*` đã được suy sẵn lúc checkout — OrderSplitter
+     * là nguồn chân lý, KHÔNG suy lại ở đây). Đơn nhiều ngày → null = thật sự chưa có giờ.
+     */
+    public function effectiveTime(Order $o, string $leg): ?string
+    {
+        $cfg = $this->leg($leg);
+
+        return $o->{$cfg['time']} ?? $o->{$cfg['default_time']};
+    }
+
+    /** True khi giờ đang dùng chỉ là giờ mặc định (admin chưa chốt) — UI nói rõ cho shipper. */
+    public function timeIsDefault(Order $o, string $leg): bool
+    {
+        $cfg = $this->leg($leg);
+
+        return $o->{$cfg['time']} === null && $o->{$cfg['default_time']} !== null;
     }
 
     /**
      * Đơn cần giao/thu trong 1 ngày.
      *
-     * Thứ tự: theo giờ đã chốt, đơn chưa chốt giờ xuống cuối ('col IS NULL, col' chạy
-     * đúng cả sqlite lẫn MySQL). Không có sắp thứ tự thủ công — chủ shop bỏ kéo-thả (29/07).
+     * Thứ tự: theo GIỜ THỰC DỤNG (đã chốt, nếu chưa thì giờ mặc định của khung giờ shop),
+     * đơn không có giờ nào xuống cuối. COALESCE + 'IS NULL' chạy đúng cả sqlite lẫn MySQL.
+     * Không có sắp thứ tự thủ công — chủ shop bỏ kéo-thả (29/07).
      *
      * @param  int|null  $shipperId  Chỉ lấy đơn gán cho shipper này (null = không lọc theo người)
      * @param  bool  $unassignedOnly  Chỉ lấy đơn CHƯA gán shipper (bỏ qua $shipperId)
@@ -54,7 +77,7 @@ class DeliveryScheduleService
             ->with(['items.product', 'serviceLocation', 'pickupShipper:id,name,phone', 'returnShipper:id,name,phone'])
             ->when($unassignedOnly, fn ($q) => $q->whereNull($cfg['shipper']))
             ->when(! $unassignedOnly && $shipperId !== null, fn ($q) => $q->where($cfg['shipper'], $shipperId))
-            ->orderByRaw("{$cfg['time']} IS NULL, {$cfg['time']}, code")
+            ->orderByRaw("COALESCE({$cfg['time']}, {$cfg['default_time']}) IS NULL, COALESCE({$cfg['time']}, {$cfg['default_time']}), code")
             ->get();
     }
 
@@ -131,10 +154,18 @@ class DeliveryScheduleService
      */
     public function zaloMessage(Order $o, string $leg): string
     {
-        $cfg = $this->leg($leg);
-        $date = $o->{$cfg['date']}->format('d/m/Y');
-        $time = $o->{$cfg['time']};
         $vnd = fn (int $n) => number_format($n, 0, ',', '.').'đ';
+        // Giờ mặc định (chưa chốt) thì nói rõ để shipper biết còn có thể đổi.
+        $when = function (string $which) use ($o) {
+            $date = ($which === 'pickup' ? $o->start_date : $o->end_date)->format('d/m/Y');
+            $time = $this->effectiveTime($o, $which);
+
+            if ($time === null) {
+                return $date.' (chưa chốt giờ)';
+            }
+
+            return $date.' · '.$time.($this->timeIsDefault($o, $which) ? ' (giờ mặc định)' : '');
+        };
 
         $lines = ["Mã đơn: {$o->code}", $o->customer_name];
 
@@ -151,8 +182,14 @@ class DeliveryScheduleService
             $lines[] = $item->quantity.' x '.($item->product?->name ?? '(đã xoá)');
         }
 
+        // Lượt đang giao việc để TRƯỚC, lượt còn lại để sau cho shipper biết cả hai mốc.
         $lines[] = '';
-        $lines[] = ($leg === 'pickup' ? 'Ngày giờ giao: ' : 'Ngày giờ thu: ').$date.($time ? ' · '.$time : ' (chưa chốt giờ)');
+        $lines[] = $leg === 'pickup'
+            ? 'Ngày giờ giao: '.$when('pickup')
+            : 'Ngày giờ thu: '.$when('return');
+        $lines[] = $leg === 'pickup'
+            ? 'Ngày giờ thu: '.$when('return')
+            : 'Ngày giờ giao: '.$when('pickup');
 
         if (! $o->rentalPaid()) {
             $lines[] = 'Nhờ shipper thu tiền thuê: '.$vnd($o->rental_due);
@@ -174,6 +211,14 @@ class DeliveryScheduleService
             $lines[] = 'Ghi chú: '.$o->schedule_note;
         }
 
+        // Link mở đúng NGÀY của lượt này trong app shipper (feedback 30/07/2026).
+        $legDate = ($leg === 'pickup' ? $o->start_date : $o->end_date);
+        $lines[] = '';
+        $lines[] = 'Xem đơn: '.route('shipper.schedule', [
+            'date' => $legDate->toDateString(),
+            'month' => $legDate->format('Y-m'),
+        ]);
+
         $lines[] = '';
         $lines[] = 'Nếu có vấn đề gì khác vui lòng liên hệ admin.';
 
@@ -194,7 +239,14 @@ class DeliveryScheduleService
         return [
             'id' => $o->id,
             'code' => $o->code,
-            'time' => $o->{$cfg['time']},
+            // Giờ của lượt này: đã chốt, nếu chưa thì giờ mặc định theo khung giờ shop.
+            'time' => $this->effectiveTime($o, $leg),
+            'time_is_default' => $this->timeIsDefault($o, $leg),
+            // Cả hai mốc để shipper biết luôn đơn này giao lúc nào / thu lúc nào (feedback 30/07).
+            'pickup_date' => $o->start_date->format('d/m/Y'),
+            'pickup_time' => $this->effectiveTime($o, 'pickup'),
+            'return_date' => $o->end_date->format('d/m/Y'),
+            'return_time' => $this->effectiveTime($o, 'return'),
             'leg' => $leg,
             'shipper_id' => $o->{$cfg['shipper']},
             'shipper_name' => $shipper?->name,
