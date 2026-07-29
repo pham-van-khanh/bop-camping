@@ -36,7 +36,7 @@ type ScheduleOrder = {
     deposit_refund_status: string;
     schedule_note: string | null;
     // Ai đã làm gì trên đơn (bopcamping-3wfk) — shipper thấy admin đã nhận khoản nào chưa.
-    actions: { key: string; label: string; done: boolean; at: string | null; by: string | null; role: string | null }[];
+    actions: { key: string; label: string; done: boolean; at: string | null; by: string | null }[];
     items: ScheduleItem[];
 };
 
@@ -439,7 +439,7 @@ function MoneyRow({
                     {/* Ai đã nhận khoản này — admin hay chính shipper (bopcamping-3wfk) */}
                     {done && (
                         <span className="block text-[11px] text-[#a3ad92]">
-                            {done.by ? `${done.role ? done.role + ' ' : ''}${done.by}` : 'không rõ ai'}
+                            {done.by ?? 'không rõ ai'}
                             {done.at ? ` · ${done.at}` : ''}
                         </span>
                     )}
@@ -492,7 +492,7 @@ function RefundDeposit({ order }: { order: ScheduleOrder }) {
                 ✓ Đã hoàn cọc {money(order.deposit_total)} cho khách
                 {done && (
                     <span className="ml-1 text-[11.5px]">
-                        — {done.by ? `${done.role ? done.role + ' ' : ''}${done.by}` : 'không rõ ai'}
+                        — {done.by ?? 'không rõ ai'}
                         {done.at ? ` · ${done.at}` : ''}
                     </span>
                 )}

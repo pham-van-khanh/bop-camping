@@ -35,7 +35,7 @@ class OrderController extends Controller
 
         // Đơn cha/con (bopcamping-wtuv T6): danh sách chỉ TOP-LEVEL (đơn thường + cha, ẩn con);
         // con nạp kèm trong cha. Search theo mã đơn (cả mã con)/tên/SĐT.
-        $relations = ['items.product', 'items.combo', 'vouchers', 'referralUse.referrer', 'serviceLocation', 'rentalPaidBy:id,name,is_admin,is_shipper', 'depositPaidBy:id,name,is_admin,is_shipper', 'depositRefundedBy:id,name,is_admin,is_shipper', 'deliveredBy:id,name,is_admin,is_shipper', 'collectedBy:id,name,is_admin,is_shipper'];
+        $relations = ['items.product', 'items.combo', 'vouchers', 'referralUse.referrer', 'serviceLocation', 'rentalPaidBy:id,name', 'depositPaidBy:id,name', 'depositRefundedBy:id,name', 'deliveredBy:id,name', 'collectedBy:id,name'];
         $query = Order::topLevel()->with(array_merge($relations, array_map(fn ($r) => "children.$r", $relations)))->latest();
 
         if ($q !== '') {
@@ -102,7 +102,7 @@ class OrderController extends Controller
      */
     public function show(Order $order): Response
     {
-        $relations = ['items.product', 'items.combo', 'vouchers', 'referralUse.referrer', 'serviceLocation', 'rentalPaidBy:id,name,is_admin,is_shipper', 'depositPaidBy:id,name,is_admin,is_shipper', 'depositRefundedBy:id,name,is_admin,is_shipper', 'deliveredBy:id,name,is_admin,is_shipper', 'collectedBy:id,name,is_admin,is_shipper'];
+        $relations = ['items.product', 'items.combo', 'vouchers', 'referralUse.referrer', 'serviceLocation', 'rentalPaidBy:id,name', 'depositPaidBy:id,name', 'depositRefundedBy:id,name', 'deliveredBy:id,name', 'collectedBy:id,name'];
         $order->load(array_merge($relations, array_map(fn ($r) => "children.$r", $relations), ['parent:id,code']));
 
         $row = $this->mapOrder($order);

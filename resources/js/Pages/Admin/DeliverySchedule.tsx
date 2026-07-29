@@ -37,7 +37,7 @@ type ScheduleOrder = {
     // Lượt của dòng này ('pickup'|'return') — dùng để tô đúng mốc trong nội dung Zalo.
     leg: TripKind;
     // Ai đã làm gì + việc còn lại của lượt này (bopcamping-3wfk)
-    actions: { key: string; label: string; done: boolean; at: string | null; by: string | null; role: string | null }[];
+    actions: { key: string; label: string; done: boolean; at: string | null; by: string | null }[];
     todo: string[];
 };
 
@@ -506,7 +506,7 @@ function ScheduleOrderCard({ order, kind }: { order: ScheduleOrder; kind: TripKi
                     <div className="mt-1 text-[12px] text-moss">
                         {order.actions
                             .filter((a) => a.done)
-                            .map((a) => `${a.label}: ${a.by ? `${a.role ? a.role + ' ' : ''}${a.by}` : 'không rõ ai'}${a.at ? ` (${a.at})` : ''}`)
+                            .map((a) => `${a.label}: ${a.by ?? 'không rõ ai'}${a.at ? ` (${a.at})` : ''}`)
                             .join(' · ')}
                     </div>
                 )}

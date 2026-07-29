@@ -97,10 +97,10 @@ class DeliveryScheduleService
             ->with([
                 'items.product', 'serviceLocation',
                 'pickupShipper:id,name,phone', 'returnShipper:id,name,phone',
-                // Ai đã làm gì (bopcamping-3wfk) — cần cả cờ vai để hiện Admin/Shipper.
-                'rentalPaidBy:id,name,is_admin,is_shipper', 'depositPaidBy:id,name,is_admin,is_shipper',
-                'depositRefundedBy:id,name,is_admin,is_shipper',
-                'deliveredBy:id,name,is_admin,is_shipper', 'collectedBy:id,name,is_admin,is_shipper',
+                // Ai đã làm gì (bopcamping-3wfk) — chỉ cần tên người làm.
+                'rentalPaidBy:id,name', 'depositPaidBy:id,name',
+                'depositRefundedBy:id,name',
+                'deliveredBy:id,name', 'collectedBy:id,name',
             ])
             ->when($unassignedOnly, fn ($q) => $q->whereNull($cfg['shipper']))
             ->when(! $unassignedOnly && $shipperId !== null, fn ($q) => $q->where($cfg['shipper'], $shipperId))

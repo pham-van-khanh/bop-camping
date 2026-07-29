@@ -366,7 +366,7 @@ class Order extends Model
      * Mốc đã xảy ra nhưng không có dấu (đơn cũ trước khi có tính năng) → by = null,
      * UI hiển thị "không rõ ai" thay vì đoán bừa.
      *
-     * @return list<array{key:string,label:string,done:bool,at:?string,by:?string,role:?string}>
+     * @return list<array{key:string,label:string,done:bool,at:?string,by:?string}>
      */
     public function actionLog(): array
     {
@@ -397,8 +397,8 @@ class Order extends Model
                 'label' => $label,
                 'done' => (bool) $impliedDone[$key],
                 'at' => $this->{"{$key}_at"}?->format('d/m H:i'),
+                // Chỉ TÊN người làm — chủ shop 31/07: không cần ghi rõ vai.
                 'by' => $actor?->name,
-                'role' => $actor?->roleLabel(),
             ];
         }
 

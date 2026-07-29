@@ -28,14 +28,13 @@ export type ItemGroup = { key: string; combo: string | null; items: OrderItem[] 
 // bopcamping-3ag: nguồn giảm giá từng dòng, lưu lúc checkout (đơn cũ = null).
 export type DiscountLine = { source: string; amount: number; code?: string; percent?: boolean };
 
-/** 1 mốc việc trên đơn: đã làm chưa, ai làm (kèm vai), lúc nào. */
+/** 1 mốc việc trên đơn: đã làm chưa, ai làm, lúc nào. */
 export type OrderAction = {
     key: string;
     label: string;
     done: boolean;
     at: string | null;
     by: string | null;
-    role: string | null;
 };
 
 export type UsedVoucher = { code: string; type: VoucherType; value: number; source: string };
@@ -182,9 +181,7 @@ function ActionLog({ actions }: { actions: OrderAction[] }) {
                                 <span className="text-[#c4cca8]">chưa làm</span>
                             ) : a.by ? (
                                 <>
-                                    <span className="font-semibold text-ink">
-                                        {a.role ? `${a.role} ${a.by}` : a.by}
-                                    </span>
+                                    <span className="font-semibold text-ink">{a.by}</span>
                                     {a.at && <span className="ml-1 font-mono text-[11.5px]">{a.at}</span>}
                                 </>
                             ) : (
@@ -208,7 +205,6 @@ function PaidToggle({
     paid,
     at,
     by,
-    role,
     disabled,
     onToggle,
 }: {
@@ -217,7 +213,6 @@ function PaidToggle({
     paid: boolean;
     at: string | null;
     by: string | null;
-    role: string | null;
     disabled?: boolean;
     onToggle: (paid: boolean) => void;
 }) {
@@ -228,7 +223,7 @@ function PaidToggle({
                 <span className="ml-1.5 font-mono text-[12.5px] text-moss">{money(amount)}</span>
                 {paid && (
                     <div className="text-[11px] text-[#a3ad92]">
-                        {by ? `${role ? role + ' ' : ''}${by} nhận` : 'đã nhận (không rõ ai)'}
+                        {by ? `${by} nhận` : 'đã nhận (không rõ ai)'}
                         {at ? ` · ${at}` : ''}
                     </div>
                 )}
@@ -792,7 +787,6 @@ export function OrderDetailPanel({ order, locations, maxDiscountPercent }: { ord
                         paid={order.rental_paid}
                         at={order.rental_paid_at}
                         by={order.rental_paid_by}
-                        role={order.actions.find((a) => a.key === 'rental_paid')?.role ?? null}
                         disabled={order.status === 'cancelled'}
                         onToggle={(paid) => togglePaid('rental', paid)}
                     />
@@ -802,7 +796,6 @@ export function OrderDetailPanel({ order, locations, maxDiscountPercent }: { ord
                         paid={order.deposit_paid}
                         at={order.deposit_paid_at}
                         by={order.deposit_paid_by}
-                        role={order.actions.find((a) => a.key === 'deposit_paid')?.role ?? null}
                         disabled={order.status === 'cancelled'}
                         onToggle={(paid) => togglePaid('deposit', paid)}
                     />
