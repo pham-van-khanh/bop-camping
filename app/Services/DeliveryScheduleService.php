@@ -267,8 +267,10 @@ class DeliveryScheduleService
             // Cả hai mốc để shipper biết luôn đơn này giao lúc nào / thu lúc nào (feedback 30/07).
             'pickup_date' => $o->start_date->format('d/m/Y'),
             'pickup_time' => $this->effectiveTime($o, 'pickup'),
+            'pickup_time_is_default' => $this->timeIsDefault($o, 'pickup'),
             'return_date' => $o->end_date->format('d/m/Y'),
             'return_time' => $this->effectiveTime($o, 'return'),
+            'return_time_is_default' => $this->timeIsDefault($o, 'return'),
             'leg' => $leg,
             'shipper_id' => $o->{$cfg['shipper']},
             'shipper_name' => $shipper?->name,
