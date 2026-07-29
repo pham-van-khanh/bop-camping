@@ -9,7 +9,7 @@ use Illuminate\Support\Carbon;
 
 /**
  * Nguồn chân lý cho lịch giao/thu (bopcamping-4gy0). Rút ra khỏi Admin\DeliveryScheduleController
- * để trang admin, trang shipper và email lịch đều đọc CÙNG một dữ liệu —
+ * để trang admin, trang shipper và tin nhắn giao việc đều đọc CÙNG một dữ liệu —
  * không lặp query, không lệch số liệu giữa các nơi.
  *
  * Khái niệm "lượt" (leg): 'pickup' = đi GIAO đồ (mở khoảng thuê) · 'return' = đi THU đồ
@@ -50,7 +50,8 @@ class DeliveryScheduleService
         $cfg = $this->leg($leg);
 
         return $this->legQuery($leg, $date)
-            ->with(['items.product', 'serviceLocation', 'pickupShipper:id,name', 'returnShipper:id,name'])
+            // phone: để admin mở Zalo đúng shipper đã gán (bopcamping-dolb)
+            ->with(['items.product', 'serviceLocation', 'pickupShipper:id,name,phone', 'returnShipper:id,name,phone'])
             ->when($unassignedOnly, fn ($q) => $q->whereNull($cfg['shipper']))
             ->when(! $unassignedOnly && $shipperId !== null, fn ($q) => $q->where($cfg['shipper'], $shipperId))
             ->orderByRaw("{$cfg['time']} IS NULL, {$cfg['time']}, code")
@@ -122,7 +123,65 @@ class DeliveryScheduleService
     }
 
     /**
-     * Chuẩn hoá 1 đơn cho danh sách 1 lượt — dùng chung mọi nơi (web admin/shipper/mail),
+     * Tin nhắn giao việc cho shipper, đúng mẫu chủ shop chốt 30/07/2026 (bopcamping-dolb).
+     * Sinh ở SERVER để 1 nguồn chân lý — admin chỉ bấm Copy rồi dán vào Zalo (không có
+     * Zalo OA/ZNS nên không gửi tự động được).
+     *
+     * Dòng "nhờ thu" CHỈ xuất hiện khi khoản đó chưa thu — tránh việc shipper thu lần hai.
+     */
+    public function zaloMessage(Order $o, string $leg): string
+    {
+        $cfg = $this->leg($leg);
+        $date = $o->{$cfg['date']}->format('d/m/Y');
+        $time = $o->{$cfg['time']};
+        $vnd = fn (int $n) => number_format($n, 0, ',', '.').'đ';
+
+        $lines = ["Mã đơn: {$o->code}", $o->customer_name];
+
+        if ($o->customer_phone) {
+            $lines[] = $o->customer_phone;
+        }
+        if ($o->customer_address) {
+            $lines[] = $o->customer_address;
+        }
+
+        $lines[] = '';
+        $lines[] = 'Sản phẩm:';
+        foreach ($o->items as $item) {
+            $lines[] = $item->quantity.' x '.($item->product?->name ?? '(đã xoá)');
+        }
+
+        $lines[] = '';
+        $lines[] = ($leg === 'pickup' ? 'Ngày giờ giao: ' : 'Ngày giờ thu: ').$date.($time ? ' · '.$time : ' (chưa chốt giờ)');
+
+        if (! $o->rentalPaid()) {
+            $lines[] = 'Nhờ shipper thu tiền thuê: '.$vnd($o->rental_due);
+        }
+        if (! $o->depositPaid()) {
+            $lines[] = 'Nhờ shipper thu tiền cọc: '.$vnd((int) $o->deposit_total);
+        }
+        if ($o->rentalPaid() && $o->depositPaid()) {
+            $lines[] = 'Khách đã chuyển đủ tiền — không cần thu gì.';
+        }
+
+        if ($leg === 'return') {
+            $lines[] = '';
+            $lines[] = 'Shipper tự kiểm tra đồ và trả cọc cho khách: '.$vnd((int) $o->deposit_total);
+        }
+
+        if ($o->schedule_note) {
+            $lines[] = '';
+            $lines[] = 'Ghi chú: '.$o->schedule_note;
+        }
+
+        $lines[] = '';
+        $lines[] = 'Nếu có vấn đề gì khác vui lòng liên hệ admin.';
+
+        return implode("\n", $lines);
+    }
+
+    /**
+     * Chuẩn hoá 1 đơn cho danh sách 1 lượt — dùng chung mọi nơi (web admin/shipper),
      * chỉ khác field giờ nào được lấy làm 'time'.
      *
      * @return array<string,mixed>

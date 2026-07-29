@@ -29,6 +29,9 @@ type ScheduleOrder = {
     // Gán shipper theo lượt (bopcamping-yc7d)
     shipper_id: number | null;
     shipper_name: string | null;
+    // Tin nhắn giao việc sinh ở server + SĐT shipper để mở Zalo (bopcamping-dolb)
+    zalo_message: string;
+    shipper_phone: string | null;
 };
 
 /** Số đơn giao/thu của 1 ngày trong tháng — chỉ những ngày CÓ đơn được trả về. */
@@ -36,8 +39,8 @@ type DayCount = { date: string; pickups: number; returns: number };
 
 type Stats = { pickups: number; returns: number; unscheduled: number; unassigned: number };
 
-/** Shipper để gán + nhắn Zalo + gửi email lịch (bopcamping-5r5m). */
-type ShipperOption = { id: number; name: string; phone: string | null; has_email: boolean };
+/** Shipper để gán đơn (bopcamping-yc7d). */
+type ShipperOption = { id: number; name: string };
 
 // Lượt đi của shipper: giao đồ (thu tiền COD) hoặc thu đồ (hoàn cọc).
 type TripKind = 'pickup' | 'return';
@@ -189,8 +192,6 @@ export default function AdminDeliverySchedule({
                         </select>
                     </label>
                 </div>
-                <ShipperActions date={date} shippers={shippers} filter={filters.shipper} />
-
                 <div className="mb-6 flex flex-wrap gap-2 text-[13px] font-semibold">
                     <span className="rounded-pill border border-cardBorder bg-white px-3 py-1.5 text-pine">
                         {stats.pickups} giao
@@ -228,65 +229,6 @@ export default function AdminDeliverySchedule({
                 />
             </div>
         </>
-    );
-}
-
-/**
- * Gửi lịch qua email + nhắn Zalo cho shipper (bopcamping-5r5m). Đang lọc 1 người thì gửi
- * đúng người đó và hiện nút Zalo của họ; lọc "Tất cả" thì gửi cho mọi shipper có lượt.
- * Zalo mở link zalo.me để chủ shop tự nhắn — KHÔNG có API tự động.
- */
-function ShipperActions({ date, shippers, filter }: { date: string; shippers: ShipperOption[]; filter: string }) {
-    const errors = usePage().props.errors as Record<string, string>;
-    const [sending, setSending] = useState(false);
-
-    if (shippers.length === 0) return null;
-
-    const selected = shippers.find((s) => String(s.id) === filter) ?? null;
-
-    const send = () => {
-        setSending(true);
-        router.post(
-            route('admin.schedule.email'),
-            { date, shipper_id: selected?.id ?? null },
-            { preserveScroll: true, preserveState: true, onFinish: () => setSending(false) },
-        );
-    };
-
-    return (
-        <div className="mb-4">
-            <div className="flex flex-wrap items-center gap-2">
-                <button
-                    type="button"
-                    onClick={send}
-                    disabled={sending}
-                    className="min-h-[38px] rounded-[10px] border border-cardBorder bg-white px-3 text-[13px] font-semibold text-pine transition hover:border-grass hover:text-grass disabled:opacity-60"
-                >
-                    {sending
-                        ? 'Đang gửi…'
-                        : selected
-                          ? `Gửi lịch qua email cho ${selected.name}`
-                          : 'Gửi lịch qua email cho tất cả shipper'}
-                </button>
-                {selected?.phone && (
-                    <a
-                        href={`https://zalo.me/${selected.phone}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="min-h-[38px] rounded-[10px] px-3 text-[13px] font-semibold leading-[38px] text-white"
-                        style={{ background: '#0068FF' }}
-                    >
-                        Chat Zalo với {selected.name}
-                    </a>
-                )}
-            </div>
-            {selected && !selected.has_email && (
-                <p className="mt-1.5 text-[12px]" style={{ color: '#9a5a1f' }}>
-                    {selected.name} chưa có email thật — bổ sung ở Người dùng ➝ Shipper để gửi được lịch.
-                </p>
-            )}
-            {errors.message && <p className="mt-1.5 text-[12px] text-[#b3493a]">{errors.message}</p>}
-        </div>
     );
 }
 
@@ -524,6 +466,78 @@ function ScheduleOrderCard({ order, kind }: { order: ScheduleOrder; kind: TripKi
                 >
                     <span className="font-bold text-pine">Ghi chú shipper: </span>
                     {order.schedule_note}
+                </div>
+            )}
+
+            <ZaloMessageBox order={order} />
+        </div>
+    );
+}
+
+/**
+ * Tin nhắn giao việc cho shipper (bopcamping-dolb). Không có Zalo OA nên KHÔNG gửi tự động
+ * được: admin bấm Copy rồi bấm "Mở Zalo" và dán. Nội dung sinh ở server (DeliveryScheduleService)
+ * để chỉ có 1 nguồn chân lý — dòng "nhờ thu tiền" chỉ có khi khoản đó chưa thu.
+ */
+function ZaloMessageBox({ order }: { order: ScheduleOrder }) {
+    const [open, setOpen] = useState(false);
+    const [copied, setCopied] = useState(false);
+
+    const copy = async () => {
+        try {
+            await navigator.clipboard.writeText(order.zalo_message);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+        } catch {
+            setCopied(false);   // trình duyệt chặn clipboard → admin tự chọn text trong ô
+        }
+    };
+
+    return (
+        <div className="mt-2 border-t border-[#f1f4ea] pt-2">
+            <button
+                type="button"
+                onClick={() => setOpen((v) => !v)}
+                aria-expanded={open}
+                className="min-h-[36px] rounded-[10px] border border-cardBorder px-3 text-[12.5px] font-semibold text-pine transition hover:border-grass hover:text-grass"
+            >
+                {open ? 'Ẩn nội dung Zalo' : 'Nội dung Zalo'}
+            </button>
+
+            {open && (
+                <div className="mt-2">
+                    <textarea
+                        readOnly
+                        value={order.zalo_message}
+                        rows={Math.min(14, order.zalo_message.split('\n').length + 1)}
+                        onClick={(e) => (e.target as HTMLTextAreaElement).select()}
+                        className="w-full resize-y rounded-[10px] border border-cardBorder bg-[#fafcf7] px-2.5 py-2 font-mono text-[12px] leading-relaxed text-ink outline-none"
+                    />
+                    <div className="mt-2 flex flex-wrap gap-2">
+                        <button
+                            type="button"
+                            onClick={copy}
+                            className="min-h-[38px] rounded-[10px] px-3 text-[13px] font-bold text-white"
+                            style={{ background: copied ? '#3a5a1f' : '#557A2B' }}
+                        >
+                            {copied ? '✓ Đã copy' : 'Copy nội dung'}
+                        </button>
+                        {order.shipper_phone ? (
+                            <a
+                                href={`https://zalo.me/${order.shipper_phone}`}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="min-h-[38px] rounded-[10px] px-3 text-[13px] font-bold leading-[38px] text-white"
+                                style={{ background: '#0068FF' }}
+                            >
+                                Mở Zalo {order.shipper_name ? `· ${order.shipper_name}` : ''}
+                            </a>
+                        ) : (
+                            <span className="self-center text-[12px] text-[#a3ad92]">
+                                Gán shipper để có nút mở Zalo
+                            </span>
+                        )}
+                    </div>
                 </div>
             )}
         </div>

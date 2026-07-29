@@ -113,7 +113,45 @@ Gán theo **từng lượt** vì lượt giao và lượt thu là 2 ngày khác 
 | Shipper bấm nhầm "Đã thu" khi chưa lấy đồ | Trung bình | Hộp xác nhận + chỉ hiện nút đúng trạng thái; admin sửa lại được trạng thái |
 | Email lịch không gửi vì thiếu cron/queue | Trung bình | Nút gửi tay luôn có; ghi rõ phụ thuộc `bopcamping-ybsm` |
 
-## 7. Liên quan
+## 7. Cập nhật vòng 3 (30/07/2026 — feedback chủ shop)
+
+Ghi đè FR-3 và FR-4.
+
+### 7.1 Thu tiền tách 2 khoản (mới)
+
+`orders.payment_status` 3 mức không biểu diễn được "đã thu tiền thuê nhưng chưa thu cọc".
+Thêm `rental_paid_at/by` + `deposit_paid_at/by` làm **nguồn chân lý**; `payment_status`
+thành **giá trị suy ra** (chưa thu gì = unpaid · thu 1 trong 2 = deposit · đủ = full),
+chỉ ghi qua `Order::markPaid()`. Accessor `rental_due` = thuê + phụ phí − giảm giá.
+
+- Admin: 3 nút "tình trạng chuyển tiền" → **2 công tắc độc lập**, hiện ai thu + lúc nào.
+- **Đổi hành vi:** đơn đã trả KHÔNG còn bị khoá đánh dấu thu tiền (tiền thuê có thể mới
+  thu đúng lúc đi thu đồ); chỉ đơn đã huỷ bị chặn.
+
+### 7.2 Màn shipper (thay FR-3)
+
+- **Lịch tháng lớn** thay điều hướng từng ngày: ngày có lượt của CHÍNH MÌNH thì bôi đỏ kèm
+  `N↓` giao · `M↑` thu; ngày ngoài khoảng `[hôm nay−2, hôm nay+14]` bị khoá.
+- Card đơn **đóng mặc định**, bấm mở chi tiết: sản phẩm + số lượng, **tiền thuê** và
+  **tiền cọc** kèm đã/chưa thu, tổng còn phải thu, ghi chú, Chỉ đường, bấm gọi.
+- Khoản nào **chưa thu** thì shipper bấm thu ngay (hỏi lại 1 bước). **Không cần admin uỷ
+  quyền riêng** cho từng đơn. Thu được ở cả 2 lượt; chỉ đánh dấu ĐÃ thu, **không** cho bỏ
+  đánh dấu (sửa sai là việc admin); ghi ai thu, không ghi đè người thu trước.
+- Lượt THU: nút **"Đã hoàn cọc"** + ô ghi chú trừ cọc → ghi vào `deposit_refund_status/note`
+  sẵn có, không tạo nguồn chân lý thứ hai.
+
+### 7.3 Zalo thay email (thay FR-4)
+
+- Mỗi đơn trong `/admin/lich-giao` có nút **"Nội dung Zalo"**: hiện đoạn text sinh ở server
+  (mã đơn, tên, SĐT, địa chỉ, sản phẩm + SL, ngày giờ giao/thu, dòng "nhờ shipper thu…"
+  **chỉ khi khoản đó chưa thu**, câu tự kiểm đồ + trả cọc ở lượt thu, ghi chú, câu liên hệ
+  admin) + nút **Copy** + nút **mở Zalo** của shipper đã gán.
+- **BỎ HẲN email lịch**: xoá `ShipperScheduleMail`, blade, `ShipperScheduleNotifier`,
+  command `shipper:send-daily-schedule`, lịch 06:00, route `gui-email`, nút gửi mail và 2
+  file test tương ứng. Có test khẳng định các lớp/route đó không còn tồn tại.
+- Vẫn **không** dùng Zalo OA/ZNS (không gửi tự động) — đúng quyết định 29/07.
+
+## 8. Liên quan
 
 - [plan_shipper_delivery_ops.md](artifacts/plan_shipper_delivery_ops.md) — kế hoạch triển khai + phân rã task.
 - [prd_delivery_schedule.md](artifacts/prd_delivery_schedule.md) — nền tảng (giờ đã chốt, lịch tháng).
