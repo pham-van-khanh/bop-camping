@@ -35,7 +35,7 @@ class OrderController extends Controller
 
         // Đơn cha/con (bopcamping-wtuv T6): danh sách chỉ TOP-LEVEL (đơn thường + cha, ẩn con);
         // con nạp kèm trong cha. Search theo mã đơn (cả mã con)/tên/SĐT.
-        $relations = ['items.product', 'items.combo', 'vouchers', 'referralUse.referrer', 'serviceLocation'];
+        $relations = ['items.product', 'items.combo', 'vouchers', 'referralUse.referrer', 'serviceLocation', 'rentalPaidBy:id,name', 'depositPaidBy:id,name'];
         $query = Order::topLevel()->with(array_merge($relations, array_map(fn ($r) => "children.$r", $relations)))->latest();
 
         if ($q !== '') {
@@ -102,7 +102,7 @@ class OrderController extends Controller
      */
     public function show(Order $order): Response
     {
-        $relations = ['items.product', 'items.combo', 'vouchers', 'referralUse.referrer', 'serviceLocation'];
+        $relations = ['items.product', 'items.combo', 'vouchers', 'referralUse.referrer', 'serviceLocation', 'rentalPaidBy:id,name', 'depositPaidBy:id,name'];
         $order->load(array_merge($relations, array_map(fn ($r) => "children.$r", $relations), ['parent:id,code']));
 
         $row = $this->mapOrder($order);
@@ -163,6 +163,14 @@ class OrderController extends Controller
             'amount_due' => $o->amount_due,
             'status' => $o->status,
             'payment_status' => $o->payment_status,
+            // Thu tiền theo 2 khoản độc lập (bopcamping-q7i0)
+            'rental_due' => $o->rental_due,
+            'rental_paid' => $o->rentalPaid(),
+            'rental_paid_at' => $o->rental_paid_at?->format('d/m H:i'),
+            'rental_paid_by' => $o->rentalPaidBy?->name,
+            'deposit_paid' => $o->depositPaid(),
+            'deposit_paid_at' => $o->deposit_paid_at?->format('d/m H:i'),
+            'deposit_paid_by' => $o->depositPaidBy?->name,
             'deposit_refund_status' => $o->deposit_refund_status,
             'deposit_refund_note' => $o->deposit_refund_note,
             'note' => $o->note,
@@ -482,26 +490,31 @@ class OrderController extends Controller
     }
 
     /**
-     * Đánh dấu tình trạng chuyển tiền của đơn (bopcamping-7be) — admin bấm sau khi
-     * xác nhận với khách. unpaid = chưa chuyển · deposit = đã chuyển cọc · full = chuyển hết.
-     * Đơn ĐÃ TRẢ thì khoá (chuyển sang theo dõi hoàn cọc, không đổi tình trạng chuyển tiền nữa).
+     * Đánh dấu ĐÃ/CHƯA thu 1 trong 2 khoản: tiền thuê hoặc cọc (bopcamping-q7i0).
+     * Hai khoản độc lập — khách có thể chuyển tiền thuê trước, cọc trả khi nhận đồ.
+     * Ghi luôn ai đánh dấu để đối soát; payment_status suy ra trong Order::markPaid().
+     *
+     * KHÁC bản cũ: đơn ĐÃ TRẢ vẫn cho đánh dấu, vì tiền thuê có thể mới thu lúc thu đồ.
      */
     public function updatePayment(Request $request, Order $order): RedirectResponse
     {
         if ($order->is_parent) {
-            return back()->withErrors(['payment_status' => 'Đơn gộp: đánh dấu chuyển tiền trên từng đợt (đơn con).']);
+            return back()->withErrors(['payment' => 'Đơn gộp: đánh dấu thu tiền trên từng đợt (đơn con).']);
         }
-        if ($order->status === 'returned') {
-            return back()->withErrors(['payment_status' => 'Đơn đã trả — không đổi tình trạng chuyển tiền nữa.']);
+        if ($order->status === 'cancelled') {
+            return back()->withErrors(['payment' => 'Đơn đã huỷ — không đánh dấu thu tiền.']);
         }
 
         $validated = $request->validate([
-            'payment_status' => ['required', 'in:'.implode(',', Order::PAYMENT_STATUSES)],
+            'kind' => ['required', 'in:'.implode(',', Order::PAYMENT_KINDS)],
+            'paid' => ['required', 'boolean'],
         ]);
 
-        $order->update(['payment_status' => $validated['payment_status']]);
+        $order->markPaid($validated['kind'], (bool) $validated['paid'], $request->user()->id);
 
-        return back()->with('success', "Đơn {$order->code}: đã cập nhật tình trạng chuyển tiền");
+        $label = $validated['kind'] === 'rental' ? 'tiền thuê' : 'tiền cọc';
+
+        return back()->with('success', "Đơn {$order->code}: đã cập nhật {$label}");
     }
 
     /**

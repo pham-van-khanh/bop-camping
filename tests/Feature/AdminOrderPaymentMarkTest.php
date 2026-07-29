@@ -9,8 +9,9 @@ use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
 /**
- * bopcamping-7be — admin đánh dấu tình trạng chuyển tiền của đơn:
- * unpaid (chưa chuyển) · deposit (đã chuyển cọc) · full (chuyển hết).
+ * bopcamping-7be + q7i0 — admin đánh dấu thu tiền. Từ 30/07/2026 tách thành 2 KHOẢN
+ * ĐỘC LẬP (tiền thuê / cọc); `payment_status` chỉ còn là tóm tắt SUY RA: chưa thu gì =
+ * unpaid · thu 1 trong 2 = deposit · thu cả hai = full.
  */
 class AdminOrderPaymentMarkTest extends TestCase
 {
@@ -45,31 +46,55 @@ class AdminOrderPaymentMarkTest extends TestCase
     }
 
     /** @test */
-    public function admin_can_mark_deposit_and_full(): void
+    public function admin_marks_each_amount_independently(): void
     {
         $order = $this->order();
         $admin = User::factory()->create(['is_admin' => true]);
 
-        $this->actingAs($admin)->patch(route('admin.orders.payment', $order), ['payment_status' => 'deposit'])
+        // Thu TIỀN THUÊ trước, cọc vẫn chưa thu — tổ hợp mà mô hình cũ không biểu diễn được.
+        $this->actingAs($admin)->patch(route('admin.orders.payment', $order), ['kind' => 'rental', 'paid' => true])
             ->assertSessionHasNoErrors();
-        $this->assertSame('deposit', $order->fresh()->payment_status);
+        $fresh = $order->fresh();
+        $this->assertTrue($fresh->rentalPaid());
+        $this->assertFalse($fresh->depositPaid());
+        $this->assertSame('deposit', $fresh->payment_status, 'thu 1 trong 2 khoản → tóm tắt "một phần"');
+        $this->assertSame($admin->id, $fresh->rental_paid_by, 'phải ghi ai thu để đối soát');
+        $this->assertNotNull($fresh->rental_paid_at);
 
-        $this->actingAs($admin)->patch(route('admin.orders.payment', $order), ['payment_status' => 'full']);
+        // Thu thêm cọc → đủ cả hai.
+        $this->actingAs($admin)->patch(route('admin.orders.payment', $order), ['kind' => 'deposit', 'paid' => true]);
         $this->assertSame('full', $order->fresh()->payment_status);
 
-        // Đánh dấu ngược lại "chưa chuyển" vẫn được (admin sửa nhầm).
-        $this->actingAs($admin)->patch(route('admin.orders.payment', $order), ['payment_status' => 'unpaid']);
+        // Bỏ đánh dấu (admin bấm nhầm) — xoá luôn dấu ai thu.
+        $this->actingAs($admin)->patch(route('admin.orders.payment', $order), ['kind' => 'rental', 'paid' => false]);
+        $fresh = $order->fresh();
+        $this->assertFalse($fresh->rentalPaid());
+        $this->assertNull($fresh->rental_paid_by);
+        $this->assertSame('deposit', $fresh->payment_status);
+
+        $this->actingAs($admin)->patch(route('admin.orders.payment', $order), ['kind' => 'deposit', 'paid' => false]);
         $this->assertSame('unpaid', $order->fresh()->payment_status);
     }
 
     /** @test */
-    public function invalid_payment_status_is_rejected(): void
+    public function rental_due_excludes_deposit_and_includes_extra_fee(): void
+    {
+        $order = $this->order();
+        $order->update(['extra_fee' => 20000, 'discount_total' => 50000]);
+
+        // thuê 300k + phụ phí 20k − giảm 50k = 270k; cọc 200k tính riêng.
+        $this->assertSame(270000, $order->fresh()->rental_due);
+        $this->assertSame(470000, $order->fresh()->amount_due);
+    }
+
+    /** @test */
+    public function invalid_payment_kind_is_rejected(): void
     {
         $order = $this->order();
         $admin = User::factory()->create(['is_admin' => true]);
 
-        $this->actingAs($admin)->patch(route('admin.orders.payment', $order), ['payment_status' => 'bogus'])
-            ->assertSessionHasErrors('payment_status');
+        $this->actingAs($admin)->patch(route('admin.orders.payment', $order), ['kind' => 'bogus', 'paid' => true])
+            ->assertSessionHasErrors('kind');
         $this->assertSame('unpaid', $order->fresh()->payment_status);
     }
 
@@ -80,22 +105,33 @@ class AdminOrderPaymentMarkTest extends TestCase
         $user = User::factory()->create(['is_admin' => false]);
 
         // EnsureAdmin chuyển hướng non-admin về trang đăng nhập admin (302), không phải 403.
-        $this->actingAs($user)->patch(route('admin.orders.payment', $order), ['payment_status' => 'full'])
+        $this->actingAs($user)->patch(route('admin.orders.payment', $order), ['kind' => 'rental', 'paid' => true])
             ->assertRedirect(route('admin.login'));
         $this->assertSame('unpaid', $order->fresh()->payment_status);
     }
 
-    /** bopcamping-7be — đơn đã trả: khoá chuyển tiền, mở hoàn cọc + lý do. */
-
     /** @test */
-    public function returned_order_blocks_payment_status_change(): void
+    public function returned_order_still_allows_marking_money_collected(): void
     {
+        // ĐỔI so với bản cũ (bopcamping-q7i0): tiền thuê có thể mới thu đúng lúc thu đồ,
+        // nên đơn đã trả KHÔNG được khoá việc đánh dấu thu tiền nữa.
         $order = $this->order('returned');
         $admin = User::factory()->create(['is_admin' => true]);
 
-        $this->actingAs($admin)->patch(route('admin.orders.payment', $order), ['payment_status' => 'full'])
-            ->assertSessionHasErrors('payment_status');
-        $this->assertSame('unpaid', $order->fresh()->payment_status);
+        $this->actingAs($admin)->patch(route('admin.orders.payment', $order), ['kind' => 'rental', 'paid' => true])
+            ->assertSessionHasNoErrors();
+        $this->assertTrue($order->fresh()->rentalPaid());
+    }
+
+    /** @test */
+    public function cancelled_order_blocks_marking_money(): void
+    {
+        $order = $this->order('cancelled');
+        $admin = User::factory()->create(['is_admin' => true]);
+
+        $this->actingAs($admin)->patch(route('admin.orders.payment', $order), ['kind' => 'rental', 'paid' => true])
+            ->assertSessionHasErrors('payment');
+        $this->assertFalse($order->fresh()->rentalPaid());
     }
 
     /** @test */

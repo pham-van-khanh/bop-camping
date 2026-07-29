@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use App\Models\Order;
 use App\Models\User;
 use App\Services\DeliveryScheduleService;
-use App\Services\ShipperScheduleNotifier;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -30,10 +29,7 @@ class DeliveryScheduleController extends Controller
     /** Giá trị lọc đặc biệt: chỉ xem đơn chưa gán shipper. */
     private const FILTER_UNASSIGNED = 'none';
 
-    public function __construct(
-        private DeliveryScheduleService $schedule,
-        private ShipperScheduleNotifier $notifier,
-    ) {}
+    public function __construct(private DeliveryScheduleService $schedule) {}
 
     public function index(Request $request): Response
     {
@@ -52,9 +48,13 @@ class DeliveryScheduleController extends Controller
 
         [$shipperId, $unassignedOnly, $filter] = $this->resolveFilter($request->input('shipper'));
 
+        // Kèm sẵn tin nhắn Zalo cho từng đơn — admin bấm Copy rồi dán vào Zalo (bopcamping-dolb).
         $rows = fn (string $leg) => $this->schedule
             ->legOrders($leg, $date, $shipperId, $unassignedOnly)
-            ->map(fn (Order $o) => $this->schedule->row($o, $leg))
+            ->map(fn (Order $o) => $this->schedule->row($o, $leg) + [
+                'zalo_message' => $this->schedule->zaloMessage($o, $leg),
+                'shipper_phone' => ($leg === 'pickup' ? $o->pickupShipper : $o->returnShipper)?->phone,
+            ])
             ->values();
 
         $pickupRows = $rows('pickup');
@@ -80,13 +80,7 @@ class DeliveryScheduleController extends Controller
                 'unassigned' => $pickupRows->concat($returnRows)->whereNull('shipper_id')->count(),
             ],
             // Gán shipper (bopcamping-yc7d)
-            'shippers' => User::shippers()->get(['id', 'name', 'phone', 'email'])->map(fn (User $u) => [
-                'id' => $u->id,
-                'name' => $u->name,
-                // SĐT cho nút Chat Zalo (mở zalo.me — không gửi API); email để cảnh báo nếu chưa đặt.
-                'phone' => $u->phone,
-                'has_email' => ! $u->hasPlaceholderEmail() && filled($u->email),
-            ]),
+            'shippers' => User::shippers()->get(['id', 'name'])->map(fn (User $u) => ['id' => $u->id, 'name' => $u->name]),
             'filters' => ['shipper' => $filter],
         ]);
     }
@@ -138,45 +132,6 @@ class DeliveryScheduleController extends Controller
         return back()->with('success', $affected > 0
             ? "Đã gán shipper cho {$affected} đơn chưa có người."
             : 'Không còn đơn nào chưa có shipper.');
-    }
-
-    /**
-     * Gửi lịch trong ngày cho shipper qua email. Đang lọc 1 shipper → gửi đúng người đó;
-     * lọc "Tất cả"/"Chưa gán" → gửi cho mọi shipper CÓ lượt hôm đó (bopcamping-5r5m).
-     */
-    public function sendEmail(Request $request): RedirectResponse
-    {
-        $data = $request->validate([
-            'date' => ['required', 'date'],
-            'shipper_id' => ['nullable', 'integer', Rule::exists('users', 'id')->where('is_shipper', true)],
-        ], [
-            'shipper_id.exists' => 'Tài khoản này không phải shipper.',
-        ]);
-
-        $date = Carbon::parse($data['date']);
-
-        if (! empty($data['shipper_id'])) {
-            $shipper = User::findOrFail($data['shipper_id']);
-
-            return match ($this->notifier->send($shipper, $date)) {
-                'sent' => back()->with('success', "Đã gửi lịch cho {$shipper->name}."),
-                'no_legs' => back()->withErrors(['message' => "{$shipper->name} không có lượt nào ngày này."]),
-                default => back()->withErrors(['message' => "{$shipper->name} chưa có email thật — vào Người dùng ➝ Shipper để bổ sung."]),
-            };
-        }
-
-        ['sent' => $sent, 'no_email' => $noEmail] = $this->notifier->sendToAllWithLegs($date);
-
-        if ($sent === 0 && $noEmail === []) {
-            return back()->withErrors(['message' => 'Không có shipper nào có lượt trong ngày này.']);
-        }
-
-        $message = "Đã gửi lịch cho {$sent} shipper.";
-        if ($noEmail !== []) {
-            $message .= ' Chưa có email thật: '.implode(', ', $noEmail).'.';
-        }
-
-        return back()->with('success', $message);
     }
 
     /**

@@ -101,6 +101,9 @@ Route::middleware(['shipper'])->prefix('shipper')->name('shipper.')->group(funct
     // Shipper tự đánh dấu — chỉ trên đơn được gán cho mình (kiểm trong controller).
     Route::patch('/don/{order}/da-giao', [ShipperScheduleController::class, 'markDelivered'])->name('orders.delivered')->middleware('throttle:60,1');
     Route::patch('/don/{order}/da-thu', [ShipperScheduleController::class, 'markCollected'])->name('orders.collected')->middleware('throttle:60,1');
+    // Shipper thu hộ tiền thuê / cọc, và trả cọc lại cho khách (bopcamping-lvw3)
+    Route::patch('/don/{order}/thu/{kind}', [ShipperScheduleController::class, 'collect'])->name('orders.collect')->middleware('throttle:60,1');
+    Route::patch('/don/{order}/hoan-coc', [ShipperScheduleController::class, 'refundDeposit'])->name('orders.refund')->middleware('throttle:60,1');
 });
 
 // Admin — panel (bảo vệ bằng middleware 'admin')
@@ -136,8 +139,6 @@ Route::middleware(['admin'])->prefix('admin')->name('admin.')->group(function ()
     // Gán shipper cho từng lượt + gán cả ngày (bopcamping-yc7d)
     Route::patch('/lich-giao/don/{order}/shipper', [AdminDeliveryScheduleController::class, 'assign'])->name('schedule.assign')->middleware('throttle:60,1');
     Route::post('/lich-giao/gan-tat-ca', [AdminDeliveryScheduleController::class, 'assignAll'])->name('schedule.assignAll')->middleware('throttle:30,1');
-    // Gửi lịch trong ngày cho shipper qua email (bopcamping-5r5m)
-    Route::post('/lich-giao/gui-email', [AdminDeliveryScheduleController::class, 'sendEmail'])->name('schedule.email')->middleware('throttle:20,1');
 
     Route::get('/categories', [AdminCategoryController::class, 'index'])->name('categories');
     Route::post('/categories', [AdminCategoryController::class, 'store'])->name('categories.store');

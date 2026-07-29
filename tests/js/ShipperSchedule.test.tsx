@@ -4,9 +4,10 @@ import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 /**
- * bopcamping-w2yl — card đơn của shipper: link Chỉ đường phải encode địa chỉ đúng, nút
- * "Đã giao/Đã thu" chỉ hiện đúng trạng thái và phải hỏi lại trước khi gửi (đổi trạng thái
- * là gửi mail cho khách). Layout thật vẫn phải xem trên trình duyệt.
+ * bopcamping-w2yl + lvw3 — card đơn của shipper: mở chi tiết ra mới thấy món/tiền; link
+ * Chỉ đường phải encode địa chỉ đúng; nút "Đã giao/Đã thu" và nút thu tiền chỉ hiện đúng
+ * trạng thái và phải hỏi lại trước khi gửi (đổi trạng thái/tiền là việc không đùa được).
+ * Layout thật vẫn phải xem trên trình duyệt.
  */
 const state = vi.hoisted(() => ({ errors: {} as Record<string, string> }));
 const patch = vi.hoisted(() => vi.fn());
@@ -21,7 +22,11 @@ vi.mock('@/Layouts/ShipperLayout', () => ({
     default: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
 
-vi.stubGlobal('route', (name: string, id?: number) => `/${name}/${id ?? ''}`);
+// Ziggy thật nối param theo thứ tự trong URI; stub bắt chước đủ để assert payload/route.
+vi.stubGlobal('route', (name: string, params?: number | Record<string, unknown>) =>
+    typeof params === 'object' && params !== null
+        ? `/${name}/${Object.values(params).join('/')}`
+        : `/${name}/${params ?? ''}`);
 
 const ORDER = {
     id: 7,
@@ -31,22 +36,35 @@ const ORDER = {
     customer_phone: '0912345678',
     customer_address: '12 Ngõ 5, Hà Nội',
     status: 'confirmed',
-    payment_status: 'unpaid',
     amount_due: 150000,
+    rental_due: 100000,
+    rental_paid: false,
     deposit_total: 50000,
+    deposit_paid: false,
+    deposit_refund_status: 'pending',
     schedule_note: 'Gọi trước 15 phút',
     items: [{ name: 'Lều 2 người', quantity: 1 }],
 };
 
 const PROPS = {
+    month: '2030-08',
+    month_label: 'Tháng 8 · 2030',
+    prev_month: '2030-07',
+    next_month: '2030-09',
+    days: [{ date: '2030-08-01', pickups: 1, returns: 0 }],
     date: '2030-08-01',
     date_label: 'Thứ năm, 01/08/2030',
     today: '2030-08-01',
-    prev_date: '2030-07-31',
-    next_date: '2030-08-02',
+    min_date: '2030-07-30',
+    max_date: '2030-08-15',
     pickups: [ORDER],
     returns: [],
 };
+
+/** Card đóng mặc định — mở chi tiết trước khi kiểm nội dung bên trong. */
+async function openDetail(user: ReturnType<typeof userEvent.setup>) {
+    await user.click(screen.getByRole('button', { expanded: false }));
+}
 
 // Import sau khi mock để component nhận bản mock.
 const { default: ShipperSchedule } = await import('@/Pages/Shipper/Schedule');
@@ -57,8 +75,10 @@ describe('Lịch giao của shipper', () => {
         state.errors = {};
     });
 
-    it('mở Google Maps với địa chỉ khách đã encode', () => {
+    it('mở Google Maps với địa chỉ khách đã encode', async () => {
+        const user = userEvent.setup();
         render(<ShipperSchedule {...PROPS} />);
+        await openDetail(user);
 
         expect(screen.getByRole('link', { name: /Chỉ đường/ })).toHaveAttribute(
             'href',
@@ -66,28 +86,69 @@ describe('Lịch giao của shipper', () => {
         );
     });
 
-    it('hiện số cần thu và ghi chú shipper', () => {
+    it('hiện món, 2 khoản tiền và ghi chú shipper trong chi tiết', async () => {
+        const user = userEvent.setup();
         render(<ShipperSchedule {...PROPS} />);
+        await openDetail(user);
 
-        expect(screen.getByText(/Thu khi giao/)).toBeInTheDocument();
+        expect(screen.getByText('Lều 2 người')).toBeInTheDocument();
+        expect(screen.getByText('Tiền thuê')).toBeInTheDocument();
+        expect(screen.getByText('Tiền cọc')).toBeInTheDocument();
         expect(screen.getByText(/Gọi trước 15 phút/)).toBeInTheDocument();
         expect(screen.getByRole('link', { name: /0912345678/ })).toHaveAttribute('href', 'tel:0912345678');
+    });
+
+    it('thu tiền thuê: hỏi lại 1 bước rồi gọi đúng route kèm kind', async () => {
+        const user = userEvent.setup();
+        render(<ShipperSchedule {...PROPS} />);
+        await openDetail(user);
+
+        await user.click(screen.getByRole('button', { name: /Thu tiền thuê/ }));
+        expect(patch).not.toHaveBeenCalled();
+
+        await user.click(screen.getByRole('button', { name: /Xác nhận thu/ }));
+        expect(patch).toHaveBeenCalledWith(
+            '/shipper.orders.collect/7/rental',
+            {},
+            expect.objectContaining({ preserveScroll: true }),
+        );
+    });
+
+    it('khoản đã thu thì hiện dấu ✓, không còn nút thu', async () => {
+        const user = userEvent.setup();
+        render(<ShipperSchedule {...PROPS} pickups={[{ ...ORDER, rental_paid: true, deposit_paid: true }]} />);
+        await openDetail(user);
+
+        expect(screen.queryByRole('button', { name: /Thu tiền/ })).not.toBeInTheDocument();
+        expect(screen.getAllByText('✓ Đã thu')).toHaveLength(2);
+        expect(screen.getByText(/Đã thu đủ tiền/)).toBeInTheDocument();
+    });
+
+    it('lượt THU có nút hoàn cọc; đã hoàn rồi thì hiện dấu đã hoàn', async () => {
+        const user = userEvent.setup();
+        render(
+            <ShipperSchedule {...PROPS} pickups={[]} returns={[{ ...ORDER, status: 'renting' }]} />,
+        );
+        await openDetail(user);
+        expect(screen.getByRole('button', { name: 'Đã hoàn cọc' })).toBeInTheDocument();
     });
 
     it('phải xác nhận thêm một bước mới gửi "đã giao"', async () => {
         const user = userEvent.setup();
         render(<ShipperSchedule {...PROPS} />);
+        await openDetail(user);
 
         await user.click(screen.getByRole('button', { name: 'Đã giao xong' }));
         expect(patch).not.toHaveBeenCalled();   // bấm lần đầu chỉ hỏi lại
 
-        await user.click(screen.getByRole('button', { name: /Xác nhận/ }));
+        await user.click(screen.getByRole('button', { name: /Xác nhận đã giao/ }));
         expect(patch).toHaveBeenCalledWith('/shipper.orders.delivered/7', {}, expect.objectContaining({ preserveScroll: true }));
     });
 
     it('bấm "Chưa" thì huỷ, không gửi gì', async () => {
         const user = userEvent.setup();
         render(<ShipperSchedule {...PROPS} />);
+        await openDetail(user);
 
         await user.click(screen.getByRole('button', { name: 'Đã giao xong' }));
         await user.click(screen.getByRole('button', { name: 'Chưa' }));
@@ -96,15 +157,19 @@ describe('Lịch giao của shipper', () => {
         expect(screen.getByRole('button', { name: 'Đã giao xong' })).toBeInTheDocument();
     });
 
-    it('đơn chờ xác nhận thì không có nút đánh dấu', () => {
+    it('đơn chờ xác nhận thì không có nút đánh dấu', async () => {
+        const user = userEvent.setup();
         render(<ShipperSchedule {...PROPS} pickups={[{ ...ORDER, status: 'pending' }]} />);
+        await openDetail(user);
 
         expect(screen.queryByRole('button', { name: 'Đã giao xong' })).not.toBeInTheDocument();
         expect(screen.getByText('Chờ shop xác nhận đơn')).toBeInTheDocument();
     });
 
-    it('đơn đã giao rồi thì hiện dấu đã xong', () => {
+    it('đơn đã giao rồi thì hiện dấu đã xong', async () => {
+        const user = userEvent.setup();
         render(<ShipperSchedule {...PROPS} pickups={[{ ...ORDER, status: 'renting' }]} />);
+        await openDetail(user);
 
         expect(screen.getByText('✓ Đã giao')).toBeInTheDocument();
     });
@@ -118,16 +183,19 @@ describe('Lịch giao của shipper', () => {
                 returns={[{ ...ORDER, status: 'renting' }]}
             />,
         );
+        await openDetail(user);
 
         await user.click(screen.getByRole('button', { name: 'Đã thu đồ' }));
-        await user.click(screen.getByRole('button', { name: /Xác nhận/ }));
+        await user.click(screen.getByRole('button', { name: /Xác nhận đã thu đồ/ }));
 
         expect(patch).toHaveBeenCalledWith('/shipper.orders.collected/7', {}, expect.objectContaining({ preserveScroll: true }));
     });
 
-    it('hiện lỗi trạng thái trả về từ server', () => {
+    it('hiện lỗi trạng thái trả về từ server', async () => {
+        const user = userEvent.setup();
         state.errors = { status: 'Đơn chưa được xác nhận hoặc đã giao rồi.' };
         render(<ShipperSchedule {...PROPS} />);
+        await openDetail(user);
 
         expect(screen.getByText('Đơn chưa được xác nhận hoặc đã giao rồi.')).toBeInTheDocument();
     });

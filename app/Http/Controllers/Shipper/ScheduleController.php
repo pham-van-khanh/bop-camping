@@ -13,11 +13,14 @@ use Inertia\Inertia;
 use Inertia\Response;
 
 /**
- * Lịch giao/thu CỦA CHÍNH shipper đang đăng nhập (bopcamping-lsch / w2yl).
+ * Lịch giao/thu CỦA CHÍNH shipper đang đăng nhập (bopcamping-lsch / w2yl / lvw3).
+ *
+ * Lịch THÁNG: ngày nào có lượt của mình thì bôi đỏ; bấm ngày ra danh sách đơn, mở chi tiết
+ * để xem món + tiền và thu tiền tại chỗ.
  *
  * INVARIANT bảo mật (adr_shipper_role_and_access mục 3): mọi truy vấn ở đây phải kẹp
  * shipper id của người đăng nhập. Không nhận order_id tuỳ ý từ request để đọc dữ liệu —
- * shipper chỉ thấy đơn được gán cho mình (OWASP A01, CWE-639).
+ * shipper chỉ thấy và chỉ đụng được đơn được gán cho mình (OWASP A01, CWE-639).
  */
 class ScheduleController extends Controller
 {
@@ -32,20 +35,28 @@ class ScheduleController extends Controller
     {
         $me = $request->user();
         $date = $this->resolveDate($request->input('date'));
+        $month = $this->resolveMonth($request->input('month'), $date);
 
-        $pickups = $this->schedule->legOrders('pickup', $date, $me->id)
-            ->map(fn (Order $o) => $this->schedule->row($o, 'pickup'))->values();
-        $returns = $this->schedule->legOrders('return', $date, $me->id)
-            ->map(fn (Order $o) => $this->schedule->row($o, 'return'))->values();
+        $rows = fn (string $leg) => $this->schedule
+            ->legOrders($leg, $date, $me->id)
+            ->map(fn (Order $o) => $this->schedule->row($o, $leg))
+            ->values();
 
         return Inertia::render('Shipper/Schedule', [
+            // Lịch tháng — chỉ đếm lượt CỦA MÌNH
+            'month' => $month->format('Y-m'),
+            'month_label' => 'Tháng '.$month->month.' · '.$month->year,
+            'prev_month' => $month->copy()->subMonth()->format('Y-m'),
+            'next_month' => $month->copy()->addMonth()->format('Y-m'),
+            'days' => $this->schedule->monthDays($month, $me->id),
+            // Ngày đang chọn
             'date' => $date->toDateString(),
             'date_label' => Str::ucfirst($date->locale('vi')->isoFormat('dddd, DD/MM/YYYY')),
             'today' => Carbon::today()->toDateString(),
-            'prev_date' => $this->clamp($date->copy()->subDay())->toDateString(),
-            'next_date' => $this->clamp($date->copy()->addDay())->toDateString(),
-            'pickups' => $pickups,
-            'returns' => $returns,
+            'min_date' => Carbon::today()->subDays(self::DAYS_BACK)->toDateString(),
+            'max_date' => Carbon::today()->addDays(self::DAYS_AHEAD)->toDateString(),
+            'pickups' => $rows('pickup'),
+            'returns' => $rows('return'),
         ]);
     }
 
@@ -82,17 +93,82 @@ class ScheduleController extends Controller
     }
 
     /**
+     * Shipper thu hộ 1 khoản tiền (tiền thuê hoặc cọc) — bopcamping-lvw3.
+     * KHÔNG cần admin uỷ quyền riêng (chốt 30/07): khoản nào chưa thu thì shipper thu được.
+     * Chỉ ĐÁNH DẤU ĐÃ THU, không cho bỏ đánh dấu — sửa sai là việc của admin.
+     */
+    public function collect(Request $request, Order $order, string $kind): RedirectResponse
+    {
+        abort_unless(in_array($kind, Order::PAYMENT_KINDS, true), 404);
+        // Thu tiền được ở CẢ HAI lượt: tiền thuê có thể mới thu đúng lúc đi thu đồ.
+        $this->authorizeAnyLeg($request, $order);
+
+        if ($order->status === 'cancelled') {
+            return back()->withErrors(['payment' => 'Đơn đã huỷ — không thu tiền.']);
+        }
+        if ($kind === 'rental' ? $order->rentalPaid() : $order->depositPaid()) {
+            return back()->withErrors(['payment' => 'Khoản này đã được đánh dấu thu rồi.']);
+        }
+
+        $order->markPaid($kind, true, $request->user()->id);
+
+        return back()->with('success', $kind === 'rental' ? 'Đã ghi nhận thu tiền thuê' : 'Đã ghi nhận thu cọc');
+    }
+
+    /**
+     * Shipper trả cọc lại cho khách sau khi kiểm đồ (bopcamping-lvw3) — chỉ lượt THU.
+     * Ghi vào đúng trường hoàn cọc sẵn có; ghi chú dùng khi trừ cọc (rách lều, thiếu đồ).
+     */
+    public function refundDeposit(Request $request, Order $order): RedirectResponse
+    {
+        $this->authorizeLeg($request, $order, 'return');
+
+        $data = $request->validate([
+            'deposit_refund_note' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        if (! in_array($order->status, ['renting', 'returned'], true)) {
+            return back()->withErrors(['refund' => 'Chỉ hoàn cọc khi đang thu đồ hoặc đơn đã trả.']);
+        }
+        if ($order->deposit_refund_status === 'refunded') {
+            return back()->withErrors(['refund' => 'Cọc đã được đánh dấu hoàn rồi.']);
+        }
+
+        $order->update([
+            'deposit_refund_status' => 'refunded',
+            'deposit_refund_note' => $data['deposit_refund_note'] ?? null,
+        ]);
+
+        return back()->with('success', "Đơn {$order->code}: đã hoàn cọc cho khách");
+    }
+
+    /**
      * Chốt cửa uỷ quyền theo BẢN GHI: đơn phải được gán đúng lượt đó cho chính người đang
      * đăng nhập. 404 (không phải 403) để không tiết lộ đơn đó có tồn tại hay không.
      */
     private function authorizeLeg(Request $request, Order $order, string $leg): void
     {
         $column = $leg === 'pickup' ? 'pickup_shipper_id' : 'return_shipper_id';
-        $assigned = $order->{$column};
 
-        // Ép (int) cả hai bên: driver DB có thể trả id dạng chuỗi, so sánh === kiểu chéo sẽ
-        // luôn sai và khoá cả người ĐÚNG. Chưa gán (null) → 0, không khớp id thật nào.
-        abort_unless($assigned !== null && (int) $assigned === (int) $request->user()->id, 404);
+        abort_unless($this->isMine($order->{$column}, $request), 404);
+    }
+
+    /** Được gán 1 trong 2 lượt của đơn là đủ (dùng cho việc thu tiền). */
+    private function authorizeAnyLeg(Request $request, Order $order): void
+    {
+        abort_unless(
+            $this->isMine($order->pickup_shipper_id, $request) || $this->isMine($order->return_shipper_id, $request),
+            404,
+        );
+    }
+
+    /**
+     * Ép (int) cả hai bên: driver DB có thể trả id dạng chuỗi, so sánh === kiểu chéo sẽ
+     * luôn sai và khoá cả người ĐÚNG. Chưa gán (null) → không khớp ai.
+     */
+    private function isMine(mixed $assignedId, Request $request): bool
+    {
+        return $assignedId !== null && (int) $assignedId === (int) $request->user()->id;
     }
 
     /** Ngày yêu cầu → ngày hợp lệ trong khoảng cho phép; sai định dạng thì về hôm nay. */
@@ -101,6 +177,16 @@ class ScheduleController extends Controller
         $date = rescue(fn () => Carbon::parse($input)->startOfDay(), Carbon::today(), false);
 
         return $this->clamp($date);
+    }
+
+    /** Tháng đang xem — mặc định là tháng của ngày đang chọn; param lỗi thì cũng vậy. */
+    private function resolveMonth(mixed $input, Carbon $date): Carbon
+    {
+        return rescue(
+            fn () => Carbon::createFromFormat('Y-m-d', $input.'-01')->startOfMonth(),
+            $date->copy()->startOfMonth(),
+            false,
+        );
     }
 
     private function clamp(Carbon $date): Carbon

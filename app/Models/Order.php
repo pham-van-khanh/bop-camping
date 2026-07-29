@@ -48,6 +48,11 @@ class Order extends Model
         // Gán shipper cho từng lượt giao/thu (bopcamping-xdvx).
         'pickup_shipper_id',
         'return_shipper_id',
+        // Thu tiền theo 2 khoản độc lập (bopcamping-q7i0) — payment_status là giá trị SUY RA.
+        'rental_paid_at',
+        'rental_paid_by',
+        'deposit_paid_at',
+        'deposit_paid_by',
         'total_price',
         'deposit_total',
         'extra_fee',
@@ -83,7 +88,12 @@ class Order extends Model
         'review_submitted_at' => 'datetime',
         'pickup_reminder_sent_at' => 'datetime',
         'schedule_confirmed_at' => 'datetime',
+        'rental_paid_at' => 'datetime',
+        'deposit_paid_at' => 'datetime',
     ];
+
+    /** Hai khoản tiền thu riêng của 1 đơn (bopcamping-q7i0). */
+    public const PAYMENT_KINDS = ['rental', 'deposit'];
 
     /** Tự sinh mã đơn khi tạo */
     protected static function booted(): void
@@ -219,7 +229,67 @@ class Order extends Model
     /** Số tiền phải trả khi nhận (thuê + cọc + phụ phí ngoài khung giờ − giảm giá). */
     public function getAmountDueAttribute(): int
     {
-        return (int) $this->total_price + (int) $this->deposit_total + (int) $this->extra_fee - (int) $this->discount_total;
+        return $this->rental_due + (int) $this->deposit_total;
+    }
+
+    /** Riêng phần TIỀN THUÊ phải thu (đã gồm phụ phí ngoài giờ, đã trừ giảm giá) — không gồm cọc. */
+    public function getRentalDueAttribute(): int
+    {
+        return (int) $this->total_price + (int) $this->extra_fee - (int) $this->discount_total;
+    }
+
+    public function rentalPaid(): bool
+    {
+        return $this->rental_paid_at !== null;
+    }
+
+    public function depositPaid(): bool
+    {
+        return $this->deposit_paid_at !== null;
+    }
+
+    /**
+     * Đánh dấu (bỏ đánh dấu) đã thu 1 khoản — LỐI VÀO DUY NHẤT để đổi tình trạng tiền
+     * (bopcamping-q7i0). Ghi luôn ai thu để đối soát, rồi đồng bộ payment_status suy ra.
+     *
+     * @param  'rental'|'deposit'  $kind
+     */
+    public function markPaid(string $kind, bool $paid, ?int $byUserId = null): void
+    {
+        $this->forceFill([
+            "{$kind}_paid_at" => $paid ? now() : null,
+            "{$kind}_paid_by" => $paid ? $byUserId : null,
+        ]);
+        $this->syncPaymentStatus();
+        $this->save();
+    }
+
+    /**
+     * payment_status là GIÁ TRỊ SUY RA từ 2 khoản (nghĩa cũ chỉ có 3 mức nên "mới thu 1
+     * trong 2 khoản" đều gom vào 'deposit' = đã thu một phần). Không ghi payment_status
+     * ở bất kỳ chỗ nào khác — mọi thay đổi phải đi qua markPaid().
+     */
+    public function syncPaymentStatus(): void
+    {
+        $paid = (int) $this->rentalPaid() + (int) $this->depositPaid();
+
+        $this->payment_status = match ($paid) {
+            2 => 'full',
+            1 => 'deposit',
+            default => 'unpaid',
+        };
+    }
+
+    /** Người đánh dấu đã thu tiền thuê (admin hoặc shipper) — cho đối soát. */
+    public function rentalPaidBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'rental_paid_by');
+    }
+
+    /** Người đánh dấu đã thu cọc. */
+    public function depositPaidBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'deposit_paid_by');
     }
 
     /**
