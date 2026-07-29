@@ -148,6 +148,12 @@ class DeliveryScheduleService
             'payment_status' => $o->payment_status,
             'amount_due' => $o->amount_due,
             'deposit_total' => $o->deposit_total,
+            // Thu tiền 2 khoản độc lập (bopcamping-q7i0) — shipper thu hộ khoản nào chưa thu.
+            'rental_due' => $o->rental_due,
+            'rental_paid' => $o->rentalPaid(),
+            'deposit_paid' => $o->depositPaid(),
+            'deposit_refund_status' => $o->deposit_refund_status,
+            'deposit_refund_note' => $o->deposit_refund_note,
             'schedule_note' => $o->schedule_note,
             'items' => $o->items->map(fn ($i) => [
                 'name' => $i->product?->name ?? '(đã xoá)',

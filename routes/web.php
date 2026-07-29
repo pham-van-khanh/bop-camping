@@ -101,6 +101,9 @@ Route::middleware(['shipper'])->prefix('shipper')->name('shipper.')->group(funct
     // Shipper tự đánh dấu — chỉ trên đơn được gán cho mình (kiểm trong controller).
     Route::patch('/don/{order}/da-giao', [ShipperScheduleController::class, 'markDelivered'])->name('orders.delivered')->middleware('throttle:60,1');
     Route::patch('/don/{order}/da-thu', [ShipperScheduleController::class, 'markCollected'])->name('orders.collected')->middleware('throttle:60,1');
+    // Shipper thu hộ tiền thuê / cọc, và trả cọc lại cho khách (bopcamping-lvw3)
+    Route::patch('/don/{order}/thu/{kind}', [ShipperScheduleController::class, 'collect'])->name('orders.collect')->middleware('throttle:60,1');
+    Route::patch('/don/{order}/hoan-coc', [ShipperScheduleController::class, 'refundDeposit'])->name('orders.refund')->middleware('throttle:60,1');
 });
 
 // Admin — panel (bảo vệ bằng middleware 'admin')

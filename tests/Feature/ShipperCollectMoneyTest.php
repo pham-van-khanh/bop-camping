@@ -1,0 +1,196 @@
+<?php
+
+namespace Tests\Feature;
+
+use App\Models\Order;
+use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\TestCase;
+
+/**
+ * bopcamping-lvw3 — shipper thu hộ tiền thuê / cọc và trả cọc lại cho khách.
+ * Không cần admin uỷ quyền riêng (chốt 30/07): khoản nào chưa thu thì shipper thu được,
+ * nhưng CHỈ trên đơn được gán cho mình (OWASP A01 / CWE-639).
+ */
+class ShipperCollectMoneyTest extends TestCase
+{
+    use RefreshDatabase;
+
+    private function shipper(): User
+    {
+        return User::factory()->create(['is_shipper' => true]);
+    }
+
+    private function order(array $attrs = []): Order
+    {
+        return Order::create(array_merge([
+            'code' => 'BOP-'.strtoupper(uniqid()),
+            'customer_name' => 'Khách', 'customer_phone' => '0900000000',
+            'start_date' => now()->toDateString(), 'end_date' => now()->addDays(2)->toDateString(),
+            'status' => 'confirmed', 'payment_method' => 'cod',
+            'total_price' => 300000, 'deposit_total' => 200000,
+        ], $attrs));
+    }
+
+    /** @test */
+    public function shipper_collects_each_amount_independently_and_is_recorded_as_collector(): void
+    {
+        $me = $this->shipper();
+        $order = $this->order(['pickup_shipper_id' => $me->id]);
+
+        $this->actingAs($me)->patch(route('shipper.orders.collect', ['order' => $order->id, 'kind' => 'rental']))
+            ->assertSessionHasNoErrors();
+
+        $fresh = $order->fresh();
+        $this->assertTrue($fresh->rentalPaid());
+        $this->assertFalse($fresh->depositPaid());
+        $this->assertSame($me->id, $fresh->rental_paid_by, 'phải ghi shipper nào thu để đối soát');
+
+        $this->actingAs($me)->patch(route('shipper.orders.collect', ['order' => $order->id, 'kind' => 'deposit']))
+            ->assertSessionHasNoErrors();
+
+        $fresh = $order->fresh();
+        $this->assertTrue($fresh->depositPaid());
+        $this->assertSame($me->id, $fresh->deposit_paid_by);
+        $this->assertSame('full', $fresh->payment_status);
+    }
+
+    /** @test */
+    public function collecting_an_already_paid_amount_is_rejected(): void
+    {
+        $me = $this->shipper();
+        $admin = User::factory()->create(['is_admin' => true]);
+        $order = $this->order(['pickup_shipper_id' => $me->id]);
+        $order->markPaid('rental', true, $admin->id);   // admin đã thu trước
+
+        $this->actingAs($me)->patch(route('shipper.orders.collect', ['order' => $order->id, 'kind' => 'rental']))
+            ->assertSessionHasErrors('payment');
+
+        // Không được ghi đè người thu ban đầu.
+        $this->assertSame($admin->id, $order->fresh()->rental_paid_by);
+    }
+
+    /** @test */
+    public function the_return_leg_shipper_can_also_collect_money(): void
+    {
+        // Tiền thuê có thể mới thu đúng lúc đi thu đồ → được gán 1 trong 2 lượt là đủ.
+        $me = $this->shipper();
+        $order = $this->order(['status' => 'renting', 'return_shipper_id' => $me->id]);
+
+        $this->actingAs($me)->patch(route('shipper.orders.collect', ['order' => $order->id, 'kind' => 'rental']))
+            ->assertSessionHasNoErrors();
+
+        $this->assertTrue($order->fresh()->rentalPaid());
+    }
+
+    /** @test */
+    public function shipper_cannot_collect_on_someone_elses_order(): void
+    {
+        $me = $this->shipper();
+        $other = $this->shipper();
+        $order = $this->order(['pickup_shipper_id' => $other->id]);
+
+        $this->actingAs($me)->patch(route('shipper.orders.collect', ['order' => $order->id, 'kind' => 'rental']))
+            ->assertNotFound();
+
+        $this->assertFalse($order->fresh()->rentalPaid());
+    }
+
+    /** @test */
+    public function unknown_payment_kind_is_rejected(): void
+    {
+        $me = $this->shipper();
+        $order = $this->order(['pickup_shipper_id' => $me->id]);
+
+        $this->actingAs($me)->patch(route('shipper.orders.collect', ['order' => $order->id, 'kind' => 'bogus']))
+            ->assertNotFound();
+
+        $this->assertSame('unpaid', $order->fresh()->payment_status);
+    }
+
+    /** @test */
+    public function cancelled_order_cannot_be_collected(): void
+    {
+        $me = $this->shipper();
+        $order = $this->order(['status' => 'cancelled', 'pickup_shipper_id' => $me->id]);
+
+        $this->actingAs($me)->patch(route('shipper.orders.collect', ['order' => $order->id, 'kind' => 'rental']))
+            ->assertSessionHasErrors('payment');
+
+        $this->assertFalse($order->fresh()->rentalPaid());
+    }
+
+    /** @test */
+    public function return_shipper_refunds_the_deposit_with_a_deduction_note(): void
+    {
+        $me = $this->shipper();
+        $order = $this->order(['status' => 'renting', 'return_shipper_id' => $me->id]);
+
+        $this->actingAs($me)->patch(route('shipper.orders.refund', $order), [
+            'deposit_refund_note' => 'Trừ 50k do rách lều',
+        ])->assertSessionHasNoErrors();
+
+        $fresh = $order->fresh();
+        $this->assertSame('refunded', $fresh->deposit_refund_status);
+        $this->assertSame('Trừ 50k do rách lều', $fresh->deposit_refund_note);
+    }
+
+    /** @test */
+    public function refund_is_rejected_twice_and_for_the_wrong_leg_or_status(): void
+    {
+        $me = $this->shipper();
+        $other = $this->shipper();
+
+        // Lần 2 → chặn.
+        $order = $this->order(['status' => 'renting', 'return_shipper_id' => $me->id]);
+        $this->actingAs($me)->patch(route('shipper.orders.refund', $order))->assertSessionHasNoErrors();
+        $this->actingAs($me)->patch(route('shipper.orders.refund', $order))->assertSessionHasErrors('refund');
+
+        // Chỉ được gán lượt GIAO → không hoàn cọc được.
+        $pickupOnly = $this->order(['status' => 'renting', 'pickup_shipper_id' => $me->id]);
+        $this->actingAs($me)->patch(route('shipper.orders.refund', $pickupOnly))->assertNotFound();
+
+        // Đơn của người khác → 404.
+        $notMine = $this->order(['status' => 'renting', 'return_shipper_id' => $other->id]);
+        $this->actingAs($me)->patch(route('shipper.orders.refund', $notMine))->assertNotFound();
+
+        // Đơn chưa giao (confirmed) → chặn theo trạng thái.
+        $notYet = $this->order(['status' => 'confirmed', 'return_shipper_id' => $me->id]);
+        $this->actingAs($me)->patch(route('shipper.orders.refund', $notYet))->assertSessionHasErrors('refund');
+        $this->assertSame('pending', $notYet->fresh()->deposit_refund_status);
+    }
+
+    /** @test */
+    public function guests_and_non_shippers_cannot_collect(): void
+    {
+        $shipper = $this->shipper();
+        $order = $this->order(['pickup_shipper_id' => $shipper->id]);
+
+        $this->patch(route('shipper.orders.collect', ['order' => $order->id, 'kind' => 'rental']))
+            ->assertRedirect(route('shipper.login'));
+        $this->actingAs(User::factory()->create())
+            ->patch(route('shipper.orders.collect', ['order' => $order->id, 'kind' => 'rental']))
+            ->assertRedirect(route('shipper.login'));
+
+        $this->assertFalse($order->fresh()->rentalPaid());
+    }
+
+    /** @test */
+    public function schedule_page_shows_month_grid_and_money_state_for_own_orders(): void
+    {
+        $me = $this->shipper();
+        $order = $this->order(['pickup_shipper_id' => $me->id, 'confirmed_pickup_time' => '09:00']);
+        $order->markPaid('deposit', true, $me->id);
+
+        $this->actingAs($me)->get(route('shipper.schedule'))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->component('Shipper/Schedule')
+                ->where('month', now()->format('Y-m'))
+                ->has('days', 1)
+                ->where('days.0.pickups', 1)
+                ->where('pickups.0.rental_due', 300000)
+                ->where('pickups.0.rental_paid', false)
+                ->where('pickups.0.deposit_paid', true));
+    }
+}
