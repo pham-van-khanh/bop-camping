@@ -133,8 +133,9 @@ class AdminShipperAssignmentTest extends TestCase
     public function list_is_ordered_by_confirmed_time_with_unscheduled_last(): void
     {
         // Không có sắp thứ tự thủ công (bỏ kéo-thả 29/07) — giờ đã chốt quyết định thứ tự.
+        // Đơn chưa xác nhận (pending) không có giờ mặc định nào → xuống cuối (luật 30/07).
         $this->order(['code' => 'BOP-TIME20', 'confirmed_pickup_time' => '20:00']);
-        $this->order(['code' => 'BOP-NOTIME']);
+        $this->order(['code' => 'BOP-NOTIME', 'status' => 'pending']);
         $this->order(['code' => 'BOP-TIME8', 'confirmed_pickup_time' => '08:00']);
 
         $this->actingAs($this->admin())->get(route('admin.schedule', ['date' => self::DATE]))

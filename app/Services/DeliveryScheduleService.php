@@ -24,6 +24,17 @@ class DeliveryScheduleService
     public const RETURN_STATUSES = ['confirmed', 'renting'];
 
     /**
+     * Giờ mặc định TOÀN SHOP cho đơn ĐÃ XÁC NHẬN mà không suy được giờ từ buổi khách chọn
+     * (tức đơn thuê nhiều ngày) — chủ shop chốt 30/07/2026: giao 08:00, thu 21:00.
+     * 21:00 muộn hơn giờ đóng cửa trong Cài đặt shop là CÓ Ý: chừa dư cho lượt thu buổi tối.
+     * Đơn còn 'pending' KHÔNG áp mặc định này — chưa xác nhận thì chưa hẹn giờ với khách.
+     */
+    private const FALLBACK_TIMES = ['pickup' => '08:00', 'return' => '21:00'];
+
+    /** Trạng thái coi là "admin đã xác nhận đơn" — mới được áp giờ mặc định toàn shop. */
+    private const CONFIRMED_STATUSES = ['confirmed', 'renting'];
+
+    /**
      * Cấu hình từng lượt: cột ngày, trạng thái hợp lệ, cột giờ đã chốt, cột giờ MẶC ĐỊNH,
      * cột shipper.
      *
@@ -37,16 +48,24 @@ class DeliveryScheduleService
     }
 
     /**
-     * Giờ THỰC DỤNG của 1 lượt (feedback 30/07/2026): giờ admin đã chốt, nếu chưa chốt thì
-     * lấy giờ mặc định của khung giờ shop — chỉ đơn thuê ≤ 1 ngày mới có (buổi sáng 8–12h,
-     * chiều 13–20h, cả ngày 8–20h; `requested_*` đã được suy sẵn lúc checkout — OrderSplitter
-     * là nguồn chân lý, KHÔNG suy lại ở đây). Đơn nhiều ngày → null = thật sự chưa có giờ.
+     * Giờ THỰC DỤNG của 1 lượt, theo 3 tầng ưu tiên (feedback 30/07/2026):
+     *
+     * 1. Giờ admin ĐÃ CHỐT (`confirmed_*`).
+     * 2. Giờ suy từ buổi khách chọn với đơn thuê ≤ 1 ngày (sáng 8–12h · chiều 13–20h ·
+     *    cả ngày 8–20h). Lấy sẵn từ `requested_*` mà OrderSplitter tính lúc checkout —
+     *    KHÔNG suy lại ở đây để giữ một nguồn chân lý.
+     * 3. Đơn ĐÃ XÁC NHẬN nhưng không có gì ở trên (đơn nhiều ngày) → mặc định toàn shop
+     *    giao 08:00 / thu 21:00.
+     *
+     * Đơn còn chờ xác nhận mà không suy được giờ → null = thật sự chưa có giờ.
      */
     public function effectiveTime(Order $o, string $leg): ?string
     {
         $cfg = $this->leg($leg);
 
-        return $o->{$cfg['time']} ?? $o->{$cfg['default_time']};
+        return $o->{$cfg['time']}
+            ?? $o->{$cfg['default_time']}
+            ?? (in_array($o->status, self::CONFIRMED_STATUSES, true) ? self::FALLBACK_TIMES[$leg] : null);
     }
 
     /** True khi giờ đang dùng chỉ là giờ mặc định (admin chưa chốt) — UI nói rõ cho shipper. */
@@ -54,14 +73,15 @@ class DeliveryScheduleService
     {
         $cfg = $this->leg($leg);
 
-        return $o->{$cfg['time']} === null && $o->{$cfg['default_time']} !== null;
+        return $o->{$cfg['time']} === null && $this->effectiveTime($o, $leg) !== null;
     }
 
     /**
      * Đơn cần giao/thu trong 1 ngày.
      *
-     * Thứ tự: theo GIỜ THỰC DỤNG (đã chốt, nếu chưa thì giờ mặc định của khung giờ shop),
-     * đơn không có giờ nào xuống cuối. COALESCE + 'IS NULL' chạy đúng cả sqlite lẫn MySQL.
+     * Thứ tự: theo GIỜ THỰC DỤNG (xem effectiveTime), đơn không có giờ nào xuống cuối.
+     * Sắp ở PHP chứ không ở SQL: luật giờ mặc định phụ thuộc cả buổi khách chọn lẫn trạng
+     * thái đơn, viết lại trong SQL là nhân đôi luật — mỗi ngày chỉ vài chục đơn nên rẻ.
      * Không có sắp thứ tự thủ công — chủ shop bỏ kéo-thả (29/07).
      *
      * @param  int|null  $shipperId  Chỉ lấy đơn gán cho shipper này (null = không lọc theo người)
@@ -77,8 +97,10 @@ class DeliveryScheduleService
             ->with(['items.product', 'serviceLocation', 'pickupShipper:id,name,phone', 'returnShipper:id,name,phone'])
             ->when($unassignedOnly, fn ($q) => $q->whereNull($cfg['shipper']))
             ->when(! $unassignedOnly && $shipperId !== null, fn ($q) => $q->where($cfg['shipper'], $shipperId))
-            ->orderByRaw("COALESCE({$cfg['time']}, {$cfg['default_time']}) IS NULL, COALESCE({$cfg['time']}, {$cfg['default_time']}), code")
-            ->get();
+            ->orderBy('code')
+            ->get()
+            ->sortBy(fn (Order $o) => [$this->effectiveTime($o, $leg) === null, $this->effectiveTime($o, $leg) ?? ''])
+            ->values();
     }
 
     /**
