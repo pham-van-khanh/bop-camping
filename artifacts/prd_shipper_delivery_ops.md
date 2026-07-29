@@ -153,13 +153,19 @@ chỉ ghi qua `Order::markPaid()`. Accessor `rental_due` = thuê + phụ phí �
 
 ### 7.4 Bổ sung cuối vòng 3 (30/07/2026)
 
-- **Giờ mặc định khi chưa chốt**: đơn thuê **≤ 1 ngày** mà admin chưa chốt giờ thì lấy luôn
-  khung giờ của buổi khách chọn (sáng 08:00–12:00 · chiều 13:00–20:00 · cả ngày 08:00–20:00).
-  Dùng lại `requested_*` đã được `OrderSplitter` suy sẵn lúc checkout — **không suy lại**, giữ
-  một nguồn chân lý. Đơn **nhiều ngày** vẫn là "chưa chốt giờ" (không có mặc định nào hợp lý).
-  UI ghi rõ **"giờ mặc định"** để phân biệt với giờ admin đã chốt. Danh sách **sắp theo giờ
-  thực dụng** (`COALESCE(đã chốt, mặc định)`) nên đơn giờ mặc định không bị đẩy xuống cuối;
-  chip "chưa chốt giờ" giờ chỉ đếm đơn **không có giờ nào**.
+- **Giờ mặc định khi chưa chốt** — 3 tầng ưu tiên:
+  1. Giờ admin **đã chốt** (`confirmed_*`).
+  2. Đơn thuê **≤ 1 ngày**: khung giờ của buổi khách chọn (sáng 08:00–12:00 · chiều
+     13:00–20:00 · cả ngày 08:00–20:00). Dùng lại `requested_*` mà `OrderSplitter` suy sẵn lúc
+     checkout — **không suy lại**, giữ một nguồn chân lý.
+  3. Đơn **đã xác nhận** (`confirmed`/`renting`) mà không có gì ở trên (đơn nhiều ngày):
+     mặc định toàn shop **giao 08:00 · thu 21:00**. 21:00 muộn hơn giờ đóng cửa trong Cài đặt
+     shop là **có ý** — chừa dư cho lượt thu buổi tối.
+
+  Đơn còn **chờ xác nhận** mà không suy được giờ → thật sự "chưa chốt giờ" (chưa xác nhận thì
+  chưa hẹn giờ với khách). UI ghi rõ **"giờ mặc định"** để phân biệt với giờ admin đã chốt.
+  Danh sách sắp theo **giờ thực dụng** (sắp ở PHP, vì luật phụ thuộc cả buổi lẫn trạng thái —
+  viết lại trong SQL là nhân đôi luật); chip "chưa chốt giờ" chỉ đếm đơn **không có giờ nào**.
 - **Link đơn trong tin nhắn Zalo**: thêm dòng `Xem đơn: …/shipper/lich-giao?date=&month=` mở
   đúng **ngày của lượt đó** (lượt giao → ngày giao, lượt thu → ngày thu).
 - **Màn shipper hiện cả hai mốc**: chi tiết đơn có dòng "Giao dd/mm · HH:MM" và "Thu dd/mm ·

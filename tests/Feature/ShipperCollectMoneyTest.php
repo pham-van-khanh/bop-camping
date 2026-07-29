@@ -207,13 +207,48 @@ class ShipperCollectMoneyTest extends TestCase
         $this->order([
             'code' => 'BOP-FIXED10', 'confirmed_pickup_time' => '10:00', 'pickup_shipper_id' => $me->id,
         ]);
-        $this->order(['code' => 'BOP-NOTIME', 'pickup_shipper_id' => $me->id]);
+        // Chưa xác nhận → không có giờ mặc định nào → xuống cuối.
+        $this->order(['code' => 'BOP-NOTIME', 'status' => 'pending', 'pickup_shipper_id' => $me->id]);
 
         $this->actingAs($me)->get(route('shipper.schedule'))
             ->assertInertia(fn ($page) => $page
                 ->where('pickups.0.code', 'BOP-DEFAULT8')
                 ->where('pickups.1.code', 'BOP-FIXED10')
                 ->where('pickups.2.code', 'BOP-NOTIME'));
+    }
+
+    /** @test */
+    public function confirmed_multi_day_order_falls_back_to_shop_wide_hours(): void
+    {
+        // Đơn nhiều ngày không suy được giờ từ buổi → đã xác nhận thì giao 08:00 / thu 21:00
+        // (chủ shop chốt 30/07). Đơn còn pending KHÔNG được áp mặc định này.
+        $me = $this->shipper();
+        $today = now()->toDateString();
+
+        $this->order([
+            'code' => 'BOP-MULTI', 'start_date' => $today, 'end_date' => $today,
+            'status' => 'confirmed', 'pickup_shipper_id' => $me->id, 'return_shipper_id' => $me->id,
+        ]);
+
+        $this->actingAs($me)->get(route('shipper.schedule'))
+            ->assertInertia(fn ($page) => $page
+                ->where('pickups.0.time', '08:00')
+                ->where('pickups.0.time_is_default', true)
+                ->where('returns.0.time', '21:00')
+                ->where('returns.0.time_is_default', true));
+    }
+
+    /** @test */
+    public function pending_order_has_no_default_time_at_all(): void
+    {
+        $me = $this->shipper();
+
+        $this->order(['status' => 'pending', 'pickup_shipper_id' => $me->id]);
+
+        $this->actingAs($me)->get(route('shipper.schedule'))
+            ->assertInertia(fn ($page) => $page
+                ->where('pickups.0.time', null)
+                ->where('pickups.0.time_is_default', false));
     }
 
     /** @test */

@@ -103,14 +103,26 @@ class ShipperZaloMessageTest extends TestCase
     }
 
     /** @test */
-    public function unscheduled_time_and_internal_note_are_reflected(): void
+    public function confirmed_order_without_any_time_uses_shop_wide_default(): void
     {
+        // Đơn nhiều ngày ĐÃ XÁC NHẬN → giao 08:00 / thu 21:00 (chủ shop chốt 30/07).
         $order = $this->order(['confirmed_pickup_time' => null, 'schedule_note' => 'Gọi trước 15 phút']);
 
         $text = $this->message($order);
 
-        $this->assertStringContainsString('Ngày giờ giao: 05/11/2030 (chưa chốt giờ)', $text);
+        $this->assertStringContainsString('Ngày giờ giao: 05/11/2030 · 08:00 (giờ mặc định)', $text);
+        $this->assertStringContainsString('Ngày giờ thu: 07/11/2030 · 21:00 (giờ mặc định)', $text);
         $this->assertStringContainsString('Ghi chú: Gọi trước 15 phút', $text);
+    }
+
+    /** @test */
+    public function pending_order_is_still_reported_as_having_no_time(): void
+    {
+        $order = $this->order(['status' => 'pending', 'confirmed_pickup_time' => null]);
+
+        $text = $this->message($order);
+
+        $this->assertStringContainsString('Ngày giờ giao: 05/11/2030 (chưa chốt giờ)', $text);
     }
 
     /** @test */

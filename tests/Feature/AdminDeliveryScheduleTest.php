@@ -83,7 +83,8 @@ class AdminDeliveryScheduleTest extends TestCase
     {
         $date = '2030-08-10';
 
-        $this->order(['code' => 'BOP-A1', 'start_date' => $date, 'end_date' => $date, 'status' => 'confirmed', 'confirmed_pickup_time' => null]);
+        // Chưa xác nhận + nhiều ngày → KHÔNG có giờ mặc định nào (luật 30/07) → xuống cuối.
+        $this->order(['code' => 'BOP-A1', 'start_date' => $date, 'end_date' => '2030-08-12', 'status' => 'pending', 'confirmed_pickup_time' => null]);
         $this->order(['code' => 'BOP-B1', 'start_date' => $date, 'end_date' => $date, 'status' => 'confirmed', 'confirmed_pickup_time' => '10:00']);
         $this->order(['code' => 'BOP-C1', 'start_date' => $date, 'end_date' => $date, 'status' => 'confirmed', 'confirmed_pickup_time' => '08:00']);
 
@@ -126,10 +127,11 @@ class AdminDeliveryScheduleTest extends TestCase
     {
         $date = '2030-08-15';
 
-        // Giao: 1 đã chốt giờ, 1 chưa. end_date SAU ngày lịch để không lẫn vào nhóm "cần thu".
+        // Giao: 1 đã chốt giờ, 1 CHƯA XÁC NHẬN (pending) nên không có giờ mặc định nào.
+        // end_date SAU ngày lịch để không lẫn vào nhóm "cần thu".
         $this->order(['code' => 'BOP-P1', 'start_date' => $date, 'end_date' => '2030-08-17', 'status' => 'confirmed', 'confirmed_pickup_time' => '09:00']);
         $this->order(['code' => 'BOP-P2', 'start_date' => $date, 'end_date' => '2030-08-17', 'status' => 'pending', 'confirmed_pickup_time' => null]);
-        // Thu: 1 chưa chốt giờ.
+        // Thu: đơn ĐÃ XÁC NHẬN (renting) chưa chốt giờ → nhận mặc định 21:00, KHÔNG tính là chưa chốt.
         $this->order(['code' => 'BOP-R1', 'start_date' => '2030-08-13', 'end_date' => $date, 'status' => 'renting', 'confirmed_return_time' => null]);
 
         $admin = $this->admin();
@@ -139,7 +141,10 @@ class AdminDeliveryScheduleTest extends TestCase
             ->assertInertia(fn (Assert $page) => $page
                 ->where('stats.pickups', 2)
                 ->where('stats.returns', 1)
-                ->where('stats.unscheduled', 2));
+                ->where('returns.0.time', '21:00')
+                ->where('returns.0.time_is_default', true)
+                // Chỉ còn đơn pending là thật sự chưa có giờ.
+                ->where('stats.unscheduled', 1));
     }
 
     /** @test */
