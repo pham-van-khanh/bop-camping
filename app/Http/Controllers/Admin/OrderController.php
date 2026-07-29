@@ -35,7 +35,7 @@ class OrderController extends Controller
 
         // Đơn cha/con (bopcamping-wtuv T6): danh sách chỉ TOP-LEVEL (đơn thường + cha, ẩn con);
         // con nạp kèm trong cha. Search theo mã đơn (cả mã con)/tên/SĐT.
-        $relations = ['items.product', 'items.combo', 'vouchers', 'referralUse.referrer', 'serviceLocation', 'rentalPaidBy:id,name', 'depositPaidBy:id,name'];
+        $relations = ['items.product', 'items.combo', 'vouchers', 'referralUse.referrer', 'serviceLocation', 'rentalPaidBy:id,name,is_admin,is_shipper', 'depositPaidBy:id,name,is_admin,is_shipper', 'depositRefundedBy:id,name,is_admin,is_shipper', 'deliveredBy:id,name,is_admin,is_shipper', 'collectedBy:id,name,is_admin,is_shipper'];
         $query = Order::topLevel()->with(array_merge($relations, array_map(fn ($r) => "children.$r", $relations)))->latest();
 
         if ($q !== '') {
@@ -102,7 +102,7 @@ class OrderController extends Controller
      */
     public function show(Order $order): Response
     {
-        $relations = ['items.product', 'items.combo', 'vouchers', 'referralUse.referrer', 'serviceLocation', 'rentalPaidBy:id,name', 'depositPaidBy:id,name'];
+        $relations = ['items.product', 'items.combo', 'vouchers', 'referralUse.referrer', 'serviceLocation', 'rentalPaidBy:id,name,is_admin,is_shipper', 'depositPaidBy:id,name,is_admin,is_shipper', 'depositRefundedBy:id,name,is_admin,is_shipper', 'deliveredBy:id,name,is_admin,is_shipper', 'collectedBy:id,name,is_admin,is_shipper'];
         $order->load(array_merge($relations, array_map(fn ($r) => "children.$r", $relations), ['parent:id,code']));
 
         $row = $this->mapOrder($order);
@@ -171,6 +171,8 @@ class OrderController extends Controller
             'deposit_paid' => $o->depositPaid(),
             'deposit_paid_at' => $o->deposit_paid_at?->format('d/m H:i'),
             'deposit_paid_by' => $o->depositPaidBy?->name,
+            // Ai đã làm gì trên đơn: 5 mốc kèm người + giờ (bopcamping-3wfk)
+            'actions' => $o->actionLog(),
             'deposit_refund_status' => $o->deposit_refund_status,
             'deposit_refund_note' => $o->deposit_refund_note,
             'note' => $o->note,
@@ -423,6 +425,14 @@ class OrderController extends Controller
 
         $order->update(['status' => $new]);
 
+        // Ghi dấu ai bấm đã giao / đã thu (bopcamping-3wfk) — giữ dấu ĐẦU TIÊN, đổi trạng
+        // thái qua lại không xoá được dấu của người làm thật.
+        if ($new === 'renting') {
+            $order->stampAction('delivered', $request->user()->id);
+        } elseif ($new === 'returned') {
+            $order->stampAction('collected', $request->user()->id);
+        }
+
         // Đơn cha/con (bopcamping-wtuv T4): huỷ cha → huỷ hết con; huỷ/khôi phục 1 con →
         // tính lại voucher + phân bổ trên các con CÒN active.
         if ($order->is_parent && $new === 'cancelled') {
@@ -535,10 +545,12 @@ class OrderController extends Controller
             'deposit_refund_note' => ['nullable', 'string', 'max:500'],
         ]);
 
-        $order->update([
-            'deposit_refund_status' => $validated['deposit_refund_status'],
-            'deposit_refund_note' => $validated['deposit_refund_note'] ?? null,
-        ]);
+        // Qua markRefunded để LUÔN có dấu ai hoàn cọc, lúc nào (bopcamping-3wfk).
+        $order->markRefunded(
+            $validated['deposit_refund_status'] === 'refunded',
+            $request->user()->id,
+            $validated['deposit_refund_note'] ?? null,
+        );
 
         return back()->with('success', "Đơn {$order->code}: đã cập nhật hoàn cọc");
     }

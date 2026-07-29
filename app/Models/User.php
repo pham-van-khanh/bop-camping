@@ -91,6 +91,19 @@ class User extends Authenticatable
         return (bool) $this->is_shipper;
     }
 
+    /**
+     * Nhãn vai để hiển thị "ai đã làm gì" (bopcamping-3wfk). Suy từ cờ hiện tại — đủ cho
+     * shop một cửa hàng; nếu ai đó vừa admin vừa shipper thì hiện Admin (quyền cao hơn).
+     */
+    public function roleLabel(): string
+    {
+        return match (true) {
+            (bool) $this->is_admin => 'Admin',
+            (bool) $this->is_shipper => 'Shipper',
+            default => 'Khách',
+        };
+    }
+
     /** @param  Builder<User>  $query */
     public function scopeShippers(Builder $query): void
     {

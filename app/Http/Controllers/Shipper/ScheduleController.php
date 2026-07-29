@@ -74,6 +74,7 @@ class ScheduleController extends Controller
         }
 
         $order->update(['status' => 'renting']);
+        $order->stampAction('delivered', $request->user()->id);   // dấu ai giao (bopcamping-3wfk)
 
         return back()->with('success', "Đơn {$order->code}: đã giao");
     }
@@ -88,6 +89,7 @@ class ScheduleController extends Controller
         }
 
         $order->update(['status' => 'returned']);
+        $order->stampAction('collected', $request->user()->id);   // dấu ai thu đồ
 
         return back()->with('success', "Đơn {$order->code}: đã thu đồ");
     }
@@ -134,10 +136,8 @@ class ScheduleController extends Controller
             return back()->withErrors(['refund' => 'Cọc đã được đánh dấu hoàn rồi.']);
         }
 
-        $order->update([
-            'deposit_refund_status' => 'refunded',
-            'deposit_refund_note' => $data['deposit_refund_note'] ?? null,
-        ]);
+        // Cùng lối vào với admin để luôn có dấu ai hoàn cọc (bopcamping-3wfk).
+        $order->markRefunded(true, $request->user()->id, $data['deposit_refund_note'] ?? null);
 
         return back()->with('success', "Đơn {$order->code}: đã hoàn cọc cho khách");
     }

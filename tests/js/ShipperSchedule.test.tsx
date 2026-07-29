@@ -50,6 +50,7 @@ const ORDER = {
     deposit_paid: false,
     deposit_refund_status: 'pending',
     schedule_note: 'Gọi trước 15 phút',
+    actions: [] as { key: string; label: string; done: boolean; at: string | null; by: string | null; role: string | null }[],
     items: [{ name: 'Lều 2 người', quantity: 1 }],
 };
 
@@ -121,14 +122,47 @@ describe('Lịch giao của shipper', () => {
         );
     });
 
-    it('khoản đã thu thì hiện dấu ✓, không còn nút thu', async () => {
+    it('khoản đã thu thì hiện dấu ✓ kèm AI đã nhận, không còn nút thu', async () => {
         const user = userEvent.setup();
-        render(<ShipperSchedule {...PROPS} pickups={[{ ...ORDER, rental_paid: true, deposit_paid: true }]} />);
+        render(
+            <ShipperSchedule
+                {...PROPS}
+                pickups={[{
+                    ...ORDER,
+                    rental_paid: true,
+                    deposit_paid: true,
+                    actions: [
+                        { key: 'rental_paid', label: 'Đã nhận tiền thuê', done: true, at: '30/07 10:00', by: 'Khánh', role: 'Admin' },
+                        { key: 'deposit_paid', label: 'Đã nhận tiền cọc', done: true, at: '30/07 14:00', by: 'An', role: 'Shipper' },
+                    ],
+                }]}
+            />,
+        );
         await openDetail(user);
 
         expect(screen.queryByRole('button', { name: /Thu tiền/ })).not.toBeInTheDocument();
         expect(screen.getAllByText('✓ Đã thu')).toHaveLength(2);
+        // Shipper thấy rõ khoản nào admin đã nhận, khoản nào mình nhận.
+        expect(screen.getByText(/Admin Khánh · 30\/07 10:00/)).toBeInTheDocument();
+        expect(screen.getByText(/Shipper An · 30\/07 14:00/)).toBeInTheDocument();
         expect(screen.getByText(/Đã thu đủ tiền/)).toBeInTheDocument();
+    });
+
+    it('mốc cũ không có dấu thì ghi "không rõ ai" chứ không đoán', async () => {
+        const user = userEvent.setup();
+        render(
+            <ShipperSchedule
+                {...PROPS}
+                pickups={[{
+                    ...ORDER,
+                    rental_paid: true,
+                    actions: [{ key: 'rental_paid', label: 'Đã nhận tiền thuê', done: true, at: null, by: null, role: null }],
+                }]}
+            />,
+        );
+        await openDetail(user);
+
+        expect(screen.getByText('không rõ ai')).toBeInTheDocument();
     });
 
     it('lượt THU có nút hoàn cọc; đã hoàn rồi thì hiện dấu đã hoàn', async () => {
