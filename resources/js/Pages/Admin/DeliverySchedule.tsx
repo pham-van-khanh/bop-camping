@@ -15,6 +15,8 @@ type ScheduleOrder = {
     id: number;
     code: string;
     time: string | null;
+    // Giờ đang hiện chỉ là giờ mặc định theo khung giờ shop (admin chưa chốt) — feedback 30/07.
+    time_is_default: boolean;
     customer_name: string;
     customer_phone: string;
     customer_address: string | null;
@@ -384,8 +386,13 @@ function ScheduleOrderCard({ order, kind }: { order: ScheduleOrder; kind: TripKi
         <div className="rounded-[16px] border border-cardBorder bg-white p-4">
             <div className="flex items-start justify-between gap-3">
                 {order.time ? (
-                    <div className="font-mono text-[20px] font-bold" style={{ color: RED.fg }}>
-                        {order.time}
+                    <div>
+                        <span className="font-mono text-[20px] font-bold" style={{ color: order.time_is_default ? '#8a967a' : RED.fg }}>
+                            {order.time}
+                        </span>
+                        {order.time_is_default && (
+                            <span className="ml-1.5 text-[11px] text-[#a3ad92]">giờ mặc định</span>
+                        )}
                     </div>
                 ) : (
                     <span

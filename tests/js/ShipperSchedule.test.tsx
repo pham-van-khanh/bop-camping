@@ -32,6 +32,11 @@ const ORDER = {
     id: 7,
     code: 'BOP-ABC123',
     time: '14:30',
+    time_is_default: false,
+    pickup_date: '01/08/2030',
+    pickup_time: '14:30',
+    return_date: '03/08/2030',
+    return_time: '12:00',
     customer_name: 'Nguyễn Test',
     customer_phone: '0912345678',
     customer_address: '12 Ngõ 5, Hà Nội',
@@ -189,6 +194,35 @@ describe('Lịch giao của shipper', () => {
         await user.click(screen.getByRole('button', { name: /Xác nhận đã thu đồ/ }));
 
         expect(patch).toHaveBeenCalledWith('/shipper.orders.collected/7', {}, expect.objectContaining({ preserveScroll: true }));
+    });
+
+    it('hiện cả mốc giao và mốc thu trong chi tiết', async () => {
+        const user = userEvent.setup();
+        render(<ShipperSchedule {...PROPS} />);
+        await openDetail(user);
+
+        expect(screen.getByText('01/08/2030 · 14:30')).toBeInTheDocument();
+        expect(screen.getByText('03/08/2030 · 12:00')).toBeInTheDocument();
+    });
+
+    it('giờ mặc định (chủ shop chưa chốt) được ghi rõ là mặc định', async () => {
+        const user = userEvent.setup();
+        render(<ShipperSchedule {...PROPS} pickups={[{ ...ORDER, time: '08:00', time_is_default: true }]} />);
+
+        expect(screen.getByText('giờ mặc định')).toBeInTheDocument();
+        expect(screen.queryByText('Chưa chốt giờ')).not.toBeInTheDocument();
+        await openDetail(user);
+    });
+
+    it('không có giờ nào thì mới hiện "Chưa chốt giờ"', () => {
+        render(
+            <ShipperSchedule
+                {...PROPS}
+                pickups={[{ ...ORDER, time: null, time_is_default: false, pickup_time: null }]}
+            />,
+        );
+
+        expect(screen.getByText('Chưa chốt giờ')).toBeInTheDocument();
     });
 
     it('hiện lỗi trạng thái trả về từ server', async () => {

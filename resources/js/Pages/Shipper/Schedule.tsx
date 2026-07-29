@@ -14,6 +14,13 @@ type ScheduleOrder = {
     id: number;
     code: string;
     time: string | null;
+    // Giờ đang hiện chỉ là giờ mặc định theo khung giờ shop (chủ shop chưa chốt).
+    time_is_default: boolean;
+    // Cả hai mốc của đơn — shipper biết luôn giao lúc nào, thu lúc nào (feedback 30/07).
+    pickup_date: string;
+    pickup_time: string | null;
+    return_date: string;
+    return_time: string | null;
     customer_name: string;
     customer_phone: string;
     customer_address: string | null;
@@ -243,8 +250,14 @@ function OrderCard({ order, kind }: { order: ScheduleOrder; kind: TripKind }) {
                 <div className="min-w-0">
                     <div className="flex flex-wrap items-baseline gap-x-2">
                         {order.time ? (
-                            <span className="font-mono text-[20px] font-bold" style={{ color: RED.fg }}>
+                            <span
+                                className="font-mono text-[20px] font-bold"
+                                style={{ color: order.time_is_default ? '#8a967a' : RED.fg }}
+                            >
                                 {order.time}
+                                {order.time_is_default && (
+                                    <span className="ml-1 text-[11px] font-normal text-[#a3ad92]">giờ mặc định</span>
+                                )}
                             </span>
                         ) : (
                             <span
@@ -299,6 +312,24 @@ function OrderDetail({ order, kind }: { order: ScheduleOrder; kind: TripKind }) 
                     🧭 Chỉ đường
                 </a>
             )}
+
+            {/* Cả 2 mốc để shipper biết đơn này giao lúc nào và thu lúc nào (feedback 30/07) */}
+            <div className="mt-2 border-t border-[#f1f4ea] pt-2 text-[13.5px]">
+                <div className="flex justify-between gap-3 py-0.5">
+                    <span className="text-moss">Giao</span>
+                    <span className="font-mono text-ink">
+                        {order.pickup_date}
+                        {order.pickup_time ? ` · ${order.pickup_time}` : ' · chưa chốt giờ'}
+                    </span>
+                </div>
+                <div className="flex justify-between gap-3 py-0.5">
+                    <span className="text-moss">Thu</span>
+                    <span className="font-mono text-ink">
+                        {order.return_date}
+                        {order.return_time ? ` · ${order.return_time}` : ' · chưa chốt giờ'}
+                    </span>
+                </div>
+            </div>
 
             {order.items.length > 0 && (
                 <div className="mt-2 border-t border-[#f1f4ea] pt-2">
