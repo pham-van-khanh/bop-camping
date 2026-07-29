@@ -9,7 +9,6 @@ use App\Services\DeliveryScheduleService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
@@ -20,8 +19,8 @@ use Inertia\Response;
  * prd_shipper_delivery_ops FR-2).
  *
  * Lịch THÁNG: ngày có đơn bôi đỏ + đếm số đơn, ngày đã qua bị khoá; bấm 1 ngày thì liệt kê
- * đơn cần giao / cần thu, sắp theo thứ tự admin kéo-thả rồi tới giờ đã chốt. Admin gán
- * shipper cho từng LƯỢT (giao/thu) và lọc lịch theo người.
+ * đơn cần giao / cần thu, sắp theo giờ đã chốt. Admin gán shipper cho từng LƯỢT (giao/thu)
+ * và lọc lịch theo người.
  *
  * Dữ liệu lấy qua DeliveryScheduleService để trang in/PDF/CSV/shipper dùng chung 1 nguồn.
  */
@@ -129,35 +128,6 @@ class DeliveryScheduleController extends Controller
         return back()->with('success', $affected > 0
             ? "Đã gán shipper cho {$affected} đơn chưa có người."
             : 'Không còn đơn nào chưa có shipper.');
-    }
-
-    /**
-     * Lưu thứ tự đi trong ngày (admin kéo-thả). Chỉ nhận đơn thuộc đúng (ngày, lượt) —
-     * id lạ bị bỏ qua để không ai sắp thứ tự cho đơn ngoài phạm vi đang xem.
-     */
-    public function reorder(Request $request): RedirectResponse
-    {
-        $data = $request->validate([
-            'leg' => ['required', 'in:pickup,return'],
-            'date' => ['required', 'date'],
-            'order_ids' => ['required', 'array', 'max:200'],
-            'order_ids.*' => ['integer'],
-        ]);
-
-        $column = $this->schedule->columns($data['leg'])['sort'];
-        $allowed = $this->schedule->legQuery($data['leg'], Carbon::parse($data['date']))->pluck('id')->all();
-
-        DB::transaction(function () use ($data, $column, $allowed) {
-            $position = 0;
-            foreach ($data['order_ids'] as $id) {
-                if (! in_array((int) $id, $allowed, true)) {
-                    continue;   // id không thuộc ngày/lượt đang xem → bỏ qua
-                }
-                Order::whereKey($id)->update([$column => ++$position]);
-            }
-        });
-
-        return back()->with('success', 'Đã lưu thứ tự đi.');
     }
 
     /**

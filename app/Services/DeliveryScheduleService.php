@@ -24,22 +24,22 @@ class DeliveryScheduleService
     public const RETURN_STATUSES = ['confirmed', 'renting'];
 
     /**
-     * Cấu hình từng lượt: cột ngày, trạng thái hợp lệ, cột giờ đã chốt, cột shipper, cột thứ tự.
+     * Cấu hình từng lượt: cột ngày, trạng thái hợp lệ, cột giờ đã chốt, cột shipper.
      *
-     * @return array{date:string,statuses:list<string>,time:string,shipper:string,sort:string}
+     * @return array{date:string,statuses:list<string>,time:string,shipper:string}
      */
     private function leg(string $leg): array
     {
         return $leg === 'pickup'
-            ? ['date' => 'start_date', 'statuses' => self::PICKUP_STATUSES, 'time' => 'confirmed_pickup_time', 'shipper' => 'pickup_shipper_id', 'sort' => 'pickup_sort']
-            : ['date' => 'end_date', 'statuses' => self::RETURN_STATUSES, 'time' => 'confirmed_return_time', 'shipper' => 'return_shipper_id', 'sort' => 'return_sort'];
+            ? ['date' => 'start_date', 'statuses' => self::PICKUP_STATUSES, 'time' => 'confirmed_pickup_time', 'shipper' => 'pickup_shipper_id']
+            : ['date' => 'end_date', 'statuses' => self::RETURN_STATUSES, 'time' => 'confirmed_return_time', 'shipper' => 'return_shipper_id'];
     }
 
     /**
      * Đơn cần giao/thu trong 1 ngày.
      *
-     * Thứ tự: đơn admin đã sắp tay trước (theo `*_sort`), rồi theo giờ đã chốt, cuối cùng
-     * là đơn chưa chốt giờ. 'col IS NULL, col' chạy đúng cả sqlite lẫn MySQL.
+     * Thứ tự: theo giờ đã chốt, đơn chưa chốt giờ xuống cuối ('col IS NULL, col' chạy
+     * đúng cả sqlite lẫn MySQL). Không có sắp thứ tự thủ công — chủ shop bỏ kéo-thả (29/07).
      *
      * @param  int|null  $shipperId  Chỉ lấy đơn gán cho shipper này (null = không lọc theo người)
      * @param  bool  $unassignedOnly  Chỉ lấy đơn CHƯA gán shipper (bỏ qua $shipperId)
@@ -53,13 +53,13 @@ class DeliveryScheduleService
             ->with(['items.product', 'serviceLocation', 'pickupShipper:id,name', 'returnShipper:id,name'])
             ->when($unassignedOnly, fn ($q) => $q->whereNull($cfg['shipper']))
             ->when(! $unassignedOnly && $shipperId !== null, fn ($q) => $q->where($cfg['shipper'], $shipperId))
-            ->orderByRaw("{$cfg['sort']} IS NULL, {$cfg['sort']}, {$cfg['time']} IS NULL, {$cfg['time']}, code")
+            ->orderByRaw("{$cfg['time']} IS NULL, {$cfg['time']}, code")
             ->get();
     }
 
     /**
      * Query gốc "đơn của lượt này trong ngày này" — dùng chung cho đọc danh sách và cho
-     * các hành động ghi (gán shipper cả ngày, lưu thứ tự) để phạm vi luôn khớp nhau.
+     * hành động ghi (gán shipper cả ngày) để phạm vi luôn khớp nhau.
      *
      * @return Builder<Order>
      */
@@ -73,7 +73,7 @@ class DeliveryScheduleService
             ->whereIn('status', $cfg['statuses']);
     }
 
-    /** Tên cột theo lượt — cho caller cần ghi trực tiếp (gán shipper, lưu thứ tự). */
+    /** Tên cột theo lượt — cho caller cần ghi trực tiếp (gán shipper). */
     public function columns(string $leg): array
     {
         return $this->leg($leg);
@@ -137,7 +137,6 @@ class DeliveryScheduleService
             'code' => $o->code,
             'time' => $o->{$cfg['time']},
             'leg' => $leg,
-            'sort' => $o->{$cfg['sort']} !== null ? (int) $o->{$cfg['sort']} : null,
             'shipper_id' => $o->{$cfg['shipper']},
             'shipper_name' => $shipper?->name,
             'customer_name' => $o->customer_name,

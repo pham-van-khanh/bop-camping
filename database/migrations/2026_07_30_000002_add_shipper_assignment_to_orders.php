@@ -5,10 +5,13 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * Gán shipper + thứ tự đi cho từng LƯỢT của đơn (bopcamping-xdvx, prd_shipper_delivery_ops mục 3).
+ * Gán shipper cho từng LƯỢT của đơn (bopcamping-xdvx, prd_shipper_delivery_ops mục 3).
  * Gán theo lượt (giao / thu) vì hai lượt ở hai ngày khác nhau, có thể hai người khác nhau.
  * nullOnDelete: xoá tài khoản shipper thì đơn về "chưa gán", KHÔNG mất đơn.
+ *
  * KHÔNG có cột "đã giao/đã thu" — việc đó là chuyển status confirmed→renting→returned sẵn có.
+ * KHÔNG có cột thứ tự đi: chủ shop bỏ chức năng kéo-thả sắp thứ tự (feedback 29/07/2026) —
+ * lịch sắp theo giờ đã chốt là đủ.
  */
 return new class extends Migration
 {
@@ -19,9 +22,6 @@ return new class extends Migration
                 ->constrained('users')->nullOnDelete();
             $table->foreignId('return_shipper_id')->nullable()->after('pickup_shipper_id')
                 ->constrained('users')->nullOnDelete();
-            // Thứ tự admin kéo-thả trong ngày; null = chưa sắp tay (xếp theo giờ đã chốt).
-            $table->unsignedSmallInteger('pickup_sort')->nullable()->after('return_shipper_id');
-            $table->unsignedSmallInteger('return_sort')->nullable()->after('pickup_sort');
         });
     }
 
@@ -30,7 +30,6 @@ return new class extends Migration
         Schema::table('orders', function (Blueprint $table) {
             $table->dropConstrainedForeignId('pickup_shipper_id');
             $table->dropConstrainedForeignId('return_shipper_id');
-            $table->dropColumn(['pickup_sort', 'return_sort']);
         });
     }
 };

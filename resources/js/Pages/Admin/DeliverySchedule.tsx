@@ -26,10 +26,9 @@ type ScheduleOrder = {
     deposit_total: number;
     schedule_note: string | null;
     items: ScheduleItem[];
-    // Gán shipper theo lượt + thứ tự đi admin đã sắp (bopcamping-yc7d)
+    // Gán shipper theo lượt (bopcamping-yc7d)
     shipper_id: number | null;
     shipper_name: string | null;
-    sort: number | null;
 };
 
 /** Số đơn giao/thu của 1 ngày trong tháng — chỉ những ngày CÓ đơn được trả về. */
@@ -311,7 +310,6 @@ function ScheduleSection({
             </div>
             <ScheduleAssignList
                 leg={kind}
-                date={date}
                 orders={orders}
                 shippers={shippers}
                 emptyText={emptyText}

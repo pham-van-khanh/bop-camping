@@ -55,15 +55,13 @@ class ShipperAssignmentSchemaTest extends TestCase
         $thu = User::factory()->create(['is_shipper' => true]);
 
         $order = $this->order([
-            'pickup_shipper_id' => $giao->id, 'pickup_sort' => 1,
-            'return_shipper_id' => $thu->id, 'return_sort' => 2,
+            'pickup_shipper_id' => $giao->id,
+            'return_shipper_id' => $thu->id,
         ]);
 
         $order->refresh()->load(['pickupShipper', 'returnShipper']);
         $this->assertSame($giao->id, $order->pickupShipper->id);
         $this->assertSame($thu->id, $order->returnShipper->id);
-        $this->assertSame(1, (int) $order->pickup_sort);
-        $this->assertSame(2, (int) $order->return_sort);
 
         // Quan hệ ngược: shipper thấy được lượt của mình.
         $this->assertTrue($giao->pickupOrders()->whereKey($order->id)->exists());
@@ -92,7 +90,5 @@ class ShipperAssignmentSchemaTest extends TestCase
 
         $this->assertNull($order->pickup_shipper_id);
         $this->assertNull($order->return_shipper_id);
-        $this->assertNull($order->pickup_sort);
-        $this->assertNull($order->return_sort);
     }
 }

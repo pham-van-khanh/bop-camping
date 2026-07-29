@@ -10,7 +10,7 @@ use Tests\TestCase;
 
 /**
  * bopcamping-yc7d — admin gán shipper cho từng LƯỢT (giao/thu), gán cả ngày cho đơn chưa
- * có người, kéo-thả thứ tự đi, và lọc lịch theo shipper. Xem prd_shipper_delivery_ops FR-2.
+ * có người, và lọc lịch theo shipper. Xem prd_shipper_delivery_ops FR-2.
  */
 class AdminShipperAssignmentTest extends TestCase
 {
@@ -130,37 +130,18 @@ class AdminShipperAssignmentTest extends TestCase
     }
 
     /** @test */
-    public function reorder_saves_positions_and_ignores_orders_outside_the_day(): void
+    public function list_is_ordered_by_confirmed_time_with_unscheduled_last(): void
     {
-        $a = $this->order(['code' => 'BOP-A']);
-        $b = $this->order(['code' => 'BOP-B']);
-        $outside = $this->order(['code' => 'BOP-OUT', 'start_date' => '2030-09-20', 'end_date' => '2030-09-21']);
-
-        $this->actingAs($this->admin())
-            ->post(route('admin.schedule.reorder'), [
-                'leg' => 'pickup',
-                'date' => self::DATE,
-                'order_ids' => [$b->id, $outside->id, $a->id],
-            ])
-            ->assertSessionHasNoErrors();
-
-        $this->assertSame(1, (int) $b->fresh()->pickup_sort);
-        $this->assertSame(2, (int) $a->fresh()->pickup_sort, 'Id ngoài phạm vi bị bỏ qua, không chiếm vị trí');
-        $this->assertNull($outside->fresh()->pickup_sort);
-    }
-
-    /** @test */
-    public function list_order_is_manual_sort_then_confirmed_time_then_unscheduled(): void
-    {
-        $this->order(['code' => 'BOP-TIME8', 'confirmed_pickup_time' => '08:00']);
+        // Không có sắp thứ tự thủ công (bỏ kéo-thả 29/07) — giờ đã chốt quyết định thứ tự.
+        $this->order(['code' => 'BOP-TIME20', 'confirmed_pickup_time' => '20:00']);
         $this->order(['code' => 'BOP-NOTIME']);
-        $this->order(['code' => 'BOP-MANUAL', 'pickup_sort' => 1, 'confirmed_pickup_time' => '20:00']);
+        $this->order(['code' => 'BOP-TIME8', 'confirmed_pickup_time' => '08:00']);
 
         $this->actingAs($this->admin())->get(route('admin.schedule', ['date' => self::DATE]))
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
-                ->where('pickups.0.code', 'BOP-MANUAL')   // đã sắp tay → lên đầu dù giờ muộn nhất
-                ->where('pickups.1.code', 'BOP-TIME8')
+                ->where('pickups.0.code', 'BOP-TIME8')
+                ->where('pickups.1.code', 'BOP-TIME20')
                 ->where('pickups.2.code', 'BOP-NOTIME'));
     }
 
@@ -211,7 +192,7 @@ class AdminShipperAssignmentTest extends TestCase
     }
 
     /** @test */
-    public function non_admin_cannot_assign_or_reorder(): void
+    public function non_admin_cannot_assign(): void
     {
         $order = $this->order();
         $shipper = $this->shipper();
@@ -221,7 +202,7 @@ class AdminShipperAssignmentTest extends TestCase
             ->patch(route('admin.schedule.assign', $order), ['leg' => 'pickup', 'shipper_id' => $shipper->id])
             ->assertRedirect(route('admin.login'));
         $this->actingAs($shipper)
-            ->post(route('admin.schedule.reorder'), ['leg' => 'pickup', 'date' => self::DATE, 'order_ids' => [$order->id]])
+            ->post(route('admin.schedule.assignAll'), ['leg' => 'pickup', 'date' => self::DATE, 'shipper_id' => $shipper->id])
             ->assertRedirect(route('admin.login'));
 
         $this->assertNull($order->fresh()->pickup_shipper_id);

@@ -34,8 +34,6 @@ $table->foreignId('pickup_shipper_id')->nullable()->after('schedule_confirmed_at
       ->constrained('users')->nullOnDelete();
 $table->foreignId('return_shipper_id')->nullable()->after('pickup_shipper_id')
       ->constrained('users')->nullOnDelete();
-$table->unsignedSmallInteger('pickup_sort')->nullable()->after('return_shipper_id');
-$table->unsignedSmallInteger('return_sort')->nullable()->after('pickup_sort');
 ```
 `User`: `$fillable` += `is_shipper`, cast boolean, scope `shippers()`, `isShipper()`.
 `Order`: `$fillable` += 4 cột; relation `pickupShipper()`, `returnShipper()` (`BelongsTo` User).
@@ -66,7 +64,7 @@ legOrders(string $leg /* pickup|return */, Carbon $date, ?int $shipperId = null,
 monthDays(Carbon $month, ?int $shipperId = null): array
 row(Order $o, string $leg): array   // shape dùng chung (thêm shipper_id, shipper_name, sort)
 ```
-Sắp xếp: `ORDER BY {leg}_sort IS NULL, {leg}_sort, {leg}_time IS NULL, {leg}_time, code` — đơn đã sắp tay trước, rồi theo giờ chốt, cuối là chưa chốt (chạy đúng cả sqlite + MySQL).
+Sắp xếp: `ORDER BY {leg}_time IS NULL, {leg}_time, code` — theo giờ đã chốt, chưa chốt xuống cuối (chạy đúng cả sqlite + MySQL).
 
 **Two Hats:** bước rút service là **refactor thuần** — không đổi hành vi, test `AdminDeliveryScheduleTest` hiện có phải xanh y nguyên, commit riêng trước khi thêm tính năng.
 
@@ -76,10 +74,9 @@ Sắp xếp: `ORDER BY {leg}_sort IS NULL, {leg}_sort, {leg}_time IS NULL, {leg}
 |---|---|---|
 | `admin/orders/{order}/shipper` | PATCH | Gán/bỏ 1 lượt: `leg` (pickup\|return) + `shipper_id` (nullable, phải là user `is_shipper`) |
 | `admin/lich-giao/gan-tat-ca` | POST | Gán tất cả đơn **chưa có shipper** của (ngày, lượt) |
-| `admin/lich-giao/thu-tu` | POST | Lưu thứ tự: `leg`, `date`, `order_ids[]` → set `*_sort` = index+1 trong 1 transaction |
 
 Chặn: `is_parent`, status `returned|cancelled`, `shipper_id` không phải shipper → lỗi validate.
-FE: `select` shipper trên card + `Reorder.Group` bọc danh sách mỗi mục + bộ lọc shipper (Tất cả / từng người / Chưa gán) trên header trang lịch.
+FE: `select` shipper trên card + bộ lọc shipper (Tất cả / từng người / Chưa gán) trên header trang lịch. **Không kéo-thả** — chủ shop bỏ (29/07/2026), thứ tự theo giờ đã chốt là đủ.
 
 ### 2.5 Trang shipper
 
@@ -116,7 +113,7 @@ Cả 3 nhận `?date=&shipper=`, gọi cùng `DeliveryScheduleService`.
 | S2 | `bopcamping-xdvx` | Schema: `users.is_shipper` + 4 cột gán/thứ tự trên `orders` + model/relation | 0.5 | — |
 | S3 | `bopcamping-lsch` | Vai + đăng nhập shipper: `EnsureShipper`, `Shipper\AuthController`, routes, shared prop, trang login | 1.5 | S2 |
 | S4 | `bopcamping-2xf6` | Admin quản lý tài khoản shipper (tab Shipper trong `/admin/users`, cảnh báo khi xoá/tắt vai người đang có đơn) | 1.5 | S2 |
-| S5 | `bopcamping-yc7d` | Admin gán shipper + gán cả ngày + kéo-thả thứ tự + lọc theo shipper | 2.5 | S1, S2 |
+| S5 | `bopcamping-yc7d` | Admin gán shipper + gán cả ngày + lọc theo shipper (bỏ kéo-thả) | 2 | S1, S2 |
 | S6 | `bopcamping-w2yl` | Trang `/shipper/lich-giao` + nút Chỉ đường + Đã giao / Đã thu (kèm test IDOR) | 2.5 | S3, S5 |
 | S7 | `bopcamping-g24l` | In A4 + PDF (dompdf, font Việt) + CSV (BOM) | 2 | S1, S5 |
 | S8 | `bopcamping-5r5m` | Email lịch cho shipper (nút gửi tay + command 06:00) + nút Chat Zalo | 1.5 | S5 |
@@ -132,12 +129,12 @@ Song song được: S1‖S2 → S3‖S4 → S5 → S6‖S7‖S8 → S9.
 - `ShipperAuthTest`: shipper login được; user thường/khách bị chặn; sai creds không tiết lộ tồn tại; throttle.
 - `ShipperAccessTest`: shipper vào `/admin/*` → redirect; admin vào `/shipper/*` (không có cờ shipper) → redirect; guest → login.
 - `ShipperScheduleTest`: chỉ thấy đơn được gán cho mình; **không** thấy đơn của shipper khác; đánh dấu Đã giao/Đã thu đúng chuyển trạng thái + mail khách vẫn queue; **đổi id đơn của người khác → 403** (IDOR); sai trạng thái → chặn.
-- `AdminShipperAssignmentTest`: gán đúng cột theo lượt; gán cả ngày không ghi đè đơn đã gán; lưu thứ tự; chặn đơn cha/đã trả/đã huỷ; `shipper_id` không phải shipper → lỗi.
+- `AdminShipperAssignmentTest`: gán đúng cột theo lượt; gán cả ngày không ghi đè đơn đã gán; thứ tự theo giờ chốt; chặn đơn cha/đã trả/đã huỷ; `shipper_id` không phải shipper → lỗi.
 - `AdminShipperUsersTest`: CRUD tài khoản shipper; cảnh báo khi xoá người đang có đơn tương lai.
 - `DeliveryScheduleExportTest`: 3 định dạng cùng ngày+shipper ra cùng số đơn; CSV có BOM; **PDF chứa chữ có dấu** (assert byte tiếng Việt trong stream); lọc theo shipper áp dụng cho export.
 - `ShipperScheduleMailTest` + `SendShipperDailyScheduleTest`: gửi đúng người, nội dung đúng thứ tự, chạy 2 lần không gửi trùng, email placeholder bị bỏ qua.
 
-**Component (vitest)**: `ShipperScheduleCard.test.tsx` (nút Đã giao chỉ hiện đúng trạng thái, link Chỉ đường encode địa chỉ đúng, xác nhận trước khi đổi) · `ShipperAssign.test.tsx` (chọn shipper → patch đúng route/payload; kéo-thả → payload `order_ids` đúng thứ tự).
+**Component (vitest)**: `ShipperScheduleCard.test.tsx` (nút Đã giao chỉ hiện đúng trạng thái, link Chỉ đường encode địa chỉ đúng, xác nhận trước khi đổi) · `ShipperAssign.test.tsx` (chọn shipper → patch đúng route/payload).
 
 Test phải collation-safe (chạy cả sqlite `:memory:` và MySQL) theo `CLAUDE.md`.
 
@@ -148,7 +145,6 @@ Test phải collation-safe (chạy cả sqlite `:memory:` và MySQL) theo `CLAUD
 | Rút service làm lệch hành vi lịch giao hiện tại | Trung bình | Two Hats: refactor riêng 1 commit, test cũ **không được sửa** mà vẫn phải xanh |
 | Rò dữ liệu khách qua `/shipper/*` | **Cao** | Query luôn kẹp `shipper_id`; test IDOR; S9 review bảo mật riêng trước merge |
 | dompdf font Việt ra ô vuông | Trung bình | Nhúng DejaVu Sans + test assert chữ có dấu trong PDF |
-| Kéo-thả (`Reorder`) khó test trong jsdom | Thấp | Test hàm tính payload thứ tự (thuần), không test cử chỉ kéo; xác nhận tay trên trình duyệt |
 | Email 06:00 không chạy vì thiếu cron | Trung bình | Nút gửi tay luôn có; nêu rõ phụ thuộc `bopcamping-ybsm` khi bàn giao |
 | Xung đột với `bopcamping-vo4` (Basic Auth admin) | Thấp | Login shipper tách route/controller riêng — không dùng chung form admin |
 

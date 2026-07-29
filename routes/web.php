@@ -130,10 +130,9 @@ Route::middleware(['admin'])->prefix('admin')->name('admin.')->group(function ()
 
     // Lịch giao/thu theo ngày cho shipper (bopcamping-rtkh, prd_delivery_schedule)
     Route::get('/lich-giao', [AdminDeliveryScheduleController::class, 'index'])->name('schedule');
-    // Gán shipper cho từng lượt + gán cả ngày + lưu thứ tự đi (bopcamping-yc7d)
+    // Gán shipper cho từng lượt + gán cả ngày (bopcamping-yc7d)
     Route::patch('/lich-giao/don/{order}/shipper', [AdminDeliveryScheduleController::class, 'assign'])->name('schedule.assign')->middleware('throttle:60,1');
     Route::post('/lich-giao/gan-tat-ca', [AdminDeliveryScheduleController::class, 'assignAll'])->name('schedule.assignAll')->middleware('throttle:30,1');
-    Route::post('/lich-giao/thu-tu', [AdminDeliveryScheduleController::class, 'reorder'])->name('schedule.reorder')->middleware('throttle:60,1');
 
     Route::get('/categories', [AdminCategoryController::class, 'index'])->name('categories');
     Route::post('/categories', [AdminCategoryController::class, 'store'])->name('categories.store');

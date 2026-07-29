@@ -45,11 +45,9 @@ class Order extends Model
         'confirmed_return_time',
         'schedule_note',
         'schedule_confirmed_at',
-        // Gán shipper + thứ tự đi cho từng lượt giao/thu (bopcamping-xdvx).
+        // Gán shipper cho từng lượt giao/thu (bopcamping-xdvx).
         'pickup_shipper_id',
         'return_shipper_id',
-        'pickup_sort',
-        'return_sort',
         'total_price',
         'deposit_total',
         'extra_fee',
