@@ -10,6 +10,7 @@ import HomeServingPanel, {
     type SuggestedSpot,
 } from '@/Components/site/HomeServingPanel';
 import ProductCard from '@/Components/site/ProductCard';
+import RentalDateModal from '@/Components/site/RentalDateModal';
 import RentalDatePicker from '@/Components/site/RentalDatePicker';
 import SystemReviews, {
     type SystemReview,
@@ -83,6 +84,7 @@ export default function Home({
     promo_banners,
 }: Props) {
     const [guideOpen, setGuideOpen] = useState(false);
+    const [dateOpen, setDateOpen] = useState(false);
     const openCities = service_locations.filter((l) => l.status === 'open');
     const cities =
         openCities.map((l) => l.name).join(' hoặc ') || 'Vinh hoặc Hà Nội';
@@ -174,17 +176,59 @@ export default function Home({
                         >
                             Xem thiết bị
                         </Link>
-                        <Link
-                            href="/tra-cuu"
-                            className="grid h-[54px] place-items-center rounded-[13px] px-[26px] font-semibold text-white transition hover:bg-white/20"
+                        {/* Ô đặt lịch trên banner — bấm mở popup lịch (to hơn dải inline ở PC).
+                            Thay cho nút "Tra cứu đơn của tôi" cũ; tra cứu đơn vẫn ở header + footer. */}
+                        <button
+                            type="button"
+                            onClick={() => setDateOpen(true)}
+                            aria-haspopup="dialog"
+                            className="group flex h-[54px] items-center gap-3 rounded-[13px] pl-4 pr-3 text-left transition hover:bg-white/20"
                             style={{
                                 border: '1px solid rgba(255,255,255,.5)',
                                 background: 'rgba(255,255,255,.12)',
                                 backdropFilter: 'blur(6px)',
                             }}
                         >
-                            Tra cứu đơn của tôi
-                        </Link>
+                            <svg
+                                width="19"
+                                height="19"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                aria-hidden="true"
+                                className="flex-none text-[#bfe06a]"
+                            >
+                                <rect
+                                    x="3"
+                                    y="5"
+                                    width="18"
+                                    height="16"
+                                    rx="3"
+                                    stroke="currentColor"
+                                    strokeWidth="2"
+                                />
+                                <path
+                                    d="M3 10h18M8 3v4M16 3v4"
+                                    stroke="currentColor"
+                                    strokeWidth="2"
+                                    strokeLinecap="round"
+                                />
+                            </svg>
+                            <span className="leading-tight">
+                                <span className="block font-mono text-[10.5px] tracking-[0.1em] text-white/70">
+                                    NGÀY NHẬN – NGÀY TRẢ
+                                </span>
+                                <span className="block text-[15px] font-bold text-white">
+                                    Chọn ngày đi
+                                </span>
+                            </span>
+                            <span
+                                className="ml-1 grid h-[34px] w-[34px] flex-none place-items-center rounded-[10px] text-white transition group-hover:bg-grass"
+                                style={{ background: 'rgba(85,122,43,.85)' }}
+                                aria-hidden="true"
+                            >
+                                →
+                            </span>
+                        </button>
                     </div>
                 </motion.div>
             </HeroSlideshow>
@@ -501,6 +545,13 @@ export default function Home({
                     provinces={camping_provinces}
                     cities={cities}
                     onClose={() => setGuideOpen(false)}
+                />
+            )}
+
+            {dateOpen && (
+                <RentalDateModal
+                    serviceLocations={openCities}
+                    onClose={() => setDateOpen(false)}
                 />
             )}
         </>
