@@ -197,6 +197,27 @@ describe('Lịch giao của shipper', () => {
         expect(screen.getByRole('button', { name: 'Đã giao xong' })).toBeInTheDocument();
     });
 
+    it('đơn chờ xác nhận: không có nút thu tiền, chỉ ghi chưa thu', async () => {
+        // Server đã chặn, nhưng UI cũng không được mời bấm (review 31/07).
+        const user = userEvent.setup();
+        render(<ShipperSchedule {...PROPS} pickups={[{ ...ORDER, status: 'pending' }]} />);
+
+        expect(screen.queryByText('Cần thu tiền')).not.toBeInTheDocument();
+        await openDetail(user);
+
+        expect(screen.queryByRole('button', { name: /Thu tiền/ })).not.toBeInTheDocument();
+        expect(screen.getAllByText('chưa thu')).toHaveLength(2);
+        expect(screen.getByText(/chưa thu tiền/)).toBeInTheDocument();
+    });
+
+    it('đơn đã xác nhận thì mới có nút thu tiền', async () => {
+        const user = userEvent.setup();
+        render(<ShipperSchedule {...PROPS} />);
+        await openDetail(user);
+
+        expect(screen.getByRole('button', { name: /Thu tiền thuê/ })).toBeInTheDocument();
+    });
+
     it('đơn chờ xác nhận thì không có nút đánh dấu', async () => {
         const user = userEvent.setup();
         render(<ShipperSchedule {...PROPS} pickups={[{ ...ORDER, status: 'pending' }]} />);

@@ -241,7 +241,8 @@ function Section({
 /** Đầu card luôn hiện giờ + tên + SĐT; bấm để mở/đóng phần chi tiết (món, tiền, thao tác). */
 function OrderCard({ order, kind }: { order: ScheduleOrder; kind: TripKind }) {
     const [open, setOpen] = useState(false);
-    const moneyLeft = (kind === 'pickup' ? !order.rental_paid || !order.deposit_paid : false);
+    // Chỉ nhắc "cần thu tiền" khi đơn đã xác nhận — đơn chờ xác nhận thì chưa thu gì cả.
+    const moneyLeft = kind === 'pickup' && order.status !== 'pending' && (!order.rental_paid || !order.deposit_paid);
 
     return (
         <div className="overflow-hidden rounded-[16px] border border-cardBorder bg-white">
@@ -276,6 +277,8 @@ function OrderCard({ order, kind }: { order: ScheduleOrder; kind: TripKind }) {
 
 function OrderDetail({ order, kind }: { order: ScheduleOrder; kind: TripKind }) {
     const errors = usePage().props.errors as Record<string, string>;
+    // Đơn chưa xác nhận: KHÔNG mời thu tiền (server cũng chặn) — chỉ hiện số cho biết.
+    const confirmed = order.status !== 'pending';
 
     return (
         <div className="border-t border-[#f1f4ea] px-4 pb-4">
@@ -330,12 +333,17 @@ function OrderDetail({ order, kind }: { order: ScheduleOrder; kind: TripKind }) 
                 </div>
             )}
 
-            {/* Tiền: 2 khoản độc lập. Khoản nào chưa thu thì shipper thu tại chỗ (bopcamping-lvw3) */}
+            {/* Tiền: 2 khoản độc lập. Khoản nào chưa thu thì shipper thu tại chỗ (bopcamping-lvw3),
+                nhưng CHỈ khi đơn đã được shop xác nhận (review 31/07). */}
             <div className="mt-3 border-t border-[#f1f4ea] pt-2">
                 {errors.payment && <p className="mb-2 text-[12.5px] text-[#b3493a]">{errors.payment}</p>}
-                <MoneyRow order={order} kind="rental" label="Tiền thuê" amount={order.rental_due} paid={order.rental_paid} />
-                <MoneyRow order={order} kind="deposit" label="Tiền cọc" amount={order.deposit_total} paid={order.deposit_paid} />
-                {!order.rental_paid || !order.deposit_paid ? (
+                <MoneyRow order={order} kind="rental" label="Tiền thuê" amount={order.rental_due} paid={order.rental_paid} collectable={confirmed} />
+                <MoneyRow order={order} kind="deposit" label="Tiền cọc" amount={order.deposit_total} paid={order.deposit_paid} collectable={confirmed} />
+                {!confirmed ? (
+                    <p className="mt-1.5 text-[12px]" style={{ color: '#9a5a1f' }}>
+                        Đơn chưa được shop xác nhận — <strong>chưa thu tiền</strong>. Gọi chủ shop nếu khách muốn trả.
+                    </p>
+                ) : !order.rental_paid || !order.deposit_paid ? (
                     <p className="mt-1.5 text-[12px] text-[#a3ad92]">
                         Tổng cần thu: <span className="font-mono font-bold text-ink">
                             {money((order.rental_paid ? 0 : order.rental_due) + (order.deposit_paid ? 0 : order.deposit_total))}
@@ -401,12 +409,15 @@ function MoneyRow({
     label,
     amount,
     paid,
+    collectable,
 }: {
     order: ScheduleOrder;
     kind: 'rental' | 'deposit';
     label: string;
     amount: number;
     paid: boolean;
+    /** false khi đơn chưa được shop xác nhận — không hiện nút thu (server cũng chặn). */
+    collectable: boolean;
 }) {
     const done = order.actions.find((a) => a.key === `${kind}_paid` && a.done) ?? null;
     const [confirming, setConfirming] = useState(false);
@@ -443,6 +454,8 @@ function MoneyRow({
                         </span>
                     )}
                 </span>
+            ) : ! collectable ? (
+                <span className="text-[12.5px] text-[#a3ad92]">chưa thu</span>
             ) : confirming ? (
                 <div className="flex gap-2">
                     <button
