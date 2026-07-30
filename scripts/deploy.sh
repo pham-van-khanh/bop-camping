@@ -322,6 +322,10 @@ success "Health check passed — new release is healthy."
 # worker are correct. cron runs with a near-empty PATH, so use an absolute php
 # path. Idempotent by design: matches on the command itself (not the whole
 # line) so re-deploys never stack duplicate cron entries.
+#
+# Non-fatal on purpose: at this point the release is already switched and the
+# health check has passed, so a cron hiccup must not fail the deploy (that
+# would also skip the queue restart + cleanup steps below).
 
 log "Ensuring cron scheduler entry..."
 
@@ -329,12 +333,39 @@ PHP_BIN_ABS="$(command -v "$PHP_BIN")"
 CRON_MARKER="cd $APP_DIR/current && $PHP_BIN_ABS artisan schedule:run"
 CRON_LINE="* * * * * $CRON_MARKER >> /dev/null 2>&1"
 
-if crontab -l 2>/dev/null | grep -qF "$CRON_MARKER"; then
+CRON_TMP="$(mktemp)"
+
+# Trust `crontab -l`'s EXIT STATUS, never its output. When the user has no
+# crontab yet, some cron builds print "no crontab for <user>" on STDOUT (not
+# stderr); piping that back into `crontab -` makes cron reject the whole file
+# with `"-":0: bad minute`. On a non-zero exit we start from an empty file.
+if crontab -l >"$CRON_TMP" 2>/dev/null; then
+    log "Existing crontab read ($(wc -l <"$CRON_TMP" | tr -d ' ') line(s))."
+else
+    : >"$CRON_TMP"
+    log "No existing crontab for this user — starting a new one."
+fi
+
+if grep -qF "$CRON_MARKER" "$CRON_TMP"; then
     log "Cron scheduler entry already present, skipping."
 else
-    (crontab -l 2>/dev/null; echo "$CRON_LINE") | crontab -
-    success "Cron scheduler entry added."
+    # A crontab whose last line lacks the trailing newline would otherwise
+    # swallow our entry into that line.
+    if [[ -s "$CRON_TMP" ]] && [[ -n "$(tail -c1 "$CRON_TMP")" ]]; then
+        echo >>"$CRON_TMP"
+    fi
+
+    echo "$CRON_LINE" >>"$CRON_TMP"
+
+    if crontab "$CRON_TMP"; then
+        success "Cron scheduler entry added."
+    else
+        warning "Could not install the cron entry — the pickup-reminder mail will NOT be sent."
+        warning "Fix manually on the server: crontab -e  ->  $CRON_LINE"
+    fi
 fi
+
+rm -f "$CRON_TMP"
 
 #######################################
 # Restart Queue Workers
