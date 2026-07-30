@@ -373,7 +373,7 @@ export default function Home({
                     className="grid gap-[18px]"
                     style={{
                         gridTemplateColumns:
-                            'repeat(auto-fill, minmax(248px, 1fr))',
+                            'repeat(auto-fill, minmax(290px, 1fr))',
                     }}
                 >
                     {featured.map((p, i) => (
@@ -408,7 +408,7 @@ export default function Home({
                         className="grid gap-[18px]"
                         style={{
                             gridTemplateColumns:
-                                'repeat(auto-fill, minmax(248px, 1fr))',
+                                'repeat(auto-fill, minmax(290px, 1fr))',
                         }}
                     >
                         {featured_combos.map((c, i) => (
