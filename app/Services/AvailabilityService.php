@@ -307,15 +307,76 @@ class AvailabilityService
 
         $out = [];
         foreach ($matrix as $pid => $row) {
-            if ($location === null) {
-                $out[$pid] = $row['best'];
+            $out[$pid] = $this->pickFromRow($row, $location);
+        }
+
+        return $out;
+    }
+
+    /**
+     * Chọn con số phù hợp từ một dòng matrix. Một chỗ duy nhất giữ luật "hỏi kho nào thì lấy gì",
+     * để wrapper sản phẩm và wrapper combo không lệch nhau.
+     *
+     * @param  array{by_location: array<int, int>, best: int}  $row
+     */
+    private function pickFromRow(array $row, ?ServiceLocation $location): int
+    {
+        if ($location === null) {
+            return $row['best'];
+        }
+
+        // Sp không phục vụ ở kho đang hỏi → 0 (khớp stockAt() trả 0).
+        // Sp thuộc nhánh toàn cục (by_location rỗng) giữ số toàn cục để không mất hàng dữ liệu cũ.
+        return $row['by_location'][$location->id]
+            ?? (empty($row['by_location']) ? $row['best'] : 0);
+    }
+
+    /**
+     * BATCH combo — [combo_id => available] chỉ với 1 query cho TOÀN BỘ món con của mọi combo.
+     *
+     * Công thức giữ NGUYÊN comboAvailable(): min( intdiv(available_i, quantity_i) ), combo rỗng → 0.
+     * Chỉ khác ở chỗ lấy available từ availabilityMatrix() thay vì gọi availableQuantity() từng món
+     * (trang /combos trước đây là N combo × M món = N×M query).
+     *
+     * @param  EloquentCollection<int, Combo>  $combos  (nên load 'items.product.serviceLocations')
+     * @return array<int, int>
+     */
+    public function comboQuantitiesFor(EloquentCollection $combos, Carbon $start, Carbon $end, ?ServiceLocation $location = null): array
+    {
+        if ($combos->isEmpty()) {
+            return [];
+        }
+
+        $combos->loadMissing('items.product.serviceLocations');
+
+        /** @var EloquentCollection<int, Product> $products */
+        $products = new EloquentCollection(
+            $combos
+                ->flatMap(fn (Combo $combo) => $combo->items->map(fn (ComboItem $item) => $item->product))
+                ->filter()
+                ->unique('id')
+                ->values()
+                ->all()
+        );
+
+        $matrix = $this->availabilityMatrix($products, $start, $end);
+
+        $out = [];
+        foreach ($combos as $combo) {
+            if ($combo->items->isEmpty()) {
+                $out[$combo->id] = 0;
 
                 continue;
             }
-            // Sp không phục vụ ở kho đang hỏi → 0 (khớp stockAt() trả 0).
-            // Sp thuộc nhánh toàn cục (by_location rỗng) giữ số toàn cục để không mất hàng dữ liệu cũ.
-            $out[$pid] = $row['by_location'][$location->id]
-                ?? (empty($row['by_location']) ? $row['best'] : 0);
+
+            $out[$combo->id] = (int) $combo->items->map(function (ComboItem $item) use ($matrix, $location) {
+                if (! $item->product || $item->quantity < 1) {
+                    return 0;
+                }
+                $row = $matrix[$item->product->id] ?? null;
+
+                return $row === null ? 0 : intdiv($this->pickFromRow($row, $location), $item->quantity);
+            })->min();
         }
 
         return $out;

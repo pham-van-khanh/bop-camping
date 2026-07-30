@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Shop;
 
+use App\Http\Controllers\Concerns\ParsesRentalRange;
 use App\Http\Controllers\Controller;
 use App\Models\Banner;
 use App\Models\CampingSpot;
@@ -23,6 +24,8 @@ use Inertia\Response;
 
 class ProductController extends Controller
 {
+    use ParsesRentalRange;
+
     private const BRAND_TITLE = 'BỐP CAMPING — Cho thuê thiết bị cắm trại theo ngày';
 
     public function __construct(private AvailabilityService $availability, private SeoService $seo) {}
@@ -108,6 +111,9 @@ class ProductController extends Controller
                 'name' => $l->name,
                 'area' => $l->area,
                 'status' => $l->status,
+                // slug để mục đặt lịch ở trang chủ gửi đúng ?vi-tri= mà /thiet-bi resolve được
+                // (bopcamping-aqkr — trước đây chỉ có name nên picker phải gửi tên, không khớp filter).
+                'slug' => $l->slug,
             ])->values(),
             'suggested_spots' => $spots->where('is_suggested', true)->map(fn (CampingSpot $s) => [
                 'id' => $s->id,
@@ -173,7 +179,32 @@ class ProductController extends Controller
             $query->orderBy('name');
         }
 
-        $products = $query->get()->map(fn ($p) => $this->shape($p));
+        // Khoảng ngày thuê (?start=&end=) — ngày bẩn bị bỏ qua, KHÔNG 422 (FR-4).
+        [$start, $end] = $this->parseRange($request);
+        $hasRange = $start && $end;
+
+        $productModels = $query->get();
+
+        // 1 query duy nhất cho cả danh sách. /thiet-bi không phân trang nên gọi availableQuantity()
+        // trong vòng lặp sẽ là N query — xem NFR-1 trong artifacts/prd_date_first_booking.md.
+        $availability = $hasRange
+            ? $this->availability->availableQuantitiesFor($productModels, $start, $end, $activeLocation)
+            : [];
+
+        $products = $productModels->map(function (Product $p) use ($hasRange, $availability) {
+            $shaped = $this->shape($p);
+            // null khi khách chưa chọn ngày — FE phân biệt "chưa lọc" với "hết hàng".
+            $shaped['available'] = $hasRange ? ($availability[$p->id] ?? 0) : null;
+            $shaped['in_range'] = $hasRange ? ($shaped['available'] >= 1) : null;
+
+            return $shaped;
+        });
+
+        if ($hasRange) {
+            // Món đặt được lên trước, giữ thứ tự phụ theo ?sort= — sort của PHP 8 là stable.
+            // ⚠️ Chỉ đúng vì listing chưa phân trang (get()); thêm phân trang thì phải đẩy xuống SQL.
+            $products = $products->sortByDesc(fn (array $p) => $p['in_range'] ? 1 : 0)->values();
+        }
 
         $categoryModels = Category::orderBy('name')->get();
         $categories = $categoryModels->map(fn ($c) => ['id' => $c->id, 'name' => $c->name, 'slug' => $c->slug]);
@@ -208,7 +239,13 @@ class ProductController extends Controller
                 'q' => $request->query('q', ''),
                 'sort' => $sort,
                 'vi_tri' => $activeLocation ? $activeLocation->slug : '',
+                'start' => $start?->toDateString() ?? '',
+                'end' => $end?->toDateString() ?? '',
             ],
+            'range_summary' => $hasRange ? [
+                'days' => $start->diffInDays($end) + 1,
+                'unavailable_count' => $products->where('in_range', false)->count(),
+            ] : null,
         ]);
     }
 

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Shop;
 
+use App\Http\Controllers\Concerns\ParsesRentalRange;
 use App\Http\Controllers\Controller;
 use App\Models\Combo;
 use App\Models\ComboItem;
@@ -18,6 +19,8 @@ use Inertia\Response;
 
 class ComboController extends Controller
 {
+    use ParsesRentalRange;
+
     public function __construct(private AvailabilityService $availability) {}
 
     /** Combo bán được: đang active và có ít nhất 1 món. */
@@ -35,22 +38,50 @@ class ComboController extends Controller
     {
         [$start, $end] = $this->parseRange($request);
 
-        $combos = $this->sellable()->get()->map(function (Combo $combo) use ($start, $end) {
+        // ?vi-tri= chỉ dùng để TÍNH khả dụng đúng kho, KHÔNG lọc bớt combo (giữ hành vi cũ).
+        $openLocations = ServiceLocation::open()->ordered()->get();
+        $locParam = $request->query('vi-tri', '');
+        $activeLocation = is_string($locParam) && $locParam !== ''
+            ? $openLocations->firstWhere('slug', $locParam)
+            : null;
+
+        $comboModels = $this->sellable()->get();
+        $hasRange = $start && $end;
+
+        // 1 query cho toàn bộ món con của mọi combo (trước đây N combo × M món = N×M query).
+        $availability = $hasRange
+            ? $this->availability->comboQuantitiesFor($comboModels, $start, $end, $activeLocation)
+            : [];
+
+        $combos = $comboModels->map(function (Combo $combo) use ($hasRange, $availability) {
             $shaped = $this->shape($combo);
             // Còn/hết theo khoảng ngày đã chọn — null khi khách chưa chọn ngày
-            $shaped['available'] = ($start && $end)
-                ? $this->availability->comboAvailable($combo, $start, $end)
-                : null;
+            $shaped['available'] = $hasRange ? ($availability[$combo->id] ?? 0) : null;
+            $shaped['in_range'] = $hasRange ? ($shaped['available'] >= 1) : null;
 
             return $shaped;
         });
 
+        if ($hasRange) {
+            // Combo đặt được lên trước, giữ thứ tự phụ (sort_order, name) — sort của PHP 8 là stable.
+            $combos = $combos->sortByDesc(fn (array $c) => $c['in_range'] ? 1 : 0)->values();
+        }
+
         return Inertia::render('Combos', [
             'combos' => $combos,
+            'service_locations' => $openLocations->map(fn (ServiceLocation $l) => [
+                'name' => $l->name,
+                'slug' => $l->slug,
+            ])->values(),
             'filters' => [
                 'start' => $start?->toDateString() ?? '',
                 'end' => $end?->toDateString() ?? '',
+                'vi_tri' => $activeLocation ? $activeLocation->slug : '',
             ],
+            'range_summary' => $hasRange ? [
+                'days' => $start->diffInDays($end) + 1,
+                'unavailable_count' => $combos->where('in_range', false)->count(),
+            ] : null,
         ]);
     }
 
@@ -180,19 +211,5 @@ class ComboController extends Controller
             && count($data['locations']) === ServiceLocation::open()->count();
 
         return $data;
-    }
-
-    /** @return array{0: ?Carbon, 1: ?Carbon} */
-    private function parseRange(Request $request): array
-    {
-        $start = $request->query('start', '');
-        $end = $request->query('end', '');
-
-        $valid = is_string($start) && is_string($end)
-            && preg_match('/^\d{4}-\d{2}-\d{2}$/', $start)
-            && preg_match('/^\d{4}-\d{2}-\d{2}$/', $end)
-            && $start <= $end;
-
-        return $valid ? [Carbon::parse($start), Carbon::parse($end)] : [null, null];
     }
 }
