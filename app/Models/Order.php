@@ -74,9 +74,6 @@ class Order extends Model
         'note',
     ];
 
-    /** Tình trạng chuyển tiền (marker admin — bopcamping-7be). */
-    public const PAYMENT_STATUSES = ['unpaid', 'deposit', 'full'];
-
     /** Tình trạng hoàn cọc khi đơn đã trả (bopcamping-7be). */
     public const REFUND_STATUSES = ['pending', 'refunded'];
 
