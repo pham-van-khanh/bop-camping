@@ -1,10 +1,17 @@
 // Danh sách đơn 1 lượt (giao hoặc thu) trong trang Lịch giao của admin, kèm ô chọn shipper
 // (bopcamping-yc7d). Thứ tự do giờ đã chốt quyết định — chủ shop đã bỏ chức năng kéo-thả
 // sắp thứ tự vì thừa (feedback 29/07/2026).
+// Ô tick "cả 2 lượt" (bật sẵn) gán luôn lượt còn lại: thực tế phần lớn một người đi cả
+// giao lẫn thu, mà lượt thu ở ngày khác nên rất dễ quên (bopcamping-h7w4).
 import { router } from '@inertiajs/react';
 import { ReactNode, useState } from 'react';
 
-export type AssignableOrder = { id: number; shipper_id: number | null };
+export type AssignableOrder = {
+    id: number;
+    shipper_id: number | null;
+    /** Tên người đi lượt CÒN LẠI của đơn — null nếu lượt đó chưa gán (bopcamping-h7w4). */
+    other_leg_shipper_name: string | null;
+};
 
 export type ShipperOption = { id: number; name: string };
 
@@ -51,32 +58,50 @@ function ShipperPicker<T extends AssignableOrder>({
     shippers: ShipperOption[];
 }) {
     const [saving, setSaving] = useState(false);
+    const [both, setBoth] = useState(true);   // mặc định gán cả 2 lượt — trường hợp thường gặp nhất
+    const otherLegLabel = leg === 'pickup' ? 'lượt thu' : 'lượt giao';
 
     const assign = (value: string) => {
         setSaving(true);
         router.patch(
             route('admin.schedule.assign', order.id),
-            { leg, shipper_id: value === '' ? null : Number(value) },
+            { leg, shipper_id: value === '' ? null : Number(value), both },
             { preserveScroll: true, preserveState: true, onFinish: () => setSaving(false) },
         );
     };
 
     return (
-        <div className="mt-2 flex flex-wrap items-center gap-2 rounded-[10px] border border-[#eef2e3] bg-white px-3 py-2">
-            <span className="text-[12px] font-bold uppercase tracking-[0.04em] text-grass">Shipper</span>
-            <select
-                value={order.shipper_id ?? ''}
-                disabled={saving}
-                onChange={(e) => assign(e.target.value)}
-                className="min-h-[36px] flex-1 rounded-[9px] border border-cardBorder bg-white px-2 text-[13px] text-ink outline-none focus:border-grass disabled:opacity-60"
-            >
-                <option value="">— chưa gán —</option>
-                {shippers.map((s) => (
-                    <option key={s.id} value={s.id}>
-                        {s.name}
-                    </option>
-                ))}
-            </select>
+        <div className="mt-2 rounded-[10px] border border-[#eef2e3] bg-white px-3 py-2">
+            <div className="flex flex-wrap items-center gap-2">
+                <span className="text-[12px] font-bold uppercase tracking-[0.04em] text-grass">Shipper</span>
+                <select
+                    value={order.shipper_id ?? ''}
+                    disabled={saving}
+                    onChange={(e) => assign(e.target.value)}
+                    className="min-h-[36px] flex-1 rounded-[9px] border border-cardBorder bg-white px-2 text-[13px] text-ink outline-none focus:border-grass disabled:opacity-60"
+                >
+                    <option value="">— chưa gán —</option>
+                    {shippers.map((s) => (
+                        <option key={s.id} value={s.id}>
+                            {s.name}
+                        </option>
+                    ))}
+                </select>
+                <label className="flex items-center gap-1.5 text-[12.5px] text-moss">
+                    <input
+                        type="checkbox"
+                        checked={both}
+                        onChange={(e) => setBoth(e.target.checked)}
+                        className="h-4 w-4 accent-[#557A2B]"
+                    />
+                    cả 2 lượt
+                </label>
+            </div>
+            {/* Cho admin thấy ngay lượt còn lại đã có người chưa — chỗ dễ quên nhất */}
+            <div className="mt-1 text-[11.5px] text-[#a3ad92]">
+                {otherLegLabel}:{' '}
+                {order.other_leg_shipper_name ?? <span style={{ color: '#9a5a1f' }}>chưa gán</span>}
+            </div>
         </div>
     );
 }

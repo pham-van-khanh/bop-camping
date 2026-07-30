@@ -56,6 +56,13 @@ Gán theo **từng lượt** vì lượt giao và lượt thu là 2 ngày khác 
 - Shared prop `auth.user.is_shipper` để FE điều hướng đúng khu vực.
 
 ### FR-2 · Admin gán shipper + sắp thứ tự
+
+> **Bổ sung 31/07/2026 (bopcamping-h7w4):** ô tick **"cả 2 lượt"** (bật sẵn) cạnh ô chọn shipper
+> và ở nút gán cả ngày — một lần bấm gán cả lượt giao lẫn lượt thu, vì thực tế phần lớn cùng
+> một người đi cả hai mà lượt thu ở ngày khác nên rất dễ quên. Tick tắt thì chỉ chạm lượt đang
+> xem. Bỏ gán khi tick bật thì xoá cả hai. Với **gán cả ngày**, lượt còn lại chỉ được điền khi
+> đang trống — không giành đơn của shipper khác. Card hiện thêm dòng *"lượt thu: <tên> / chưa
+> gán"* để admin thấy ngay chỗ còn thiếu người.
 - Trong `/admin/lich-giao`, mỗi card đơn có ô chọn shipper (`select`) cho đúng lượt của nó (card ở mục "Cần giao" gán `pickup_shipper_id`, "Cần thu" gán `return_shipper_id`).
 - **Gán nhanh cả ngày**: chọn shipper → nút "Gán tất cả đơn chưa có shipper" cho mục đang xem.
 - Thứ tự hiển thị: theo **giờ đã chốt**, đơn chưa chốt giờ xuống cuối. **BỎ kéo-thả sắp thứ tự** (chủ shop 29/07/2026: thừa chức năng) → không có cột `*_sort`.

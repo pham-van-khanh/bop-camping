@@ -32,9 +32,10 @@ type ScheduleOrder = {
     deposit_paid: boolean;
     schedule_note: string | null;
     items: ScheduleItem[];
-    // Gán shipper theo lượt (bopcamping-yc7d)
+    // Gán shipper theo lượt (bopcamping-yc7d) + tình trạng lượt còn lại (bopcamping-h7w4)
     shipper_id: number | null;
     shipper_name: string | null;
+    other_leg_shipper_name: string | null;
     // Tin nhắn giao việc sinh ở server + SĐT shipper để mở Zalo (bopcamping-dolb)
     zalo_message: string;
     shipper_phone: string | null;
@@ -365,13 +366,14 @@ function AssignAll({
 }) {
     const [shipperId, setShipperId] = useState('');
     const [saving, setSaving] = useState(false);
+    const [both, setBoth] = useState(true);   // gán luôn lượt còn lại của chính những đơn đó
 
     const submit = () => {
         if (!shipperId) return;
         setSaving(true);
         router.post(
             route('admin.schedule.assignAll'),
-            { leg: kind, date, shipper_id: Number(shipperId) },
+            { leg: kind, date, shipper_id: Number(shipperId), both },
             { preserveScroll: true, preserveState: true, onFinish: () => setSaving(false) },
         );
     };
@@ -390,6 +392,15 @@ function AssignAll({
                     </option>
                 ))}
             </select>
+            <label className="flex items-center gap-1.5 text-[12.5px] text-moss">
+                <input
+                    type="checkbox"
+                    checked={both}
+                    onChange={(e) => setBoth(e.target.checked)}
+                    className="h-4 w-4 accent-[#557A2B]"
+                />
+                cả 2 lượt
+            </label>
             <button
                 type="button"
                 onClick={submit}

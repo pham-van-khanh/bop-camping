@@ -327,6 +327,8 @@ class DeliveryScheduleService
             'leg' => $leg,
             'shipper_id' => $o->{$cfg['shipper']},
             'shipper_name' => $shipper?->name,
+            // Lượt CÒN LẠI của đơn: admin thấy ngay còn thiếu người hay chưa (bopcamping-h7w4).
+            'other_leg_shipper_name' => ($leg === 'pickup' ? $o->returnShipper : $o->pickupShipper)?->name,
             'customer_name' => $o->customer_name,
             'customer_phone' => $o->customer_phone,
             'customer_address' => $o->customer_address,
