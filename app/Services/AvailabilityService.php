@@ -106,13 +106,21 @@ class AvailabilityService
             return 0;
         }
 
-        return (int) $combo->items->map(function (ComboItem $item) use ($start, $end, $location) {
-            if (! $item->product || $item->quantity < 1) {
-                return 0;
-            }
+        if ($location !== null) {
+            return (int) $combo->items->map(function (ComboItem $item) use ($start, $end, $location) {
+                if (! $item->product || $item->quantity < 1) {
+                    return 0;
+                }
 
-            return intdiv($this->availableQuantity($item->product, $start, $end, $location), $item->quantity);
-        })->min();
+                return intdiv($this->availableQuantity($item->product, $start, $end, $location), $item->quantity);
+            })->min();
+        }
+
+        // Chưa chọn kho → đi qua comboQuantitiesFor để dùng ĐÚNG MỘT công thức
+        // "max qua kho của min qua món" (bopcamping-jyxi). Trước đây nhánh này lấy tồn toàn cục
+        // của từng món rồi min, nên trang chi tiết combo báo cao hơn số /combos và cao hơn số
+        // mà StoreResolver cho đặt.
+        return $this->comboQuantitiesFor(new EloquentCollection([$combo]), $start, $end)[$combo->id] ?? 0;
     }
 
     /**
@@ -307,7 +315,7 @@ class AvailabilityService
 
         $out = [];
         foreach ($matrix as $pid => $row) {
-            $out[$pid] = $this->pickFromRow($row, $location);
+            $out[$pid] = $this->pickFromRow($row, $location?->id);
         }
 
         return $out;
@@ -319,15 +327,15 @@ class AvailabilityService
      *
      * @param  array{by_location: array<int, int>, best: int}  $row
      */
-    private function pickFromRow(array $row, ?ServiceLocation $location): int
+    private function pickFromRow(array $row, ?int $locationId): int
     {
-        if ($location === null) {
+        if ($locationId === null) {
             return $row['best'];
         }
 
         // Sp không phục vụ ở kho đang hỏi → 0 (khớp stockAt() trả 0).
         // Sp thuộc nhánh toàn cục (by_location rỗng) giữ số toàn cục để không mất hàng dữ liệu cũ.
-        return $row['by_location'][$location->id]
+        return $row['by_location'][$locationId]
             ?? (empty($row['by_location']) ? $row['best'] : 0);
     }
 
@@ -369,17 +377,56 @@ class AvailabilityService
                 continue;
             }
 
-            $out[$combo->id] = (int) $combo->items->map(function (ComboItem $item) use ($matrix, $location) {
-                if (! $item->product || $item->quantity < 1) {
-                    return 0;
-                }
-                $row = $matrix[$item->product->id] ?? null;
+            if ($location !== null) {
+                $out[$combo->id] = $this->comboAtLocation($combo, $matrix, $location->id);
 
-                return $row === null ? 0 : intdiv($this->pickFromRow($row, $location), $item->quantity);
-            })->min();
+                continue;
+            }
+
+            // ⚠️ Chưa chọn kho: phải là MAX qua từng kho của (MIN qua các món),
+            // KHÔNG phải MIN qua món của (MAX qua kho) — thứ tự ngược lại là sai.
+            // Vd combo gồm A (Vinh 4, HN 2) + B (Vinh 2, HN 4): min-của-max cho 4, nhưng
+            // best của A ở Vinh còn best của B ở Hà Nội → KHÔNG kho nào giao nổi cả combo.
+            // Đúng là max(min(4,2), min(2,4)) = 2, khớp StoreResolver (đòi một kho đủ cả giỏ).
+            $locationIds = [];
+            foreach ($combo->items as $item) {
+                foreach (array_keys($matrix[$item->product->id ?? 0]['by_location'] ?? []) as $locId) {
+                    $locationIds[$locId] = true;
+                }
+            }
+
+            // Mọi món đều thuộc nhánh toàn cục (chưa gắn kho) → không có kho nào để quét.
+            if ($locationIds === []) {
+                $out[$combo->id] = $this->comboAtLocation($combo, $matrix, null);
+
+                continue;
+            }
+
+            $out[$combo->id] = (int) max(array_map(
+                fn (int $locId) => $this->comboAtLocation($combo, $matrix, $locId),
+                array_keys($locationIds)
+            ));
         }
 
         return $out;
+    }
+
+    /**
+     * Số combo giao được TẠI MỘT kho (null = nhánh toàn cục): min( intdiv(available_i, qty_i) ).
+     * Giữ nguyên công thức của comboAvailable(), chỉ lấy available từ matrix.
+     *
+     * @param  array<int, array{by_location: array<int, int>, best: int}>  $matrix
+     */
+    private function comboAtLocation(Combo $combo, array $matrix, ?int $locationId): int
+    {
+        return (int) $combo->items->map(function (ComboItem $item) use ($matrix, $locationId) {
+            if (! $item->product || $item->quantity < 1) {
+                return 0;
+            }
+            $row = $matrix[$item->product->id] ?? null;
+
+            return $row === null ? 0 : intdiv($this->pickFromRow($row, $locationId), $item->quantity);
+        })->min();
     }
 
     /**

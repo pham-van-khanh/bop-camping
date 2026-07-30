@@ -16,6 +16,8 @@ export type RentalLocationOption = { name: string; slug?: string };
 
 type Props = {
     variant: 'hero' | 'compact';
+    /** 'lg' = ô ngày to hơn, dùng cho popup đặt lịch trên PC. */
+    calendarSize?: 'md' | 'lg';
     serviceLocations: RentalLocationOption[];
     initialStart?: string | null;
     initialEnd?: string | null;
@@ -39,6 +41,7 @@ function compact(
 
 export default function RentalDatePicker({
     variant,
+    calendarSize = 'md',
     serviceLocations,
     initialStart = null,
     initialEnd = null,
@@ -74,6 +77,9 @@ export default function RentalDatePicker({
                 start={start}
                 end={end}
                 unavailable={new Set()}
+                size={calendarSize}
+                // unavailable luôn rỗng ở đây nên chú giải "Hết hàng" sẽ nói sai (bopcamping-fpcb).
+                showUnavailableLegend={false}
                 onChange={(s, e) => {
                     setStart(s);
                     setEnd(e);
