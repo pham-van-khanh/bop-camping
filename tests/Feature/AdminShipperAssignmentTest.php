@@ -64,6 +64,80 @@ class AdminShipperAssignmentTest extends TestCase
     }
 
     /** @test */
+    public function both_flag_assigns_and_clears_the_two_legs_at_once(): void
+    {
+        // Lối đi nhanh cho trường hợp thường gặp: một người đi cả giao lẫn thu, mà lượt thu
+        // ở ngày khác nên rất dễ quên (bopcamping-h7w4).
+        $order = $this->order();
+        $shipper = $this->shipper('Đi cả hai lượt');
+
+        $this->actingAs($this->admin())
+            ->patch(route('admin.schedule.assign', $order), ['leg' => 'pickup', 'shipper_id' => $shipper->id, 'both' => true])
+            ->assertSessionHasNoErrors();
+
+        $fresh = $order->fresh();
+        $this->assertSame($shipper->id, $fresh->pickup_shipper_id);
+        $this->assertSame($shipper->id, $fresh->return_shipper_id);
+
+        // Bỏ gán khi tick "cả 2 lượt" → xoá cả hai.
+        $this->actingAs($this->admin())
+            ->patch(route('admin.schedule.assign', $order), ['leg' => 'pickup', 'shipper_id' => null, 'both' => true])
+            ->assertSessionHasNoErrors();
+
+        $fresh = $order->fresh();
+        $this->assertNull($fresh->pickup_shipper_id);
+        $this->assertNull($fresh->return_shipper_id);
+    }
+
+    /** @test */
+    public function both_flag_off_still_touches_only_its_own_leg(): void
+    {
+        $order = $this->order();
+        $shipper = $this->shipper();
+
+        $this->actingAs($this->admin())
+            ->patch(route('admin.schedule.assign', $order), ['leg' => 'pickup', 'shipper_id' => $shipper->id, 'both' => false]);
+
+        $this->assertSame($shipper->id, $order->fresh()->pickup_shipper_id);
+        $this->assertNull($order->fresh()->return_shipper_id, 'tick tắt thì KHÔNG chạm lượt kia');
+    }
+
+    /** @test */
+    public function assign_all_with_both_fills_the_other_leg_without_stealing_it(): void
+    {
+        $target = $this->shipper('Người mới');
+        $busy = $this->shipper('Đang giữ lượt thu');
+
+        $free = $this->order(['code' => 'BOP-FREE2LEG']);
+        // Lượt thu đã có người khác → KHÔNG được giành.
+        $taken = $this->order(['code' => 'BOP-RETURNTAKEN', 'return_shipper_id' => $busy->id]);
+
+        $this->actingAs($this->admin())
+            ->post(route('admin.schedule.assignAll'), [
+                'leg' => 'pickup', 'date' => self::DATE, 'shipper_id' => $target->id, 'both' => true,
+            ])
+            ->assertSessionHasNoErrors();
+
+        $this->assertSame($target->id, $free->fresh()->pickup_shipper_id);
+        $this->assertSame($target->id, $free->fresh()->return_shipper_id, 'lượt thu trống thì điền luôn');
+        $this->assertSame($target->id, $taken->fresh()->pickup_shipper_id);
+        $this->assertSame($busy->id, $taken->fresh()->return_shipper_id, 'không giành lượt của người khác');
+    }
+
+    /** @test */
+    public function schedule_row_shows_who_handles_the_other_leg(): void
+    {
+        $giao = $this->shipper('Người giao');
+        $thu = $this->shipper('Người thu');
+        $this->order(['code' => 'BOP-OTHERLEG', 'pickup_shipper_id' => $giao->id, 'return_shipper_id' => $thu->id]);
+
+        $this->actingAs($this->admin())->get(route('admin.schedule', ['date' => self::DATE]))
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('pickups.0.shipper_name', 'Người giao')
+                ->where('pickups.0.other_leg_shipper_name', 'Người thu'));
+    }
+
+    /** @test */
     public function assigning_null_clears_the_shipper(): void
     {
         $order = $this->order(['pickup_shipper_id' => $this->shipper()->id]);

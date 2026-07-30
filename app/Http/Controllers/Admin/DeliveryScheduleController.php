@@ -86,14 +86,18 @@ class DeliveryScheduleController extends Controller
     }
 
     /**
-     * Gán / bỏ gán shipper cho 1 LƯỢT của 1 đơn. Lượt giao và lượt thu độc lập nhau
-     * (hai ngày khác nhau, có thể hai người khác nhau).
+     * Gán / bỏ gán shipper cho 1 LƯỢT của 1 đơn — hoặc CẢ HAI LƯỢT khi `both` (bopcamping-h7w4).
+     *
+     * Hai lượt vẫn độc lập trong dữ liệu (khác ngày, có thể khác người); `both` chỉ là lối đi
+     * nhanh cho trường hợp thường gặp nhất: một người đi cả giao lẫn thu. Chủ shop 31/07:
+     * gán xong lượt giao thì lượt thu ngày khác vẫn trống, dễ quên.
      */
     public function assign(Request $request, Order $order): RedirectResponse
     {
         $data = $request->validate([
             'leg' => ['required', 'in:pickup,return'],
             'shipper_id' => ['nullable', 'integer', Rule::exists('users', 'id')->where('is_shipper', true)],
+            'both' => ['nullable', 'boolean'],
         ], [
             'shipper_id.exists' => 'Tài khoản này không phải shipper.',
         ]);
@@ -105,33 +109,58 @@ class DeliveryScheduleController extends Controller
             return back()->withErrors(['shipper_id' => 'Đơn đã trả/đã huỷ — không gán shipper nữa.']);
         }
 
-        $column = $this->schedule->columns($data['leg'])['shipper'];
-        $order->update([$column => $data['shipper_id'] ?? null]);
+        $shipperId = $data['shipper_id'] ?? null;
+        $legs = ($data['both'] ?? false) ? ['pickup', 'return'] : [$data['leg']];
 
-        return back()->with('success', "Đơn {$order->code}: đã cập nhật shipper");
+        $order->update(array_reduce(
+            $legs,
+            fn (array $carry, string $leg) => $carry + [$this->schedule->columns($leg)['shipper'] => $shipperId],
+            [],
+        ));
+
+        return back()->with('success', count($legs) > 1
+            ? "Đơn {$order->code}: đã cập nhật shipper cho cả 2 lượt"
+            : "Đơn {$order->code}: đã cập nhật shipper");
     }
 
-    /** Gán 1 shipper cho MỌI đơn CHƯA có shipper của (ngày, lượt) — không ghi đè đơn đã gán. */
+    /**
+     * Gán 1 shipper cho MỌI đơn CHƯA có shipper của (ngày, lượt) — không ghi đè đơn đã gán.
+     * `both` gán luôn lượt còn lại của chính những đơn đó, nhưng CHỈ khi lượt đó đang trống
+     * (không giành đơn của shipper khác) — bopcamping-h7w4.
+     */
     public function assignAll(Request $request): RedirectResponse
     {
         $data = $request->validate([
             'leg' => ['required', 'in:pickup,return'],
             'date' => ['required', 'date'],
             'shipper_id' => ['required', 'integer', Rule::exists('users', 'id')->where('is_shipper', true)],
+            'both' => ['nullable', 'boolean'],
         ], [
             'shipper_id.exists' => 'Tài khoản này không phải shipper.',
         ]);
 
         $column = $this->schedule->columns($data['leg'])['shipper'];
+        $query = $this->schedule->legQuery($data['leg'], Carbon::parse($data['date']))->whereNull($column);
 
-        $affected = $this->schedule
-            ->legQuery($data['leg'], Carbon::parse($data['date']))
-            ->whereNull($column)
-            ->update([$column => $data['shipper_id']]);
+        // Lấy id TRƯỚC khi update — sau khi update thì điều kiện whereNull không còn đúng.
+        $ids = $query->pluck('id');
+        $affected = Order::whereIn('id', $ids)->update([$column => $data['shipper_id']]);
 
-        return back()->with('success', $affected > 0
-            ? "Đã gán shipper cho {$affected} đơn chưa có người."
-            : 'Không còn đơn nào chưa có shipper.');
+        $alsoOther = 0;
+        if ($data['both'] ?? false) {
+            $otherColumn = $this->schedule->columns($data['leg'] === 'pickup' ? 'return' : 'pickup')['shipper'];
+            $alsoOther = Order::whereIn('id', $ids)
+                ->whereNull($otherColumn)
+                ->update([$otherColumn => $data['shipper_id']]);
+        }
+
+        if ($affected === 0) {
+            return back()->with('success', 'Không còn đơn nào chưa có shipper.');
+        }
+
+        return back()->with('success', $alsoOther > 0
+            ? "Đã gán shipper cho {$affected} đơn chưa có người (kèm {$alsoOther} lượt còn lại)."
+            : "Đã gán shipper cho {$affected} đơn chưa có người.");
     }
 
     /**
