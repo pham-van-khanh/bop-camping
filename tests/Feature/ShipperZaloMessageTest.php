@@ -2,12 +2,10 @@
 
 namespace Tests\Feature;
 
-use App\Mail\ShipperScheduleMail;
 use App\Models\Order;
 use App\Models\Product;
 use App\Models\User;
 use App\Services\DeliveryScheduleService;
-use App\Services\ShipperScheduleNotifier;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Artisan;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -204,8 +202,10 @@ class ShipperZaloMessageTest extends TestCase
     public function the_email_schedule_feature_is_gone(): void
     {
         // Chốt 30/07: bỏ hẳn email lịch, chỉ còn Copy + Zalo — không để lại tính năng chết.
-        $this->assertFalse(class_exists(ShipperScheduleMail::class));
-        $this->assertFalse(class_exists(ShipperScheduleNotifier::class));
+        // Dùng chuỗi FQCN, KHÔNG dùng ::class — tránh import class đã bị xoá (Pint sẽ tự
+        // thêm `use` cho ::class, làm người đọc tưởng class còn tồn tại).
+        $this->assertFalse(class_exists('App\\Mail\\ShipperScheduleMail'));
+        $this->assertFalse(class_exists('App\\Services\\ShipperScheduleNotifier'));
         $this->assertArrayNotHasKey('shipper:send-daily-schedule', Artisan::all());
         $this->assertFalse(app('router')->has('admin.schedule.email'));
     }

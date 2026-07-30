@@ -18,7 +18,10 @@ class EnsureShipper
     public function handle(Request $request, Closure $next): Response
     {
         if (! $request->user() || ! $request->user()->isShipper()) {
-            return redirect()->route('shipper.login');
+            // guest() ghi lại URL đang muốn vào → sau khi đăng nhập quay đúng chỗ đó.
+            // Cần cho link "Xem đơn" trong tin nhắn Zalo (kèm ?date=&month=): shipper bấm
+            // link khi chưa đăng nhập vẫn về đúng NGÀY của lượt, không rơi về hôm nay.
+            return redirect()->guest(route('shipper.login'));
         }
 
         return $next($request);

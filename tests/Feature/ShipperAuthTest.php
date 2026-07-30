@@ -93,6 +93,20 @@ class ShipperAuthTest extends TestCase
     }
 
     /** @test */
+    public function login_returns_to_the_page_the_shipper_was_trying_to_open(): void
+    {
+        // Link "Xem đơn" trong tin nhắn Zalo kèm ?date=&month= — bấm khi chưa đăng nhập
+        // thì sau khi đăng nhập phải về ĐÚNG ngày đó, không rơi về lịch hôm nay.
+        $this->shipper();
+        $target = route('shipper.schedule', ['date' => '2030-08-01', 'month' => '2030-08']);
+
+        $this->get($target)->assertRedirect(route('shipper.login'));
+
+        $this->post(route('shipper.login.store'), ['phone' => '0911111111', 'password' => 'shipper-pass'])
+            ->assertRedirect($target);
+    }
+
+    /** @test */
     public function logged_in_shipper_visiting_login_goes_to_schedule(): void
     {
         $this->actingAs($this->shipper())->get(route('shipper.login'))
