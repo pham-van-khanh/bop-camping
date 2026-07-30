@@ -314,6 +314,29 @@ fi
 success "Health check passed — new release is healthy."
 
 #######################################
+# Ensure Cron Scheduler (bopcamping-ybsm)
+#######################################
+# Laravel's scheduler (routes/console.php: orders:send-pickup-reminders daily
+# 08:00) only fires if something calls `schedule:run` every minute. Without
+# this, the reminder mail silently never sends even though the code and queue
+# worker are correct. cron runs with a near-empty PATH, so use an absolute php
+# path. Idempotent by design: matches on the command itself (not the whole
+# line) so re-deploys never stack duplicate cron entries.
+
+log "Ensuring cron scheduler entry..."
+
+PHP_BIN_ABS="$(command -v "$PHP_BIN")"
+CRON_MARKER="cd $APP_DIR/current && $PHP_BIN_ABS artisan schedule:run"
+CRON_LINE="* * * * * $CRON_MARKER >> /dev/null 2>&1"
+
+if crontab -l 2>/dev/null | grep -qF "$CRON_MARKER"; then
+    log "Cron scheduler entry already present, skipping."
+else
+    (crontab -l 2>/dev/null; echo "$CRON_LINE") | crontab -
+    success "Cron scheduler entry added."
+fi
+
+#######################################
 # Restart Queue Workers
 #######################################
 
