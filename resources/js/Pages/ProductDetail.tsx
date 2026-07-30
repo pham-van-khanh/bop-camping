@@ -10,6 +10,7 @@ import ProductReviews, { type ReviewItem, type ReviewSummary } from '@/Component
 import { dayCount, ddmm, fromISO, money, rangeText, toISO } from '@/lib/format';
 import { durationTierPercent, netFromGross } from '@/lib/pricing';
 import { addLine, cartSuggestedRange, clearCart, locationConflict, type CartLine, type CartLocation } from '@/lib/cart';
+import { queryDateRange } from '@/lib/queryDateRange';
 import { isHalfDaySession, type Session } from '@/lib/session';
 import { emit, EVENTS } from '@/lib/bus';
 import { gradFor } from '@/lib/grad';
@@ -76,8 +77,11 @@ export default function ProductDetail({ product, unavailable_dates, unavailable_
         const r = cartSuggestedRange();
         return r && r.start >= toISO(new Date()) ? r : null;
     }, []);
-    const [start, setStart] = useState<string | null>(suggested?.start ?? null);
-    const [end, setEnd] = useState<string | null>(suggested?.end ?? null);
+    // Prefill từ query URL ?start=&end= (bopcamping-llg6 T5, PRD FR-3) — khách đến từ trang
+    // chủ đã chọn ngày. ƯU TIÊN CAO HƠN cartSuggestedRange(); khách vẫn sửa lịch tự do sau đó.
+    const initialRange = useMemo(() => queryDateRange() ?? suggested, [suggested]);
+    const [start, setStart] = useState<string | null>(initialRange?.start ?? null);
+    const [end, setEnd] = useState<string | null>(initialRange?.end ?? null);
     // 1.7: lịch mặc định thu gọn — bấm ô "Chọn ngày thuê" mới sổ ra.
     const [calOpen, setCalOpen] = useState(false);
     const [qty, setQty] = useState(1);

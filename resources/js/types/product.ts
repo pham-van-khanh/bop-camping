@@ -17,6 +17,10 @@ export interface ProductResource {
     // Vị trí phục vụ đang mở (badge thẻ). all_locations = phục vụ toàn hệ thống.
     locations?: { name: string; slug: string }[];
     all_locations?: boolean;
+    // Lọc theo khoảng ngày trên /thiet-bi (bopcamping-3kn9). null = khách CHƯA chọn ngày,
+    // khác hẳn 0 = đã chọn nhưng hết hàng — FE phải phân biệt hai trạng thái này.
+    available?: number | null;
+    in_range?: boolean | null;
     // only present in show response
     unavailable_dates?: string[];
     // Trang chi tiết (Epic 1): thông số key–value + nội dung setup (HTML đã sanitize)

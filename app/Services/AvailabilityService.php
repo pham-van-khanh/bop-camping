@@ -8,6 +8,7 @@ use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Product;
 use App\Models\ServiceLocation;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 
@@ -105,13 +106,21 @@ class AvailabilityService
             return 0;
         }
 
-        return (int) $combo->items->map(function (ComboItem $item) use ($start, $end, $location) {
-            if (! $item->product || $item->quantity < 1) {
-                return 0;
-            }
+        if ($location !== null) {
+            return (int) $combo->items->map(function (ComboItem $item) use ($start, $end, $location) {
+                if (! $item->product || $item->quantity < 1) {
+                    return 0;
+                }
 
-            return intdiv($this->availableQuantity($item->product, $start, $end, $location), $item->quantity);
-        })->min();
+                return intdiv($this->availableQuantity($item->product, $start, $end, $location), $item->quantity);
+            })->min();
+        }
+
+        // Chưa chọn kho → đi qua comboQuantitiesFor để dùng ĐÚNG MỘT công thức
+        // "max qua kho của min qua món" (bopcamping-jyxi). Trước đây nhánh này lấy tồn toàn cục
+        // của từng món rồi min, nên trang chi tiết combo báo cao hơn số /combos và cao hơn số
+        // mà StoreResolver cho đặt.
+        return $this->comboQuantitiesFor(new EloquentCollection([$combo]), $start, $end)[$combo->id] ?? 0;
     }
 
     /**
@@ -167,6 +176,257 @@ class AvailabilityService
         }
 
         return null;
+    }
+
+    /**
+     * Khoá cho "rổ" tồn TOÀN CỤC (sp chưa gắn kho nào đang mở — dữ liệu cũ).
+     * Dùng string để không lẫn với id kho (int) trong cùng một array.
+     */
+    private const GLOBAL_BUCKET = '*';
+
+    /**
+     * BATCH — khả dụng của NHIỀU sản phẩm trong khoảng [start, end], CHỈ 1 QUERY (bopcamping-j91m).
+     *
+     * Vì sao không gộp thành một SUM: bookedQuantity() dùng đệm quay vòng RIÊNG theo từng
+     * sản phẩm/kho, nên biên "đã đặt" của mỗi sp một khác. Cách làm: query một lần với cửa sổ
+     * NỚI RỘNG theo đệm lớn nhất của cả tập (superset), rồi cộng trong PHP theo đệm riêng.
+     *
+     * KHÔNG phải nguồn chân lý thứ hai — chỉ là tối ưu I/O của availableQuantity().
+     * Invariant do AvailabilityBatchTest khẳng định:
+     *   by_location[locId] === availableQuantity($p, $start, $end, $loc)  cho MỌI kho đang mở
+     *   best                === max( by_location )                        khi sp có kho mở
+     *   best                === availableQuantity($p, $start, $end, null) khi sp KHÔNG có kho mở
+     *
+     * ⚠️ best CỐ Ý khác availableQuantity(..., null): nhánh null của per-product là tồn TOÀN CỤC
+     * (products.quantity), còn best là "max qua các kho đang mở" — quyết định #2 trong
+     * artifacts/prd_date_first_booking.md (khách chưa chọn kho thì món hiện nếu ≥1 kho còn hàng).
+     *
+     * @param  EloquentCollection<int, Product>  $products
+     * @return array<int, array{by_location: array<int, int>, best: int}>
+     */
+    public function availabilityMatrix(EloquentCollection $products, Carbon $start, Carbon $end): array
+    {
+        if ($products->isEmpty()) {
+            return [];
+        }
+
+        $products->loadMissing('serviceLocations');
+
+        // Mỗi sp có các "rổ" cần tính: từng kho đang mở, hoặc rổ toàn cục nếu chưa gắn kho nào.
+        // threshold = biên dưới của end đã trừ đệm — so sánh chuỗi 'Y-m-d' (thứ tự từ điển ≡ thứ tự thời gian).
+        $buckets = [];
+        $maxBuffer = 0;
+
+        foreach ($products as $product) {
+            $open = $product->serviceLocations->where('status', 'open');
+
+            if ($open->isEmpty()) {
+                $buffer = $product->maxBufferAcrossLocations();
+                $buckets[$product->id][self::GLOBAL_BUCKET] = [
+                    'stock' => (int) $product->quantity,
+                    'threshold' => $start->copy()->subDays($buffer)->toDateString(),
+                ];
+                $maxBuffer = max($maxBuffer, $buffer);
+
+                continue;
+            }
+
+            foreach ($open as $location) {
+                $buffer = (int) $location->pivot->buffer_days;
+                $buckets[$product->id][(int) $location->id] = [
+                    'stock' => (int) $location->pivot->quantity,
+                    'threshold' => $start->copy()->subDays($buffer)->toDateString(),
+                ];
+                $maxBuffer = max($maxBuffer, $buffer);
+            }
+        }
+
+        $rows = OrderItem::query()
+            ->join('orders', 'orders.id', '=', 'order_items.order_id')
+            ->whereIn('orders.status', Order::activeStatuses())
+            ->whereIn('order_items.product_id', $products->modelKeys())
+            ->whereRaw('COALESCE(DATE(order_items.start_date), DATE(orders.start_date)) <= ?', [$end->toDateString()])
+            ->whereRaw('COALESCE(DATE(order_items.end_date), DATE(orders.end_date)) >= ?', [$start->copy()->subDays($maxBuffer)->toDateString()])
+            ->selectRaw('order_items.product_id as pid, orders.service_location_id as loc, order_items.quantity as qty, COALESCE(DATE(order_items.end_date), DATE(orders.end_date)) as item_end')
+            ->get();
+
+        $booked = [];
+
+        foreach ($rows as $row) {
+            $pid = (int) $row->pid;
+            if (! isset($buckets[$pid])) {
+                continue;
+            }
+            $loc = $row->loc === null ? null : (int) $row->loc;
+            $itemEnd = (string) $row->item_end;
+            $qty = (int) $row->qty;
+
+            foreach ($buckets[$pid] as $key => $bucket) {
+                // Rổ theo kho: chỉ đếm đơn GẮN kho đó; đơn NULL kho (dữ liệu cũ) tính vào MỌI kho.
+                // Rổ toàn cục: đếm mọi đơn. Khớp bookedQuantity() dòng 59-61.
+                if ($key !== self::GLOBAL_BUCKET && $loc !== null && $loc !== $key) {
+                    continue;
+                }
+                // Cửa sổ query nới theo đệm LỚN NHẤT cả tập → lọc lại theo đệm riêng của rổ này.
+                if ($itemEnd < $bucket['threshold']) {
+                    continue;
+                }
+                $booked[$pid][$key] = ($booked[$pid][$key] ?? 0) + $qty;
+            }
+        }
+
+        $result = [];
+
+        foreach ($buckets as $pid => $productBuckets) {
+            $byLocation = [];
+            $globalBest = null;
+
+            foreach ($productBuckets as $key => $bucket) {
+                $available = max(0, $bucket['stock'] - ($booked[$pid][$key] ?? 0));
+                if ($key === self::GLOBAL_BUCKET) {
+                    $globalBest = $available;
+
+                    continue;
+                }
+                $byLocation[$key] = $available;
+            }
+
+            $result[$pid] = [
+                'by_location' => $byLocation,
+                'best' => $globalBest ?? (empty($byLocation) ? 0 : max($byLocation)),
+            ];
+        }
+
+        return $result;
+    }
+
+    /**
+     * BATCH tiện dụng — [product_id => available] cho listing.
+     *
+     * $location có → khả dụng ĐÚNG kho đó. $location null → "best": max qua các kho đang mở
+     * (món hiện ra nếu ít nhất 1 kho còn hàng). Sp chưa gắn kho → nhánh toàn cục cũ.
+     *
+     * @param  EloquentCollection<int, Product>  $products
+     * @return array<int, int>
+     */
+    public function availableQuantitiesFor(EloquentCollection $products, Carbon $start, Carbon $end, ?ServiceLocation $location = null): array
+    {
+        $matrix = $this->availabilityMatrix($products, $start, $end);
+
+        $out = [];
+        foreach ($matrix as $pid => $row) {
+            $out[$pid] = $this->pickFromRow($row, $location?->id);
+        }
+
+        return $out;
+    }
+
+    /**
+     * Chọn con số phù hợp từ một dòng matrix. Một chỗ duy nhất giữ luật "hỏi kho nào thì lấy gì",
+     * để wrapper sản phẩm và wrapper combo không lệch nhau.
+     *
+     * @param  array{by_location: array<int, int>, best: int}  $row
+     */
+    private function pickFromRow(array $row, ?int $locationId): int
+    {
+        if ($locationId === null) {
+            return $row['best'];
+        }
+
+        // Sp không phục vụ ở kho đang hỏi → 0 (khớp stockAt() trả 0).
+        // Sp thuộc nhánh toàn cục (by_location rỗng) giữ số toàn cục để không mất hàng dữ liệu cũ.
+        return $row['by_location'][$locationId]
+            ?? (empty($row['by_location']) ? $row['best'] : 0);
+    }
+
+    /**
+     * BATCH combo — [combo_id => available] chỉ với 1 query cho TOÀN BỘ món con của mọi combo.
+     *
+     * Công thức giữ NGUYÊN comboAvailable(): min( intdiv(available_i, quantity_i) ), combo rỗng → 0.
+     * Chỉ khác ở chỗ lấy available từ availabilityMatrix() thay vì gọi availableQuantity() từng món
+     * (trang /combos trước đây là N combo × M món = N×M query).
+     *
+     * @param  EloquentCollection<int, Combo>  $combos  (nên load 'items.product.serviceLocations')
+     * @return array<int, int>
+     */
+    public function comboQuantitiesFor(EloquentCollection $combos, Carbon $start, Carbon $end, ?ServiceLocation $location = null): array
+    {
+        if ($combos->isEmpty()) {
+            return [];
+        }
+
+        $combos->loadMissing('items.product.serviceLocations');
+
+        /** @var EloquentCollection<int, Product> $products */
+        $products = new EloquentCollection(
+            $combos
+                ->flatMap(fn (Combo $combo) => $combo->items->map(fn (ComboItem $item) => $item->product))
+                ->filter()
+                ->unique('id')
+                ->values()
+                ->all()
+        );
+
+        $matrix = $this->availabilityMatrix($products, $start, $end);
+
+        $out = [];
+        foreach ($combos as $combo) {
+            if ($combo->items->isEmpty()) {
+                $out[$combo->id] = 0;
+
+                continue;
+            }
+
+            if ($location !== null) {
+                $out[$combo->id] = $this->comboAtLocation($combo, $matrix, $location->id);
+
+                continue;
+            }
+
+            // ⚠️ Chưa chọn kho: phải là MAX qua từng kho của (MIN qua các món),
+            // KHÔNG phải MIN qua món của (MAX qua kho) — thứ tự ngược lại là sai.
+            // Vd combo gồm A (Vinh 4, HN 2) + B (Vinh 2, HN 4): min-của-max cho 4, nhưng
+            // best của A ở Vinh còn best của B ở Hà Nội → KHÔNG kho nào giao nổi cả combo.
+            // Đúng là max(min(4,2), min(2,4)) = 2, khớp StoreResolver (đòi một kho đủ cả giỏ).
+            $locationIds = [];
+            foreach ($combo->items as $item) {
+                foreach (array_keys($matrix[$item->product->id ?? 0]['by_location'] ?? []) as $locId) {
+                    $locationIds[$locId] = true;
+                }
+            }
+
+            // Mọi món đều thuộc nhánh toàn cục (chưa gắn kho) → không có kho nào để quét.
+            if ($locationIds === []) {
+                $out[$combo->id] = $this->comboAtLocation($combo, $matrix, null);
+
+                continue;
+            }
+
+            $out[$combo->id] = (int) max(array_map(
+                fn (int $locId) => $this->comboAtLocation($combo, $matrix, $locId),
+                array_keys($locationIds)
+            ));
+        }
+
+        return $out;
+    }
+
+    /**
+     * Số combo giao được TẠI MỘT kho (null = nhánh toàn cục): min( intdiv(available_i, qty_i) ).
+     * Giữ nguyên công thức của comboAvailable(), chỉ lấy available từ matrix.
+     *
+     * @param  array<int, array{by_location: array<int, int>, best: int}>  $matrix
+     */
+    private function comboAtLocation(Combo $combo, array $matrix, ?int $locationId): int
+    {
+        return (int) $combo->items->map(function (ComboItem $item) use ($matrix, $locationId) {
+            if (! $item->product || $item->quantity < 1) {
+                return 0;
+            }
+            $row = $matrix[$item->product->id] ?? null;
+
+            return $row === null ? 0 : intdiv($this->pickFromRow($row, $locationId), $item->quantity);
+        })->min();
     }
 
     /**

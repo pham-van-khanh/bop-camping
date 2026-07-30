@@ -140,21 +140,45 @@ class CartController extends Controller
         // Tồn kho theo khoảng ngày từng dòng — vẫn qua AvailabilityService (AC-10).
         // Key "p:{id}:{start}:{end}" / "c:{id}:{start}:{end}"; dòng ẩn/xoá không trả
         // (client đã gỡ theo products/combos map ở trên).
-        $stockProducts = Product::active()->whereIn('id', $prLines->pluck('id')->unique())->get()->keyBy('id');
-        $stockCombos = Combo::active()->whereHas('items')->with('items.product')
+        $stockProducts = Product::active()->with('serviceLocations')
+            ->whereIn('id', $prLines->pluck('id')->unique())->get()->keyBy('id');
+        $stockCombos = Combo::active()->whereHas('items')->with('items.product.serviceLocations')
             ->whereIn('id', $crLines->pluck('id')->unique())->get()->keyBy('id');
 
+        // bopcamping-jyxi — dùng "best" (max qua các kho đang mở), KHÔNG dùng tồn toàn cục.
+        // Vì sao: checkout (StoreResolver::shortfall) đòi MỘT kho đủ cả giỏ, không cộng xuyên kho.
+        // Nhánh toàn cục products.quantity báo cao hơn thực tế nên giỏ từng nói "còn 6" trong khi
+        // checkout chỉ cho 4 (Vinh 4 / Hà Nội 2) — khách bị chặn ở bước cuối. "best" đúng bằng
+        // số mà một kho có thể đáp ứng.
+        //
+        // Gom dòng theo KHOẢNG NGÀY: mỗi khoảng 1 query batch, thay vì 1 query mỗi món/combo.
         $stock = [];
-        foreach ($prLines as $r) {
-            if ($p = $stockProducts->get($r['id'])) {
-                $stock["p:{$r['id']}:{$r['start']}:{$r['end']}"] =
-                    $this->availability->availableQuantity($p, Carbon::parse($r['start']), Carbon::parse($r['end']));
+
+        foreach ($prLines->groupBy(fn (array $r) => $r['start'].'|'.$r['end']) as $range => $lines) {
+            [$start, $end] = explode('|', (string) $range);
+            $subset = $stockProducts->only($lines->pluck('id')->unique()->all());
+            if ($subset->isEmpty()) {
+                continue;
+            }
+            $avail = $this->availability->availableQuantitiesFor($subset, Carbon::parse($start), Carbon::parse($end));
+            foreach ($lines as $r) {
+                if (isset($avail[$r['id']])) {
+                    $stock["p:{$r['id']}:{$r['start']}:{$r['end']}"] = $avail[$r['id']];
+                }
             }
         }
-        foreach ($crLines as $r) {
-            if ($c = $stockCombos->get($r['id'])) {
-                $stock["c:{$r['id']}:{$r['start']}:{$r['end']}"] =
-                    $this->availability->comboAvailable($c, Carbon::parse($r['start']), Carbon::parse($r['end']));
+
+        foreach ($crLines->groupBy(fn (array $r) => $r['start'].'|'.$r['end']) as $range => $lines) {
+            [$start, $end] = explode('|', (string) $range);
+            $subset = $stockCombos->only($lines->pluck('id')->unique()->all());
+            if ($subset->isEmpty()) {
+                continue;
+            }
+            $avail = $this->availability->comboQuantitiesFor($subset, Carbon::parse($start), Carbon::parse($end));
+            foreach ($lines as $r) {
+                if (isset($avail[$r['id']])) {
+                    $stock["c:{$r['id']}:{$r['start']}:{$r['end']}"] = $avail[$r['id']];
+                }
             }
         }
 
