@@ -28,6 +28,15 @@ export type ItemGroup = { key: string; combo: string | null; items: OrderItem[] 
 // bopcamping-3ag: nguồn giảm giá từng dòng, lưu lúc checkout (đơn cũ = null).
 export type DiscountLine = { source: string; amount: number; code?: string; percent?: boolean };
 
+/** 1 mốc việc trên đơn: đã làm chưa, ai làm, lúc nào. */
+export type OrderAction = {
+    key: string;
+    label: string;
+    done: boolean;
+    at: string | null;
+    by: string | null;
+};
+
 export type UsedVoucher = { code: string; type: VoucherType; value: number; source: string };
 
 export type Order = {
@@ -41,6 +50,11 @@ export type Order = {
     // Giờ nhận/trả mong muốn + phụ phí ngoài khung giờ (Phase 2 turnaround, bopcamping-h4to)
     requested_pickup_time: string | null;
     requested_return_time: string | null;
+    // Giờ giao/thu admin ĐÃ CHỐT (bopcamping-641t) — null = chưa chốt. schedule_note chỉ nội bộ.
+    confirmed_pickup_time: string | null;
+    confirmed_return_time: string | null;
+    schedule_note: string | null;
+    schedule_confirmed_at: string | null;
     extra_fee: number;
     extra_fee_note: string | null;
     // ISO (Y-m-d) cho form đổi lịch (bopcamping-5hjm)
@@ -48,6 +62,12 @@ export type Order = {
     total_price: number; deposit_total: number; discount_total: number; amount_due: number;
     discount_breakdown: DiscountLine[] | null;
     status: string; payment_status: string;
+    // Thu tiền theo 2 khoản ĐỘC LẬP (bopcamping-q7i0) — payment_status chỉ là tóm tắt suy ra.
+    rental_due: number;
+    rental_paid: boolean; rental_paid_at: string | null; rental_paid_by: string | null;
+    deposit_paid: boolean; deposit_paid_at: string | null; deposit_paid_by: string | null;
+    // Ai đã làm gì: 5 mốc kèm người + vai + giờ (bopcamping-3wfk)
+    actions: OrderAction[];
     deposit_refund_status: string; deposit_refund_note: string | null;
     note: string | null; created_at: string; items: OrderItem[];
     vouchers: UsedVoucher[]; referral: { referrer_name: string | null; status: string } | null;
@@ -71,13 +91,6 @@ const DISCOUNT_SOURCE_LABEL: Record<string, string> = {
     // bopcamping-wtuv: phần giảm phân bổ từ voucher tính trên TỔNG đơn gộp (cha)
     parent_alloc: 'Giảm phân bổ từ đơn gộp',
 };
-
-// Tình trạng chuyển tiền (marker admin — bopcamping-7be).
-const PAYMENT_OPTIONS: { key: string; label: string; active: { bg: string; color: string } }[] = [
-    { key: 'unpaid',  label: 'Chưa chuyển',    active: { bg: '#f6ddd6', color: '#b3493a' } },
-    { key: 'deposit', label: 'Đã chuyển cọc',  active: { bg: '#fbf2d8', color: '#9a7a2a' } },
-    { key: 'full',    label: 'Chuyển hết',     active: { bg: '#dcebc4', color: '#3a5a1f' } },
-];
 
 // Hoàn cọc — chỉ dùng khi đơn ĐÃ TRẢ (bopcamping-7be).
 const REFUND_OPTIONS: { key: string; label: string; active: { bg: string; color: string } }[] = [
@@ -122,11 +135,111 @@ export function useSessionLabel(session: Session | null): string | null {
 /** Không có dữ liệu ngày bận cho admin (server kiểm tồn khi lưu) — Set rỗng dùng chung. */
 const NO_UNAVAILABLE = new Set<string>();
 
-function DetailRow({ label, value, mono, accent }: { label: string; value: string; mono?: boolean; accent?: string }) {
+/**
+ * Thời gian MẶC ĐỊNH của đơn khi admin chưa chốt giờ (feedback 2026-07-28):
+ * nửa ngày → nhãn ca sáng/ca chiều kèm khung giờ shop; đơn CẢ NGÀY hoặc nhiều ngày
+ * → null (không hiện gì, vì giao lúc nào trong ngày cũng được). Đơn cũ không có buổi
+ * nhưng có giờ khách xin thì hiện giờ đó. Khi đã chốt giờ, UI hiện "Thời gian thay đổi".
+ */
+export function defaultTimeLabel(order: Order, sessLabel: string | null): string | null {
+    if (order.session === 'morning' || order.session === 'afternoon') return sessLabel;
+    if (order.session === 'full') return null;
+    if (order.requested_pickup_time || order.requested_return_time) {
+        return `giao ${order.requested_pickup_time ?? '—'} · thu ${order.requested_return_time ?? '—'}`;
+    }
+
+    return null;
+}
+
+function DetailRow({ label, value, mono, accent, bold }: { label: string; value: string; mono?: boolean; accent?: string; bold?: boolean }) {
     return (
         <div className="flex items-start justify-between gap-3 py-0.5">
             <span className="shrink-0 text-moss">{label}</span>
-            <span className={`text-right text-ink ${mono ? 'font-mono' : ''}`} style={accent ? { color: accent } : undefined}>{value}</span>
+            <span className={`text-right text-ink ${mono ? 'font-mono' : ''} ${bold ? 'font-bold' : ''}`} style={accent ? { color: accent } : undefined}>{value}</span>
+        </div>
+    );
+}
+
+/**
+ * "Ai đã làm gì" trên đơn (bopcamping-3wfk): 5 mốc theo thứ tự việc diễn ra, kèm người +
+ * vai + giờ. Mốc đã xảy ra nhưng không có dấu (đơn cũ trước khi có tính năng) ghi rõ
+ * "không rõ ai" — thà nói không biết còn hơn đoán sai khi đối soát tiền.
+ */
+function ActionLog({ actions }: { actions: OrderAction[] }) {
+    return (
+        <>
+            <div className="mb-2 mt-3 text-[12px] font-bold uppercase tracking-[0.04em] text-grass">Ai đã làm gì</div>
+            <div className="rounded-[10px] border border-[#eef2e3] bg-white p-3 text-[12.5px]">
+                {actions.map((a) => (
+                    <div key={a.key} className="flex items-start justify-between gap-3 border-b border-[#f1f4ea] py-1.5 last:border-0">
+                        <span className={a.done ? 'font-semibold text-ink' : 'text-[#a3ad92]'}>
+                            {a.done ? '✓ ' : '○ '}
+                            {a.label}
+                        </span>
+                        <span className="text-right text-moss">
+                            {!a.done ? (
+                                <span className="text-[#c4cca8]">chưa làm</span>
+                            ) : a.by ? (
+                                <>
+                                    <span className="font-semibold text-ink">{a.by}</span>
+                                    {a.at && <span className="ml-1 font-mono text-[11.5px]">{a.at}</span>}
+                                </>
+                            ) : (
+                                <span style={{ color: '#9a5a1f' }}>không rõ ai</span>
+                            )}
+                        </span>
+                    </div>
+                ))}
+            </div>
+        </>
+    );
+}
+
+/**
+ * Một dòng "đã thu / chưa thu" cho 1 khoản tiền (bopcamping-q7i0). Bấm để đảo trạng thái;
+ * khi đã thu thì hiện AI thu và LÚC NÀO — cần cho đối soát khi shipper thu hộ.
+ */
+function PaidToggle({
+    label,
+    amount,
+    paid,
+    at,
+    by,
+    disabled,
+    onToggle,
+}: {
+    label: string;
+    amount: number;
+    paid: boolean;
+    at: string | null;
+    by: string | null;
+    disabled?: boolean;
+    onToggle: (paid: boolean) => void;
+}) {
+    return (
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#f1f4ea] py-2 last:border-0">
+            <div className="min-w-0">
+                <span className="text-[12.5px] font-semibold text-ink">{label}</span>
+                <span className="ml-1.5 font-mono text-[12.5px] text-moss">{money(amount)}</span>
+                {paid && (
+                    <div className="text-[11px] text-[#a3ad92]">
+                        {by ? `${by} nhận` : 'đã nhận (không rõ ai)'}
+                        {at ? ` · ${at}` : ''}
+                    </div>
+                )}
+            </div>
+            <button
+                type="button"
+                disabled={disabled}
+                aria-pressed={paid}
+                onClick={(e) => { e.stopPropagation(); onToggle(!paid); }}
+                className="shrink-0 rounded-[9px] border px-2.5 py-1.5 text-[12px] font-bold transition disabled:cursor-not-allowed disabled:opacity-60"
+                style={paid
+                    ? { background: '#dcebc4', color: '#3a5a1f', borderColor: '#3a5a1f' }
+                    : { background: '#fff', color: '#b3493a', borderColor: '#f0cfc6' }}
+            >
+                {paid ? '✓ Đã thu' : 'Chưa thu'}
+            </button>
         </div>
     );
 }
@@ -233,6 +346,83 @@ function ExtraFeeEditor({ order }: { order: Order }) {
                     {saving ? 'Đang lưu…' : 'Lưu phụ phí'}
                 </button>
             </div>
+        </div>
+    );
+}
+
+/**
+ * Chốt giờ giao/thu cho đơn (bopcamping-641t) — theo khuôn ExtraFeeEditor (inline card,
+ * không modal). 2 × input[type=time] (giao/thu) + ghi chú nội bộ shipper + nút Lưu.
+ * Xoá trắng 1 ô giờ = gửi null = huỷ chốt ô đó. Không ghi đè requested_* (giờ khách xin).
+ */
+export function ScheduleEditor({ order }: { order: Order }) {
+    const errors = usePage().props.errors as Record<string, string>;
+    const [pickup, setPickup] = useState<string>(order.confirmed_pickup_time ?? '');
+    const [returnTime, setReturnTime] = useState<string>(order.confirmed_return_time ?? '');
+    const [note, setNote] = useState<string>(order.schedule_note ?? '');
+    const [saving, setSaving] = useState(false);
+
+    const save = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        setSaving(true);
+        router.patch(
+            route('admin.orders.schedule', order.id),
+            {
+                confirmed_pickup_time: pickup || null,
+                confirmed_return_time: returnTime || null,
+                schedule_note: note || null,
+            },
+            { preserveScroll: true, onFinish: () => setSaving(false) },
+        );
+    };
+
+    const scheduleError = errors.confirmed_pickup_time ?? errors.confirmed_return_time ?? errors.schedule_note;
+
+    return (
+        <div className="mt-3">
+            <div className="mb-2 text-[12px] font-bold uppercase tracking-[0.04em] text-grass">Giờ giao/thu đã chốt</div>
+            <div className="flex flex-wrap items-end gap-2 rounded-[10px] border border-[#eef2e3] bg-white p-3">
+                <label className="min-w-[110px] flex-1">
+                    <span className="mb-1 block text-[11.5px] text-moss">Giờ giao</span>
+                    <input
+                        type="time"
+                        value={pickup}
+                        onClick={(e) => e.stopPropagation()}
+                        onChange={(e) => setPickup(e.target.value)}
+                        className="w-full rounded-[9px] border border-cardBorder px-2.5 py-1.5 text-[13px] outline-none focus:border-grass"
+                    />
+                </label>
+                <label className="min-w-[110px] flex-1">
+                    <span className="mb-1 block text-[11.5px] text-moss">Giờ thu</span>
+                    <input
+                        type="time"
+                        value={returnTime}
+                        onClick={(e) => e.stopPropagation()}
+                        onChange={(e) => setReturnTime(e.target.value)}
+                        className="w-full rounded-[9px] border border-cardBorder px-2.5 py-1.5 text-[13px] outline-none focus:border-grass"
+                    />
+                </label>
+                <label className="min-w-[150px] flex-[2]">
+                    <span className="mb-1 block text-[11.5px] text-moss">Ghi chú cho shipper</span>
+                    <input
+                        type="text"
+                        value={note}
+                        maxLength={255}
+                        onClick={(e) => e.stopPropagation()}
+                        onChange={(e) => setNote(e.target.value)}
+                        placeholder="VD: gọi trước 15 phút, nhà cuối hẻm"
+                        className="w-full rounded-[9px] border border-cardBorder px-2.5 py-1.5 text-[13px] outline-none focus:border-grass"
+                    />
+                </label>
+                <button
+                    onClick={save}
+                    disabled={saving}
+                    className="rounded-[9px] bg-grass px-4 py-1.5 text-[13px] font-bold text-white transition hover:bg-pine disabled:opacity-60"
+                >
+                    {saving ? 'Đang lưu…' : 'Lưu giờ'}
+                </button>
+            </div>
+            {scheduleError && <p className="mt-1.5 text-[12px] text-[#b3493a]">{scheduleError}</p>}
         </div>
     );
 }
@@ -404,9 +594,9 @@ function StoreChanger({ order, locations }: { order: Order; locations: StoreOpti
  */
 export function OrderDetailPanel({ order, locations, maxDiscountPercent }: { order: Order; locations: StoreOption[]; maxDiscountPercent: number }) {
     const sessLabel = useSessionLabel(order.session);
-    const changePayment = (payment_status: string) => {
-        if (order.payment_status === payment_status) return;
-        router.patch(route('admin.orders.payment', order.id), { payment_status }, { preserveScroll: true });
+    const defaultTimeText = defaultTimeLabel(order, sessLabel);
+    const togglePaid = (kind: 'rental' | 'deposit', paid: boolean) => {
+        router.patch(route('admin.orders.payment', order.id), { kind, paid }, { preserveScroll: true });
     };
 
     return (
@@ -420,12 +610,24 @@ export function OrderDetailPanel({ order, locations, maxDiscountPercent }: { ord
                     <DetailRow label="Email" value={order.customer_email ?? '—'} mono />
                     <DetailRow label="Địa chỉ" value={order.customer_address ?? '—'} />
                     <DetailRow label="Khoảng thuê" value={`${order.start_date} → ${order.end_date} (${order.days} ngày)`} />
-                    {sessLabel && <DetailRow label="Buổi" value={sessLabel} />}
-                    {(order.requested_pickup_time || order.requested_return_time) && (
-                        <DetailRow label="Giờ nhận/trả" value={`nhận ${order.requested_pickup_time ?? '—'} · trả ${order.requested_return_time ?? '—'}`} mono />
+                    {/* Thời gian mặc định (chưa chốt giờ): ca sáng/chiều theo buổi khách chọn, hoặc
+                        giờ khách xin. Đơn CẢ NGÀY / nhiều ngày không hiện gì (feedback 2026-07-28). */}
+                    {defaultTimeText && <DetailRow label="Thời gian" value={defaultTimeText} />}
+                    {/* Chỉ hiện khi admin ĐÃ chốt giờ — đây là giờ shipper phải theo. */}
+                    {(order.confirmed_pickup_time || order.confirmed_return_time) && (
+                        <DetailRow
+                            label="Thời gian thay đổi"
+                            value={`giao ${order.confirmed_pickup_time ?? '—'} · thu ${order.confirmed_return_time ?? '—'}${order.schedule_confirmed_at ? ` · chốt ${order.schedule_confirmed_at}` : ''}`}
+                            mono
+                            bold
+                            accent="#b3493a"
+                        />
                     )}
                     <DetailRow label="Đặt lúc" value={order.created_at} />
                 </div>
+
+                {/* Chốt giờ giao/thu (bopcamping-641t) — đơn con/thường, chưa trả/huỷ */}
+                {!order.is_parent && !['returned', 'cancelled'].includes(order.status) && <ScheduleEditor order={order} />}
 
                 {/* Per-store: cửa hàng thuê + đổi store */}
                 <div className="mb-2 mt-3 flex items-center gap-2 text-[12px] font-bold uppercase tracking-[0.04em] text-grass">
@@ -575,43 +777,36 @@ export function OrderDetailPanel({ order, locations, maxDiscountPercent }: { ord
                     )}
                 </div>
 
-                {/* Tình trạng chuyển tiền — admin bấm sau khi xác nhận với khách (bopcamping-7be). */}
-                {(() => {
-                    const isReturned = order.status === 'returned';
-                    return (
-                        <>
-                            <div className="mb-2 mt-3 text-[12px] font-bold uppercase tracking-[0.04em] text-grass">Tình trạng chuyển tiền</div>
-                            <div className="rounded-[10px] border border-[#eef2e3] bg-white p-3">
-                                <div className="grid grid-cols-3 gap-2">
-                                    {PAYMENT_OPTIONS.map((opt) => {
-                                        const active = (order.payment_status ?? 'unpaid') === opt.key;
-                                        return (
-                                            <button
-                                                key={opt.key}
-                                                disabled={isReturned}
-                                                onClick={(e) => { e.stopPropagation(); changePayment(opt.key); }}
-                                                aria-pressed={active}
-                                                className={`rounded-[9px] border px-2 py-2 text-[12px] font-bold transition ${isReturned ? 'cursor-not-allowed opacity-70' : ''}`}
-                                                style={active
-                                                    ? { background: opt.active.bg, color: opt.active.color, borderColor: opt.active.color }
-                                                    : { background: '#fff', color: '#8a967a', borderColor: '#e3e8d6' }}
-                                            >
-                                                {active && '✓ '}{opt.label}
-                                            </button>
-                                        );
-                                    })}
-                                </div>
-                                <p className="mt-2 text-[11.5px] text-[#a3ad92]">
-                                    {isReturned
-                                        ? 'Đơn đã trả — tình trạng chuyển tiền đã chốt, xem hoàn cọc bên dưới.'
-                                        : <>Bấm để đánh dấu sau khi xác nhận với khách. Cọc {money(order.deposit_total)} · tổng thu {money(order.amount_due)}.</>}
-                                </p>
-                            </div>
+                {/* Thu tiền: 2 khoản ĐỘC LẬP (bopcamping-q7i0) — khách có thể chuyển tiền thuê
+                    trước, cọc trả khi nhận đồ. Shipper cũng đánh dấu được trong app của họ. */}
+                <div className="mb-2 mt-3 text-[12px] font-bold uppercase tracking-[0.04em] text-grass">Thu tiền</div>
+                <div className="rounded-[10px] border border-[#eef2e3] bg-white p-3">
+                    <PaidToggle
+                        label="Tiền thuê"
+                        amount={order.rental_due}
+                        paid={order.rental_paid}
+                        at={order.rental_paid_at}
+                        by={order.rental_paid_by}
+                        disabled={order.status === 'cancelled'}
+                        onToggle={(paid) => togglePaid('rental', paid)}
+                    />
+                    <PaidToggle
+                        label="Tiền cọc"
+                        amount={order.deposit_total}
+                        paid={order.deposit_paid}
+                        at={order.deposit_paid_at}
+                        by={order.deposit_paid_by}
+                        disabled={order.status === 'cancelled'}
+                        onToggle={(paid) => togglePaid('deposit', paid)}
+                    />
+                    <p className="mt-2 border-t border-[#f1f4ea] pt-2 text-[11.5px] text-[#a3ad92]">
+                        Tổng phải thu khi giao {money(order.amount_due)}. Khoản nào chưa thu thì shipper thu hộ được.
+                    </p>
+                </div>
 
-                            {isReturned && <RefundControl order={order} />}
-                        </>
-                    );
-                })()}
+                {order.status === 'returned' && <RefundControl order={order} />}
+
+                <ActionLog actions={order.actions} />
 
                 {order.note && (
                     <p className="mt-3 rounded-[10px] border border-[#eef2e3] bg-white p-3 text-[12.5px] text-moss">

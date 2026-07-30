@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Observers\OrderObserver;
+use App\Services\DeliveryScheduleService;
 use Database\Factories\OrderFactory;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -40,6 +41,26 @@ class Order extends Model
         'session',
         'requested_pickup_time',
         'requested_return_time',
+        // Giờ giao/thu shop ĐÃ CHỐT + ghi chú nội bộ cho shipper (bopcamping-641t).
+        'confirmed_pickup_time',
+        'confirmed_return_time',
+        'schedule_note',
+        'schedule_confirmed_at',
+        // Gán shipper cho từng lượt giao/thu (bopcamping-xdvx).
+        'pickup_shipper_id',
+        'return_shipper_id',
+        // Thu tiền theo 2 khoản độc lập (bopcamping-q7i0) — payment_status là giá trị SUY RA.
+        'rental_paid_at',
+        'rental_paid_by',
+        'deposit_paid_at',
+        'deposit_paid_by',
+        // Dấu ai đã làm gì: hoàn cọc, bấm đã giao, bấm đã thu đồ (bopcamping-3wfk).
+        'deposit_refunded_at',
+        'deposit_refunded_by',
+        'delivered_at',
+        'delivered_by',
+        'collected_at',
+        'collected_by',
         'total_price',
         'deposit_total',
         'extra_fee',
@@ -53,9 +74,6 @@ class Order extends Model
         'deposit_refund_note',
         'note',
     ];
-
-    /** Tình trạng chuyển tiền (marker admin — bopcamping-7be). */
-    public const PAYMENT_STATUSES = ['unpaid', 'deposit', 'full'];
 
     /** Tình trạng hoàn cọc khi đơn đã trả (bopcamping-7be). */
     public const REFUND_STATUSES = ['pending', 'refunded'];
@@ -74,7 +92,28 @@ class Order extends Model
         'review_invited_at' => 'datetime',
         'review_submitted_at' => 'datetime',
         'pickup_reminder_sent_at' => 'datetime',
+        'schedule_confirmed_at' => 'datetime',
+        'rental_paid_at' => 'datetime',
+        'deposit_paid_at' => 'datetime',
+        'deposit_refunded_at' => 'datetime',
+        'delivered_at' => 'datetime',
+        'collected_at' => 'datetime',
     ];
+
+    /**
+     * 5 mốc có ghi dấu "ai làm, lúc nào" (bopcamping-3wfk) → tiền tố cột `<key>_at|_by`.
+     * Thứ tự = thứ tự việc diễn ra trên thực tế, dùng luôn cho UI.
+     */
+    public const TRACKED_ACTIONS = [
+        'rental_paid' => 'Đã nhận tiền thuê',
+        'deposit_paid' => 'Đã nhận tiền cọc',
+        'delivered' => 'Đã giao đồ',
+        'collected' => 'Đã thu đồ',
+        'deposit_refunded' => 'Đã hoàn cọc',
+    ];
+
+    /** Hai khoản tiền thu riêng của 1 đơn (bopcamping-q7i0). */
+    public const PAYMENT_KINDS = ['rental', 'deposit'];
 
     /** Tự sinh mã đơn khi tạo */
     protected static function booted(): void
@@ -95,6 +134,18 @@ class Order extends Model
     public function serviceLocation(): BelongsTo
     {
         return $this->belongsTo(ServiceLocation::class);
+    }
+
+    /** Shipper đi GIAO đơn này (null = chưa gán) — bopcamping-xdvx. */
+    public function pickupShipper(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'pickup_shipper_id');
+    }
+
+    /** Shipper đi THU đơn này (null = chưa gán). */
+    public function returnShipper(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'return_shipper_id');
     }
 
     public function items(): HasMany
@@ -198,7 +249,167 @@ class Order extends Model
     /** Số tiền phải trả khi nhận (thuê + cọc + phụ phí ngoài khung giờ − giảm giá). */
     public function getAmountDueAttribute(): int
     {
-        return (int) $this->total_price + (int) $this->deposit_total + (int) $this->extra_fee - (int) $this->discount_total;
+        return $this->rental_due + (int) $this->deposit_total;
+    }
+
+    /** Riêng phần TIỀN THUÊ phải thu (đã gồm phụ phí ngoài giờ, đã trừ giảm giá) — không gồm cọc. */
+    public function getRentalDueAttribute(): int
+    {
+        return (int) $this->total_price + (int) $this->extra_fee - (int) $this->discount_total;
+    }
+
+    /**
+     * Đơn đã được admin xác nhận với khách (đang chờ giao hoặc đang thuê). Mốc để: áp giờ
+     * mặc định toàn shop, và cho phép thu tiền — đơn còn 'pending' thì giá/lịch chưa chắc.
+     */
+    public function isConfirmed(): bool
+    {
+        return in_array($this->status, DeliveryScheduleService::CONFIRMED_STATUSES, true);
+    }
+
+    public function rentalPaid(): bool
+    {
+        return $this->rental_paid_at !== null;
+    }
+
+    public function depositPaid(): bool
+    {
+        return $this->deposit_paid_at !== null;
+    }
+
+    /**
+     * Đánh dấu (bỏ đánh dấu) đã thu 1 khoản — LỐI VÀO DUY NHẤT để đổi tình trạng tiền
+     * (bopcamping-q7i0). Ghi luôn ai thu để đối soát, rồi đồng bộ payment_status suy ra.
+     *
+     * @param  'rental'|'deposit'  $kind
+     */
+    public function markPaid(string $kind, bool $paid, ?int $byUserId = null): void
+    {
+        $this->forceFill([
+            "{$kind}_paid_at" => $paid ? now() : null,
+            "{$kind}_paid_by" => $paid ? $byUserId : null,
+        ]);
+        $this->syncPaymentStatus();
+        $this->save();
+    }
+
+    /**
+     * payment_status là GIÁ TRỊ SUY RA từ 2 khoản (nghĩa cũ chỉ có 3 mức nên "mới thu 1
+     * trong 2 khoản" đều gom vào 'deposit' = đã thu một phần). Không ghi payment_status
+     * ở bất kỳ chỗ nào khác — mọi thay đổi phải đi qua markPaid().
+     */
+    public function syncPaymentStatus(): void
+    {
+        $paid = (int) $this->rentalPaid() + (int) $this->depositPaid();
+
+        $this->payment_status = match ($paid) {
+            2 => 'full',
+            1 => 'deposit',
+            default => 'unpaid',
+        };
+    }
+
+    /** Người đánh dấu đã thu tiền thuê (admin hoặc shipper) — cho đối soát. */
+    public function rentalPaidBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'rental_paid_by');
+    }
+
+    /** Người đánh dấu đã thu cọc. */
+    public function depositPaidBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'deposit_paid_by');
+    }
+
+    /** Người hoàn cọc lại cho khách. */
+    public function depositRefundedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'deposit_refunded_by');
+    }
+
+    /** Người bấm "đã giao đồ". */
+    public function deliveredBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'delivered_by');
+    }
+
+    /** Người bấm "đã thu đồ". */
+    public function collectedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'collected_by');
+    }
+
+    /**
+     * Ghi dấu 1 mốc nếu CHƯA có dấu — giữ người làm ĐẦU TIÊN, không cho lần bấm sau ghi đè
+     * (vd admin đổi trạng thái qua lại thì vẫn còn dấu shipper đã giao thật).
+     *
+     * @param  key-of<self::TRACKED_ACTIONS>  $action
+     */
+    public function stampAction(string $action, ?int $byUserId): void
+    {
+        if ($this->{"{$action}_at"} !== null) {
+            return;
+        }
+
+        $this->forceFill(["{$action}_at" => now(), "{$action}_by" => $byUserId])->save();
+    }
+
+    /**
+     * Hoàn cọc cho khách — LỐI VÀO DUY NHẤT (admin và shipper dùng chung) để luôn có dấu
+     * ai hoàn, lúc nào. Đặt lại 'pending' thì xoá dấu (coi như chưa hoàn).
+     */
+    public function markRefunded(bool $refunded, ?int $byUserId, ?string $note = null): void
+    {
+        $this->forceFill([
+            'deposit_refund_status' => $refunded ? 'refunded' : 'pending',
+            'deposit_refund_note' => $note,
+            'deposit_refunded_at' => $refunded ? now() : null,
+            'deposit_refunded_by' => $refunded ? $byUserId : null,
+        ])->save();
+    }
+
+    /**
+     * "Ai đã làm gì" của đơn — dùng chung cho admin và app shipper (bopcamping-3wfk).
+     * Mốc đã xảy ra nhưng không có dấu (đơn cũ trước khi có tính năng) → by = null,
+     * UI hiển thị "không rõ ai" thay vì đoán bừa.
+     *
+     * @return list<array{key:string,label:string,done:bool,at:?string,by:?string}>
+     */
+    public function actionLog(): array
+    {
+        // Mốc suy từ trạng thái: đơn cũ đã giao/đã trả/đã hoàn cọc mà chưa có cột dấu.
+        $impliedDone = [
+            'rental_paid' => $this->rentalPaid(),
+            'deposit_paid' => $this->depositPaid(),
+            'delivered' => in_array($this->status, ['renting', 'returned'], true),
+            'collected' => $this->status === 'returned',
+            'deposit_refunded' => $this->deposit_refund_status === 'refunded',
+        ];
+
+        $relation = [
+            'rental_paid' => 'rentalPaidBy',
+            'deposit_paid' => 'depositPaidBy',
+            'delivered' => 'deliveredBy',
+            'collected' => 'collectedBy',
+            'deposit_refunded' => 'depositRefundedBy',
+        ];
+
+        $log = [];
+        foreach (self::TRACKED_ACTIONS as $key => $label) {
+            /** @var User|null $actor */
+            $actor = $this->{$relation[$key]};
+
+            $log[] = [
+                'key' => $key,
+                'label' => $label,
+                'done' => (bool) $impliedDone[$key],
+                'at' => $this->{"{$key}_at"}?->format('d/m H:i'),
+                // Chỉ TÊN người làm — chủ shop 31/07: không cần ghi rõ vai.
+                'by' => $actor?->name,
+            ];
+        }
+
+        return $log;
     }
 
     /**

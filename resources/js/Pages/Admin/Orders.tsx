@@ -168,6 +168,13 @@ export default function AdminOrders({
                                                     <td className="px-4 py-3">
                                                         <div className="font-mono text-[12px] text-pine">{order.start_date} → {order.end_date}</div>
                                                         {tag && <div className="text-[11px] text-grass">{tag}</div>}
+                                                        {/* Giờ admin đã chốt = giờ shipper phải theo → highlight (feedback 2026-07-28).
+                                                            Chưa chốt thì chỉ có nhãn buổi ở trên, không thêm gì. */}
+                                                        {(order.confirmed_pickup_time || order.confirmed_return_time) && (
+                                                            <div className="font-mono text-[11px] font-bold" style={{ color: '#b3493a' }}>
+                                                                Giao {order.confirmed_pickup_time ?? '—'} · Thu {order.confirmed_return_time ?? '—'}
+                                                            </div>
+                                                        )}
                                                     </td>
                                                     <td className="px-4 py-3 text-right">
                                                         <div className="font-mono font-bold text-ink">{money(order.total_price)}</div>

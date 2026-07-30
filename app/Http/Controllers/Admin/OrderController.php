@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Mail\OrderDatesChangedMail;
+use App\Mail\OrderScheduleConfirmedMail;
 use App\Models\Order;
 use App\Models\Product;
 use App\Models\PromotionSetting;
@@ -34,7 +35,7 @@ class OrderController extends Controller
 
         // Đơn cha/con (bopcamping-wtuv T6): danh sách chỉ TOP-LEVEL (đơn thường + cha, ẩn con);
         // con nạp kèm trong cha. Search theo mã đơn (cả mã con)/tên/SĐT.
-        $relations = ['items.product', 'items.combo', 'vouchers', 'referralUse.referrer', 'serviceLocation'];
+        $relations = ['items.product', 'items.combo', 'vouchers', 'referralUse.referrer', 'serviceLocation', 'rentalPaidBy:id,name', 'depositPaidBy:id,name', 'depositRefundedBy:id,name', 'deliveredBy:id,name', 'collectedBy:id,name'];
         $query = Order::topLevel()->with(array_merge($relations, array_map(fn ($r) => "children.$r", $relations)))->latest();
 
         if ($q !== '') {
@@ -101,7 +102,7 @@ class OrderController extends Controller
      */
     public function show(Order $order): Response
     {
-        $relations = ['items.product', 'items.combo', 'vouchers', 'referralUse.referrer', 'serviceLocation'];
+        $relations = ['items.product', 'items.combo', 'vouchers', 'referralUse.referrer', 'serviceLocation', 'rentalPaidBy:id,name', 'depositPaidBy:id,name', 'depositRefundedBy:id,name', 'deliveredBy:id,name', 'collectedBy:id,name'];
         $order->load(array_merge($relations, array_map(fn ($r) => "children.$r", $relations), ['parent:id,code']));
 
         $row = $this->mapOrder($order);
@@ -147,6 +148,11 @@ class OrderController extends Controller
             // Giờ nhận/trả mong muốn + phụ phí ngoài khung giờ (Phase 2 turnaround, bopcamping-h4to).
             'requested_pickup_time' => $o->requested_pickup_time,
             'requested_return_time' => $o->requested_return_time,
+            // Giờ giao/thu admin ĐÃ CHỐT + ghi chú nội bộ cho shipper (bopcamping-641t).
+            'confirmed_pickup_time' => $o->confirmed_pickup_time,
+            'confirmed_return_time' => $o->confirmed_return_time,
+            'schedule_note' => $o->schedule_note,
+            'schedule_confirmed_at' => $o->schedule_confirmed_at?->format('d/m H:i'),
             'extra_fee' => (int) $o->extra_fee,
             'extra_fee_note' => $o->extra_fee_note,
             'total_price' => $o->total_price,
@@ -157,6 +163,16 @@ class OrderController extends Controller
             'amount_due' => $o->amount_due,
             'status' => $o->status,
             'payment_status' => $o->payment_status,
+            // Thu tiền theo 2 khoản độc lập (bopcamping-q7i0)
+            'rental_due' => $o->rental_due,
+            'rental_paid' => $o->rentalPaid(),
+            'rental_paid_at' => $o->rental_paid_at?->format('d/m H:i'),
+            'rental_paid_by' => $o->rentalPaidBy?->name,
+            'deposit_paid' => $o->depositPaid(),
+            'deposit_paid_at' => $o->deposit_paid_at?->format('d/m H:i'),
+            'deposit_paid_by' => $o->depositPaidBy?->name,
+            // Ai đã làm gì trên đơn: 5 mốc kèm người + giờ (bopcamping-3wfk)
+            'actions' => $o->actionLog(),
             'deposit_refund_status' => $o->deposit_refund_status,
             'deposit_refund_note' => $o->deposit_refund_note,
             'note' => $o->note,
@@ -409,6 +425,14 @@ class OrderController extends Controller
 
         $order->update(['status' => $new]);
 
+        // Ghi dấu ai bấm đã giao / đã thu (bopcamping-3wfk) — giữ dấu ĐẦU TIÊN, đổi trạng
+        // thái qua lại không xoá được dấu của người làm thật.
+        if ($new === 'renting') {
+            $order->stampAction('delivered', $request->user()->id);
+        } elseif ($new === 'returned') {
+            $order->stampAction('collected', $request->user()->id);
+        }
+
         // Đơn cha/con (bopcamping-wtuv T4): huỷ cha → huỷ hết con; huỷ/khôi phục 1 con →
         // tính lại voucher + phân bổ trên các con CÒN active.
         if ($order->is_parent && $new === 'cancelled') {
@@ -476,26 +500,31 @@ class OrderController extends Controller
     }
 
     /**
-     * Đánh dấu tình trạng chuyển tiền của đơn (bopcamping-7be) — admin bấm sau khi
-     * xác nhận với khách. unpaid = chưa chuyển · deposit = đã chuyển cọc · full = chuyển hết.
-     * Đơn ĐÃ TRẢ thì khoá (chuyển sang theo dõi hoàn cọc, không đổi tình trạng chuyển tiền nữa).
+     * Đánh dấu ĐÃ/CHƯA thu 1 trong 2 khoản: tiền thuê hoặc cọc (bopcamping-q7i0).
+     * Hai khoản độc lập — khách có thể chuyển tiền thuê trước, cọc trả khi nhận đồ.
+     * Ghi luôn ai đánh dấu để đối soát; payment_status suy ra trong Order::markPaid().
+     *
+     * KHÁC bản cũ: đơn ĐÃ TRẢ vẫn cho đánh dấu, vì tiền thuê có thể mới thu lúc thu đồ.
      */
     public function updatePayment(Request $request, Order $order): RedirectResponse
     {
         if ($order->is_parent) {
-            return back()->withErrors(['payment_status' => 'Đơn gộp: đánh dấu chuyển tiền trên từng đợt (đơn con).']);
+            return back()->withErrors(['payment' => 'Đơn gộp: đánh dấu thu tiền trên từng đợt (đơn con).']);
         }
-        if ($order->status === 'returned') {
-            return back()->withErrors(['payment_status' => 'Đơn đã trả — không đổi tình trạng chuyển tiền nữa.']);
+        if ($order->status === 'cancelled') {
+            return back()->withErrors(['payment' => 'Đơn đã huỷ — không đánh dấu thu tiền.']);
         }
 
         $validated = $request->validate([
-            'payment_status' => ['required', 'in:'.implode(',', Order::PAYMENT_STATUSES)],
+            'kind' => ['required', 'in:'.implode(',', Order::PAYMENT_KINDS)],
+            'paid' => ['required', 'boolean'],
         ]);
 
-        $order->update(['payment_status' => $validated['payment_status']]);
+        $order->markPaid($validated['kind'], (bool) $validated['paid'], $request->user()->id);
 
-        return back()->with('success', "Đơn {$order->code}: đã cập nhật tình trạng chuyển tiền");
+        $label = $validated['kind'] === 'rental' ? 'tiền thuê' : 'tiền cọc';
+
+        return back()->with('success', "Đơn {$order->code}: đã cập nhật {$label}");
     }
 
     /**
@@ -516,10 +545,12 @@ class OrderController extends Controller
             'deposit_refund_note' => ['nullable', 'string', 'max:500'],
         ]);
 
-        $order->update([
-            'deposit_refund_status' => $validated['deposit_refund_status'],
-            'deposit_refund_note' => $validated['deposit_refund_note'] ?? null,
-        ]);
+        // Qua markRefunded để LUÔN có dấu ai hoàn cọc, lúc nào (bopcamping-3wfk).
+        $order->markRefunded(
+            $validated['deposit_refund_status'] === 'refunded',
+            $request->user()->id,
+            $validated['deposit_refund_note'] ?? null,
+        );
 
         return back()->with('success', "Đơn {$order->code}: đã cập nhật hoàn cọc");
     }
@@ -547,5 +578,52 @@ class OrderController extends Controller
         ]);
 
         return back()->with('success', "Đơn {$order->code}: đã cập nhật phụ phí");
+    }
+
+    /**
+     * Chốt/sửa giờ giao + giờ thu do SHOP quyết định, kèm ghi chú nội bộ cho shipper
+     * (bopcamping-641t, prd_delivery_schedule). KHÔNG ghi đè `requested_*` (giờ khách xin) —
+     * hai cột tách biệt để đối chiếu. Chỉ đơn con/đơn thường, chưa trả/chưa huỷ mới chốt được.
+     * Xoá trắng cả hai giờ = huỷ chốt (set null). Gửi mail xác nhận CHỈ khi giờ đổi thật.
+     */
+    public function updateSchedule(Request $request, Order $order): RedirectResponse
+    {
+        if ($order->is_parent) {
+            return back()->withErrors(['confirmed_pickup_time' => 'Đơn gộp: chốt giờ trên từng đợt (đơn con).']);
+        }
+        if (in_array($order->status, ['returned', 'cancelled'], true)) {
+            return back()->withErrors(['confirmed_pickup_time' => 'Đơn đã trả/đã huỷ — không chốt giờ nữa.']);
+        }
+
+        $validated = $request->validate([
+            'confirmed_pickup_time' => ['nullable', 'date_format:H:i'],
+            'confirmed_return_time' => ['nullable', 'date_format:H:i'],
+            'schedule_note' => ['nullable', 'string', 'max:255'],
+        ]);
+
+        $pickup = $validated['confirmed_pickup_time'] ?? null;
+        $return = $validated['confirmed_return_time'] ?? null;
+
+        // Đơn cùng ngày (trả sớm/nửa ngày) → giờ thu phải sau giờ giao (so sánh chuỗi HH:MM là đủ).
+        if ($order->start_date->isSameDay($order->end_date) && $pickup && $return && $return <= $pickup) {
+            return back()->withErrors(['confirmed_return_time' => 'Giờ thu phải sau giờ giao (đơn trong cùng ngày).']);
+        }
+
+        $changed = $pickup !== $order->confirmed_pickup_time || $return !== $order->confirmed_return_time;
+
+        $order->update([
+            'confirmed_pickup_time' => $pickup,
+            'confirmed_return_time' => $return,
+            'schedule_note' => $validated['schedule_note'] ?? null,
+            'schedule_confirmed_at' => ($pickup || $return) ? now() : null,
+        ]);
+
+        // Xoá trắng cả hai giờ = huỷ chốt → KHÔNG gửi mail "đã chốt giờ" rỗng nghĩa;
+        // admin gọi khách như trước khi có giờ. Chỉ báo khi còn ít nhất 1 giờ.
+        if ($changed && ($pickup || $return) && ($email = $order->notifiableEmail())) {
+            Mail::to($email)->send(new OrderScheduleConfirmedMail($order->fresh()->loadMissing('items.product')));
+        }
+
+        return back()->with('success', "Đơn {$order->code}: đã cập nhật giờ giao/thu");
     }
 }

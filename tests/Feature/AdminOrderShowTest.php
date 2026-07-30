@@ -66,6 +66,26 @@ class AdminOrderShowTest extends TestCase
     }
 
     /** @test */
+    public function order_props_carry_confirmed_schedule_fields(): void
+    {
+        // bopcamping-n7bh: giờ shop chốt tách hẳn khỏi giờ khách xin — FE nhận cả hai.
+        $order = $this->order([
+            'confirmed_pickup_time' => '14:30', 'confirmed_return_time' => '09:00',
+            'schedule_note' => 'Gọi trước 15 phút', 'schedule_confirmed_at' => '2030-06-30 10:05:00',
+        ]);
+
+        $this->actingAs($this->admin())->get(route('admin.orders.show', $order))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('order.confirmed_pickup_time', '14:30')
+                ->where('order.confirmed_return_time', '09:00')
+                ->where('order.schedule_note', 'Gọi trước 15 phút')
+                ->where('order.schedule_confirmed_at', '30/06 10:05')
+                // Giờ khách xin KHÔNG bị ghi đè
+                ->where('order.requested_pickup_time', '08:00'));
+    }
+
+    /** @test */
     public function guest_is_redirected_to_admin_login(): void
     {
         $order = $this->order();

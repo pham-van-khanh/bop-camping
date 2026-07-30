@@ -7,6 +7,7 @@ use App\Http\Controllers\Admin\CampingSpotController as AdminCampingSpotControll
 use App\Http\Controllers\Admin\CategoryController as AdminCategoryController;
 use App\Http\Controllers\Admin\ComboController as AdminComboController;
 use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
+use App\Http\Controllers\Admin\DeliveryScheduleController as AdminDeliveryScheduleController;
 use App\Http\Controllers\Admin\EditorImageController as AdminEditorImageController;
 use App\Http\Controllers\Admin\FaqController as AdminFaqController;
 use App\Http\Controllers\Admin\FeedbackController as AdminFeedbackController;
@@ -23,6 +24,8 @@ use App\Http\Controllers\Admin\StatsController as AdminStatsController;
 use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\Admin\VoucherController as AdminVoucherController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\Shipper\AuthController as ShipperAuthController;
+use App\Http\Controllers\Shipper\ScheduleController as ShipperScheduleController;
 use App\Http\Controllers\Shop\CartController;
 use App\Http\Controllers\Shop\ComboController;
 use App\Http\Controllers\Shop\FeedbackController;
@@ -85,6 +88,24 @@ Route::get('/admin/login', [AdminAuthController::class, 'showLogin'])->name('adm
 Route::post('/admin/login', [AdminAuthController::class, 'login'])->name('admin.login.store')->middleware('throttle:10,1');
 Route::post('/admin/logout', [AdminAuthController::class, 'logout'])->name('admin.logout');
 
+// Shipper — auth + khu vực riêng (bopcamping-lsch, adr_shipper_role_and_access)
+// Tách hẳn khỏi form login admin: bopcamping-vo4 sẽ đổi admin sang HTTP Basic Auth.
+Route::get('/shipper/dang-nhap', [ShipperAuthController::class, 'showLogin'])->name('shipper.login');
+Route::post('/shipper/dang-nhap', [ShipperAuthController::class, 'login'])->name('shipper.login.store')->middleware('throttle:10,1');
+Route::post('/shipper/dang-xuat', [ShipperAuthController::class, 'logout'])->name('shipper.logout');
+
+Route::middleware(['shipper'])->prefix('shipper')->name('shipper.')->group(function () {
+    Route::get('/', fn () => redirect()->route('shipper.schedule'));
+    // Chỉ đơn được gán cho chính shipper đang đăng nhập (kẹp trong controller).
+    Route::get('/lich-giao', [ShipperScheduleController::class, 'index'])->name('schedule');
+    // Shipper tự đánh dấu — chỉ trên đơn được gán cho mình (kiểm trong controller).
+    Route::patch('/don/{order}/da-giao', [ShipperScheduleController::class, 'markDelivered'])->name('orders.delivered')->middleware('throttle:60,1');
+    Route::patch('/don/{order}/da-thu', [ShipperScheduleController::class, 'markCollected'])->name('orders.collected')->middleware('throttle:60,1');
+    // Shipper thu hộ tiền thuê / cọc, và trả cọc lại cho khách (bopcamping-lvw3)
+    Route::patch('/don/{order}/thu/{kind}', [ShipperScheduleController::class, 'collect'])->name('orders.collect')->middleware('throttle:60,1');
+    Route::patch('/don/{order}/hoan-coc', [ShipperScheduleController::class, 'refundDeposit'])->name('orders.refund')->middleware('throttle:60,1');
+});
+
 // Admin — panel (bảo vệ bằng middleware 'admin')
 // Chỉ dùng 'admin' (EnsureAdmin đã check auth bên trong, redirect về /admin/login)
 Route::middleware(['admin'])->prefix('admin')->name('admin.')->group(function () {
@@ -110,6 +131,14 @@ Route::middleware(['admin'])->prefix('admin')->name('admin.')->group(function ()
     Route::patch('/orders/{order}/extra-fee', [AdminOrderController::class, 'updateExtraFee'])->name('orders.fee')->middleware('throttle:30,1');
     // Hoàn cọc khi đơn đã trả (đã hoàn / chưa hoàn + lý do) — bopcamping-7be
     Route::patch('/orders/{order}/refund', [AdminOrderController::class, 'updateRefund'])->name('orders.refund');
+    // Chốt giờ giao/thu + ghi chú nội bộ cho shipper (bopcamping-5xir, prd_delivery_schedule)
+    Route::patch('/orders/{order}/schedule', [AdminOrderController::class, 'updateSchedule'])->name('orders.schedule')->middleware('throttle:30,1');
+
+    // Lịch giao/thu theo ngày cho shipper (bopcamping-rtkh, prd_delivery_schedule)
+    Route::get('/lich-giao', [AdminDeliveryScheduleController::class, 'index'])->name('schedule');
+    // Gán shipper cho từng lượt + gán cả ngày (bopcamping-yc7d)
+    Route::patch('/lich-giao/don/{order}/shipper', [AdminDeliveryScheduleController::class, 'assign'])->name('schedule.assign')->middleware('throttle:60,1');
+    Route::post('/lich-giao/gan-tat-ca', [AdminDeliveryScheduleController::class, 'assignAll'])->name('schedule.assignAll')->middleware('throttle:30,1');
 
     Route::get('/categories', [AdminCategoryController::class, 'index'])->name('categories');
     Route::post('/categories', [AdminCategoryController::class, 'store'])->name('categories.store');

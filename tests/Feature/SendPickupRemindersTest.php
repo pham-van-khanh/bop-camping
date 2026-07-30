@@ -90,4 +90,25 @@ class SendPickupRemindersTest extends TestCase
 
         Mail::assertQueued(OrderPickupReminderMail::class, 1);
     }
+
+    /** @test */
+    public function mail_shows_confirmed_pickup_time_and_drops_the_will_call_line(): void
+    {
+        $order = $this->makeOrder(['confirmed_pickup_time' => '14:30']);
+
+        $html = (new OrderPickupReminderMail($order))->render();
+
+        $this->assertStringContainsString('14:30', $html);
+        $this->assertStringNotContainsString('để hẹn giờ', $html);
+    }
+
+    /** @test */
+    public function mail_keeps_the_will_call_line_when_time_not_confirmed_yet(): void
+    {
+        $order = $this->makeOrder(['confirmed_pickup_time' => null]);
+
+        $html = (new OrderPickupReminderMail($order))->render();
+
+        $this->assertStringContainsString('để hẹn giờ', $html);
+    }
 }
