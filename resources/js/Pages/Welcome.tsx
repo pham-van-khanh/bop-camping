@@ -234,30 +234,6 @@ export default function Home({
             </HeroSlideshow>
 
             {/* Bạn đi ngày nào? — module đặt lịch trước, chọn đồ sau (PRD FR-1) */}
-            <section className="py-12" style={{ background: '#F3F1E6' }}>
-                <div className="mx-auto max-w-[720px] px-5">
-                    <motion.div {...reveal} className="mb-6 text-center">
-                        <div className="mb-2 font-mono text-[12px] tracking-[0.1em] text-campfire">
-                            CHỌN NGÀY TRƯỚC, CHỌN ĐỒ SAU
-                        </div>
-                        <h2
-                            className="mb-2.5 font-extrabold tracking-tight text-ink"
-                            style={{ fontSize: 'clamp(24px,3vw,32px)' }}
-                        >
-                            Bạn đi ngày nào?
-                        </h2>
-                        <p className="mx-auto max-w-[420px] text-moss">
-                            Chọn ngày để xem thiết bị còn rảnh.
-                        </p>
-                    </motion.div>
-                    <motion.div {...reveal}>
-                        <RentalDatePicker
-                            variant="hero"
-                            serviceLocations={openCities}
-                        />
-                    </motion.div>
-                </div>
-            </section>
 
             {/* Một bộ đồ, đi khắp địa hình (cảnh 3D đổi biôm) */}
             <section
