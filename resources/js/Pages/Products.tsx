@@ -3,6 +3,7 @@ import { router } from '@inertiajs/react';
 import { ReactNode, useState } from 'react';
 import SiteLayout from '@/Layouts/SiteLayout';
 import ProductCard from '@/Components/site/ProductCard';
+import RentalRangeBar from '@/Components/site/RentalRangeBar';
 import type { ProductResource } from '@/types/product';
 
 type Sort = 'pop' | 'low' | 'high';
@@ -11,7 +12,9 @@ interface Props {
     products: ProductResource[];
     categories: { id: number; name: string; slug: string }[];
     service_locations: { name: string; slug: string }[];
-    filters: { cat: string; q: string; sort: string; vi_tri: string };
+    filters: { cat: string; q: string; sort: string; vi_tri: string; start: string; end: string };
+    // null khi khách chưa chọn khoảng ngày (bopcamping-3kn9).
+    range_summary: { days: number; unavailable_count: number } | null;
 }
 
 const segBtn = (active: boolean) =>
@@ -22,13 +25,22 @@ const chipBtn = (active: boolean) =>
         active ? 'border-grass bg-grass text-white' : 'border-[#d6ddc4] bg-card text-pine hover:border-grass'
     }`;
 
-export default function Products({ products, categories, service_locations, filters }: Props) {
+export default function Products({ products, categories, service_locations, filters, range_summary }: Props) {
     const [search, setSearch] = useState(filters.q ?? '');
 
     const applyFilters = (patch: Partial<{ cat: string; q: string; sort: string; 'vi-tri': string }>) => {
         router.get(
             '/thiet-bi',
-            { cat: filters.cat, q: filters.q, sort: filters.sort, 'vi-tri': filters.vi_tri, ...patch },
+            {
+                cat: filters.cat,
+                q: filters.q,
+                sort: filters.sort,
+                'vi-tri': filters.vi_tri,
+                // Giữ khoảng ngày khi đổi bộ lọc khác — đổi danh mục không được làm mất ngày đã chọn.
+                start: filters.start,
+                end: filters.end,
+                ...patch,
+            },
             { preserveState: true, replace: true },
         );
     };
@@ -56,6 +68,17 @@ export default function Products({ products, categories, service_locations, filt
                     <div className="mb-[7px] font-mono text-[12px] tracking-[0.1em] text-campfire">KHO THIẾT BỊ</div>
                     <h1 className="font-extrabold tracking-tight text-ink" style={{ fontSize: 'clamp(26px,3.4vw,36px)' }}>Chọn đồ cho chuyến đi</h1>
                 </div>
+
+                {/* Thanh khoảng ngày — nguồn chân lý là URL (?start=&end=), không giữ state riêng. */}
+                <RentalRangeBar
+                    start={filters.start ?? ''}
+                    end={filters.end ?? ''}
+                    viTri={viTri}
+                    serviceLocations={service_locations}
+                    targetPath="/thiet-bi"
+                    preserveParams={{ cat, q: filters.q ?? '', sort }}
+                    unavailableCount={range_summary?.unavailable_count ?? null}
+                />
 
                 {/* location filter — chỉ hiện khi có >1 vị trí phục vụ */}
                 {service_locations.length > 1 && (
@@ -112,7 +135,12 @@ export default function Products({ products, categories, service_locations, filt
 
                 {/* results */}
                 <div className="mb-3.5 flex items-center justify-between">
-                    <span className="font-mono text-[13px] text-moss">{products.length} thiết bị</span>
+                    <span className="font-mono text-[13px] text-moss">
+                        {products.length} thiết bị
+                        {range_summary && (
+                            <> · {products.length - range_summary.unavailable_count} còn rảnh</>
+                        )}
+                    </span>
                 </div>
                 {isEmpty ? (
                     <div className="rounded-[18px] border border-dashed px-6 py-[50px] text-center" style={{ borderColor: '#cdd6b6', background: '#FBFCF7' }}>

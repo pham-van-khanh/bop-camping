@@ -33,7 +33,10 @@ export default function ComboCard({ c, index = 0 }: { c: ComboCardData; index?: 
         >
             <Link
                 href={`/combos/${c.slug}`}
-                className="group flex h-full flex-col overflow-hidden rounded-card border border-cardBorder bg-card transition duration-200 hover:-translate-y-1 hover:shadow-cardhover"
+                aria-label={soldOut ? `${c.name} — hết hàng trong khoảng ngày đã chọn` : undefined}
+                // Làm mờ combo hết hàng cho khớp ProductCard (bopcamping-3kn9): vẫn thấy là shop CÓ
+                // combo này để đổi ngày, nhưng rõ ràng là hiện không đặt được. Hover thì sáng lại.
+                className={`group flex h-full flex-col overflow-hidden rounded-card border border-cardBorder bg-card transition duration-200 hover:-translate-y-1 hover:shadow-cardhover ${soldOut ? 'opacity-50 grayscale-[35%] hover:opacity-100' : ''}`}
             >
                 <div className="relative h-[170px]" style={{ background: COMBO_GRAD }}>
                     {c.image && <img src={c.image} alt={c.name} className="absolute inset-0 h-full w-full object-cover" />}

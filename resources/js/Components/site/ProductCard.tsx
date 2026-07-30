@@ -31,11 +31,17 @@ function LocationBadge({ label }: { label: string }) {
 
 /** Thẻ sản phẩm dùng chung cho Trang chủ + Danh sách (RULES mục 7). */
 export default function ProductCard({ p, compact = false, index = 0 }: { p: ProductResource; compact?: boolean; index?: number }) {
-    const low = p.quantity <= 2;
     const bg  = gradFor(p.category.slug);
     const locations = p.locations ?? [];
     // Gộp "Toàn hệ thống" chỉ khi có ≥2 vị trí; 1 vị trí thì hiện thẳng tên nơi đó.
     const showAllBadge = !!p.all_locations && locations.length > 1;
+
+    // Khách đã chọn khoảng ngày (bopcamping-3kn9): badge tồn phải nói theo KHOẢNG ĐÓ,
+    // không phải tổng tồn cả kho — nếu không thì "Còn 8 bộ" trên món đã kín lịch là nói dối.
+    const hasRange = p.available !== null && p.available !== undefined;
+    const stock = hasRange ? (p.available as number) : p.quantity;
+    const soldOut = hasRange && stock < 1;
+    const low = !soldOut && stock <= 2;
 
     return (
         <motion.div
@@ -46,7 +52,8 @@ export default function ProductCard({ p, compact = false, index = 0 }: { p: Prod
         >
             <Link
                 href={`/thiet-bi/${p.slug}`}
-                className="group flex h-full flex-col overflow-hidden rounded-card border border-cardBorder bg-card transition duration-200 hover:-translate-y-1 hover:shadow-cardhover"
+                aria-label={soldOut ? `${p.name} — hết hàng trong khoảng ngày đã chọn` : undefined}
+                className={`group flex h-full flex-col overflow-hidden rounded-card border border-cardBorder bg-card transition duration-200 hover:-translate-y-1 hover:shadow-cardhover ${soldOut ? 'opacity-50 grayscale-[35%] hover:opacity-100' : ''}`}
             >
                 <div className={`relative ${compact ? 'h-[170px]' : 'h-[240px]'}`} style={{ background: bg }}>
                     {p.thumbnail && (
@@ -54,10 +61,10 @@ export default function ProductCard({ p, compact = false, index = 0 }: { p: Prod
                     )}
                     <div className="absolute inset-0" style={{ background: 'radial-gradient(120px 90px at 78% 22%, rgba(255,255,255,.35), transparent 60%)' }} />
                     <span
-                        className={`absolute left-3 top-3 rounded-pill px-2.5 py-1 font-mono text-[11px] font-bold text-white ${low ? 'bg-campfire' : ''}`}
-                        style={low ? undefined : { background: 'rgba(44,61,34,.72)' }}
+                        className={`absolute left-3 top-3 rounded-pill px-2.5 py-1 font-mono text-[11px] font-bold text-white ${low || soldOut ? 'bg-campfire' : ''}`}
+                        style={low || soldOut ? undefined : { background: 'rgba(44,61,34,.72)' }}
                     >
-                        {low ? `Sắp hết · ${p.quantity} bộ` : `Còn ${p.quantity} bộ`}
+                        {soldOut ? 'Hết hàng' : low ? `Sắp hết · ${stock} bộ` : `Còn ${stock} bộ`}
                     </span>
                     {locations.length > 0 && (
                         <div className="absolute bottom-2.5 right-2.5 flex max-w-[70%] flex-wrap justify-end gap-1">

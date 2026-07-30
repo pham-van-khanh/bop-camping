@@ -1,9 +1,8 @@
-import { Head, router } from '@inertiajs/react';
-import { ReactNode, useMemo, useState } from 'react';
+import { Head } from '@inertiajs/react';
+import { ReactNode } from 'react';
 import SiteLayout from '@/Layouts/SiteLayout';
-import DateRangeCalendar from '@/Components/site/DateRangeCalendar';
 import ComboCard, { type ComboCardData } from '@/Components/site/ComboCard';
-import { rangeText } from '@/lib/format';
+import RentalRangeBar from '@/Components/site/RentalRangeBar';
 
 type ComboListItem = ComboCardData & {
     items: { product_id: number; name: string | null; quantity: number; price_per_day: number }[];
@@ -12,34 +11,12 @@ type ComboListItem = ComboCardData & {
 
 interface Props {
     combos: ComboListItem[];
-    filters: { start: string; end: string };
+    service_locations: { name: string; slug: string }[];
+    filters: { start: string; end: string; vi_tri: string };
+    range_summary: { days: number; unavailable_count: number } | null;
 }
 
-export default function Combos({ combos, filters }: Props) {
-    // Date-picker chung đầu trang (PRD mục 6): chọn xong cả 2 đầu → reload availability
-    const [start, setStart] = useState<string | null>(filters.start || null);
-    const [end, setEnd] = useState<string | null>(filters.end || null);
-    const [pickerOpen, setPickerOpen] = useState(false);
-
-    const unavailable = useMemo(() => new Set<string>(), []);
-    const hasRange = !!(filters.start && filters.end);
-
-    const applyRange = (s: string | null, e: string | null) => {
-        setStart(s);
-        setEnd(e);
-        if (s && e) {
-            setPickerOpen(false);
-            router.get('/combos', { start: s, end: e }, { preserveState: true, preserveScroll: true });
-        }
-    };
-
-    const clearRange = () => {
-        setStart(null);
-        setEnd(null);
-        setPickerOpen(false);
-        router.get('/combos', {}, { preserveState: true, preserveScroll: true });
-    };
-
+export default function Combos({ combos, service_locations, filters, range_summary }: Props) {
     return (
         <>
             <Head title="Combo thuê trọn bộ" />
@@ -52,36 +29,18 @@ export default function Combos({ combos, filters }: Props) {
                     Trọn bộ đồ camping gói sẵn theo nhu cầu — không phải nghĩ mình thiếu gì, cọc thấp hơn thuê lẻ từng món.
                 </p>
 
-                {/* Date-picker chung: trạng thái còn/hết của mọi combo tính theo khoảng này */}
-                <div className="mb-7 rounded-[16px] border border-cardBorder bg-card p-4">
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                        <div>
-                            <div className="text-[12px] text-[#8a967a]">Xem tình trạng còn đồ theo ngày</div>
-                            <div className="font-mono text-[15px] font-bold text-ink">{rangeText(start, end)}</div>
-                        </div>
-                        <div className="flex gap-2">
-                            {hasRange && (
-                                <button
-                                    onClick={clearRange}
-                                    className="h-10 rounded-control border border-cardBorder px-4 text-[13px] font-semibold text-pine transition hover:bg-[#f1f4ea]"
-                                >
-                                    Bỏ chọn ngày
-                                </button>
-                            )}
-                            <button
-                                onClick={() => setPickerOpen((o) => !o)}
-                                className="h-10 rounded-control bg-grass px-4 text-[13px] font-bold text-white transition hover:bg-pine"
-                            >
-                                {pickerOpen ? 'Đóng lịch' : start && end ? 'Đổi ngày' : 'Chọn ngày thuê'}
-                            </button>
-                        </div>
-                    </div>
-                    {pickerOpen && (
-                        <div className="mt-4 max-w-[560px]">
-                            <DateRangeCalendar start={start} end={end} unavailable={unavailable} onChange={applyRange} />
-                        </div>
-                    )}
-                </div>
+                {/* Thanh khoảng ngày dùng CHUNG với /thiet-bi — trạng thái còn/hết của mọi combo
+                    tính theo khoảng này. Trước đây trang này có bản tự làm riêng (bopcamping-3kn9). */}
+                <RentalRangeBar
+                    start={filters.start ?? ''}
+                    end={filters.end ?? ''}
+                    viTri={filters.vi_tri ?? ''}
+                    serviceLocations={service_locations}
+                    targetPath="/combos"
+                    preserveParams={{}}
+                    unavailableCount={range_summary?.unavailable_count ?? null}
+                    noun="combo"
+                />
 
                 {combos.length === 0 ? (
                     <div className="rounded-[18px] border border-dashed px-6 py-14 text-center" style={{ borderColor: '#cdd6b6', background: '#FBFCF7' }}>
