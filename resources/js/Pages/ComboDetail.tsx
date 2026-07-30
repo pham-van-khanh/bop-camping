@@ -5,6 +5,7 @@ import DateRangeCalendar from '@/Components/site/DateRangeCalendar';
 import { COMBO_GRAD } from '@/Components/site/ComboCard';
 import { dayCount, ddmm, money, rangeText, toISO } from '@/lib/format';
 import { addLine, cartSuggestedRange, clearCart, locationConflict, type CartLine, type CartLocation } from '@/lib/cart';
+import { queryDateRange } from '@/lib/queryDateRange';
 import { emit, EVENTS } from '@/lib/bus';
 
 type ComboItemRow = {
@@ -55,8 +56,11 @@ export default function ComboDetail({ combo }: Props) {
         const r = cartSuggestedRange();
         return r && r.start >= toISO(new Date()) ? r : null;
     }, []);
-    const [start, setStart] = useState<string | null>(suggested?.start ?? null);
-    const [end, setEnd] = useState<string | null>(suggested?.end ?? null);
+    // Prefill từ query URL ?start=&end= (bopcamping-llg6 T5, PRD FR-3) — ƯU TIÊN CAO HƠN
+    // cartSuggestedRange(); khách vẫn sửa lịch tự do sau đó.
+    const initialRange = useMemo(() => queryDateRange() ?? suggested, [suggested]);
+    const [start, setStart] = useState<string | null>(initialRange?.start ?? null);
+    const [end, setEnd] = useState<string | null>(initialRange?.end ?? null);
     const [qty, setQty] = useState(1);
     const [avail, setAvail] = useState<AvailabilityResult | null>(null);
     const [checking, setChecking] = useState(false);
