@@ -295,6 +295,12 @@ sudo supervisorctl status         # phải thấy RUNNING
 > chỉ chạy khi có cron gọi `schedule:run` mỗi phút. Thiếu bước này = email nhắc KHÔNG gửi
 > (queue worker vẫn cần chạy để mail đi — xem §5).
 
+> ✅ **Tự động từ bopcamping-ybsm:** `scripts/deploy.sh` tự ghi dòng cron này vào crontab
+> của user chạy deploy ở **mỗi lần deploy** (idempotent — không tạo dòng trùng khi deploy
+> lại). Không cần làm tay bước dưới đây ở lần đầu nữa; giữ lại để tham khảo/khắc phục sự cố
+> nếu cron vì lý do gì đó bị thiếu (vd đổi user chạy deploy, hoặc server dựng thủ công ngoài
+> pipeline CI).
+
 Thêm 1 dòng vào crontab của user chạy app (vd `deploy` hoặc `www-data`):
 
 ```bash
