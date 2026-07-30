@@ -53,7 +53,8 @@ class AuthController extends Controller
 
         $request->session()->regenerate();
 
-        return redirect()->route('shipper.schedule');
+        // Về đúng trang shipper định vào (vd link Zalo kèm ?date=), mặc định là lịch hôm nay.
+        return redirect()->intended(route('shipper.schedule'));
     }
 
     public function logout(Request $request): RedirectResponse
