@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Observers\OrderObserver;
+use App\Services\DeliveryScheduleService;
 use Database\Factories\OrderFactory;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -255,6 +256,15 @@ class Order extends Model
     public function getRentalDueAttribute(): int
     {
         return (int) $this->total_price + (int) $this->extra_fee - (int) $this->discount_total;
+    }
+
+    /**
+     * Đơn đã được admin xác nhận với khách (đang chờ giao hoặc đang thuê). Mốc để: áp giờ
+     * mặc định toàn shop, và cho phép thu tiền — đơn còn 'pending' thì giá/lịch chưa chắc.
+     */
+    public function isConfirmed(): bool
+    {
+        return in_array($this->status, DeliveryScheduleService::CONFIRMED_STATUSES, true);
     }
 
     public function rentalPaid(): bool

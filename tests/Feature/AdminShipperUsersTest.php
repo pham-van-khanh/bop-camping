@@ -188,6 +188,29 @@ class AdminShipperUsersTest extends TestCase
     }
 
     /** @test */
+    public function a_user_holding_money_attribution_cannot_be_deleted(): void
+    {
+        // Mọi cột *_by là nullOnDelete → xoá người là mất sạch dấu "ai đã nhận tiền" của đơn
+        // cũ, đúng thứ tính năng đối soát sinh ra để giữ (review 31/07). Cho nghỉ thì TẮT VAI.
+        $shipper = $this->shipper('Đã thu tiền');
+        $order = $this->upcomingOrder($shipper);
+        $order->markPaid('deposit', true, $shipper->id);
+
+        $this->actingAs($this->admin())->delete(route('admin.users.destroy', $shipper), ['force' => true])
+            ->assertSessionHasErrors('message');
+
+        $this->assertNotNull($shipper->fresh(), 'không được xoá người còn là dấu thu tiền');
+        $this->assertSame($shipper->id, $order->fresh()->deposit_paid_by);
+
+        // Tắt vai vẫn được — đây là đường đúng để cho shipper nghỉ.
+        $this->actingAs($this->admin())
+            ->patch(route('admin.users.role', $shipper), ['is_shipper' => false, 'force' => true])
+            ->assertSessionHasNoErrors();
+        $this->assertFalse($shipper->fresh()->isShipper());
+        $this->assertSame($shipper->id, $order->fresh()->deposit_paid_by, 'tắt vai KHÔNG xoá dấu tiền');
+    }
+
+    /** @test */
     public function shipper_cannot_manage_accounts(): void
     {
         $shipper = $this->shipper();

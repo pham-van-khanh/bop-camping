@@ -124,6 +124,21 @@ class ShipperZaloMessageTest extends TestCase
     }
 
     /** @test */
+    public function pending_order_never_asks_the_shipper_to_collect_money(): void
+    {
+        // Đơn chưa xác nhận thì giá/lịch còn đổi được — tin nhắn KHÔNG được nhờ thu tiền,
+        // và việc còn lại chỉ là chờ shop chốt (review 31/07).
+        $order = $this->order(['status' => 'pending']);
+
+        $text = $this->message($order);
+        $this->assertStringNotContainsString('Nhờ shipper thu', $text);
+        $this->assertStringContainsString('Đơn chưa được xác nhận', $text);
+
+        $svc = app(DeliveryScheduleService::class);
+        $this->assertSame(['Chờ shop xác nhận đơn'], $svc->todo($order, 'pickup'));
+    }
+
+    /** @test */
     public function schedule_page_ships_the_message_and_shipper_phone_for_each_order(): void
     {
         $shipper = User::factory()->create(['name' => 'Shipper A', 'phone' => '0977000111', 'is_shipper' => true]);

@@ -65,7 +65,11 @@ return [
     |
     */
 
-    'timezone' => 'UTC',
+    // Shop chỉ hoạt động ở Việt Nam nên giờ ứng dụng = giờ VN (bopcamping-24wj review 31/07):
+    // với UTC thì từ 00:00–07:00 giờ VN, Carbon::today() vẫn là NGÀY HÔM TRƯỚC → lịch giao và
+    // app shipper mở sai ngày, và mọi mốc "ai đã nhận tiền lúc mấy giờ" hiện sớm 7 tiếng.
+    // Lịch cron trong routes/console.php cũng theo giờ VN từ đây (trước là 08:00 UTC = 15:00 VN).
+    'timezone' => env('APP_TIMEZONE', 'Asia/Ho_Chi_Minh'),
 
     /*
     |--------------------------------------------------------------------------
