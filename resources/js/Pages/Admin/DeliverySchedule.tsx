@@ -23,9 +23,13 @@ type ScheduleOrder = {
     service_location: string | null;
     session: Session | null;
     status: string;
-    payment_status: string;
     amount_due: number;
+    // Hai khoản tiền ĐỘC LẬP — nhãn phải suy từ đây, KHÔNG từ payment_status (tóm tắt 3 mức
+    // cũ không phân biệt được đã thu tiền thuê hay đã thu cọc).
+    rental_due: number;
+    rental_paid: boolean;
     deposit_total: number;
+    deposit_paid: boolean;
     schedule_note: string | null;
     items: ScheduleItem[];
     // Gán shipper theo lượt (bopcamping-yc7d)
@@ -51,13 +55,6 @@ type ShipperOption = { id: number; name: string };
 
 // Lượt đi của shipper: giao đồ (thu tiền COD) hoặc thu đồ (hoàn cọc).
 type TripKind = 'pickup' | 'return';
-
-// Nhãn tình trạng chuyển tiền — bản rút gọn cho card shipper (nguồn đầy đủ ở orderShared.tsx).
-const PAYMENT_LABEL: Record<string, string> = {
-    unpaid: 'chưa chuyển',
-    deposit: 'đã chuyển cọc',
-    full: 'đã chuyển hết',
-};
 
 // Đỏ đất — ngày có đơn + giờ đã chốt (khớp tông be/đất của shop).
 const RED = { bg: '#f6ddd6', fg: '#b3493a' };
@@ -408,6 +405,8 @@ function AssignAll({
 function ScheduleOrderCard({ order, kind }: { order: ScheduleOrder; kind: TripKind }) {
     const hours = shopHours((usePage().props as { site?: Parameters<typeof shopHours>[0] }).site);
     const sessTag = sessionLabel(order.session, hours);
+    const remaining = (order.rental_paid ? 0 : order.rental_due) + (order.deposit_paid ? 0 : order.deposit_total);
+    const unpaidLabel = [!order.rental_paid && 'tiền thuê', !order.deposit_paid && 'cọc'].filter(Boolean).join(' + ');
 
     return (
         <div className="rounded-[16px] border border-cardBorder bg-white p-4">
@@ -467,21 +466,24 @@ function ScheduleOrderCard({ order, kind }: { order: ScheduleOrder; kind: TripKi
                 </ul>
             )}
 
-            {/* Lượt GIAO thu tiền (COD); lượt THU trả cọc lại cho khách — hai việc khác nhau. */}
+            {/* Lượt GIAO thu tiền (COD); lượt THU trả cọc lại cho khách — hai việc khác nhau.
+                Số tiền suy từ 2 cờ thật để không bao giờ nói sai khoản nào đã thu. */}
             <div className="mt-2 border-t border-[#f1f4ea] pt-2 text-[13px]">
                 {kind === 'pickup' ? (
-                    <>
-                        <span className="font-mono font-bold text-ink">Thu khi nhận: {money(order.amount_due)}</span>
-                        <span className="ml-1 text-moss">
-                            ({PAYMENT_LABEL[order.payment_status] ?? order.payment_status})
-                        </span>
-                    </>
+                    remaining > 0 ? (
+                        <>
+                            <span className="font-mono font-bold text-ink">Thu khi giao: {money(remaining)}</span>
+                            <span className="ml-1 text-moss">({unpaidLabel})</span>
+                        </>
+                    ) : (
+                        <span style={{ color: '#3a5a1f' }}>✓ Đã thu đủ tiền đơn này</span>
+                    )
                 ) : (
                     <>
                         <span className="font-mono font-bold text-ink">Hoàn cọc: {money(order.deposit_total)}</span>
-                        {order.payment_status !== 'full' && (
+                        {remaining > 0 && (
                             <span className="ml-1" style={{ color: RED.fg }}>
-                                · tiền thuê {PAYMENT_LABEL[order.payment_status] ?? order.payment_status}
+                                · còn phải thu {money(remaining)} ({unpaidLabel})
                             </span>
                         )}
                     </>

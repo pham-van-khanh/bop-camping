@@ -106,8 +106,10 @@ class ScheduleController extends Controller
         // Thu tiền được ở CẢ HAI lượt: tiền thuê có thể mới thu đúng lúc đi thu đồ.
         $this->authorizeAnyLeg($request, $order);
 
-        if ($order->status === 'cancelled') {
-            return back()->withErrors(['payment' => 'Đơn đã huỷ — không thu tiền.']);
+        // Đơn chưa xác nhận / đã huỷ: KHÔNG cho thu hộ (giá và lịch còn có thể đổi).
+        // Admin vẫn ghi nhận được khách chuyển trước — đó là việc của admin, không phải shipper.
+        if (! $order->isConfirmed()) {
+            return back()->withErrors(['payment' => 'Đơn chưa được xác nhận — chưa thu tiền. Gọi chủ shop nếu khách muốn trả.']);
         }
         if ($kind === 'rental' ? $order->rentalPaid() : $order->depositPaid()) {
             return back()->withErrors(['payment' => 'Khoản này đã được đánh dấu thu rồi.']);

@@ -121,6 +121,40 @@ class ShipperCollectMoneyTest extends TestCase
     }
 
     /** @test */
+    public function pending_order_cannot_be_collected_by_shipper_but_admin_can_still_record(): void
+    {
+        // Đơn chưa xác nhận: giá/lịch còn có thể đổi, thậm chí huỷ → shipper KHÔNG thu hộ.
+        $me = $this->shipper();
+        $admin = User::factory()->create(['is_admin' => true]);
+        $order = $this->order(['status' => 'pending', 'pickup_shipper_id' => $me->id]);
+
+        $this->actingAs($me)->patch(route('shipper.orders.collect', ['order' => $order->id, 'kind' => 'rental']))
+            ->assertSessionHasErrors('payment');
+        $this->assertFalse($order->fresh()->rentalPaid());
+
+        // Nhưng admin vẫn ghi nhận được khi khách chuyển khoản trước — việc của admin.
+        $this->actingAs($admin)->patch(route('admin.orders.payment', $order), ['kind' => 'rental', 'paid' => true])
+            ->assertSessionHasNoErrors();
+        $this->assertTrue($order->fresh()->rentalPaid());
+    }
+
+    /** @test */
+    public function schedule_payload_no_longer_exposes_the_misleading_payment_status(): void
+    {
+        // payment_status 3 mức không phân biệt được đã thu tiền thuê hay đã thu cọc → bỏ khỏi
+        // payload để không ai dựng nhãn sai từ nó nữa (review 31/07).
+        $me = $this->shipper();
+        $order = $this->order(['pickup_shipper_id' => $me->id]);
+        $order->markPaid('rental', true, $me->id);
+
+        $this->actingAs($me)->get(route('shipper.schedule'))
+            ->assertInertia(fn ($page) => $page
+                ->missing('pickups.0.payment_status')
+                ->where('pickups.0.rental_paid', true)
+                ->where('pickups.0.deposit_paid', false));
+    }
+
+    /** @test */
     public function return_shipper_refunds_the_deposit_with_a_deduction_note(): void
     {
         $me = $this->shipper();

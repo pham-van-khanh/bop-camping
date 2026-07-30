@@ -31,8 +31,11 @@ class DeliveryScheduleService
      */
     private const FALLBACK_TIMES = ['pickup' => '08:00', 'return' => '21:00'];
 
-    /** Trạng thái coi là "admin đã xác nhận đơn" — mới được áp giờ mặc định toàn shop. */
-    private const CONFIRMED_STATUSES = ['confirmed', 'renting'];
+    /**
+     * Trạng thái coi là "admin đã xác nhận đơn": mới được áp giờ mặc định toàn shop, và
+     * mới được nhờ shipper thu tiền (đơn còn chờ xác nhận thì giá/lịch còn có thể đổi).
+     */
+    public const CONFIRMED_STATUSES = ['confirmed', 'renting'];
 
     /**
      * Cấu hình từng lượt: cột ngày, trạng thái hợp lệ, cột giờ đã chốt, cột giờ MẶC ĐỊNH,
@@ -65,7 +68,7 @@ class DeliveryScheduleService
 
         return $o->{$cfg['time']}
             ?? $o->{$cfg['default_time']}
-            ?? (in_array($o->status, self::CONFIRMED_STATUSES, true) ? self::FALLBACK_TIMES[$leg] : null);
+            ?? ($o->isConfirmed() ? self::FALLBACK_TIMES[$leg] : null);
     }
 
     /** True khi giờ đang dùng chỉ là giờ mặc định (admin chưa chốt) — UI nói rõ cho shipper. */
@@ -220,14 +223,19 @@ class DeliveryScheduleService
             ? 'Ngày giờ thu: '.$when('return')
             : 'Ngày giờ giao: '.$when('pickup');
 
-        if (! $o->rentalPaid()) {
-            $lines[] = 'Nhờ shipper thu tiền thuê: '.$vnd($o->rental_due);
-        }
-        if (! $o->depositPaid()) {
-            $lines[] = 'Nhờ shipper thu tiền cọc: '.$vnd((int) $o->deposit_total);
-        }
-        if ($o->rentalPaid() && $o->depositPaid()) {
-            $lines[] = 'Khách đã chuyển đủ tiền — không cần thu gì.';
+        // Đơn CHƯA xác nhận thì không nhờ thu tiền: giá/lịch còn có thể đổi, thậm chí huỷ.
+        if (! $o->isConfirmed()) {
+            $lines[] = 'Đơn chưa được xác nhận — CHƯA thu tiền, chờ shop chốt với khách.';
+        } else {
+            if (! $o->rentalPaid()) {
+                $lines[] = 'Nhờ shipper thu tiền thuê: '.$vnd($o->rental_due);
+            }
+            if (! $o->depositPaid()) {
+                $lines[] = 'Nhờ shipper thu tiền cọc: '.$vnd((int) $o->deposit_total);
+            }
+            if ($o->rentalPaid() && $o->depositPaid()) {
+                $lines[] = 'Khách đã chuyển đủ tiền — không cần thu gì.';
+            }
         }
 
         if ($leg === 'return') {
@@ -265,10 +273,13 @@ class DeliveryScheduleService
         $vnd = fn (int $n) => number_format($n, 0, ',', '.').'đ';
         $todo = [];
 
+        // Chưa xác nhận thì việc duy nhất là chờ shop chốt — KHÔNG nhắc thu tiền.
+        if (! $o->isConfirmed()) {
+            return ['Chờ shop xác nhận đơn'];
+        }
+
         if ($leg === 'pickup') {
-            if ($o->status === 'pending') {
-                $todo[] = 'Chờ shop xác nhận đơn';
-            } elseif ($o->status === 'confirmed') {
+            if ($o->status === 'confirmed') {
                 $todo[] = 'Giao đồ';
             }
         } elseif ($o->status === 'renting') {
@@ -322,7 +333,6 @@ class DeliveryScheduleService
             'service_location' => $o->serviceLocation?->name,
             'session' => $o->session,
             'status' => $o->status,
-            'payment_status' => $o->payment_status,
             'amount_due' => $o->amount_due,
             'deposit_total' => $o->deposit_total,
             // Thu tiền 2 khoản độc lập (bopcamping-q7i0) — shipper thu hộ khoản nào chưa thu.

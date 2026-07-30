@@ -119,6 +119,18 @@ class UserController extends Controller
         return $pickups + $returns;
     }
 
+    /**
+     * Số đơn mà user này đang là dấu ĐÃ THU / ĐÃ HOÀN tiền (bopcamping-24wj). Chỉ tính 3 mốc
+     * TIỀN — dấu giao/thu đồ mất đi thì đáng tiếc nhưng không ảnh hưởng đối soát tiền.
+     */
+    private function moneyTrailCount(User $user): int
+    {
+        return Order::where('rental_paid_by', $user->id)
+            ->orWhere('deposit_paid_by', $user->id)
+            ->orWhere('deposit_refunded_by', $user->id)
+            ->count();
+    }
+
     /** Chi tiết 1 khách + lịch sử đơn đối soát theo SĐT (lazy qua ?customer=ID). */
     private function customerDetail(Request $request): ?array
     {
@@ -295,6 +307,14 @@ class UserController extends Controller
         }
         if ($user->is_admin && $this->adminCount() <= 1) {
             return back()->withErrors(['message' => 'Không thể xoá admin cuối cùng.']);
+        }
+
+        // KHÔNG cho xoá người còn là bằng chứng thu/hoàn tiền: mọi cột *_by đều nullOnDelete,
+        // xoá là mất sạch dấu "ai đã nhận tiền" của các đơn cũ, không phục hồi được — mà đó
+        // đúng là thứ tính năng đối soát sinh ra để giữ. Muốn cho nghỉ thì TẮT VAI.
+        $moneyTrail = $this->moneyTrailCount($user);
+        if ($moneyTrail > 0) {
+            return back()->withErrors(['message' => "Không xoá được: người này đang là dấu thu/hoàn tiền của {$moneyTrail} đơn. Dùng \"Tắt vai\" để ngừng cho đi giao — xoá sẽ mất lịch sử ai đã nhận tiền."]);
         }
 
         // Shipper còn lượt sắp tới: cảnh báo trước, xoá rồi thì các lượt đó về "chưa gán"
