@@ -300,6 +300,20 @@ sudo supervisorctl status         # phải thấy RUNNING
 > lại). Không cần làm tay bước dưới đây ở lần đầu nữa; giữ lại để tham khảo/khắc phục sự cố
 > nếu cron vì lý do gì đó bị thiếu (vd đổi user chạy deploy, hoặc server dựng thủ công ngoài
 > pipeline CI).
+>
+> ⚠️ **Cron bật/tắt theo môi trường bằng `SCHEDULER_CRON`** trong
+> `scripts/environments/<env>.conf` (mặc định `false` nếu không khai báo):
+>
+> | Env | `SCHEDULER_CRON` | Vì sao |
+> |-----|------------------|--------|
+> | production | `true` | Nơi duy nhất được gửi mail nhắc thật. |
+> | staging | `false` | Dùng **chung host + user `deploy`** với production. Bật lên là 08:00 khách nhận mail nhắc **trùng** từ staging. |
+>
+> Khi `SCHEDULER_CRON != true`, deploy **tự xoá** dòng cron của riêng env đó (khớp theo
+> `APP_DIR` của nó) — nên tắt cờ là tự khỏi, không cần sửa crontab tay. Các dòng cron của
+> env khác và mọi dòng khác trong crontab không bị đụng tới.
+
+Đổi cờ xong phải deploy lại env đó thì crontab mới cập nhật (script chỉ chạy trong deploy).
 
 Thêm 1 dòng vào crontab của user chạy app (vd `deploy` hoặc `www-data`):
 
