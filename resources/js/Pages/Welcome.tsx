@@ -11,7 +11,6 @@ import HomeServingPanel, {
 } from '@/Components/site/HomeServingPanel';
 import ProductCard from '@/Components/site/ProductCard';
 import RentalDateModal from '@/Components/site/RentalDateModal';
-import RentalDatePicker from '@/Components/site/RentalDatePicker';
 import SystemReviews, {
     type SystemReview,
 } from '@/Components/site/SystemReviews';
@@ -232,8 +231,6 @@ export default function Home({
                     </div>
                 </motion.div>
             </HeroSlideshow>
-
-            {/* Bạn đi ngày nào? — module đặt lịch trước, chọn đồ sau (PRD FR-1) */}
 
             {/* Một bộ đồ, đi khắp địa hình (cảnh 3D đổi biôm) */}
             <section
