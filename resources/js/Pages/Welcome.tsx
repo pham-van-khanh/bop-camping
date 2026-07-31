@@ -11,7 +11,6 @@ import HomeServingPanel, {
 } from '@/Components/site/HomeServingPanel';
 import ProductCard from '@/Components/site/ProductCard';
 import RentalDateModal from '@/Components/site/RentalDateModal';
-import RentalDatePicker from '@/Components/site/RentalDatePicker';
 import SystemReviews, {
     type SystemReview,
 } from '@/Components/site/SystemReviews';
@@ -233,32 +232,6 @@ export default function Home({
                 </motion.div>
             </HeroSlideshow>
 
-            {/* Bạn đi ngày nào? — module đặt lịch trước, chọn đồ sau (PRD FR-1) */}
-            <section className="py-12" style={{ background: '#F3F1E6' }}>
-                <div className="mx-auto max-w-[720px] px-5">
-                    <motion.div {...reveal} className="mb-6 text-center">
-                        <div className="mb-2 font-mono text-[12px] tracking-[0.1em] text-campfire">
-                            CHỌN NGÀY TRƯỚC, CHỌN ĐỒ SAU
-                        </div>
-                        <h2
-                            className="mb-2.5 font-extrabold tracking-tight text-ink"
-                            style={{ fontSize: 'clamp(24px,3vw,32px)' }}
-                        >
-                            Bạn đi ngày nào?
-                        </h2>
-                        <p className="mx-auto max-w-[420px] text-moss">
-                            Chọn ngày để xem thiết bị còn rảnh.
-                        </p>
-                    </motion.div>
-                    <motion.div {...reveal}>
-                        <RentalDatePicker
-                            variant="hero"
-                            serviceLocations={openCities}
-                        />
-                    </motion.div>
-                </div>
-            </section>
-
             {/* Một bộ đồ, đi khắp địa hình (cảnh 3D đổi biôm) */}
             <section
                 className="mx-auto grid max-w-[1400px] items-center gap-10 px-5 pb-2.5 pt-12"
@@ -397,7 +370,7 @@ export default function Home({
                     className="grid gap-[18px]"
                     style={{
                         gridTemplateColumns:
-                            'repeat(auto-fill, minmax(248px, 1fr))',
+                            'repeat(auto-fill, minmax(290px, 1fr))',
                     }}
                 >
                     {featured.map((p, i) => (
@@ -432,7 +405,7 @@ export default function Home({
                         className="grid gap-[18px]"
                         style={{
                             gridTemplateColumns:
-                                'repeat(auto-fill, minmax(248px, 1fr))',
+                                'repeat(auto-fill, minmax(290px, 1fr))',
                         }}
                     >
                         {featured_combos.map((c, i) => (

@@ -3,31 +3,10 @@ import type { PageProps } from '@/types';
 import Logo from '@/Components/Logo';
 
 /** Icon mạng xã hội (chỉ render khi có URL). */
-function SocialIcon({ kind }: { kind: 'facebook' | 'tiktok' | 'zalo' }) {
-    if (kind === 'facebook') {
-        return (
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M22 12a10 10 0 1 0-11.56 9.88v-6.99H7.9V12h2.54V9.8c0-2.5 1.49-3.89 3.77-3.89 1.09 0 2.24.2 2.24.2v2.46h-1.26c-1.24 0-1.63.77-1.63 1.56V12h2.78l-.44 2.89h-2.34v6.99A10 10 0 0 0 22 12Z" /></svg>
-        );
-    }
-    if (kind === 'tiktok') {
-        return (
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M16.5 3h-2.6v12.3a2.3 2.3 0 1 1-2.3-2.3c.16 0 .32.02.47.05V10.3a5 5 0 1 0 4.43 4.97V8.9a6 6 0 0 0 3.5 1.12V7.4a3.5 3.5 0 0 1-3.5-3.5V3Z" /></svg>
-        );
-    }
-    // zalo — chữ "Z" trong khung bo góc
-    return (
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><rect x="2.5" y="2.5" width="19" height="19" rx="5" fill="currentColor" /><path d="M8 8.4h5.4L8.2 15h5.6" stroke="#fff" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></svg>
-    );
-}
 
 export default function Footer() {
     const { site } = usePage<PageProps>().props;
     const hotlines = [site?.hotline_primary, site?.hotline_secondary].filter(Boolean) as string[];
-    const socials = [
-        { kind: 'facebook' as const, url: site?.facebook_url, label: 'Facebook' },
-        { kind: 'tiktok' as const, url: site?.tiktok_url, label: 'TikTok' },
-        { kind: 'zalo' as const, url: site?.zalo_1?.url, label: 'Zalo' },
-    ].filter((s) => !!s.url);
 
     return (
         <footer className="mt-5 border-t border-[#c2dcec]" style={{ background: 'rgba(214,236,247,.55)' }}>
@@ -40,24 +19,6 @@ export default function Footer() {
                     <p className="m-0 mb-4 max-w-[240px] text-[13.5px] leading-[1.6] text-[#8a967a]">
                         Cho thuê thiết bị cắm trại theo ngày. Giao nhận tận nơi, cọc linh hoạt, trả tiền khi nhận.
                     </p>
-                    {/* Social — chỉ hiện icon có link */}
-                    {socials.length > 0 && (
-                        <div className="flex gap-2.5">
-                            {socials.map((s) => (
-                                <a
-                                    key={s.kind}
-                                    href={s.url as string}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    aria-label={s.label}
-                                    title={s.label}
-                                    className="grid h-9 w-9 place-items-center rounded-[10px] border border-[#cdd6b6] bg-white text-pine transition hover:border-grass hover:text-grass"
-                                >
-                                    <SocialIcon kind={s.kind} />
-                                </a>
-                            ))}
-                        </div>
-                    )}
                 </div>
 
                 <div>

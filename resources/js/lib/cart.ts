@@ -1,7 +1,7 @@
 // Giỏ thuê lưu ở localStorage (chưa có backend). Mỗi thay đổi bắn EVENTS.cartChange
 // để Header cập nhật badge và trang Giỏ vẽ lại.
-import { dayCount } from './format';
 import { emit, EVENTS } from './bus';
+import { dayCount } from './format';
 import { netFromGross, type DurationTier } from './pricing';
 import { isHalfDaySession, type Session } from './session';
 
@@ -61,7 +61,9 @@ function save(lines: CartLine[]) {
  * Mọi dòng cùng khoảng → khoảng đó; giỏ đã lẫn nhiều khoảng → khoảng của DÒNG THÊM GẦN NHẤT
  * (khách đã cố ý tách); giỏ trống → null.
  */
-export function cartSuggestedRange(lines = getCart()): { start: string; end: string } | null {
+export function cartSuggestedRange(
+    lines = getCart(),
+): { start: string; end: string } | null {
     if (lines.length === 0) return null;
     const last = lines[lines.length - 1];
     return { start: last.start, end: last.end };
@@ -71,10 +73,11 @@ export function cartSuggestedRange(lines = getCart()): { start: string; end: str
 export function addLine(line: CartLine) {
     const lines = getCart();
     const i = lines.findIndex(
-        (l) => l.id === line.id
-            && (l.kind ?? 'product') === (line.kind ?? 'product')
-            && l.start === line.start
-            && l.end === line.end,
+        (l) =>
+            l.id === line.id &&
+            (l.kind ?? 'product') === (line.kind ?? 'product') &&
+            l.start === line.start &&
+            l.end === line.end,
     );
     if (i >= 0) lines[i].qty += line.qty;
     else lines.push(line);
@@ -106,7 +109,8 @@ export function setCart(lines: CartLine[]) {
 export const lineDays = (l: CartLine) => dayCount(l.start, l.end);
 
 /** Dòng đủ điều kiện "trả sớm trong ngày": thuê đúng 1 ngày + sản phẩm có ưu đãi. */
-export const halfDayEligible = (l: CartLine) => lineDays(l) === 1 && (l.early_return_pct ?? 0) > 0;
+export const halfDayEligible = (l: CartLine) =>
+    lineDays(l) === 1 && (l.early_return_pct ?? 0) > 0;
 
 // Rent NET sau giảm giá thuê dài ngày (bopcamping-e36e) — mirror server RentalPricingService.
 // tiers rỗng (mặc định) → net = gross (giữ hành vi cũ khi caller chưa truyền bậc).
@@ -132,12 +136,16 @@ export function cartCount(lines = getCart()) {
  * Trả [] nghĩa là giỏ chưa có ràng buộc (trống hoặc toàn dòng cũ).
  */
 export function cartCommonLocations(lines = getCart()): CartLocation[] {
-    const constrained = lines.filter((l) => l.locations && l.locations.length > 0);
+    const constrained = lines.filter(
+        (l) => l.locations && l.locations.length > 0,
+    );
     if (constrained.length === 0) return [];
 
     let common = constrained[0].locations as CartLocation[];
     for (const l of constrained.slice(1)) {
-        const slugs = new Set((l.locations as CartLocation[]).map((x) => x.slug));
+        const slugs = new Set(
+            (l.locations as CartLocation[]).map((x) => x.slug),
+        );
         common = common.filter((c) => slugs.has(c.slug));
     }
     return common;
@@ -146,7 +154,10 @@ export function cartCommonLocations(lines = getCart()): CartLocation[] {
 /**
  * Kiểm tra thêm sản phẩm (với vị trí của nó) có hợp giỏ không.
  * Xung đột khi: giỏ đã ràng buộc 1 vị trí VÀ sản phẩm mới có ràng buộc VÀ hai bên không giao nhau.
- * Sản phẩm/giỏ "không ràng buộc" (toàn hệ thống / trống / dòng cũ) → luôn hợp.
+ * Giỏ "không ràng buộc" (trống / toàn dòng cũ) → luôn hợp.
+ * Sản phẩm mới KHÔNG có locations (rỗng hoặc undefined) → món đó không bán được ở kho nào,
+ * PHẢI báo xung đột (bopcamping-6qsm) — trước đây coi là "không ràng buộc" nên lọt qua chốt
+ * thêm giỏ rồi bị checkout từ chối, khách kẹt ở bước cuối.
  */
 export function locationConflict(
     newLocations: CartLocation[] | undefined,
@@ -154,16 +165,24 @@ export function locationConflict(
 ): { conflict: boolean; cartLocations: CartLocation[] } {
     const common = cartCommonLocations(lines);
     if (common.length === 0) return { conflict: false, cartLocations: [] };
-    if (!newLocations || newLocations.length === 0) return { conflict: false, cartLocations: common };
+    if (!newLocations || newLocations.length === 0)
+        return { conflict: true, cartLocations: common };
 
     const slugs = new Set(newLocations.map((x) => x.slug));
     const conflict = !common.some((c) => slugs.has(c.slug));
     return { conflict, cartLocations: common };
 }
 
-/** Giỏ có mâu thuẫn vị trí không (≥2 dòng ràng buộc nhưng không có vị trí chung). */
+/**
+ * Giỏ có mâu thuẫn vị trí không: hoặc có dòng `locations` rỗng ([] — món không bán được ở
+ * kho nào, bopcamping-6qsm), hoặc ≥2 dòng ràng buộc nhưng không có vị trí chung.
+ */
 export function cartHasLocationConflict(lines = getCart()): boolean {
-    const constrained = lines.filter((l) => l.locations && l.locations.length > 0);
+    if (lines.some((l) => l.locations && l.locations.length === 0)) return true;
+
+    const constrained = lines.filter(
+        (l) => l.locations && l.locations.length > 0,
+    );
     if (constrained.length < 2) return false;
     return cartCommonLocations(lines).length === 0;
 }

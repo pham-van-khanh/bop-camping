@@ -44,7 +44,7 @@ class ComboDetectionService
 
         return Combo::active()
             ->whereHas('items')
-            ->with('items.product')
+            ->with('items.product', 'serviceLocations')
             ->get()
             ->map(fn (Combo $combo) => $this->evaluate($combo, $have))
             ->filter()

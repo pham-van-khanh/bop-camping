@@ -121,11 +121,11 @@ class CartController extends Controller
         // Combo trong giỏ: giá/cọc/vị trí mới nhất; combo ẩn (vd US-07) không trả về → client gỡ.
         $combos = Combo::active()
             ->whereHas('items')
-            ->with('items.product.serviceLocations')
+            ->with('items.product.serviceLocations', 'serviceLocations')
             ->whereIn('id', $comboIds)
             ->get()
             ->mapWithKeys(function (Combo $c) use ($openCount) {
-                $locations = $c->commonOpenLocations();
+                $locations = $c->openLocations();
 
                 return [$c->id => [
                     'name' => $c->name,
@@ -313,7 +313,7 @@ class CartController extends Controller
                     'name' => $i->product?->name ?? '',
                     'qty' => (int) $i->quantity,
                 ])->values(),
-                'locations' => $combo->commonOpenLocations(),
+                'locations' => $combo->openLocations(),
             ],
             // upsell: món thiếu kèm đủ dữ liệu để FE "thêm nhanh" thành CartLine
             'missing' => $best->missingItems->map(fn ($i) => [

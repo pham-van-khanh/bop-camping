@@ -37,9 +37,16 @@ Hỏi ngày **ngay ở trang chủ**, rồi đưa khách sang trang thiết bị
 ## 5. Yêu cầu chức năng
 
 ### FR-1 — Module đặt lịch trang chủ
-- Dải riêng dưới hero: tiêu đề "Bạn đi ngày nào?", `DateRangeCalendar` (tái dùng), select địa điểm (tùy chọn), nút **Xác nhận**.
+
+> **Sửa 31/07/2026:** ban đầu làm thành *dải riêng dưới hero*. Chủ shop chốt lại: đưa lên
+> **banner** thành một ô đặt lịch, bấm mở **popup**; dải dưới hero đã **bỏ** để không có hai
+> chỗ chọn ngày trên cùng một trang.
+
+- **Ô đặt lịch trên banner** (thay nút "Tra cứu đơn của tôi" cũ): nhãn "NGÀY NHẬN – NGÀY TRẢ / Chọn ngày đi". Tra cứu đơn vẫn còn ở nav header (khách vãng lai), footer, giỏ và trang tài khoản.
+- Bấm → **popup** `RentalDateModal`: rộng 920px trên PC (to hơn dải cũ 720px), lịch dùng `size="lg"` (ô ngày 40px thay vì 30px). Đóng bằng ESC / backdrop / nút ×, chặn scroll trang nền, `role="dialog"` + `aria-modal`.
+- Trong popup: `DateRangeCalendar` (tái dùng), select địa điểm (tùy chọn), nút **Xác nhận**.
 - Nút Xác nhận **disabled** tới khi có đủ `start` **và** `end`.
-- Lịch trang chủ **không** tô ngày hết hàng — chưa có sản phẩm nào để tính. Chỉ chặn ngày quá khứ.
+- Lịch **không** tô ngày hết hàng — chưa có sản phẩm nào để tính. Chỉ chặn ngày quá khứ. Chú giải "Hết hàng" cũng được ẩn ở đây (`showUnavailableLegend={false}`) vì hiện ô màu cho trạng thái không bao giờ xảy ra là nói sai.
 - Xác nhận → điều hướng `/thiet-bi?start=&end=[&vi-tri=]`.
 
 ### FR-2 — Listing theo ngày (`/thiet-bi`, `/combos`)

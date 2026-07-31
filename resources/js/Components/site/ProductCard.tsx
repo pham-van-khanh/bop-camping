@@ -55,7 +55,7 @@ export default function ProductCard({ p, compact = false, index = 0 }: { p: Prod
                 aria-label={soldOut ? `${p.name} — hết hàng trong khoảng ngày đã chọn` : undefined}
                 className={`group flex h-full flex-col overflow-hidden rounded-card border border-cardBorder bg-card transition duration-200 hover:-translate-y-1 hover:shadow-cardhover ${soldOut ? 'opacity-50 grayscale-[35%] hover:opacity-100' : ''}`}
             >
-                <div className={`relative ${compact ? 'h-[170px]' : 'h-[240px]'}`} style={{ background: bg }}>
+                <div className={`relative h-[240px]`} style={{ background: bg }}>
                     {p.thumbnail && (
                         <img src={p.thumbnail} alt={p.name} className="absolute inset-0 h-full w-full object-cover" />
                     )}

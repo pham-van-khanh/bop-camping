@@ -42,7 +42,7 @@ export default function RentalRangeBar({
 }: Props) {
     const hasRange = !!start && !!end;
     // Chưa có ngày thì mở sẵn lịch cho khách chọn luôn; đã có rồi thì thu gọn.
-    const [open, setOpen] = useState(!hasRange);
+    const [open, setOpen] = useState(false);
 
     /**
      * Bỏ lọc ngày = điều hướng lại KHÔNG có start/end nhưng GIỮ mọi filter khác.

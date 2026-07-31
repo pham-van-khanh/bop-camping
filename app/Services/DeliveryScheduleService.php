@@ -145,8 +145,12 @@ class DeliveryScheduleService
      */
     public function monthDays(Carbon $month, ?int $shipperId = null, bool $unassignedOnly = false): array
     {
-        $start = $month->copy()->startOfMonth()->toDateString();
-        $end = $month->copy()->endOfMonth()->toDateString();
+        // Mốc phải là DATETIME, không phải chuỗi ngày. Cột khai báo date() nhưng giá trị lưu
+        // kèm giờ ('2026-07-31 00:00:00' — xem bopcamping-ioku), nên so với chuỗi '2026-07-31'
+        // thì '2026-07-31 00:00:00' > '2026-07-31' và NGÀY CUỐI THÁNG bị loại khỏi lịch giao.
+        // Dùng endOfDay() vẫn giữ được index (khác whereDate() bọc DATE(col)).
+        $start = $month->copy()->startOfMonth()->startOfDay();
+        $end = $month->copy()->endOfMonth()->endOfDay();
 
         $countBy = function (string $leg) use ($start, $end, $shipperId, $unassignedOnly) {
             $cfg = $this->leg($leg);

@@ -327,6 +327,7 @@ class ListingDateFilterTest extends TestCase
 
     private function countQueriesOnCombos(int $howMany): int
     {
+        DB::table('combo_service_location')->delete();
         ComboItem::query()->delete();
         Combo::query()->delete();
         Product::query()->delete();
@@ -334,10 +335,62 @@ class ListingDateFilterTest extends TestCase
         for ($i = 0; $i < $howMany; $i++) {
             $a = $this->makeProduct("Combo mon a {$howMany} {$i}", 6);
             $b = $this->makeProduct("Combo mon b {$howMany} {$i}", 6);
-            $this->makeCombo("Combo so {$howMany} {$i}", "combo-so-{$howMany}-{$i}", [[$a, 1], [$b, 2]]);
+            $combo = $this->makeCombo("Combo so {$howMany} {$i}", "combo-so-{$howMany}-{$i}", [[$a, 1], [$b, 2]]);
+
+            // BẮT BUỘC: combo phải có kho được gán như combo thật do admin tạo. Không có pivot thì
+            // shape() short-circuit ở `count(locations) > 0` và giấu mất N+1 của all_locations.
+            $combo->serviceLocations()->attach([$this->vinh->id, $this->hanoi->id]);
         }
 
         return $this->countQueriesOn("/combos?start={$this->start}&end={$this->end}");
+    }
+
+    /**
+     * all_locations vẫn đúng khi số kho mở được TRUYỀN VÀO shape() thay vì đếm tại chỗ:
+     * đủ kho mở → true, thiếu 1 kho → false, không kho nào → false.
+     * Kèm luôn chốt cho /combos/{slug} vì show() tự đếm (không có sẵn danh sách như index()).
+     */
+    public function test_all_locations_dung_theo_so_kho_dang_mo(): void
+    {
+        $product = $this->makeProduct('Leu all loc', 4);
+        $full = $this->makeCombo('Combo du kho', 'combo-du-kho', [[$product, 1]], sortOrder: 1);
+        $partial = $this->makeCombo('Combo mot kho', 'combo-mot-kho', [[$product, 1]], sortOrder: 2);
+        $none = $this->makeCombo('Combo khong kho', 'combo-khong-kho', [[$product, 1]], sortOrder: 3);
+
+        $full->serviceLocations()->attach([$this->vinh->id, $this->hanoi->id]);
+        $partial->serviceLocations()->attach($this->vinh->id);
+
+        $this->get('/combos')
+            ->assertOk()
+            ->assertInertia(function ($page) use ($full, $partial, $none) {
+                $byId = collect($page->toArray()['props']['combos'])->keyBy('id');
+
+                $this->assertTrue($byId[$full->id]['all_locations']);
+                $this->assertFalse($byId[$partial->id]['all_locations']);
+                $this->assertFalse($byId[$none->id]['all_locations'], 'không kho nào thì không phải "mọi kho"');
+            });
+
+        $this->get('/combos/combo-du-kho')
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page->where('combo.all_locations', true));
+
+        $this->get('/combos/combo-mot-kho')
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page->where('combo.all_locations', false));
+    }
+
+    /** Kho chưa mở (coming) KHÔNG tính vào mẫu số: gán đủ kho đang mở là all_locations = true. */
+    public function test_all_locations_bo_qua_kho_chua_mo(): void
+    {
+        ServiceLocation::create(['name' => 'Da Nang', 'area' => 'Da Nang', 'status' => 'coming', 'sort_order' => 3]);
+
+        $product = $this->makeProduct('Bep all loc', 4);
+        $combo = $this->makeCombo('Combo du kho mo', 'combo-du-kho-mo', [[$product, 1]]);
+        $combo->serviceLocations()->attach([$this->vinh->id, $this->hanoi->id]);
+
+        $this->get('/combos')
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page->where('combos.0.all_locations', true));
     }
 
     // ---------- fixtures ----------

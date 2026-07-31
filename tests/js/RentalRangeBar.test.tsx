@@ -7,9 +7,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
  * bopcamping-3kn9 (T4) — thanh khoảng ngày trên trang danh sách.
  *
  * Chốt hai điều dễ vỡ nhất:
- *  1. Lịch KHÔNG mở sẵn khi đã có ngày (DateRangeCalendar cao 2 tháng, mở sẵn thì
- *     đẩy lưới sản phẩm xuống rất sâu) — nhưng PHẢI mở sẵn khi chưa có ngày.
- *  2. "Bỏ lọc ngày" giữ lại các filter khác (cat/q/sort) — bỏ ngày không được reset cả trang.
+ *  1. Lịch LUÔN thu gọn mặc định (DateRangeCalendar cao 2 tháng, mở sẵn thì đẩy lưới
+ *     sản phẩm xuống rất sâu ngay khi vào trang) — chỉ mở khi khách bấm.
+ *  2. "Bỏ lọc ngày" giữ lại các filter khác (cat/q/sort/vi-tri) — bỏ ngày không được reset cả trang.
  */
 
 const getMock = vi.hoisted(() => vi.fn());
@@ -25,7 +25,9 @@ const locations = [
 
 const preserve = { cat: 'leu-cam-trai', q: 'leu', sort: 'low' };
 
-function renderBar(overrides: Partial<Parameters<typeof RentalRangeBar>[0]> = {}) {
+function renderBar(
+    overrides: Partial<Parameters<typeof RentalRangeBar>[0]> = {},
+) {
     return render(
         <RentalRangeBar
             start="2030-08-12"
@@ -57,16 +59,33 @@ describe('RentalRangeBar', () => {
         ).toBeInTheDocument();
     });
 
-    it('chưa có ngày thì mở sẵn lịch và không có nút bỏ lọc', () => {
+    /**
+     * Lịch LUÔN thu gọn mặc định, kể cả khi chưa chọn ngày (ce91ee3): DateRangeCalendar cao
+     * 2 tháng nên mở sẵn sẽ đẩy lưới sản phẩm xuống rất sâu ngay khi vào trang.
+     * Khách chưa chọn ngày thì thấy lời mời + nút "Chọn ngày", chưa có gì để bỏ lọc.
+     */
+    it('chưa có ngày thì vẫn thu gọn, hiện nút Chọn ngày và không có nút bỏ lọc', () => {
         renderBar({ start: '', end: '' });
 
-        expect(calendar()).toBeInTheDocument();
+        expect(calendar()).not.toBeInTheDocument();
+        expect(
+            screen.getByRole('button', { name: 'Chọn ngày' }),
+        ).toBeInTheDocument();
         expect(
             screen.queryByRole('button', { name: 'Bỏ lọc ngày' }),
         ).not.toBeInTheDocument();
         expect(
             screen.getByText(/Chọn ngày đi để biết thiết bị nào còn rảnh/),
         ).toBeInTheDocument();
+    });
+
+    it('chưa có ngày: bấm Chọn ngày thì mở lịch', async () => {
+        const user = userEvent.setup();
+        renderBar({ start: '', end: '' });
+
+        await user.click(screen.getByRole('button', { name: 'Chọn ngày' }));
+
+        expect(calendar()).toBeInTheDocument();
     });
 
     it('bấm Đổi ngày mở lịch, bấm lại thì thu gọn', async () => {
@@ -124,7 +143,11 @@ describe('RentalRangeBar', () => {
     });
 
     it('dùng được cho combo với danh từ riêng', () => {
-        renderBar({ noun: 'combo', unavailableCount: 2, targetPath: '/combos' });
+        renderBar({
+            noun: 'combo',
+            unavailableCount: 2,
+            targetPath: '/combos',
+        });
 
         expect(
             screen.getByText('2 combo hết hàng trong khoảng này'),
