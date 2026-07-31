@@ -24,6 +24,8 @@ class AdminComboTest extends TestCase
 
     private Product $mattress; // 40k/ngày
 
+    private ServiceLocation $store;
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -43,6 +45,12 @@ class AdminComboTest extends TestCase
             'price_per_day' => 40000,
             'quantity' => 4,
         ]);
+
+        // bopcamping-iylu: combo nay phai gan >= 1 co so, va co so phai phuc vu MOI mon.
+        $this->store = ServiceLocation::create(['name' => 'Vinh', 'area' => 'Nghe An', 'status' => 'open', 'sort_order' => 1]);
+        foreach ([$this->tent, $this->mattress] as $p) {
+            $p->serviceLocations()->attach($this->store->id, ['quantity' => $p->quantity, 'buffer_days' => 0]);
+        }
     }
 
     private function admin(): User
@@ -79,6 +87,7 @@ class AdminComboTest extends TestCase
                 ['product_id' => $this->tent->id, 'quantity' => 1],
                 ['product_id' => $this->mattress->id, 'quantity' => 2],
             ],
+            'service_location_ids' => [$this->store->id],
         ], $overrides);
     }
 

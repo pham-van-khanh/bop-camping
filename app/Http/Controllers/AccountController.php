@@ -261,7 +261,7 @@ class AccountController extends Controller
 
         $combos = Combo::active()
             ->whereHas('items')
-            ->with('items.product.serviceLocations')
+            ->with('items.product.serviceLocations', 'serviceLocations')
             ->whereIn('id', array_keys($comboUuids))
             ->get()
             ->keyBy('id');
@@ -280,7 +280,7 @@ class AccountController extends Controller
                 'deposit' => (int) ($c->deposit ?? 0),
                 'qty' => count($uuids),
                 'comboItems' => $c->items->map(fn ($i) => ['name' => $i->product?->name ?? '', 'qty' => (int) $i->quantity])->values(),
-                'locations' => $c->commonOpenLocations(),
+                'locations' => $c->openLocations(),
             ];
         }
 

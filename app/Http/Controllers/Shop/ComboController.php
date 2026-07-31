@@ -28,7 +28,7 @@ class ComboController extends Controller
     {
         return Combo::active()
             ->whereHas('items')
-            ->with(['items.product.serviceLocations', 'images'])
+            ->with(['items.product.serviceLocations', 'serviceLocations', 'images'])
             ->orderBy('sort_order')
             ->orderBy('name');
     }
@@ -53,8 +53,11 @@ class ComboController extends Controller
             ? $this->availability->comboQuantitiesFor($comboModels, $start, $end, $activeLocation)
             : [];
 
-        $combos = $comboModels->map(function (Combo $combo) use ($hasRange, $availability) {
-            $shaped = $this->shape($combo);
+        // Đếm 1 lần cho cả danh sách — trong shape() sẽ thành 1 query/combo (N+1).
+        $openLocationCount = $openLocations->count();
+
+        $combos = $comboModels->map(function (Combo $combo) use ($hasRange, $availability, $openLocationCount) {
+            $shaped = $this->shape($combo, $openLocationCount);
             // Còn/hết theo khoảng ngày đã chọn — null khi khách chưa chọn ngày
             $shaped['available'] = $hasRange ? ($availability[$combo->id] ?? 0) : null;
             $shaped['in_range'] = $hasRange ? ($shaped['available'] >= 1) : null;
@@ -91,7 +94,7 @@ class ComboController extends Controller
         /** @var Combo $combo */
         $combo = $this->sellable()->where('slug', $slug)->firstOrFail();
 
-        $shaped = $this->shape($combo);
+        $shaped = $this->shape($combo, ServiceLocation::open()->count());
 
         $seoDesc = Str::limit(trim(strip_tags((string) $combo->description)), 155)
             ?: 'Thuê trọn bộ '.$combo->name.' — tiết kiệm '.$combo->savingsPercent().'% so với thuê lẻ tại BỐP CAMPING.';
@@ -174,8 +177,13 @@ class ComboController extends Controller
         ]);
     }
 
-    /** Combo Eloquent → array cho Inertia (card + detail dùng chung). */
-    private function shape(Combo $combo): array
+    /**
+     * Combo Eloquent → array cho Inertia (card + detail dùng chung).
+     *
+     * @param  int  $openLocationCount  số kho đang mở — TRUYỀN VÀO, đếm sẵn 1 lần ở phía gọi.
+     *                                  Đếm bên trong đây = 1 query/combo (N+1) khi map danh sách.
+     */
+    private function shape(Combo $combo, int $openLocationCount): array
     {
         $sumIndividual = $combo->sumIndividualPrice();
 
@@ -204,11 +212,11 @@ class ComboController extends Controller
                 'url' => Storage::disk('media')->url($img->path),
                 'type' => $img->type,
             ])->values()->all(),
-            'locations' => $combo->commonOpenLocations(),
+            'locations' => $combo->openLocations(),
         ];
 
         $data['all_locations'] = count($data['locations']) > 0
-            && count($data['locations']) === ServiceLocation::open()->count();
+            && count($data['locations']) === $openLocationCount;
 
         return $data;
     }

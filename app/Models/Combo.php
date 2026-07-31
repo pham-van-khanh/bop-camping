@@ -5,6 +5,7 @@ namespace App\Models;
 use Database\Factories\ComboFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\Log;
 
@@ -79,33 +80,84 @@ class Combo extends Model
         return $sum > 0 ? (int) round($this->savingsAmount() * 100 / $sum) : 0;
     }
 
+    /** Kho ĐƯỢC GÁN cho combo (bopcamping-e5pi) — admin chọn tường minh, không suy ra từ món con. */
+    public function serviceLocations(): BelongsToMany
+    {
+        return $this->belongsToMany(ServiceLocation::class, 'combo_service_location');
+    }
+
     /**
-     * Vị trí phục vụ của combo = GIAO các vị trí đang mở của mọi món con
-     * (giỏ chỉ 1 vị trí — combo tham gia ràng buộc vị trí như sản phẩm lẻ).
+     * Vị trí phục vụ của combo = kho ĐƯỢC GÁN và đang mở.
+     * Giỏ chỉ 1 vị trí — combo tham gia ràng buộc vị trí như sản phẩm lẻ.
+     *
+     * Thay cho commonOpenLocations() cũ (GIAO kho của mọi món con): trước đây combo không có
+     * kho riêng nên phải suy ra; nay admin gán tường minh. Giữ nguyên dạng trả về [{slug, name}]
+     * để 4 chỗ gọi và FE không phải đổi type.
      *
      * @return array<int, array{slug: string, name: string}>
      */
-    public function commonOpenLocations(): array
+    public function openLocations(): array
+    {
+        $this->loadMissing('serviceLocations');
+
+        return $this->serviceLocations
+            ->where('status', 'open')
+            ->map(fn (ServiceLocation $l) => ['slug' => $l->slug, 'name' => $l->name])
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Kho mà combo ĐƯỢC PHÉP gán: đang mở và MỌI món con đều phục vụ ở đó.
+     *
+     * ⚠️ Cơ sở là TƯ CÁCH THÀNH VIÊN pivot, KHÔNG phải tồn > 0 (quyết định #2, PRD mục 6 R2).
+     * Chặn theo tồn sẽ khoá sạch: trên prod chỉ 3/11 sản phẩm còn tồn, có combo mọi món tồn 0
+     * — admin sẽ không gán nổi kho nào. Tồn 0 là trạng thái vận hành bình thường của shop.
+     *
+     * @return array<int, int> id các kho
+     */
+    public function assignableLocationIds(): array
     {
         $this->loadMissing('items.product.serviceLocations');
 
         $sets = $this->items
             ->map(fn (ComboItem $item) => $item->product?->serviceLocations
-                ?->where('status', 'open')->keyBy('slug') ?? collect())
-            ->filter(fn ($set) => $set->isNotEmpty());
+                ?->where('status', 'open')->pluck('id') ?? collect())
+            ->values();
 
-        if ($sets->isEmpty()) {
+        // Combo rỗng món / món đã bị xoá → không có kho nào chắc chắn phục vụ được.
+        if ($sets->isEmpty() || $sets->contains(fn ($set) => $set->isEmpty())) {
             return [];
         }
 
         $common = $sets->shift();
         foreach ($sets as $set) {
-            $common = $common->intersectByKeys($set);
+            $common = $common->intersect($set);
         }
 
-        return $common->map(fn (ServiceLocation $l) => ['slug' => $l->slug, 'name' => $l->name])
-            ->values()
-            ->all();
+        return $common->map(fn ($id) => (int) $id)->values()->all();
+    }
+
+    /**
+     * Tồn CẤU HÌNH (pivot quantity) của từng món con tại một kho — cho bảng "Món tại kho này"
+     * ở admin. Chỉ là THÔNG TIN, không dùng để chặn gán kho (xem assignableLocationIds()).
+     * Món không phục vụ ở kho đó → 0.
+     *
+     * @return array<int, int> [product_id => quantity]
+     */
+    public function stockAtLocation(int $serviceLocationId): array
+    {
+        $this->loadMissing('items.product.serviceLocations');
+
+        $out = [];
+        foreach ($this->items as $item) {
+            if (! $item->product) {
+                continue;
+            }
+            $out[$item->product->id] = $item->product->stockAt($serviceLocationId);
+        }
+
+        return $out;
     }
 
     /**
