@@ -28,7 +28,7 @@ class ComboController extends Controller
     {
         return Combo::active()
             ->whereHas('items')
-            ->with(['items.product.serviceLocations', 'images'])
+            ->with(['items.product.serviceLocations', 'serviceLocations', 'images'])
             ->orderBy('sort_order')
             ->orderBy('name');
     }
@@ -204,7 +204,7 @@ class ComboController extends Controller
                 'url' => Storage::disk('media')->url($img->path),
                 'type' => $img->type,
             ])->values()->all(),
-            'locations' => $combo->commonOpenLocations(),
+            'locations' => $combo->openLocations(),
         ];
 
         $data['all_locations'] = count($data['locations']) > 0
