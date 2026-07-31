@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 
 class Combo extends Model
@@ -98,13 +99,30 @@ class Combo extends Model
      */
     public function openLocations(): array
     {
-        $this->loadMissing('serviceLocations');
-
-        return $this->serviceLocations
-            ->where('status', 'open')
+        return $this->openServiceLocations()
             ->map(fn (ServiceLocation $l) => ['slug' => $l->slug, 'name' => $l->name])
             ->values()
             ->all();
+    }
+
+    /**
+     * Id các kho được gán và đang mở — cho chỗ cần id thay vì slug/name (tính khả dụng,
+     * validate checkout). Một chỗ duy nhất giữ luật "kho bán được của combo" để 3 nơi
+     * dùng không lệch nhau.
+     *
+     * @return array<int, int>
+     */
+    public function openLocationIds(): array
+    {
+        return $this->openServiceLocations()->pluck('id')->map(fn ($id) => (int) $id)->values()->all();
+    }
+
+    /** @return Collection<int, ServiceLocation> */
+    private function openServiceLocations()
+    {
+        $this->loadMissing('serviceLocations');
+
+        return $this->serviceLocations->where('status', 'open');
     }
 
     /**

@@ -90,7 +90,7 @@ class OrderController extends Controller
         // Combo phải đang bán và còn món; nạp sẵn product + vị trí cho check bên dưới.
         $combos = Combo::active()
             ->whereHas('items')
-            ->with('items.product.serviceLocations')
+            ->with('items.product.serviceLocations', 'serviceLocations')
             ->whereIn('id', array_column($comboLines, 'combo_id'))
             ->get()
             ->keyBy('id');
@@ -135,6 +135,23 @@ class OrderController extends Controller
             $resolved = $this->storeResolver->resolveForCart($needed, $productsById, $chosenIds->first());
         } catch (\RuntimeException $e) {
             return back()->withErrors(['items' => $e->getMessage()])->withInput();
+        }
+
+        // bopcamping-v5ig — combo CHỈ bán ở kho được gán. StoreResolver chỉ kiểm tồn per-product
+        // (combo đã bung thành sản phẩm) nên không biết ràng buộc này; thiếu check ở đây thì khách
+        // đặt được combo ở cơ sở mà shop không bán nó.
+        //
+        // Đơn không gắn kho (chưa có cơ sở nào đang mở / dữ liệu cũ) → BỎ QUA, không chặn.
+        if ($resolved['location'] !== null) {
+            foreach ($comboLines as $line) {
+                $combo = $combos->get($line['combo_id']);
+                if (! in_array($resolved['location']->id, $combo->openLocationIds(), true)) {
+                    return back()->withErrors([
+                        'items' => "Combo \"{$combo->name}\" không cho thuê tại {$resolved['location']->name}. "
+                            .'Bạn đổi cơ sở hoặc bỏ combo này khỏi giỏ giúp nhé.',
+                    ])->withInput();
+                }
+            }
         }
 
         // Email xác nhận: ưu tiên email khách nhập ở checkout; bỏ trống thì lấy email tài khoản (bỏ tạm .local).
