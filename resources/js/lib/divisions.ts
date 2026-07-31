@@ -211,6 +211,35 @@ export async function getLegacyWards(
 }
 
 /**
+ * Chiều NGƯỢC: các xã/phường CŨ đã gộp vào một xã/phường mới (endpoint v2/w/{code}/to-legacies/).
+ *
+ * Dùng để tự điền ô "địa chỉ cũ" sau khi khách chọn địa chỉ mới. Lưu ý một xã mới thường
+ * gộp từ NHIỀU xã cũ (đo thật: Phường Ba Đình gộp từ 10 xã cũ) nên caller phải xử lý ca
+ * nhiều kết quả, không điền bừa cái đầu.
+ */
+export async function getLegaciesOfWard(
+    wardCode: number,
+): Promise<LegacyWard[]> {
+    const url = `${BASE}/v2/w/${wardCode}/to-legacies/`;
+
+    return fetchArray<LegacyWard>(url);
+}
+
+/** Tên huyện/quận CŨ theo mã — để ghép "Phường X, Quận Y" cho đủ nghĩa với shipper. */
+export async function getLegacyDistrictName(
+    districtCode: number,
+): Promise<string> {
+    const url = `${BASE}/v1/d/${districtCode}`;
+    const data = await fetchObject<Record<string, unknown>>(url);
+    const name = data.name;
+    if (typeof name !== 'string') {
+        throw new Error(`Phản hồi thiếu tên huyện: ${url}`);
+    }
+
+    return name;
+}
+
+/**
  * Suy ra (các) xã/phường mới từ 1 xã/phường cũ.
  *
  * Endpoint `v2/w/from-legacy/?legacy_name=` khớp theo TÊN và bỏ qua tỉnh — "Phường 1"

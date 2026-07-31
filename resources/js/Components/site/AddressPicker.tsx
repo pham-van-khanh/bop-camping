@@ -1,4 +1,6 @@
 import {
+    getLegaciesOfWard,
+    getLegacyDistrictName,
     getLegacyDistricts,
     getLegacyProvinces,
     getLegacyWards,
@@ -14,14 +16,16 @@ import { useEffect, useState } from 'react';
 
 /**
  * bopcamping-vj4x — chọn địa chỉ theo cấu trúc SAU sát nhập 07/2025 (34 tỉnh, 2 cấp),
- * kèm đường "tôi chỉ biết địa chỉ cũ" (63 tỉnh, 3 cấp) rồi suy ra địa chỉ mới.
+ * kèm ô "địa chỉ cũ" tự tra và đường "tôi chỉ biết địa chỉ cũ".
  *
  * Vì sao đường cũ phải là SELECT chứ không phải ô chữ: endpoint from-legacy khớp theo TÊN
  * và bỏ qua tỉnh, nên "Phường 1" trả 51 kết quả của 51 tỉnh. Chọn bằng select mới có mã xã
  * cũ để lọc source_code.
  *
- * Map là quan hệ NHIỀU-NHIỀU: một xã cũ có thể bị CHIA cho nhiều xã mới (đo thật: Phường
- * Điện Biên -> 4 phường mới). Nên phải xử lý cả 3 ca 1 / N / 0, không giả định luôn ra 1.
+ * Map là quan hệ NHIỀU-NHIỀU theo CẢ HAI CHIỀU:
+ *  - 1 xã cũ có thể bị CHIA cho nhiều xã mới (Phường Điện Biên -> 4 phường mới)
+ *  - 1 xã mới thường GỘP từ nhiều xã cũ (Phường Ba Đình <- 10 xã cũ)
+ * Nên cả hai chiều đều phải xử lý ca nhiều kết quả, không bao giờ điền bừa cái đầu tiên.
  *
  * FALLBACK: mọi lỗi mạng -> về đúng ô text tự do như trước khi có tính năng này.
  * Không bao giờ chặn khách đặt hàng vì API địa chỉ.
@@ -36,31 +40,42 @@ export type AddressValue = {
     legacy_ward_code: number | null;
 };
 
+/** Select có mũi chevron riêng (appearance-none) để trông đồng bộ với input, không dùng mũi mặc định của OS. */
 const selectCls =
-    'h-[46px] w-full rounded-[11px] border border-cardBorder bg-white px-3 text-[14px] text-ink outline-none focus:border-grass disabled:bg-[#f6f8f1] disabled:text-[#aab39a]';
+    'h-[48px] w-full cursor-pointer appearance-none truncate rounded-[11px] border border-cardBorder bg-white py-0 pl-3.5 pr-9 text-[14px] font-medium text-ink outline-none transition focus:border-grass focus:ring-2 focus:ring-grass/20 disabled:cursor-not-allowed disabled:bg-[#f4f6ee] disabled:text-[#aab39a]';
+const chevron =
+    "url(\"data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%23557A2B' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.8' d='M6 8l4 4 4-4'/%3e%3c/svg%3e\")";
+const selectStyle = {
+    backgroundImage: chevron,
+    backgroundRepeat: 'no-repeat',
+    backgroundPosition: 'right 12px center',
+    backgroundSize: '18px',
+};
 const inputCls =
-    'h-[46px] w-full rounded-[11px] border bg-white px-3.5 text-[14px] text-ink outline-none focus:border-grass';
+    'h-[48px] w-full rounded-[11px] border bg-white px-3.5 text-[14px] text-ink outline-none transition focus:border-grass focus:ring-2 focus:ring-grass/20';
 
 /** Ghép chuỗi địa chỉ khách nhìn thấy. Phần "(trước sát nhập: ...)" giúp shipper quen tên cũ. */
 function compose(
     street: string,
     ward?: Ward | null,
     province?: Province | null,
-    legacyWard?: LegacyWard | null,
-    legacyDistrict?: LegacyDistrict | null,
+    oldText?: string,
 ): string {
     const main = [street.trim(), ward?.name, province?.name]
         .filter(Boolean)
         .join(', ');
-
-    if (!legacyWard) {
-        return main;
-    }
-    const old = [legacyWard.name, legacyDistrict?.name]
-        .filter(Boolean)
-        .join(', ');
+    const old = (oldText ?? '').trim();
 
     return old ? `${main} (trước sát nhập: ${old})` : main;
+}
+
+/** "Phường Trúc Bạch, Quận Ba Đình" — thêm tên huyện cho đủ nghĩa; lỗi thì chỉ lấy tên xã. */
+async function describeLegacy(w: LegacyWard): Promise<string> {
+    try {
+        return `${w.name}, ${await getLegacyDistrictName(w.district_code)}`;
+    } catch {
+        return w.name;
+    }
 }
 
 export default function AddressPicker({
@@ -80,7 +95,12 @@ export default function AddressPicker({
     const [province, setProvince] = useState<Province | null>(null);
     const [ward, setWard] = useState<Ward | null>(null);
 
-    // Đường "địa chỉ cũ"
+    /** Ô "địa chỉ cũ" — chuỗi tự do, tự điền nhưng khách sửa/xoá được. */
+    const [oldText, setOldText] = useState('');
+    /** Nhiều xã cũ gộp vào xã mới đang chọn -> cho khách chọn nhanh thay vì điền bừa. */
+    const [legacyChoices, setLegacyChoices] = useState<LegacyWard[]>([]);
+
+    // Đường "tôi chỉ biết địa chỉ cũ"
     const [legacyOpen, setLegacyOpen] = useState(false);
     const [legacyProvinces, setLegacyProvinces] = useState<Province[]>([]);
     const [legacyDistricts, setLegacyDistricts] = useState<LegacyDistrict[]>(
@@ -93,12 +113,11 @@ export default function AddressPicker({
     );
     const [legacyWard, setLegacyWard] = useState<LegacyWard | null>(null);
 
-    /** null = chưa suy ra. Có giá trị = kết quả suy ra cho xã cũ đang chọn. */
+    /** null = chưa suy ra. Có giá trị = kết quả suy ra xã MỚI từ xã cũ đang chọn. */
     const [inferred, setInferred] = useState<{
         count: number;
         exact: boolean;
     } | null>(null);
-    /** true = đang thu hẹp danh sách xã mới theo kết quả suy ra (khách bấm được để mở full). */
     const [narrowed, setNarrowed] = useState(false);
 
     useEffect(() => {
@@ -107,31 +126,57 @@ export default function AddressPicker({
             .catch(() => setFailed(true));
     }, []);
 
-    /** Gọi onChange với chuỗi ghép lại từ state hiện tại. */
     const emit = (patch: {
         street?: string;
         ward?: Ward | null;
         province?: Province | null;
-        legacyWard?: LegacyWard | null;
-        legacyDistrict?: LegacyDistrict | null;
+        oldText?: string;
+        legacyWardCode?: number | null;
     }) => {
         const street = patch.street ?? value.street;
         const w = patch.ward !== undefined ? patch.ward : ward;
         const p = patch.province !== undefined ? patch.province : province;
-        const lw =
-            patch.legacyWard !== undefined ? patch.legacyWard : legacyWard;
-        const ld =
-            patch.legacyDistrict !== undefined
-                ? patch.legacyDistrict
-                : legacyDistrict;
+        const old = patch.oldText !== undefined ? patch.oldText : oldText;
+        const legacyCode =
+            patch.legacyWardCode !== undefined
+                ? patch.legacyWardCode
+                : value.legacy_ward_code;
 
         onChange({
-            address: compose(street, w, p, lw, ld),
+            address: compose(street, w, p, old),
             street,
             province_code: p?.code ?? null,
             ward_code: w?.code ?? null,
-            legacy_ward_code: lw?.code ?? null,
+            legacy_ward_code: legacyCode,
         });
+    };
+
+    /** Chọn xã MỚI -> tự tra địa chỉ cũ tương ứng để điền vào ô "địa chỉ cũ". */
+    const fillOldFromNewWard = async (w: Ward) => {
+        try {
+            const legacies = await getLegaciesOfWard(w.code);
+
+            if (legacies.length === 1) {
+                const text = await describeLegacy(legacies[0]);
+                setLegacyChoices([]);
+                setOldText(text);
+                emit({
+                    ward: w,
+                    oldText: text,
+                    legacyWardCode: legacies[0].code,
+                });
+
+                return;
+            }
+            // Nhiều xã cũ gộp lại -> KHÔNG điền bừa, cho khách chọn.
+            setLegacyChoices(legacies);
+            setOldText('');
+            emit({ ward: w, oldText: '', legacyWardCode: null });
+        } catch {
+            // Tra thất bại chỉ mất tiện lợi — khách vẫn tự gõ được.
+            setLegacyChoices([]);
+            emit({ ward: w });
+        }
     };
 
     const pickProvince = async (code: number) => {
@@ -140,6 +185,7 @@ export default function AddressPicker({
         setWard(null);
         setNarrowed(false);
         setInferred(null);
+        setLegacyChoices([]);
         emit({ province: p, ward: null });
 
         if (!p) {
@@ -157,7 +203,28 @@ export default function AddressPicker({
     const pickWard = (code: number) => {
         const w = wards.find((x) => x.code === code) ?? null;
         setWard(w);
+        if (!w) {
+            setLegacyChoices([]);
+            emit({ ward: null });
+
+            return;
+        }
         emit({ ward: w });
+        void fillOldFromNewWard(w);
+    };
+
+    /** Khách chọn 1 trong nhiều xã cũ đã gộp vào xã mới. */
+    const pickLegacyChoice = async (code: number) => {
+        const w = legacyChoices.find((x) => x.code === code) ?? null;
+        if (!w) {
+            setOldText('');
+            emit({ oldText: '', legacyWardCode: null });
+
+            return;
+        }
+        const text = await describeLegacy(w);
+        setOldText(text);
+        emit({ oldText: text, legacyWardCode: w.code });
     };
 
     const openLegacy = async () => {
@@ -179,7 +246,6 @@ export default function AddressPicker({
         setLegacyWard(null);
         setLegacyWards([]);
         setInferred(null);
-        emit({ legacyWard: null, legacyDistrict: null });
 
         if (!p) {
             setLegacyDistricts([]);
@@ -198,7 +264,6 @@ export default function AddressPicker({
         setLegacyDistrict(d);
         setLegacyWard(null);
         setInferred(null);
-        emit({ legacyWard: null, legacyDistrict: d });
 
         if (!d) {
             setLegacyWards([]);
@@ -219,10 +284,16 @@ export default function AddressPicker({
 
         if (!lw) {
             setInferred(null);
-            emit({ legacyWard: null });
+            setOldText('');
+            emit({ oldText: '', legacyWardCode: null });
 
             return;
         }
+
+        // Khách tự khai địa chỉ cũ -> điền luôn vào ô "địa chỉ cũ", không cần tra ngược.
+        const text = [lw.name, legacyDistrict?.name].filter(Boolean).join(', ');
+        setOldText(text);
+        setLegacyChoices([]);
 
         try {
             const { wards: candidates, exact } = await inferNewWards(
@@ -233,25 +304,30 @@ export default function AddressPicker({
 
             if (candidates.length === 0) {
                 setNarrowed(false);
-                emit({ legacyWard: lw });
+                emit({ oldText: text, legacyWardCode: lw.code });
 
                 return;
             }
 
-            // Ứng viên mang province_code -> nạp đúng tỉnh mới rồi thu hẹp danh sách xã.
-            const provCode = candidates[0].province_code;
-            const p = provinces.find((x) => x.code === provCode) ?? null;
+            const p =
+                provinces.find((x) => x.code === candidates[0].province_code) ??
+                null;
             setProvince(p);
             setWards(candidates);
             setNarrowed(true);
 
             const w = exact ? candidates[0] : null;
             setWard(w);
-            emit({ legacyWard: lw, province: p, ward: w });
+            emit({
+                province: p,
+                ward: w,
+                oldText: text,
+                legacyWardCode: lw.code,
+            });
         } catch {
             // Suy ra thất bại KHÔNG được chặn khách — vẫn chọn tay được ở phần trên.
             setInferred({ count: 0, exact: false });
-            emit({ legacyWard: lw });
+            emit({ oldText: text, legacyWardCode: lw.code });
         }
     };
 
@@ -299,20 +375,14 @@ export default function AddressPicker({
 
     return (
         <div className="space-y-2">
-            <input
-                value={value.street}
-                onChange={(e) => emit({ street: e.target.value })}
-                placeholder="Số nhà, tên đường"
-                aria-label="Số nhà, tên đường"
-                className={`${inputCls} ${error ? 'border-red-400' : 'border-cardBorder'}`}
-            />
-
+            {/* Tỉnh + Xã lên TRƯỚC, số nhà xuống dưới — chọn vùng rồi mới ghi chi tiết. */}
             <div className="grid gap-2 sm:grid-cols-2">
                 <select
                     value={province?.code ?? ''}
                     onChange={(e) => pickProvince(Number(e.target.value))}
                     aria-label="Tỉnh / Thành phố"
                     className={selectCls}
+                    style={selectStyle}
                 >
                     <option value="">Tỉnh / Thành phố</option>
                     {provinces.map((p) => (
@@ -328,6 +398,7 @@ export default function AddressPicker({
                     disabled={!province}
                     aria-label="Xã / Phường"
                     className={selectCls}
+                    style={selectStyle}
                 >
                     <option value="">
                         {province ? 'Xã / Phường' : 'Chọn tỉnh trước'}
@@ -340,8 +411,16 @@ export default function AddressPicker({
                 </select>
             </div>
 
-            {/* Kết quả suy ra từ địa chỉ cũ */}
-            {inferred && inferred.exact && (
+            <input
+                value={value.street}
+                onChange={(e) => emit({ street: e.target.value })}
+                placeholder="Số nhà, tên đường"
+                aria-label="Số nhà, tên đường"
+                className={`${inputCls} ${error ? 'border-red-400' : 'border-cardBorder'}`}
+            />
+
+            {/* Kết quả suy ra xã MỚI từ xã cũ */}
+            {inferred?.exact && (
                 <p className="text-[12px] text-grass">
                     Đã suy ra: <b>{ward?.name}</b>. Sửa lại nếu chưa đúng.
                 </p>
@@ -359,12 +438,12 @@ export default function AddressPicker({
                     </button>
                 </p>
             )}
-            {inferred && inferred.count === 0 && (
+            {inferred?.count === 0 && (
                 <p className="text-[12px] text-[#8a6d1f]">
                     Không tra được tự động, bạn chọn giúp tỉnh và xã ở ô trên.
                 </p>
             )}
-            {narrowed && inferred && inferred.exact && (
+            {narrowed && inferred?.exact && (
                 <button
                     type="button"
                     onClick={showAllWards}
@@ -375,6 +454,55 @@ export default function AddressPicker({
             )}
 
             {error && <p className="text-[12px] text-red-500">{error}</p>}
+
+            {/* Ô địa chỉ cũ — chỉ hiện SAU khi đã chọn xong xã mới. */}
+            {ward && (
+                <div className="rounded-[11px] border border-cardBorder bg-[#fbfcf7] p-3">
+                    <label
+                        htmlFor="address-old"
+                        className="mb-1.5 block text-[12.5px] font-semibold text-pine"
+                    >
+                        Địa chỉ cũ (trước sát nhập){' '}
+                        <span className="font-normal text-moss">
+                            — tụi mình tự tra, giúp shipper quen tên cũ dễ tìm
+                        </span>
+                    </label>
+
+                    {legacyChoices.length > 1 && (
+                        <select
+                            value=""
+                            onChange={(e) =>
+                                pickLegacyChoice(Number(e.target.value))
+                            }
+                            aria-label="Chọn địa chỉ cũ tương ứng"
+                            className={`${selectCls} mb-2`}
+                            style={selectStyle}
+                        >
+                            <option value="">
+                                {ward.name} gộp từ {legacyChoices.length}{' '}
+                                xã/phường cũ — chọn nơi của bạn
+                            </option>
+                            {legacyChoices.map((w) => (
+                                <option key={w.code} value={w.code}>
+                                    {w.name}
+                                </option>
+                            ))}
+                        </select>
+                    )}
+
+                    <input
+                        id="address-old"
+                        value={oldText}
+                        onChange={(e) => {
+                            setOldText(e.target.value);
+                            emit({ oldText: e.target.value });
+                        }}
+                        placeholder="Ví dụ: Phường Điện Biên, Quận Ba Đình"
+                        aria-label="Địa chỉ cũ (trước sát nhập)"
+                        className={`${inputCls} border-cardBorder`}
+                    />
+                </div>
+            )}
 
             {!legacyOpen ? (
                 <button
@@ -387,9 +515,9 @@ export default function AddressPicker({
             ) : (
                 <div className="rounded-[11px] border border-cardBorder bg-[#fbfcf7] p-3">
                     <div className="mb-2 text-[12.5px] font-bold text-ink">
-                        Địa chỉ cũ (trước sát nhập 07/2025)
+                        Tra từ địa chỉ cũ (trước sát nhập 07/2025)
                     </div>
-                    <div className="grid gap-2 sm:grid-cols-3">
+                    <div className="grid gap-2">
                         <select
                             value={legacyProvince?.code ?? ''}
                             onChange={(e) =>
@@ -397,6 +525,7 @@ export default function AddressPicker({
                             }
                             aria-label="Tỉnh cũ"
                             className={selectCls}
+                            style={selectStyle}
                         >
                             <option value="">Tỉnh cũ</option>
                             {legacyProvinces.map((p) => (
@@ -413,6 +542,7 @@ export default function AddressPicker({
                             disabled={!legacyProvince}
                             aria-label="Quận / Huyện cũ"
                             className={selectCls}
+                            style={selectStyle}
                         >
                             <option value="">Quận / Huyện cũ</option>
                             {legacyDistricts.map((d) => (
@@ -429,6 +559,7 @@ export default function AddressPicker({
                             disabled={!legacyDistrict}
                             aria-label="Xã / Phường cũ"
                             className={selectCls}
+                            style={selectStyle}
                         >
                             <option value="">Xã / Phường cũ</option>
                             {legacyWards.map((w) => (
