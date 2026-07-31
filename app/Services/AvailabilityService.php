@@ -346,7 +346,11 @@ class AvailabilityService
      * Chỉ khác ở chỗ lấy available từ availabilityMatrix() thay vì gọi availableQuantity() từng món
      * (trang /combos trước đây là N combo × M món = N×M query).
      *
-     * @param  EloquentCollection<int, Combo>  $combos  (nên load 'items.product.serviceLocations')
+     * $location === null → quét kho ĐƯỢC GÁN của combo (Combo::serviceLocations(), đang mở), KHÔNG
+     * còn suy ra từ kho của món con (bopcamping-zdeh). Combo chưa gán kho nào → 0, không fallback
+     * toàn cục — combo không được gán kho thì không bán được ở đâu.
+     *
+     * @param  EloquentCollection<int, Combo>  $combos  (nên load 'items.product.serviceLocations', 'serviceLocations')
      * @return array<int, int>
      */
     public function comboQuantitiesFor(EloquentCollection $combos, Carbon $start, Carbon $end, ?ServiceLocation $location = null): array
@@ -355,7 +359,7 @@ class AvailabilityService
             return [];
         }
 
-        $combos->loadMissing('items.product.serviceLocations');
+        $combos->loadMissing(['items.product.serviceLocations', 'serviceLocations']);
 
         /** @var EloquentCollection<int, Product> $products */
         $products = new EloquentCollection(
@@ -383,28 +387,28 @@ class AvailabilityService
                 continue;
             }
 
-            // ⚠️ Chưa chọn kho: phải là MAX qua từng kho của (MIN qua các món),
+            // ⚠️ Chưa chọn kho: phải là MAX qua từng kho ĐƯỢC GÁN CỦA COMBO của (MIN qua các món),
             // KHÔNG phải MIN qua món của (MAX qua kho) — thứ tự ngược lại là sai.
             // Vd combo gồm A (Vinh 4, HN 2) + B (Vinh 2, HN 4): min-của-max cho 4, nhưng
             // best của A ở Vinh còn best của B ở Hà Nội → KHÔNG kho nào giao nổi cả combo.
             // Đúng là max(min(4,2), min(2,4)) = 2, khớp StoreResolver (đòi một kho đủ cả giỏ).
-            $locationIds = [];
-            foreach ($combo->items as $item) {
-                foreach (array_keys($matrix[$item->product->id ?? 0]['by_location'] ?? []) as $locId) {
-                    $locationIds[$locId] = true;
-                }
-            }
+            //
+            // bopcamping-zdeh (T4): tập kho quét KHÔNG còn suy ra từ by_location của món con —
+            // combo giờ có kho RIÊNG (pivot combo_service_location, xem Combo::serviceLocations()).
+            // Chỉ quét kho đã ĐƯỢC GÁN cho combo và đang mở; combo 0 kho gán → 0, KHÔNG fallback
+            // toàn cục (một combo có thể được gán kho mà món con lại thuộc nhánh toàn cục/chưa gắn
+            // kho — comboAtLocation() vẫn xử lý đúng qua pickFromRow()).
+            $locationIds = $combo->openLocationIds();
 
-            // Mọi món đều thuộc nhánh toàn cục (chưa gắn kho) → không có kho nào để quét.
             if ($locationIds === []) {
-                $out[$combo->id] = $this->comboAtLocation($combo, $matrix, null);
+                $out[$combo->id] = 0;
 
                 continue;
             }
 
             $out[$combo->id] = (int) max(array_map(
                 fn (int $locId) => $this->comboAtLocation($combo, $matrix, $locId),
-                array_keys($locationIds)
+                $locationIds
             ));
         }
 

@@ -64,6 +64,14 @@ class ComboPagesTest extends TestCase
         ]);
         $this->combo->items()->create(['product_id' => $this->tent->id, 'quantity' => 1]);
         $this->combo->items()->create(['product_id' => $this->mattress->id, 'quantity' => 2]);
+
+        // bopcamping-zdeh: combo giờ có kho riêng, comboQuantitiesFor() không fallback toàn
+        // cục khi chưa gán kho. File này không quan tâm chuyện theo-kho, nên gắn 2 món dùng
+        // trong combo vào 1 kho duy nhất với đúng tồn toàn cục (buffer 0) để số liệu giữ nguyên.
+        $location = ServiceLocation::create(['name' => 'Vinh', 'area' => 'Nghệ An', 'status' => 'open', 'sort_order' => 1]);
+        $this->tent->serviceLocations()->attach($location->id, ['quantity' => $this->tent->quantity, 'buffer_days' => 0]);
+        $this->mattress->serviceLocations()->attach($location->id, ['quantity' => $this->mattress->quantity, 'buffer_days' => 0]);
+        $this->combo->serviceLocations()->sync($this->combo->fresh()->assignableLocationIds());
     }
 
     /** @test */

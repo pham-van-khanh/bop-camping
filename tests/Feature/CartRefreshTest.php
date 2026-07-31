@@ -98,8 +98,15 @@ class CartRefreshTest extends TestCase
     {
         $p = $this->product('Lều', 'leu-stock', 90000); // kho 5
 
+        // bopcamping-zdeh: combo giờ có kho riêng, comboAvailable() không fallback toàn cục
+        // khi chưa gán kho. Test này không quan tâm chuyện theo-kho, nên gắn món dùng trong
+        // combo vào 1 kho duy nhất với đúng tồn toàn cục (buffer 0) để số liệu giữ nguyên.
+        $location = ServiceLocation::create(['name' => 'Vinh', 'area' => 'Nghệ An', 'status' => 'open', 'sort_order' => 1]);
+        $p->serviceLocations()->attach($location->id, ['quantity' => $p->quantity, 'buffer_days' => 0]);
+
         $combo = Combo::create(['name' => 'Combo Stock', 'slug' => 'combo-stock', 'combo_price' => 80000]);
         $combo->items()->create(['product_id' => $p->id, 'quantity' => 2]);
+        $combo->serviceLocations()->sync($combo->fresh()->assignableLocationIds());
 
         // Chiếm 4/5 lều trong 10–12/07
         $order = Order::factory()->create(['start_date' => '2030-07-10', 'end_date' => '2030-07-12']);

@@ -72,6 +72,11 @@ class ComboAdminAndCheckoutTest extends TestCase
         $tent = $this->makeProduct(['price_per_day' => 200_000]);
         $chair = $this->makeProduct(['price_per_day' => 25_000]);
 
+        // FR-3: service_location_ids bắt buộc, mỗi id phải phục vụ MỌI món gửi lên.
+        $loc = ServiceLocation::create(['name' => 'Vinh', 'area' => 'Nghệ An', 'status' => 'open', 'sort_order' => 1]);
+        $tent->serviceLocations()->attach($loc->id, ['quantity' => $tent->quantity, 'buffer_days' => 0]);
+        $chair->serviceLocations()->attach($loc->id, ['quantity' => $chair->quantity, 'buffer_days' => 0]);
+
         $this->actingAsAdmin()
             ->post(route('admin.combos.store'), [
                 'name' => 'Combo Gia Đình 4 Người',
@@ -82,6 +87,7 @@ class ComboAdminAndCheckoutTest extends TestCase
                     ['product_id' => $tent->id, 'quantity' => 1],
                     ['product_id' => $chair->id, 'quantity' => 4],
                 ],
+                'service_location_ids' => [$loc->id],
             ])
             ->assertSessionHasNoErrors();
 
@@ -109,11 +115,17 @@ class ComboAdminAndCheckoutTest extends TestCase
         // validation error trên combo_price, override có chủ đích qua confirm_over_price.
         $product = $this->makeProduct(['price_per_day' => 100_000]);
 
+        // FR-3: service_location_ids bắt buộc — phải hợp lệ để request đi tới được bước
+        // kiểm tra combo_price (nếu thiếu, request sẽ 422 ở service_location_ids trước).
+        $loc = ServiceLocation::create(['name' => 'Vinh', 'area' => 'Nghệ An', 'status' => 'open', 'sort_order' => 1]);
+        $product->serviceLocations()->attach($loc->id, ['quantity' => $product->quantity, 'buffer_days' => 0]);
+
         $response = $this->actingAsAdmin()
             ->post(route('admin.combos.store'), [
                 'name' => 'Combo đắt hơn lẻ',
                 'combo_price' => 150_000,
                 'items' => [['product_id' => $product->id, 'quantity' => 1]],
+                'service_location_ids' => [$loc->id],
             ]);
 
         $response->assertSessionHasErrors('combo_price');

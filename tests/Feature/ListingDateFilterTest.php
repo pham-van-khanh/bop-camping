@@ -334,7 +334,11 @@ class ListingDateFilterTest extends TestCase
         for ($i = 0; $i < $howMany; $i++) {
             $a = $this->makeProduct("Combo mon a {$howMany} {$i}", 6);
             $b = $this->makeProduct("Combo mon b {$howMany} {$i}", 6);
-            $this->makeCombo("Combo so {$howMany} {$i}", "combo-so-{$howMany}-{$i}", [[$a, 1], [$b, 2]]);
+            // withLocation: false — test này chỉ đo SỐ QUERY, không cần combo có kho thật (và
+            // gán kho ở đây sẽ đụng N+1 có sẵn của ComboController::shape() ở
+            // `count($locations) === ServiceLocation::open()->count()`, vốn được short-circuit
+            // khi combo 0 kho — không phải lỗi của fixture, xem báo cáo cuối task).
+            $this->makeCombo("Combo so {$howMany} {$i}", "combo-so-{$howMany}-{$i}", [[$a, 1], [$b, 2]], withLocation: false);
         }
 
         return $this->countQueriesOn("/combos?start={$this->start}&end={$this->end}");
@@ -354,8 +358,15 @@ class ListingDateFilterTest extends TestCase
         ]);
     }
 
-    /** @param  array<int, array{0: Product, 1: int}>  $items */
-    private function makeCombo(string $name, string $slug, array $items, int $sortOrder = 0): Combo
+    /**
+     * @param  array<int, array{0: Product, 1: int}>  $items
+     *
+     * bopcamping-zdeh: combo giờ có kho riêng, comboQuantitiesFor() không fallback toàn cục
+     * khi chưa gán kho. Các test dùng helper này không quan tâm chuyện theo-kho, nên mỗi món
+     * chưa từng gắn kho nào được gắn vào $this->vinh (đã có sẵn từ setUp) với đúng tồn toàn
+     * cục (buffer 0) để số liệu giữ nguyên, rồi combo được gán đúng tập kho đó.
+     */
+    private function makeCombo(string $name, string $slug, array $items, int $sortOrder = 0, bool $withLocation = true): Combo
     {
         $combo = Combo::create([
             'name' => $name,
@@ -371,6 +382,14 @@ class ListingDateFilterTest extends TestCase
                 'product_id' => $product->id,
                 'quantity' => $qty,
             ]);
+
+            if ($withLocation && $product->serviceLocations()->count() === 0) {
+                $product->serviceLocations()->attach($this->vinh->id, ['quantity' => $product->quantity, 'buffer_days' => 0]);
+            }
+        }
+
+        if ($withLocation) {
+            $combo->serviceLocations()->sync($combo->fresh()->assignableLocationIds());
         }
 
         return $combo;

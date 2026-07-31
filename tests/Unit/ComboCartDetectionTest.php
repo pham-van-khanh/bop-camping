@@ -16,6 +16,7 @@ namespace Tests\Unit;
 use App\Models\Combo;
 use App\Models\Order;
 use App\Models\Product;
+use App\Models\ServiceLocation;
 use App\Services\ComboDetectionService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Collection;
@@ -35,15 +36,26 @@ class ComboCartDetectionTest extends TestCase
 
     private Combo $combo;
 
+    /**
+     * Kho dùng chung (bopcamping-zdeh): combo chỉ khả dụng qua kho ĐƯỢC GÁN của nó, không
+     * còn fallback toàn cục. Test này không quan tâm chuyện theo-kho nên gắn mọi sản phẩm
+     * combo dùng vào 1 kho duy nhất với đúng tồn toàn cục (buffer 0) để số liệu không đổi.
+     */
+    private ServiceLocation $location;
+
     protected function setUp(): void
     {
         parent::setUp();
 
         $this->detector = app(ComboDetectionService::class);
+        $this->location = ServiceLocation::create(['name' => 'Vinh', 'area' => 'Nghệ An', 'status' => 'open', 'sort_order' => 1]);
 
         $this->tent = Product::factory()->create(['price_per_day' => 200_000, 'quantity' => 5]);
         $this->table = Product::factory()->create(['price_per_day' => 100_000, 'quantity' => 5]);
         $this->chair = Product::factory()->create(['price_per_day' => 25_000, 'quantity' => 20]);
+        $this->attachLocation($this->tent);
+        $this->attachLocation($this->table);
+        $this->attachLocation($this->chair);
 
         // Combo: 1 lều + 1 bàn + 4 ghế = 400k lẻ → combo 340k (tiết kiệm 60k)
         $this->combo = Combo::factory()->create(['combo_price' => 340_000, 'is_active' => true]);
@@ -52,6 +64,13 @@ class ComboCartDetectionTest extends TestCase
             ['product_id' => $this->table->id, 'quantity' => 1],
             ['product_id' => $this->chair->id, 'quantity' => 4],
         ]);
+        $this->combo->serviceLocations()->sync($this->combo->fresh()->assignableLocationIds());
+    }
+
+    /** Gắn sản phẩm vào kho dùng chung, giữ nguyên tồn toàn cục làm tồn theo-kho. */
+    private function attachLocation(Product $product): void
+    {
+        $product->serviceLocations()->attach($this->location->id, ['quantity' => $product->quantity, 'buffer_days' => 0]);
     }
 
     private function cart(array $items): Collection
@@ -170,6 +189,7 @@ class ComboCartDetectionTest extends TestCase
             ['product_id' => $this->tent->id, 'quantity' => 1],
             ['product_id' => $this->table->id, 'quantity' => 1],
         ]);
+        $small->serviceLocations()->sync($small->fresh()->assignableLocationIds());
 
         // Giỏ khớp cả 2 combo → phải chọn combo lớn (tiết kiệm 60k > 20k)
         $suggestion = $this->detector->detect(
