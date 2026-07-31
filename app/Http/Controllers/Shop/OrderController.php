@@ -48,6 +48,14 @@ class OrderController extends Controller
             'phone' => ['required', 'string', 'regex:/^0[0-9]{8,10}$/'],
             'email' => ['nullable', 'email', 'max:255'],
             'address' => ['nullable', 'string', 'max:255'],
+            // Mã địa chỉ sau sát nhập (bopcamping-9299) — CHỈ để thống kê, KHÔNG kiểm tồn tại.
+            // Dữ liệu tỉnh/xã không có trong DB (FE gọi provinces.open-api.vn); muốn validate
+            // thì phải gọi API bên thứ ba ngay lúc tạo đơn = đưa dependency vào đường tiền.
+            // customer_address (thứ khách thấy và shipper dùng) mới là nguồn chân lý.
+            'province_code' => ['nullable', 'integer', 'min:1'],
+            'ward_code' => ['nullable', 'integer', 'min:1'],
+            'legacy_ward_code' => ['nullable', 'integer', 'min:1'],
+            'street' => ['nullable', 'string', 'max:255'],
             'note' => ['nullable', 'string', 'max:500'],
             // max:50 — chặn giỏ khổng lồ tạo hàng loạt đơn con/1 request (CWE-770, bopcamping-wtuv).
             'items' => ['nullable', 'array', 'max:50'],
@@ -169,6 +177,10 @@ class OrderController extends Controller
             'customer_phone' => $validated['phone'],
             'customer_email' => $customerEmail,
             'customer_address' => $validated['address'] ?? null,
+            'province_code' => $validated['province_code'] ?? null,
+            'ward_code' => $validated['ward_code'] ?? null,
+            'legacy_ward_code' => $validated['legacy_ward_code'] ?? null,
+            'street' => $validated['street'] ?? null,
             'note' => $validated['note'] ?? null,
         ];
 

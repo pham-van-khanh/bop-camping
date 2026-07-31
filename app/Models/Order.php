@@ -31,6 +31,12 @@ class Order extends Model
         'customer_phone',
         'customer_email',
         'customer_address',
+        // Mã địa chỉ sau sát nhập (bopcamping-9299) — chỉ để thống kê; customer_address
+        // vẫn là nguồn chân lý cho giao nhận.
+        'province_code',
+        'ward_code',
+        'legacy_ward_code',
+        'street',
         'review_token',
         'review_invited_at',
         'review_submitted_at',
