@@ -31,10 +31,16 @@ class ComboAdminAndCheckoutTest extends TestCase
 
     private Category $category;
 
+    /** Kho mặc định — admin.combos.store đòi combo phải bán ở ≥1 cơ sở (bopcamping-iylu). */
+    private ServiceLocation $location;
+
     protected function setUp(): void
     {
         parent::setUp();
         $this->category = Category::create(['name' => 'Test', 'slug' => 'test']);
+        $this->location = ServiceLocation::create([
+            'name' => 'Vinh', 'area' => 'Nghệ An', 'status' => 'open', 'sort_order' => 1,
+        ]);
     }
 
     private function actingAsAdmin(): static
@@ -42,15 +48,28 @@ class ComboAdminAndCheckoutTest extends TestCase
         return $this->actingAs(User::factory()->create(['is_admin' => true]));
     }
 
+    /**
+     * Sản phẩm gắn sẵn kho mặc định: assertLocationsServeAllItems() đòi MỌI kho được gán
+     * phải phục vụ TẤT CẢ món của combo, nên món không gắn kho là không gán được kho nào.
+     */
     private function makeProduct(array $attrs = []): Product
     {
-        return Product::create($attrs + [
+        $product = Product::create($attrs + [
             'category_id' => $this->category->id,
             'name' => 'SP '.uniqid(),
             'slug' => 'sp-'.uniqid(),
             'price_per_day' => 100_000,
             'quantity' => 5,
         ]);
+
+        // Tồn pivot BÁM theo products.quantity: tồn thật là tồn theo kho, để lệch thì test
+        // "hết hàng" sẽ không bao giờ hết.
+        $product->serviceLocations()->attach($this->location->id, [
+            'quantity' => (int) $product->quantity,
+            'buffer_days' => 0,
+        ]);
+
+        return $product;
     }
 
     private function makeCombo(array $attrs = []): Combo
@@ -82,6 +101,7 @@ class ComboAdminAndCheckoutTest extends TestCase
                     ['product_id' => $tent->id, 'quantity' => 1],
                     ['product_id' => $chair->id, 'quantity' => 4],
                 ],
+                'service_location_ids' => [$this->location->id],
             ])
             ->assertSessionHasNoErrors();
 
@@ -114,6 +134,7 @@ class ComboAdminAndCheckoutTest extends TestCase
                 'name' => 'Combo đắt hơn lẻ',
                 'combo_price' => 150_000,
                 'items' => [['product_id' => $product->id, 'quantity' => 1]],
+                'service_location_ids' => [$this->location->id],
             ]);
 
         $response->assertSessionHasErrors('combo_price');
@@ -129,15 +150,13 @@ class ComboAdminAndCheckoutTest extends TestCase
         $combo = $this->makeCombo();
         $combo->items()->create(['product_id' => $product->id, 'quantity' => 1]);
 
-        $loc = ServiceLocation::create(['name' => 'Vinh', 'area' => 'Nghệ An', 'status' => 'open', 'sort_order' => 1]);
-
         $this->actingAsAdmin()->put(route('admin.products.update', $product), [
             'name' => $product->name,
             'category_id' => $product->category_id,
             'price_per_day' => $product->price_per_day,
             'quantity' => $product->quantity,
             'status' => 'hidden',
-            'service_location_ids' => [$loc->id],
+            'service_location_ids' => [$this->location->id],
         ]);
 
         $this->assertFalse($combo->fresh()->is_active, 'Combo phải tự ẩn khi món con bị deactivate');
