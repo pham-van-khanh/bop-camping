@@ -127,6 +127,9 @@ class SessionOrderDetailQaTest extends TestCase
         // Combo không mang buổi (không có ưu đãi trả sớm) → đơn combo-only cùng ngày = full/null.
         $combo = Combo::create(['name' => 'Combo QA', 'slug' => 'combo-qa-'.uniqid(), 'combo_price' => 80000, 'is_active' => true]);
         $combo->items()->create(['product_id' => $this->chair->id, 'quantity' => 1]);
+        // bopcamping-v5ig: combo phải được gán cơ sở, không thì checkout từ chối (trên prod
+        // migration backfill + admin validate min:1 đảm bảo combo luôn có >= 1 cơ sở).
+        $combo->serviceLocations()->sync($combo->fresh()->assignableLocationIds());
         $user = User::factory()->create(['phone' => '0912999009']);
 
         $this->actingAs($user)->post(route('order.store'), [

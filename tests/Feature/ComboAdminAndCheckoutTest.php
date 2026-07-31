@@ -72,6 +72,18 @@ class ComboAdminAndCheckoutTest extends TestCase
         return $product;
     }
 
+    /**
+     * bopcamping-v5ig: combo phải có kho gán, không thì checkout từ chối. Gọi SAU khi đã tạo
+     * items (assignableLocationIds tính từ món con). Trên prod migration backfill + admin
+     * validate min:1 đảm bảo combo luôn có >= 1 kho.
+     */
+    private function assignStores(Combo $combo): Combo
+    {
+        $combo->serviceLocations()->sync($combo->fresh()->assignableLocationIds());
+
+        return $combo;
+    }
+
     private function makeCombo(array $attrs = []): Combo
     {
         return Combo::create($attrs + [
@@ -90,6 +102,11 @@ class ComboAdminAndCheckoutTest extends TestCase
     {
         $tent = $this->makeProduct(['price_per_day' => 200_000]);
         $chair = $this->makeProduct(['price_per_day' => 25_000]);
+
+        // FR-3: service_location_ids bắt buộc, mỗi id phải phục vụ MỌI món gửi lên.
+        $loc = ServiceLocation::create(['name' => 'Vinh', 'area' => 'Nghệ An', 'status' => 'open', 'sort_order' => 1]);
+        $tent->serviceLocations()->attach($loc->id, ['quantity' => $tent->quantity, 'buffer_days' => 0]);
+        $chair->serviceLocations()->attach($loc->id, ['quantity' => $chair->quantity, 'buffer_days' => 0]);
 
         $this->actingAsAdmin()
             ->post(route('admin.combos.store'), [
@@ -128,6 +145,11 @@ class ComboAdminAndCheckoutTest extends TestCase
         // PRD 5.2: warning khi combo_price >= sum_individual — implement là
         // validation error trên combo_price, override có chủ đích qua confirm_over_price.
         $product = $this->makeProduct(['price_per_day' => 100_000]);
+
+        // FR-3: service_location_ids bắt buộc — phải hợp lệ để request đi tới được bước
+        // kiểm tra combo_price (nếu thiếu, request sẽ 422 ở service_location_ids trước).
+        $loc = ServiceLocation::create(['name' => 'Vinh', 'area' => 'Nghệ An', 'status' => 'open', 'sort_order' => 1]);
+        $product->serviceLocations()->attach($loc->id, ['quantity' => $product->quantity, 'buffer_days' => 0]);
 
         $response = $this->actingAsAdmin()
             ->post(route('admin.combos.store'), [
@@ -191,6 +213,7 @@ class ComboAdminAndCheckoutTest extends TestCase
             ['product_id' => $tent->id, 'quantity' => 1],
             ['product_id' => $mat->id, 'quantity' => 1],
         ]);
+        $this->assignStores($combo);
 
         $this->checkoutComboHelper($combo, '2030-07-12', '2030-07-14')->assertSessionHasNoErrors();
         $order = Order::latest('id')->with('items')->first();
@@ -213,6 +236,7 @@ class ComboAdminAndCheckoutTest extends TestCase
         $tent = $this->makeProduct(['price_per_day' => 200_000]);
         $combo = $this->makeCombo(['combo_price' => 180_000]);
         $combo->items()->create(['product_id' => $tent->id, 'quantity' => 1]);
+        $this->assignStores($combo);
 
         $this->checkoutComboHelper($combo, '2030-07-12', '2030-07-14', comboQty: 2)->assertSessionHasNoErrors();
         $order = Order::latest('id')->with('items')->first();
@@ -229,6 +253,7 @@ class ComboAdminAndCheckoutTest extends TestCase
         $mat = $this->makeProduct(['quantity' => 1]);
         $combo = $this->makeCombo(['combo_price' => 80_000]);
         $combo->items()->create(['product_id' => $mat->id, 'quantity' => 1]);
+        $this->assignStores($combo);
 
         // Đơn 1 chiếm hết — xác nhận để khoá tồn (feedback 2026-07-27: pending không khoá)
         $this->checkoutComboHelper($combo, '2030-07-12', '2030-07-14')->assertSessionHasNoErrors();

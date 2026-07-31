@@ -335,11 +335,12 @@ class ListingDateFilterTest extends TestCase
         for ($i = 0; $i < $howMany; $i++) {
             $a = $this->makeProduct("Combo mon a {$howMany} {$i}", 6);
             $b = $this->makeProduct("Combo mon b {$howMany} {$i}", 6);
-            $combo = $this->makeCombo("Combo so {$howMany} {$i}", "combo-so-{$howMany}-{$i}", [[$a, 1], [$b, 2]]);
-
-            // BẮT BUỘC: combo phải có kho được gán như combo thật do admin tạo. Không có pivot thì
-            // shape() short-circuit ở `count(locations) > 0` và giấu mất N+1 của all_locations.
-            $combo->serviceLocations()->attach([$this->vinh->id, $this->hanoi->id]);
+            // Combo PHẢI có kho gán như combo thật do admin tạo — không có pivot thì shape()
+            // short-circuit ở `count(locations) > 0` và giấu mất N+1 của all_locations.
+            // makeCombo() tự sync assignableLocationIds(), nên KHÔNG attach tay lần nữa
+            // (attach lại Vinh sẽ lỗi khoá trùng). N+1 đã vá ở bopcamping-65k9 nên số query
+            // giờ phẳng dù combo có kho.
+            $this->makeCombo("Combo so {$howMany} {$i}", "combo-so-{$howMany}-{$i}", [[$a, 1], [$b, 2]]);
         }
 
         return $this->countQueriesOn("/combos?start={$this->start}&end={$this->end}");
@@ -357,8 +358,11 @@ class ListingDateFilterTest extends TestCase
         $partial = $this->makeCombo('Combo mot kho', 'combo-mot-kho', [[$product, 1]], sortOrder: 2);
         $none = $this->makeCombo('Combo khong kho', 'combo-khong-kho', [[$product, 1]], sortOrder: 3);
 
-        $full->serviceLocations()->attach([$this->vinh->id, $this->hanoi->id]);
-        $partial->serviceLocations()->attach($this->vinh->id);
+        // sync() thay attach(): makeCombo() đã gán kho assignable sẵn, attach lần nữa sẽ lỗi
+        // khoá trùng. sync() cũng diễn đạt đúng ý "combo có ĐÚNG những kho này".
+        $full->serviceLocations()->sync([$this->vinh->id, $this->hanoi->id]);
+        $partial->serviceLocations()->sync([$this->vinh->id]);
+        $none->serviceLocations()->sync([]);
 
         $this->get('/combos')
             ->assertOk()
@@ -386,7 +390,7 @@ class ListingDateFilterTest extends TestCase
 
         $product = $this->makeProduct('Bep all loc', 4);
         $combo = $this->makeCombo('Combo du kho mo', 'combo-du-kho-mo', [[$product, 1]]);
-        $combo->serviceLocations()->attach([$this->vinh->id, $this->hanoi->id]);
+        $combo->serviceLocations()->sync([$this->vinh->id, $this->hanoi->id]);
 
         $this->get('/combos')
             ->assertOk()
@@ -407,7 +411,14 @@ class ListingDateFilterTest extends TestCase
         ]);
     }
 
-    /** @param  array<int, array{0: Product, 1: int}>  $items */
+    /**
+     * @param  array<int, array{0: Product, 1: int}>  $items
+     *
+     * bopcamping-zdeh: combo giờ có kho riêng, comboQuantitiesFor() không fallback toàn cục
+     * khi chưa gán kho. Các test dùng helper này không quan tâm chuyện theo-kho, nên mỗi món
+     * chưa từng gắn kho nào được gắn vào $this->vinh (đã có sẵn từ setUp) với đúng tồn toàn
+     * cục (buffer 0) để số liệu giữ nguyên, rồi combo được gán đúng tập kho đó.
+     */
     private function makeCombo(string $name, string $slug, array $items, int $sortOrder = 0): Combo
     {
         $combo = Combo::create([
@@ -424,7 +435,13 @@ class ListingDateFilterTest extends TestCase
                 'product_id' => $product->id,
                 'quantity' => $qty,
             ]);
+
+            if ($product->serviceLocations()->count() === 0) {
+                $product->serviceLocations()->attach($this->vinh->id, ['quantity' => $product->quantity, 'buffer_days' => 0]);
+            }
         }
+
+        $combo->serviceLocations()->sync($combo->fresh()->assignableLocationIds());
 
         return $combo;
     }

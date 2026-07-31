@@ -18,6 +18,7 @@ use App\Models\Category;
 use App\Models\Combo;
 use App\Models\Order;
 use App\Models\Product;
+use App\Models\ServiceLocation;
 use App\Services\AvailabilityService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
@@ -32,22 +33,34 @@ class ComboAvailabilityTest extends TestCase
 
     private Category $category;
 
+    /**
+     * Kho dùng chung cho fixture của file này (bopcamping-zdeh): combo giờ có kho riêng
+     * (combo_service_location), comboQuantitiesFor() không còn fallback toàn cục khi combo
+     * chưa được gán kho. Test này không quan tâm chuyện theo-kho, nên gắn MỌI sản phẩm vào
+     * 1 kho duy nhất với đúng tồn toàn cục (buffer 0) để số liệu giữ nguyên như trước.
+     */
+    private ServiceLocation $location;
+
     protected function setUp(): void
     {
         parent::setUp();
         $this->service = app(AvailabilityService::class);
         $this->category = Category::create(['name' => 'Test', 'slug' => 'test']);
+        $this->location = ServiceLocation::create(['name' => 'Vinh', 'area' => 'Nghệ An', 'status' => 'open', 'sort_order' => 1]);
     }
 
     private function makeProduct(int $quantity, int $price = 100000): Product
     {
-        return Product::create([
+        $product = Product::create([
             'category_id' => $this->category->id,
             'name' => 'SP '.uniqid(),
             'slug' => 'sp-'.uniqid(),
             'price_per_day' => $price,
             'quantity' => $quantity,
         ]);
+        $product->serviceLocations()->attach($this->location->id, ['quantity' => $quantity, 'buffer_days' => 0]);
+
+        return $product;
     }
 
     /** Helper: tạo combo từ mảng [product, quantity] */
@@ -65,6 +78,7 @@ class ComboAvailabilityTest extends TestCase
                 'quantity' => $qty,
             ]);
         }
+        $combo->serviceLocations()->sync($combo->fresh()->assignableLocationIds());
 
         return $combo->fresh('items.product');
     }

@@ -209,6 +209,14 @@ class ProductAccessoryTest extends TestCase
         $combo->items()->create(['product_id' => $this->tent->id, 'quantity' => 1]);
         $combo->items()->create(['product_id' => $this->chair->id, 'quantity' => 2]);
 
+        // bopcamping-zdeh: combo giờ có kho riêng, comboAvailable() không fallback toàn cục
+        // khi chưa gán kho. Test này không quan tâm chuyện theo-kho, nên gắn 2 món dùng
+        // trong combo vào 1 kho duy nhất với đúng tồn toàn cục (buffer 0) để số liệu giữ nguyên.
+        $location = ServiceLocation::create(['name' => 'Vinh', 'area' => 'Nghệ An', 'status' => 'open', 'sort_order' => 1]);
+        $this->tent->serviceLocations()->attach($location->id, ['quantity' => $this->tent->quantity, 'buffer_days' => 0]);
+        $this->chair->serviceLocations()->attach($location->id, ['quantity' => $this->chair->quantity, 'buffer_days' => 0]);
+        $combo->serviceLocations()->sync($combo->fresh()->assignableLocationIds());
+
         // Xem trang GHẾ (thuộc combo): lều kín lịch 10–12 → combo hết theo
         $this->bookedOrder($this->tent, '2030-07-10', '2030-07-12', qty: 3);
 

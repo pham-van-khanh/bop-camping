@@ -54,25 +54,35 @@ class ProductController extends Controller
         // Section "Combo tiết kiệm": 3–4 combo nổi bật theo sort_order (PRD combo mục 6)
         $featuredCombos = Combo::active()
             ->whereHas('items')
-            ->with(['items.product', 'images'])
+            // serviceLocations: thẻ combo hiện badge cơ sở như thẻ sản phẩm (bopcamping-daet).
+            // Không eager load thì badge trống ở trang chủ + N+1 một query mỗi combo.
+            ->with(['items.product', 'images', 'serviceLocations'])
             ->orderBy('sort_order')
             ->orderBy('name')
             ->limit(4)
             ->get()
-            ->map(fn (Combo $c) => [
-                'id' => $c->id,
-                'name' => $c->name,
-                'slug' => $c->slug,
-                'combo_price' => (int) $c->combo_price,
-                'sum_individual' => $c->sumIndividualPrice(),
-                'savings_amount' => $c->savingsAmount(),
-                'savings_percent' => $c->savingsPercent(),
-                'suitable_for' => $c->suitable_for,
-                'items_count' => $c->items->count(),
-                'image' => $c->images->first()
-                    ? Storage::disk('media')->url($c->images->first()->path)
-                    : null,
-            ])->values();
+            ->map(function (Combo $c) {
+                $locations = $c->openLocations();
+
+                return [
+                    'id' => $c->id,
+                    'name' => $c->name,
+                    'slug' => $c->slug,
+                    'combo_price' => (int) $c->combo_price,
+                    'sum_individual' => $c->sumIndividualPrice(),
+                    'savings_amount' => $c->savingsAmount(),
+                    'savings_percent' => $c->savingsPercent(),
+                    'suitable_for' => $c->suitable_for,
+                    'items_count' => $c->items->count(),
+                    'image' => $c->images->first()
+                        ? Storage::disk('media')->url($c->images->first()->path)
+                        : null,
+                    'locations' => $locations,
+                    // openLocationCount() đã memoize nên không thành N+1 (bopcamping-65k9).
+                    'all_locations' => $this->openLocationCount() > 0
+                        && count($locations) === $this->openLocationCount(),
+                ];
+            })->values();
 
         return Inertia::render('Welcome', [
             'seo' => $this->seo->page(

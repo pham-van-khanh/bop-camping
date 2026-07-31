@@ -8,6 +8,7 @@ use App\Models\ComboEvent;
 use App\Models\Order;
 use App\Models\Product;
 use App\Models\PromotionSetting;
+use App\Models\ServiceLocation;
 use App\Models\User;
 use App\Models\Voucher;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -62,6 +63,15 @@ class CartComboSuggestionTest extends TestCase
             ['product_id' => $this->table->id, 'quantity' => 1],
             ['product_id' => $this->chair->id, 'quantity' => 4],
         ]);
+
+        // bopcamping-zdeh: combo giờ có kho riêng, comboAvailable() không fallback toàn cục
+        // khi chưa gán kho. File này không quan tâm chuyện theo-kho, nên gắn 3 món dùng
+        // trong combo vào 1 kho duy nhất với đúng tồn toàn cục (buffer 0) để số liệu giữ nguyên.
+        $location = ServiceLocation::create(['name' => 'Vinh', 'area' => 'Nghệ An', 'status' => 'open', 'sort_order' => 1]);
+        $this->tent->serviceLocations()->attach($location->id, ['quantity' => $this->tent->quantity, 'buffer_days' => 0]);
+        $this->table->serviceLocations()->attach($location->id, ['quantity' => $this->table->quantity, 'buffer_days' => 0]);
+        $this->chair->serviceLocations()->attach($location->id, ['quantity' => $this->chair->quantity, 'buffer_days' => 0]);
+        $this->combo->serviceLocations()->sync($this->combo->fresh()->assignableLocationIds());
     }
 
     /** Payload items lẻ khớp đúng combo, 12–14/07 (3 ngày). */
