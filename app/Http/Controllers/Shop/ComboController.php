@@ -38,14 +38,20 @@ class ComboController extends Controller
     {
         [$start, $end] = $this->parseRange($request);
 
-        // ?vi-tri= chỉ dùng để TÍNH khả dụng đúng kho, KHÔNG lọc bớt combo (giữ hành vi cũ).
+        // ?vi-tri= vừa LỌC combo (chỉ trả combo được gán kho đó) vừa dùng để tính khả dụng đúng kho
+        // (bopcamping-zdeh — combo giờ có kho riêng, không còn dùng chung logic "không lọc" cũ).
         $openLocations = ServiceLocation::open()->ordered()->get();
         $locParam = $request->query('vi-tri', '');
         $activeLocation = is_string($locParam) && $locParam !== ''
             ? $openLocations->firstWhere('slug', $locParam)
             : null;
 
-        $comboModels = $this->sellable()->get();
+        $comboModels = $this->sellable()
+            ->when(
+                $activeLocation,
+                fn ($q) => $q->whereHas('serviceLocations', fn ($q2) => $q2->whereKey($activeLocation->id))
+            )
+            ->get();
         $hasRange = $start && $end;
 
         // 1 query cho toàn bộ món con của mọi combo (trước đây N combo × M món = N×M query).

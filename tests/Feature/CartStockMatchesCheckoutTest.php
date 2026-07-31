@@ -123,6 +123,9 @@ class CartStockMatchesCheckoutTest extends TestCase
         ]);
         ComboItem::create(['combo_id' => $combo->id, 'product_id' => $a->id, 'quantity' => 1]);
         ComboItem::create(['combo_id' => $combo->id, 'product_id' => $b->id, 'quantity' => 1]);
+        // bopcamping-zdeh: combo giờ có kho riêng — gán đúng kho MỌI món con đã phục vụ
+        // (Vinh + Hà Nội, cả a và b đều có mặt) để comboQuantitiesFor() quét đủ cả 2 kho.
+        $combo->serviceLocations()->sync($combo->fresh()->assignableLocationIds());
 
         $stock = $this->cartStock("cr[]={$combo->id}:{$this->start}:{$this->end}");
 
