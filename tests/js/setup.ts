@@ -17,3 +17,16 @@ if (!('matchMedia' in window)) {
         }),
     });
 }
+
+/**
+ * jsdom cũng không có ResizeObserver — Headless UI v2 (Combobox chọn tỉnh/xã) gọi tới
+ * nó khi đóng/mở panel. Stub rỗng là đủ: nó chỉ dùng để canh vị trí panel, thứ jsdom
+ * vốn đã không đo được. Layout thật vẫn phải kiểm trên trình duyệt.
+ */
+if (!('ResizeObserver' in globalThis)) {
+    globalThis.ResizeObserver = class {
+        observe() {}
+        unobserve() {}
+        disconnect() {}
+    };
+}

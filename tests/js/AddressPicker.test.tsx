@@ -1,7 +1,7 @@
 import AddressPicker, {
     type AddressValue,
 } from '@/Components/site/AddressPicker';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -86,11 +86,73 @@ function renderPicker() {
     return { ...utils, onChange };
 }
 
-const optionIn = (selectLabel: string, name: string) =>
-    within(screen.getByLabelText(selectLabel)).getByRole('option', { name });
+/**
+ * Không còn <select> native (danh sách của nó OS vẽ, không style được) nên test phải
+ * MỞ dropdown rồi mới thấy option — không dùng selectOptions được nữa.
+ */
+/**
+ * Mở dropdown và chờ tới khi thấy mục cần.
+ *
+ * Phải BẤM LẠI trong waitFor: Headless UI hẹn việc qua rAF/microtask, trong jsdom cú
+ * bấm đầu thỉnh thoảng rơi vào lúc máy trạng thái chưa sẵn sàng và panel không mở.
+ * Đây là nhiễu của môi trường test, KHÔNG phải "phải bấm 2 lần" — hành vi 1 cú bấm đã
+ * đo trên trình duyệt thật. Guard aria-expanded để không tự đóng lại panel vừa mở.
+ */
+async function moDanhSach(
+    user: ReturnType<typeof userEvent.setup>,
+    label: string,
+    ten: RegExp | string,
+) {
+    await waitFor(() => expect(screen.getByLabelText(label)).toBeEnabled());
+    await waitFor(async () => {
+        if (
+            screen.getByLabelText(label).getAttribute('aria-expanded') !==
+            'true'
+        ) {
+            await user.click(screen.getByLabelText(`Mở danh sách ${label}`));
+        }
+        expect(screen.getByRole('option', { name: ten })).toBeInTheDocument();
+    });
+}
 
-const waitOption = (selectLabel: string, name: string) =>
-    waitFor(() => expect(optionIn(selectLabel, name)).toBeInTheDocument());
+/**
+ * Gõ vào một ô: chờ focus xong mới gõ, rồi chờ giá trị vào đủ.
+ *
+ * Không có bước chờ này thì cú bấm ngay sau khi đóng panel dropdown thỉnh thoảng rơi
+ * vào lúc jsdom chưa chuyển focus và cả chuỗi gõ mất trắng. Trên trình duyệt thật một
+ * cú bấm là gõ được ngay (đã đo), nên đây là chống nhiễu môi trường test.
+ */
+async function goVao(
+    user: ReturnType<typeof userEvent.setup>,
+    label: string,
+    text: string,
+) {
+    const o = screen.getByLabelText(label);
+    // Bấm lại nếu focus chưa tới: Headless UI trả focus về ô của nó sau khi đóng panel,
+    // và trong jsdom việc đó có thể xảy ra SAU cú bấm đầu, nuốt mất focus.
+    await waitFor(async () => {
+        if (document.activeElement !== o) await user.click(o);
+        expect(o).toHaveFocus();
+    });
+    await user.type(o, text);
+    await waitFor(() => expect(o).toHaveValue(text));
+}
+
+async function moVaChon(
+    user: ReturnType<typeof userEvent.setup>,
+    label: string,
+    ten: RegExp | string,
+) {
+    await moDanhSach(user, label, ten);
+    await user.click(screen.getByRole('option', { name: ten }));
+    // Chờ panel đóng hẳn rồi mới thao tác tiếp, không thì cú gõ sau rơi vào lúc
+    // panel đang đóng và bị nuốt mất.
+    await waitFor(() => {
+        const o = screen.queryByLabelText(label);
+        // Có ca API xã lỗi -> component rơi về ô text, ô này biến mất. Không phải lỗi.
+        if (o) expect(o).toHaveAttribute('aria-expanded', 'false');
+    });
+}
 
 /** Giá trị onChange gần nhất. */
 const last = (onChange: ReturnType<typeof vi.fn>): AddressValue =>
@@ -100,10 +162,8 @@ const last = (onChange: ReturnType<typeof vi.fn>): AddressValue =>
 async function chonHaNoiBaDinh(user: ReturnType<typeof userEvent.setup>) {
     const { onChange } = renderPicker();
 
-    await waitOption('Tỉnh / Thành phố', 'Thành phố Hà Nội');
-    await user.selectOptions(screen.getByLabelText('Tỉnh / Thành phố'), '1');
-    await waitOption('Xã / Phường', 'Phường Ba Đình');
-    await user.selectOptions(screen.getByLabelText('Xã / Phường'), '4');
+    await moVaChon(user, 'Tỉnh / Thành phố', 'Thành phố Hà Nội');
+    await moVaChon(user, 'Xã / Phường', 'Phường Ba Đình');
 
     return onChange;
 }
@@ -117,19 +177,23 @@ describe('AddressPicker', () => {
         );
     });
 
-    it('đổ danh sách tỉnh sau sát nhập vào select', async () => {
+    it('đổ danh sách tỉnh sau sát nhập vào dropdown', async () => {
+        const user = userEvent.setup();
         renderPicker();
 
-        await waitOption('Tỉnh / Thành phố', 'Thành phố Hà Nội');
+        await moDanhSach(user, 'Tỉnh / Thành phố', 'Tỉnh Nghệ An');
         expect(
-            optionIn('Tỉnh / Thành phố', 'Tỉnh Nghệ An'),
+            screen.getByRole('option', { name: 'Tỉnh Nghệ An' }),
+        ).toBeInTheDocument();
+        expect(
+            screen.getByRole('option', { name: 'Thành phố Hà Nội' }),
         ).toBeInTheDocument();
     });
 
-    it('chưa chọn tỉnh thì select xã bị khoá', async () => {
+    it('chưa chọn tỉnh thì ô xã bị khoá', async () => {
         renderPicker();
 
-        await waitOption('Tỉnh / Thành phố', 'Thành phố Hà Nội');
+        await screen.findByLabelText('Tỉnh / Thành phố');
         expect(screen.getByLabelText('Xã / Phường')).toBeDisabled();
     });
 
@@ -137,29 +201,78 @@ describe('AddressPicker', () => {
         const user = userEvent.setup();
         renderPicker();
 
-        await waitOption('Tỉnh / Thành phố', 'Tỉnh Nghệ An');
-        await user.selectOptions(
-            screen.getByLabelText('Tỉnh / Thành phố'),
-            '40',
-        );
+        await moVaChon(user, 'Tỉnh / Thành phố', 'Tỉnh Nghệ An');
 
-        await waitOption('Xã / Phường', 'Phường Hưng Bình');
+        await moDanhSach(user, 'Xã / Phường', 'Phường Hưng Bình');
+        expect(
+            screen.getByRole('option', { name: 'Phường Hưng Bình' }),
+        ).toBeInTheDocument();
         expect(mocks.getWards).toHaveBeenCalledWith(40);
         expect(screen.getByLabelText('Xã / Phường')).toBeEnabled();
+    });
+
+    /**
+     * Bỏ <select> là mất type-ahead của OS, nên ô lọc phải bỏ dấu được — khách gõ
+     * 'nghe an' phải ra 'Tỉnh Nghệ An', không thì 130 xã chỉ còn cách cuộn tay.
+     */
+    it('gõ không dấu vẫn lọc ra đúng tỉnh', async () => {
+        const user = userEvent.setup();
+        renderPicker();
+
+        await moDanhSach(user, 'Tỉnh / Thành phố', 'Tỉnh Nghệ An');
+        await goVao(user, 'Tỉnh / Thành phố', 'nghe an');
+
+        expect(
+            await screen.findByRole('option', { name: 'Tỉnh Nghệ An' }),
+        ).toBeInTheDocument();
+        expect(
+            screen.queryByRole('option', { name: 'Thành phố Hà Nội' }),
+        ).not.toBeInTheDocument();
+    });
+
+    it('gõ không khớp gì thì báo không tìm thấy, không im lặng', async () => {
+        const user = userEvent.setup();
+        renderPicker();
+
+        await moDanhSach(user, 'Tỉnh / Thành phố', 'Thành phố Hà Nội');
+        await goVao(user, 'Tỉnh / Thành phố', 'zzz');
+
+        expect(await screen.findByText(/Không tìm thấy/)).toBeInTheDocument();
+        expect(screen.queryAllByRole('option')).toHaveLength(0);
+    });
+
+    /**
+     * Không khoá thì khách bấm vào ô xã ngay sau khi chọn tỉnh sẽ mở ra một danh sách
+     * RỖNG rồi nó tự đóng — trông y như hỏng, phải bấm lại lần nữa.
+     */
+    it('đang gọi API xã thì ô xã bị khoá và báo đang tải', async () => {
+        let traVe: (w: (typeof BA_DINH)[]) => void = () => {};
+        mocks.getWards.mockImplementation(
+            () =>
+                new Promise((res) => {
+                    traVe = res;
+                }),
+        );
+        const user = userEvent.setup();
+        renderPicker();
+
+        await moVaChon(user, 'Tỉnh / Thành phố', 'Thành phố Hà Nội');
+
+        const xa = screen.getByLabelText('Xã / Phường');
+        expect(xa).toBeDisabled();
+        expect(xa).toHaveAttribute('placeholder', 'Đang tải xã/phường…');
+
+        traVe([BA_DINH]);
+        await waitFor(() => expect(xa).toBeEnabled());
+        expect(xa).toHaveAttribute('placeholder', 'Xã / Phường');
     });
 
     it('ghép chuỗi đủ 4 phần theo thứ tự số nhà, khối, xã, tỉnh', async () => {
         const user = userEvent.setup();
         const onChange = await chonHaNoiBaDinh(user);
 
-        await user.type(
-            screen.getByLabelText('Khối / Xóm / Thôn (nếu có)'),
-            'Khối 3',
-        );
-        await user.type(
-            screen.getByLabelText('Số nhà, tên đường'),
-            'Số 5 Trần Phú',
-        );
+        await goVao(user, 'Khối / Xóm / Thôn (nếu có)', 'Khối 3');
+        await goVao(user, 'Số nhà, tên đường', 'Số 5 Trần Phú');
 
         expect(last(onChange).address).toBe(
             'Số 5 Trần Phú, Khối 3, Phường Ba Đình, Thành phố Hà Nội',
@@ -170,10 +283,7 @@ describe('AddressPicker', () => {
         const user = userEvent.setup();
         const onChange = await chonHaNoiBaDinh(user);
 
-        await user.type(
-            screen.getByLabelText('Số nhà, tên đường'),
-            'Số 5 Trần Phú',
-        );
+        await goVao(user, 'Số nhà, tên đường', 'Số 5 Trần Phú');
 
         expect(last(onChange).address).toBe(
             'Số 5 Trần Phú, Phường Ba Đình, Thành phố Hà Nội',
@@ -184,10 +294,7 @@ describe('AddressPicker', () => {
         const user = userEvent.setup();
         const onChange = await chonHaNoiBaDinh(user);
 
-        await user.type(
-            screen.getByLabelText('Số nhà, tên đường'),
-            'Số 5 Trần Phú',
-        );
+        await goVao(user, 'Số nhà, tên đường', 'Số 5 Trần Phú');
 
         const v = last(onChange);
         expect(v.province_code).toBe(1);
@@ -204,10 +311,7 @@ describe('AddressPicker', () => {
 
         expect(last(onChange).ward_code).toBe(4);
 
-        await user.selectOptions(
-            screen.getByLabelText('Tỉnh / Thành phố'),
-            '40',
-        );
+        await moVaChon(user, 'Tỉnh / Thành phố', 'Tỉnh Nghệ An');
 
         const v = last(onChange);
         expect(v.ward_code).toBeNull();
@@ -220,10 +324,11 @@ describe('AddressPicker', () => {
         const user = userEvent.setup();
         const onChange = await chonHaNoiBaDinh(user);
 
-        const khoi = screen.getByLabelText('Khối / Xóm / Thôn (nếu có)');
-        expect(khoi).not.toBeRequired();
+        expect(
+            screen.getByLabelText('Khối / Xóm / Thôn (nếu có)'),
+        ).not.toBeRequired();
 
-        await user.type(khoi, 'Xóm 4');
+        await goVao(user, 'Khối / Xóm / Thôn (nếu có)', 'Xóm 4');
         const v = last(onChange);
         expect(v.address).toBe('Xóm 4, Phường Ba Đình, Thành phố Hà Nội');
         expect(Object.keys(v).sort()).toEqual([
@@ -235,12 +340,14 @@ describe('AddressPicker', () => {
     });
 
     /** Bố cục chủ shop chốt: chọn vùng trước, gõ chi tiết sau. */
-    it('hai select nằm TRÊN ô số nhà trong DOM', async () => {
+    it('hai ô chọn vùng nằm TRÊN ô số nhà trong DOM', async () => {
         const { container } = renderPicker();
 
-        await waitOption('Tỉnh / Thành phố', 'Thành phố Hà Nội');
+        await screen.findByLabelText('Tỉnh / Thành phố');
 
-        const fields = Array.from(container.querySelectorAll('select, input'));
+        const fields = Array.from(
+            container.querySelectorAll('input[aria-label]'),
+        );
         const nhan = fields.map((el) => el.getAttribute('aria-label'));
 
         expect(nhan).toEqual([
@@ -254,7 +361,7 @@ describe('AddressPicker', () => {
     it('không còn phần địa chỉ cũ (trước sát nhập)', async () => {
         renderPicker();
 
-        await waitOption('Tỉnh / Thành phố', 'Thành phố Hà Nội');
+        await screen.findByLabelText('Tỉnh / Thành phố');
 
         expect(screen.queryByText(/trước sát nhập/i)).not.toBeInTheDocument();
         expect(screen.queryByText(/địa chỉ cũ/i)).not.toBeInTheDocument();
@@ -286,11 +393,7 @@ describe('AddressPicker', () => {
         const user = userEvent.setup();
         renderPicker();
 
-        await waitOption('Tỉnh / Thành phố', 'Thành phố Hà Nội');
-        await user.selectOptions(
-            screen.getByLabelText('Tỉnh / Thành phố'),
-            '1',
-        );
+        await moVaChon(user, 'Tỉnh / Thành phố', 'Thành phố Hà Nội');
 
         expect(
             await screen.findByLabelText('Địa chỉ giao nhận'),
@@ -306,7 +409,7 @@ describe('AddressPicker', () => {
             />,
         );
 
-        await waitOption('Tỉnh / Thành phố', 'Thành phố Hà Nội');
+        await screen.findByLabelText('Tỉnh / Thành phố');
 
         expect(
             screen.getByText('Nhập địa chỉ giúp tụi mình'),

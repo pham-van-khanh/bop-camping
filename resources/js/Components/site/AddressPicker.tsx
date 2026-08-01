@@ -1,3 +1,4 @@
+import DivisionCombobox from '@/Components/site/DivisionCombobox';
 import {
     getProvinces,
     getWards,
@@ -26,17 +27,6 @@ export type AddressValue = {
     ward_code: number | null;
 };
 
-/** Select có chevron riêng (appearance-none) để đồng bộ với input, không dùng mũi mặc định của OS. */
-const selectCls =
-    'h-[48px] w-full cursor-pointer appearance-none truncate rounded-[11px] border border-cardBorder bg-white py-0 pl-3.5 pr-9 text-[14px] font-medium text-ink outline-none transition focus:border-grass focus:ring-2 focus:ring-grass/20 disabled:cursor-not-allowed disabled:bg-[#f4f6ee] disabled:text-[#aab39a]';
-const chevron =
-    "url(\"data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%23557A2B' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.8' d='M6 8l4 4 4-4'/%3e%3c/svg%3e\")";
-const selectStyle = {
-    backgroundImage: chevron,
-    backgroundRepeat: 'no-repeat',
-    backgroundPosition: 'right 12px center',
-    backgroundSize: '18px',
-};
 const inputCls =
     'h-[48px] w-full rounded-[11px] border bg-white px-3.5 text-[14px] text-ink outline-none transition focus:border-grass focus:ring-2 focus:ring-grass/20';
 
@@ -73,6 +63,11 @@ export default function AddressPicker({
     const [ward, setWard] = useState<Ward | null>(null);
     /** Khối / xóm / thôn — không phải nơi nào cũng có nên tuỳ chọn, không lưu cột riêng. */
     const [block, setBlock] = useState('');
+    /**
+     * Khoá ô xã trong lúc gọi API. Không có cờ này thì khách bấm vào ô ngay sau khi chọn
+     * tỉnh sẽ mở ra một danh sách RỖNG rồi nó tự đóng — trông như hỏng, phải bấm lại.
+     */
+    const [dangTaiXa, setDangTaiXa] = useState(false);
 
     useEffect(() => {
         getProvinces()
@@ -99,8 +94,7 @@ export default function AddressPicker({
         });
     };
 
-    const pickProvince = async (code: number) => {
-        const p = provinces.find((x) => x.code === code) ?? null;
+    const pickProvince = async (p: Province | null) => {
         setProvince(p);
         setWard(null);
         emit({ province: p, ward: null });
@@ -111,15 +105,18 @@ export default function AddressPicker({
             return;
         }
 
+        setWards([]);
+        setDangTaiXa(true);
         try {
             setWards(await getWards(p.code));
         } catch {
             setFailed(true);
+        } finally {
+            setDangTaiXa(false);
         }
     };
 
-    const pickWard = (code: number) => {
-        const w = wards.find((x) => x.code === code) ?? null;
+    const pickWard = (w: Ward | null) => {
         setWard(w);
         emit({ ward: w });
     };
@@ -156,38 +153,27 @@ export default function AddressPicker({
         <div className="space-y-2">
             {/* Tỉnh + Xã lên TRƯỚC, chi tiết xuống dưới — chọn vùng rồi mới ghi số nhà. */}
             <div className="grid gap-2 sm:grid-cols-2">
-                <select
-                    value={province?.code ?? ''}
-                    onChange={(e) => pickProvince(Number(e.target.value))}
-                    aria-label="Tỉnh / Thành phố"
-                    className={selectCls}
-                    style={selectStyle}
-                >
-                    <option value="">Tỉnh / Thành phố</option>
-                    {provinces.map((p) => (
-                        <option key={p.code} value={p.code}>
-                            {p.name}
-                        </option>
-                    ))}
-                </select>
-
-                <select
-                    value={ward?.code ?? ''}
-                    onChange={(e) => pickWard(Number(e.target.value))}
-                    disabled={!province}
-                    aria-label="Xã / Phường"
-                    className={selectCls}
-                    style={selectStyle}
-                >
-                    <option value="">
-                        {province ? 'Xã / Phường' : 'Chọn tỉnh trước'}
-                    </option>
-                    {wards.map((w) => (
-                        <option key={w.code} value={w.code}>
-                            {w.name}
-                        </option>
-                    ))}
-                </select>
+                <DivisionCombobox
+                    label="Tỉnh / Thành phố"
+                    placeholder="Tỉnh / Thành phố"
+                    items={provinces}
+                    value={province}
+                    onChange={pickProvince}
+                />
+                <DivisionCombobox
+                    label="Xã / Phường"
+                    placeholder={
+                        dangTaiXa
+                            ? 'Đang tải xã/phường…'
+                            : province
+                              ? 'Xã / Phường'
+                              : 'Chọn tỉnh trước'
+                    }
+                    items={wards}
+                    value={ward}
+                    onChange={pickWard}
+                    disabled={!province || dangTaiXa}
+                />
             </div>
 
             <input
