@@ -371,6 +371,16 @@ Mỗi dòng dưới đây là một chỗ hiện **ngầm giả định mọi đ
    nhận 4 trạng thái của đơn thuê.
 4. **Voucher thuê→mua**: giảm bao nhiêu, hạn mấy ngày, có yêu cầu giá trị đơn tối thiểu không.
 5. **Đơn mua `pending` treo bao lâu thì tự huỷ** (đề xuất 48h).
-6. **Khách bùng đơn COD giá trị lớn thì sao?** Có ngưỡng tiền nào bắt buộc chuyển khoản trước không?
-   Đây là rủi ro tiền thật lớn nhất của cả tính năng — đơn thuê có tiền cọc làm ràng buộc, đơn mua thì
-   không có gì cả.
+6. ~~Có ngưỡng tiền nào bắt buộc chuyển khoản trước không?~~ — **ĐÃ CHỐT 2026-08-01: KHÔNG.**
+   Khách **tự chọn** COD hoặc chuyển khoản, không có ngưỡng nào chặn. Đây là quyết định của chủ shop và
+   nó đúng với thị trường Việt Nam: COD là mặc định khách quen dùng, ép trả trước cho đơn giá trị cao
+   là ép đúng nhóm khách đáng giá nhất.
+
+   Rủi ro khách bùng đơn COD **vẫn còn**, nhưng được chấp nhận như rủi ro kinh doanh chứ không giải
+   bằng phần mềm. Lý do việc đó hợp lý: luồng hiện tại **đã có** bước *"Tụi mình gọi điện xác nhận
+   thông tin đơn"* trước khi giao — đơn mua đi qua đúng bước đó, và nó chặn được phần lớn đơn ảo mà
+   không làm mất khách thật. Một cột `payment_method` sẵn có là đủ; **không** cần cột ngưỡng, không cần
+   logic chặn.
+
+   Nếu sau này số liệu cho thấy tỷ lệ bùng đơn cao, hãy siết bằng **vận hành** trước (gọi xác nhận kỹ
+   hơn, chặn số điện thoại xấu) rồi mới nghĩ tới phần mềm.

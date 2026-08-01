@@ -132,7 +132,7 @@ Còn bán được (sản phẩm P, cơ sở S)
 - **AC-26** — Bước xác nhận đơn mua có hai lựa chọn `payment_method` — `cod` và chuyển khoản — và lựa chọn của khách được lưu đúng vào đơn.
 - **AC-27** — Chọn chuyển khoản → sau khi đặt, khách thấy thông tin chuyển khoản của shop; đơn ở `pending` và **chưa** được đẩy sang `shipping` cho tới khi admin đánh dấu đã nhận tiền.
 - **AC-28** — Chọn COD → đơn đi tiếp bình thường, không yêu cầu thanh toán trước.
-- **AC-29** — Ngưỡng giá trị bắt buộc chuyển khoản: **chưa chốt** (mục 8, câu 6). Bản này triển khai ngưỡng như **một giá trị cấu hình**, mặc định tắt; bật lên thì đơn từ ngưỡng trở lên không hiện lựa chọn COD.
+- **AC-29** — **KHÔNG có ngưỡng bắt buộc chuyển khoản** (chốt 2026-08-01). Khách luôn thấy **cả hai** lựa chọn COD và chuyển khoản, ở mọi giá trị đơn. Không thêm cột ngưỡng, không có logic ẩn lựa chọn COD. Test: đơn 50.000đ và đơn 50.000.000đ đều hiện đủ hai lựa chọn.
 
 ### US-06 — Admin nhập hàng bán, ghi sổ cái
 
