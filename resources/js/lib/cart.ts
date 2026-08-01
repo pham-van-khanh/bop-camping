@@ -41,11 +41,47 @@ export const isComboLine = (l: CartLine) => l.kind === 'combo';
 
 const KEY = 'bop_cart_v1';
 
+/**
+ * Dòng giỏ có dùng được không (bopcamping-gccu).
+ *
+ * Chỉ kiểm những trường mà thiếu là VỠ CODE — id/qty/price/deposit/start/end/name. Cố ý
+ * KHÔNG đòi `cat`/`grad`: chúng chỉ để hiển thị, thiếu thì React vẽ ra rỗng chứ không nổ,
+ * mà đòi thêm là có nguy cơ vứt oan giỏ thật của khách.
+ */
+function isCartLine(v: unknown): v is CartLine {
+    if (typeof v !== 'object' || v === null) return false;
+    const l = v as Record<string, unknown>;
+
+    return (
+        typeof l.id === 'number' &&
+        typeof l.name === 'string' &&
+        typeof l.start === 'string' &&
+        typeof l.end === 'string' &&
+        [l.qty, l.price, l.deposit].every(
+            (n) => typeof n === 'number' && Number.isFinite(n) && n >= 0,
+        )
+    );
+}
+
+/**
+ * Đọc giỏ từ localStorage.
+ *
+ * try/catch KHÔNG đủ: nó chỉ bắt lỗi parse. JSON hợp lệ nhưng sai hình dạng (vd
+ * `{"items":[...]}`) lọt qua, rồi cartCount() gọi `lines.reduce` và ném TypeError NGAY
+ * TRONG SiteLayout — layout dùng chung mọi trang — nên React tháo cả cây và khách thấy
+ * TRANG TRẮNG ở mọi trang. Vì vậy phải kiểm cả kiểu dữ liệu, không chỉ kiểm parse được.
+ *
+ * Dòng hỏng bị loại từng dòng chứ không vứt cả giỏ, để khách giữ được hàng đã chọn.
+ */
 export function getCart(): CartLine[] {
     if (typeof window === 'undefined') return [];
     try {
         const raw = window.localStorage.getItem(KEY);
-        return raw ? (JSON.parse(raw) as CartLine[]) : [];
+        if (!raw) return [];
+
+        const parsed: unknown = JSON.parse(raw);
+
+        return Array.isArray(parsed) ? parsed.filter(isCartLine) : [];
     } catch {
         return [];
     }
@@ -127,7 +163,8 @@ export const lineRent = (l: CartLine, tiers: DurationTier[] = []) => {
 export const lineDeposit = (l: CartLine) => l.deposit * l.qty;
 
 export function cartCount(lines = getCart()) {
-    return lines.reduce((s, l) => s + l.qty, 0);
+    // Cộng phòng thủ: badge hiện "NaN" cũng là lỗi khách thấy được.
+    return lines.reduce((s, l) => (Number.isFinite(l.qty) ? s + l.qty : s), 0);
 }
 
 /**
