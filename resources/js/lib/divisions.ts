@@ -25,7 +25,6 @@ export type Ward = {
 
 const SESSION_CACHE_KEYS = {
     provinces: 'bopcamping.divisions.provinces.v2',
-    legacyProvinces: 'bopcamping.divisions.provinces.v1',
 } as const;
 
 /** true nếu đang chạy trong trình duyệt và sessionStorage khả dụng (SSR-safe). */
@@ -36,7 +35,14 @@ function hasSessionStorage(): boolean {
     );
 }
 
-function readSessionCache<T>(key: string): T | null {
+/**
+ * Đọc cache danh sách đã lưu.
+ *
+ * BẮT BUỘC kiểm `Array.isArray` (bopcamping-gccu): `as T[]` chỉ là ép kiểu lúc biên dịch,
+ * không kiểm gì lúc chạy. Cache hỏng mà lọt qua thì `provinces.map(...)` nổ giữa lúc render
+ * AddressPicker → React tháo cây → trang trắng, đúng cùng một kiểu hỏng như giỏ hàng.
+ */
+function readSessionCache<T>(key: string): T[] | null {
     if (!hasSessionStorage()) {
         return null;
     }
@@ -45,7 +51,9 @@ function readSessionCache<T>(key: string): T | null {
         if (!raw) {
             return null;
         }
-        return JSON.parse(raw) as T;
+        const parsed: unknown = JSON.parse(raw);
+
+        return Array.isArray(parsed) ? (parsed as T[]) : null;
     } catch {
         // JSON hỏng hoặc getItem lỗi (Safari private) — coi như không có cache.
         return null;
@@ -124,7 +132,7 @@ async function getCachedProvinceList(
     cacheKey: string,
     url: string,
 ): Promise<Province[]> {
-    const cached = readSessionCache<Province[]>(cacheKey);
+    const cached = readSessionCache<Province>(cacheKey);
     if (cached) {
         return cached;
     }
