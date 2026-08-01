@@ -10,6 +10,9 @@ export type CartLocation = { slug: string; name: string };
 export type CartLine = {
     id: number; // product id, hoặc combo id khi kind = 'combo'
     name: string;
+    // Ảnh thu nhỏ — do endpoint làm tươi đổ vào, KHÔNG bắt buộc (giỏ cũ chưa có thì hiện
+    // ô gradient như trước cho tới lần làm tươi kế tiếp).
+    image?: string | null;
     cat: string; // slug danh mục (legacy) — combo dùng 'combo'
     grad: string;
     price: number; // giá/ngày (combo = combo_price)

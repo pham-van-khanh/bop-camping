@@ -89,6 +89,7 @@ type Suggestion = {
 // Dữ liệu mới nhất của sản phẩm/combo trả về từ /gio-thue/lam-tuoi.
 type FreshProduct = {
     name: string;
+    image?: string | null;
     price_per_day: number;
     deposit: number;
     early_return_pct?: number;
@@ -97,6 +98,7 @@ type FreshProduct = {
 };
 type FreshCombo = {
     name: string;
+    image?: string | null;
     combo_price: number;
     deposit: number;
     items: { name: string; qty: number }[];
@@ -229,6 +231,7 @@ export default function Cart() {
                                 next.push({
                                     ...l,
                                     name: c.name,
+                                    image: c.image ?? null,
                                     price: c.combo_price,
                                     deposit: c.deposit,
                                     locations: c.locations,
@@ -244,6 +247,7 @@ export default function Cart() {
                             next.push({
                                 ...l,
                                 name: p.name,
+                                image: p.image ?? null,
                                 price: p.price_per_day,
                                 deposit: p.deposit,
                                 locations: p.locations,
@@ -781,9 +785,18 @@ export default function Cart() {
                                 className="mb-3 flex gap-3.5 rounded-[14px] border border-cardBorder bg-card p-[13px]"
                             >
                                 <div
-                                    className="h-16 w-16 flex-none rounded-[10px]"
+                                    className="h-16 w-16 flex-none overflow-hidden rounded-[10px]"
                                     style={{ background: it.grad }}
-                                />
+                                >
+                                    {it.image && (
+                                        <img
+                                            src={it.image}
+                                            alt={it.name}
+                                            loading="lazy"
+                                            className="h-full w-full object-cover"
+                                        />
+                                    )}
+                                </div>
                                 <div className="min-w-0 flex-1">
                                     <div className="flex flex-wrap items-center gap-2">
                                         {isComboLine(it) && (
