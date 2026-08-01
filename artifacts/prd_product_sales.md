@@ -268,43 +268,20 @@ Admin mở form sản phẩm để sửa mô tả, bỏ tick cơ sở Hà Nội 
 - **AC-70** — Admin đổi `quantity` kho thuê ở Vinh từ 3 → 7 → `sale_quantity` ở Vinh không đổi.
 - **AC-71** — Sau mọi thao tác của AC-69/AC-70, INV-03 vẫn đúng (`sale_quantity` = `SUM(delta)`).
 
-### EC-03 — API cước hãng vận chuyển chết lúc khách đang đặt
+### EC-03 — Phí vận chuyển KHÔNG nằm trong hệ thống
 
-**Tình huống:** khách điền địa chỉ, hệ thống gọi API hãng vận chuyển để lấy cước, API timeout hoặc trả
-lỗi. Hai cách sai: (a) chặn khách không đặt được, (b) âm thầm tính phí = 0 rồi shop chịu lỗ.
-
-**Xử lý:**
-- **Không chặn đặt đơn.** Đơn vẫn tạo được với phí vận chuyển ở trạng thái **"chờ báo phí"**.
-- Màn hình nói rõ với khách: *"Chưa tính được phí vận chuyển, shop sẽ báo lại trước khi gửi hàng."*
-  Không hiện số 0₫ như thể miễn phí.
-- Đơn được **đánh dấu cần xử lý tay** trong hàng đợi admin; admin nhập phí và đơn không được chuyển
-  sang `shipping` khi phí còn trống.
-- Gọi API có timeout ngắn và ghi log mọi lần lỗi để đo tần suất.
-
-- **AC-72** — Mock API cước trả lỗi/timeout → đơn vẫn tạo được, `status='pending'`, phí ship = NULL,
-  đơn có cờ "chờ báo phí".
-- **AC-73** — Đơn có phí ship = NULL → không đẩy sang `shipping` được, thông báo nói rõ lý do.
-- **AC-74** — Response trả về khách khi API lỗi **không** chứa chuỗi "0₫" ở dòng phí vận chuyển.
-
-> **Phụ thuộc:** ADR vận chuyển (`adr_sales_shipping_carrier.md`) được tham chiếu trong ADR kho/đơn
-> nhưng **chưa tồn tại** trong `artifacts/` (mục 9). Chi tiết chọn hãng, cách tính cước, ai chịu phí
-> hoàn hàng đều nằm ở đó. Các AC trên chỉ mô tả hành vi khi API lỗi — không chốt thay ADR kia.
-
-### EC-04 — Sản phẩm chưa nhập cân nặng
-
-**Tình huống:** bảng `products` hiện **không có cột cân nặng hay kích thước nào** (đã kiểm chứng ở ADR
-mục 1.2). Hầu hết API cước vận chuyển bắt buộc phải có khối lượng.
+**Chốt 2026-08-01:** chủ shop **tự book vận chuyển ngoài hệ thống**. Web không tính cước, không gọi API
+hãng, không lưu mã vận đơn, không cần cân nặng sản phẩm.
 
 **Xử lý:**
-- Sản phẩm `sellable = true` mà chưa có cân nặng → **không tính được cước tự động** → rơi vào đúng
-  luồng EC-03 ("chờ báo phí"), không phải một luồng lỗi thứ hai.
-- Admin thấy cảnh báo trong danh sách sản phẩm: *"N sản phẩm đang bán chưa có cân nặng — đơn của các
-  sản phẩm này sẽ phải báo phí tay."*
-- Cân nặng có bắt buộc khi `sellable = true` hay không: **để ADR vận chuyển chốt**. PRD này chỉ yêu cầu
-  hệ thống không vỡ khi thiếu.
+- Tổng tiền đơn mua = **tiền hàng**, không có dòng phí vận chuyển.
+- Phí ship (nếu thu) shop báo qua điện thoại — đúng cách mảng cho thuê đang làm ở bước
+  *"Báo tổng chi phí (gồm phí giao nhận nếu có)"*.
+- Muốn ghi lại phí đã thu thì dùng `orders.extra_fee` + `extra_fee_note` **đã có sẵn**, không thêm cột.
+- Trạng thái `shipping` vẫn giữ nguyên nghĩa "đang trên đường tới khách" — ai book không quan trọng.
 
-- **AC-75** — Sản phẩm bán chưa có cân nặng → đặt đơn vẫn thành công, đơn vào trạng thái "chờ báo phí".
-- **AC-76** — Danh sách sản phẩm admin đếm đúng số sản phẩm `sellable` thiếu cân nặng.
+- **AC-72** — Đơn mua tạo xong **không** có trường phí vận chuyển nào; tổng tiền = Σ tiền hàng.
+- **AC-73** — Không có lời gọi HTTP ra ngoài nào trong luồng đặt đơn mua (test khẳng định).
 
 ### EC-05 — Các ca biên khác cần xử lý
 

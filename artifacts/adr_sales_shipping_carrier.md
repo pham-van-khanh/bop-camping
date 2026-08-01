@@ -1,3 +1,13 @@
+> # ⛔ DEFERRED — 2026-08-01
+>
+> Chủ shop chốt **tự book vận chuyển ngoài hệ thống**: web không tính cước, không gọi API hãng,
+> không lưu mã vận đơn, không cần cân nặng sản phẩm. Phí ship báo qua điện thoại như mảng cho thuê
+> đang làm; muốn ghi lại thì dùng `orders.extra_fee` đã có sẵn.
+>
+> **KHÔNG triển khai ADR này.** Giữ nguyên vì phần khảo sát vẫn đúng và sẽ cần nếu sau này muốn đưa
+> vận chuyển vào hệ thống — đặc biệt là phát hiện: hệ mã địa chỉ của hãng sau sát nhập 07/2025 chưa
+> chắc khớp `province_code`/`ward_code`, phải xác minh trước khi chọn hãng.
+
 # ADR: Vận chuyển cho đơn MUA — chọn hãng, tính phí, tạo vận đơn, đối soát COD
 
 **Status**: Proposed — chờ chủ shop duyệt

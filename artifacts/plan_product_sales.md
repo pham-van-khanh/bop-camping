@@ -3,8 +3,9 @@
 - **Ngày:** 2026-08-01
 - **Trạng thái:** Draft — chờ chủ shop duyệt artifacts trước khi code
 - **Nguồn chân lý:** [`adr_sales_inventory_and_order_model.md`](./adr_sales_inventory_and_order_model.md) ·
-  [`adr_sales_shipping_carrier.md`](./adr_sales_shipping_carrier.md) · [`prd_product_sales.md`](./prd_product_sales.md) ·
-  [`pr_faq_product_sales.md`](./pr_faq_product_sales.md)
+  [`prd_product_sales.md`](./prd_product_sales.md) · [`pr_faq_product_sales.md`](./pr_faq_product_sales.md)
+- **Vận chuyển:** NGOÀI PHẠM VI (chốt 2026-08-01) — chủ shop tự book hãng.
+  [`adr_sales_shipping_carrier.md`](./adr_sales_shipping_carrier.md) chuyển *Deferred*.
 
 ---
 
@@ -15,55 +16,52 @@ một hệ thống. Ước lượng thẳng thắn:
 
 | Khối | Số việc | Ước lượng |
 | --- | --- | --- |
-| P0 Gỡ chặn | 3 | 2–3 ngày (phần lớn là chờ bên ngoài) |
+| P0 Gỡ chặn | 2 | 1–2 ngày |
 | P1 Nền dữ liệu | 4 | 5–7 ngày |
 | P2 Kho bán (admin) | 2 | 3–4 ngày |
-| P3 Mặt tiền khách | 4 | 6–8 ngày |
-| P4 Vận chuyển | 3 | 6–9 ngày ⚠️ phụ thuộc bên ngoài |
-| P5 Vòng đời đơn mua | 5 | 7–9 ngày |
+| P3 Mặt tiền khách | 4 | 5–7 ngày |
+| P5 Vòng đời đơn mua | 5 | 6–8 ngày |
 | P6 Voucher thuê→mua | 2 | 2–3 ngày |
 | P7 Đổi hàng | 1 | 2–3 ngày |
 | P8 Báo cáo | 1 | 2 ngày |
 | P9 QA & ra mắt | 2 | 3–4 ngày |
-| **Tổng** | **27** | **≈ 38–52 ngày công** |
+| **Tổng** | **23** | **≈ 29–40 ngày công** |
 
-Tức khoảng **6–9 tuần** cho một người làm liên tục. Nếu con số này quá lớn so với mong muốn, xem
-mục 6 — có một lát cắt nhỏ hơn nhiều mà vẫn bán được hàng.
+Tức khoảng **5–7 tuần** cho một người làm liên tục — giảm từ 6–9 tuần sau khi bỏ vận chuyển.
+
+> **Bỏ vận chuyển đổi được gì:** không còn phụ thuộc bên ngoài nào, không còn API nằm trên đường
+> thanh toán của khách, không cần cân nặng/kích thước sản phẩm, và **cả epic không gọi HTTP ra ngoài
+> lần nào**. Đây là lần cắt phạm vi hiệu quả nhất của cả kế hoạch: bỏ 4 việc nhưng bỏ được **toàn bộ**
+> nhóm rủi ro nặng nhất.
+
+Muốn ngắn hơn nữa thì xem mục 6.
 
 ---
 
 ## 1. Thứ tự thực hiện
 
 ```
-P0 (gỡ chặn)  ──────────────────────────────────────────┐
-   T0.1 chủ shop chốt 6 câu ─┐                          │
-   T0.2 mở tài khoản hãng VC ─┼──────────────┐          │
-   T0.3 vá bopcamping-gccu ───┘              │          │
-                              │              │          │
-P1 nền dữ liệu ◄──────────────┘              │          │
-   T1.1 cột products                          │          │
-   T1.2 sale_quantity + bẫy sync()            │          │
-   T1.3 sổ cái stock_movements                │          │
-   T1.4 orders.kind + trạng thái + order_items│          │
-        │                                     │          │
-        ├──► P2 kho bán admin (T2.1, T2.2)    │          │
-        │                                     │          │
-        ├──► P3 mặt tiền khách ◄──────────────┼──────────┘
-        │      T3.1 tồn bán  → T3.2 trang SP
-        │      T3.3 giỏ mua  → T3.4 checkout
-        │                                     │
-        ├──► P4 vận chuyển ◄──────────────────┘
-        │      T4.1 bảng vùng (fallback) → T4.2 API cước → T4.3 vận đơn
-        │
-        ├──► P5 vòng đời đơn mua (T5.1 … T5.5)
-        │
-        ├──► P6 voucher thuê→mua (T6.1, T6.2)
-        │
-        └──► P7 đổi hàng (T7.1)  ──► P8 báo cáo (T8.1) ──► P9 QA (T9.1, T9.2)
+P0   T0.1 chủ shop chốt 6 câu ⛔ chặn tất cả
+     T0.3 vá bopcamping-gccu  (chặn P3)
+       │
+P1   T1.1 cột products ──► T1.2 sale_quantity + bẫy sync() ──► T1.3 sổ cái
+     T1.4 orders.kind + trạng thái + order_items
+       │
+       ├──► P2  T2.1 form sản phẩm · T2.2 nhập hàng + sổ cái
+       │
+       ├──► P3  T3.1 tồn bán ──► T3.2 trang SP
+       │        T3.3 giỏ mua ──► T3.4 đặt đơn mua
+       │
+       ├──► P5  T5.1 trạng thái ──► T5.3 rà FE · T5.4 mail
+       │        T5.2 rà backend · T5.5 job tự huỷ
+       │
+       ├──► P6  T6.1 cờ voucher ──► T6.2 tự sinh khi trả đồ
+       │
+       └──► P7 đổi hàng ──► P8 báo cáo ──► P9 QA ──► ra mắt
 ```
 
-**Đường găng:** T0.2 → T4.2. Nếu tài khoản hãng vận chuyển chậm, làm T4.1 (bảng phí theo vùng) trước
-và ra mắt bằng nó — vì nó vốn đã là fallback bắt buộc, không phải việc thừa.
+**Đường găng:** T0.1 → T1.1 → T1.2 → T1.3 → T3.1 → T3.4 → T9.1.
+Không còn phụ thuộc bên ngoài nào sau khi bỏ vận chuyển — tiến độ hoàn toàn nằm trong tay mình.
 
 ---
 
@@ -77,10 +75,6 @@ tiền cọc làm ràng buộc, đơn mua không có gì cả, và hàng gửi �
 Không trả lời câu này thì không thiết kế được ngưỡng bắt buộc chuyển khoản.
 **Xong khi:** ADR chuyển trạng thái `Accepted`, 6 câu có câu trả lời ghi trong artifact.
 
-#### T0.2 · Chọn hãng vận chuyển, mở tài khoản, lấy API key sandbox ⛔ CHẶN P4
-Việc bên ngoài, không code được thay. **Xong khi:** có key sandbox trong `.env.example` dạng biến rỗng
-(KHÔNG commit key thật), gọi thử được một lệnh báo cước.
-
 #### T0.3 · Vá `bopcamping-gccu` — `getCart()` không kiểm mảng
 `resources/js/lib/cart.ts:44` `JSON.parse` xong không kiểm `Array.isArray`, nên một giỏ hỏng làm
 `cartCount()` ném lỗi trong `SiteLayout` → **trắng toàn bộ site**, mọi trang.
@@ -93,8 +87,8 @@ error boundary quanh `SiteLayout`.
 ### P1 — Nền dữ liệu
 
 #### T1.1 · Cột mới trên `products`
-`rentable`, `sellable` (bool), `sale_price`, `cost_price` (nullable), `weight_grams`,
-`length_cm`/`width_cm`/`height_cm` (nullable — cần cho API cước, xem ADR vận chuyển).
+`rentable`, `sellable` (bool), `sale_price`, `cost_price` (nullable).
+**Không** thêm cân nặng/kích thước — chúng chỉ cần cho API cước, mà vận chuyển đã ra ngoài phạm vi.
 Validate: `sellable ⇒ sale_price > 0`; `rentable ⇒ price_per_day > 0`; phải bật ít nhất một cờ.
 Backfill: toàn bộ sản phẩm cũ `rentable=true, sellable=false` → **hành vi hôm nay không đổi**.
 **Xong khi:** test khẳng định sản phẩm cũ vẫn thuê được y như trước; validate chặn được 3 tổ hợp sai.
@@ -127,7 +121,7 @@ ngẫu nhiên (nhập, bán, huỷ, điều chỉnh); lệnh đối soát phát 
 ### P2 — Kho bán phía admin
 
 #### T2.1 · Form sản phẩm: phần bán
-Cờ "Cho thuê" / "Bán", giá bán, giá vốn, cân nặng + kích thước. Kho bán hiển thị **chỉ đọc** (số thật
+Cờ "Cho thuê" / "Bán", giá bán, giá vốn. Kho bán hiển thị **chỉ đọc** (số thật
 đến từ sổ cái), kèm nút "Nhập hàng".
 **Xong khi:** tạo được sản phẩm chỉ-bán, chỉ-thuê, và cả hai; giá vốn không lộ ra bất kỳ trang khách nào
 (có test khẳng định điều này).
@@ -161,25 +155,25 @@ Viết `getSaleCart()` có kiểm `Array.isArray` ngay từ đầu.
 **Xong khi:** hai giỏ không đụng nhau; giỏ mua hỏng không làm vỡ trang; header hiện hai số riêng.
 
 #### T3.4 · Đặt đơn mua — `SaleOrderController`
-Validate, kiểm tồn bán, chọn cơ sở gửi hàng, chọn COD / chuyển khoản, tạo `Order(kind='sale')`
-+ dòng sổ cái `reason='sale'`. Dùng lại `AddressPicker` vừa làm xong.
+Validate, kiểm tồn bán, chọn cơ sở gửi hàng, chọn COD / chuyển khoản, tạo `Order(kind='sale')`.
+Dùng lại `AddressPicker` vừa làm xong. Tổng tiền = **tiền hàng**, không có dòng phí vận chuyển.
 **Xong khi:** đơn mua lưu đủ mã tỉnh/xã; `deposit_total = 0`; `start_date`/`end_date` NULL;
 đặt vượt tồn bị chặn với thông báo tiếng Việt rõ ràng.
 
 ---
 
-### P4 — Vận chuyển (chi tiết ở ADR riêng)
+### ~~P4 — Vận chuyển~~ · BỎ (chốt 2026-08-01)
 
-#### T4.1 · Bảng phí ship theo vùng — **fallback bắt buộc**
-Dùng `province_code` đã có sẵn trên đơn. Làm **trước** T4.2, vì API hãng nằm trên đường thanh toán của
-khách: hãng chết mà không có đường lui thì khách không đặt được hàng.
+Chủ shop tự book hãng vận chuyển ngoài hệ thống. Web **không** tính cước, **không** gọi API hãng,
+**không** lưu mã vận đơn, **không** cần cân nặng sản phẩm.
 
-#### T4.2 · `ShippingQuoteService` — gọi API hãng
-Timeout ngắn, cache báo giá, tự rơi về T4.1 khi lỗi. **Phụ thuộc T0.2.**
-**Xong khi:** test giả lập API chậm/lỗi/trả rác — cả ba đều rơi về bảng vùng, không ca nào chặn checkout.
+Phí ship báo qua điện thoại — đúng cách mảng cho thuê đang làm ở bước *"Báo tổng chi phí (gồm phí giao
+nhận nếu có)"*. Muốn ghi lại phí đã thu thì dùng `orders.extra_fee` + `extra_fee_note` **đã có sẵn**,
+không thêm cột nào.
 
-#### T4.3 · Mã vận đơn + trạng thái vận chuyển
-Giai đoạn 1: admin nhập mã tay (xem lập luận trong ADR vận chuyển).
+Nghiên cứu chọn hãng giữ ở [`adr_sales_shipping_carrier.md`](./adr_sales_shipping_carrier.md) (Deferred)
+cho lần sau. Nếu sau này muốn cho khách tra mã vận đơn trên web thì đó là **một cột nullable** — nhỏ,
+nhưng cố ý không làm bây giờ.
 
 ---
 
@@ -199,7 +193,7 @@ Dòng 9–14: trang tài khoản, tra cứu đơn, mail trạng thái, nhãn FE.
 **Xong khi:** `/tra-cuu` hiện đúng timeline đơn mua (không có bước "hoàn cọc").
 
 #### T5.4 · Mail cho đơn mua
-Xác nhận đặt, đã gửi hàng (kèm mã vận đơn), đã giao. Đều `ShouldQueue`.
+Xác nhận đặt, đã gửi hàng, đã giao. Đều `ShouldQueue`. Không có mã vận đơn (ngoài hệ thống).
 
 #### T5.5 · Job tự huỷ đơn mua treo quá hạn
 Mặc định 48h, cấu hình được. Ghi log rõ, ghi dòng sổ cái `reason='cancel'` để nhả tồn.
@@ -267,26 +261,27 @@ Kiểm trên trình duyệt thật cả hai luồng. Viết checklist cho chủ 
 | Sót một trong 15 điểm ở mục 4 ADR | Sai **âm thầm**: số doanh thu lệch, đơn mua lọt vào lịch shipper | T5.2/T5.3 làm theo danh sách, mỗi dòng một test |
 | Bẫy `sync()` xoá `sale_quantity` | Mất số kho không dấu vết | T1.2 có test riêng + mutation |
 | Migration T1.4 trên dữ liệu thật | Đổi kiểu cột `status`, cho ngày NULL | Sao lưu trước, `down()` chạy được, thử trên bản sao prod |
-| API hãng vận chuyển chết lúc khách đặt | Khách không mua được | T4.1 làm trước T4.2, fallback bắt buộc |
 | Khách bùng đơn COD giá trị lớn | Mất cước hai chiều, mất hàng | **Chưa có lời giải** — chờ T0.1 |
 | Vốn chết trong kho hàng mới | Tiền thật nằm im | Ngoài phạm vi kỹ thuật; sổ cái + lãi gộp cho chủ shop nhìn thấy sớm |
 
 ## 5. Việc KHÔNG làm trong epic này
 
 Trộn giỏ thuê + mua · bán combo · pre-order · hoàn tiền · chuyển kho thuê sang sổ cái ·
-tự tạo vận đơn qua API (giai đoạn 1 nhập tay) · đối soát COD tự động với hãng vận chuyển.
+**mọi thứ liên quan vận chuyển** (tính cước, API hãng, mã vận đơn, cân nặng sản phẩm, đối soát COD).
 
 ---
 
-## 6. Nếu 6–9 tuần là quá dài — lát cắt nhỏ nhất bán được hàng
+## 6. Nếu 5–7 tuần vẫn dài — cắt tiếp được gì
 
-Bỏ P4 (vận chuyển qua hãng) và P7 (đổi hàng) ở vòng đầu, **chỉ bán cho khách ở Vinh và Hà Nội, giao
-bằng shipper của shop** như đơn thuê đang làm.
+Bỏ vận chuyển đã là lần cắt hiệu quả nhất (bỏ 4 việc, bỏ **toàn bộ** nhóm rủi ro nặng nhất, mà vẫn bán
+được toàn quốc). Muốn ngắn hơn nữa thì hai lựa chọn còn lại:
 
-Còn lại: P0 + P1 + P2 + P3 + P5 (rút gọn) + P6 + P8 ≈ **17 việc, 3–4 tuần**.
+| Cắt thêm | Tiết kiệm | Đổi lại |
+| --- | --- | --- |
+| **P7 đổi hàng** (T7.1) | 2–3 ngày | Vài tháng đầu số ca đổi đếm trên đầu ngón tay; admin xử lý tay ngoài hệ thống. **Khuyến nghị cắt.** |
+| **P6 voucher thuê→mua** (T6.1, T6.2) | 2–3 ngày | Mất đòn bẩy "thuê thử rồi mua" — chính là điểm khác biệt của shop. **Không khuyến nghị cắt.** |
 
-Đổi lại: chưa bán được ra ngoài hai thành phố. Nhưng bán được thật, thu tiền thật, và **biết khách có
-mua hay không trước khi bỏ 6–9 tuần**. Phần vận chuyển toàn quốc luôn cắm thêm được sau vì mô hình dữ
-liệu ở P1 đã tính sẵn chỗ cho nó.
+Cắt P7: còn **22 việc, ≈ 4,5–6 tuần**.
 
-Đây là lát cắt tôi khuyến nghị.
+Dưới mức đó thì bắt đầu cắt vào phần lõi (sổ cái kho, rà 16 điểm đơn thuê) — chỗ đó cắt là mua nợ kỹ
+thuật thật, không phải tiết kiệm.

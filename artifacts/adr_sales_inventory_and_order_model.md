@@ -4,7 +4,7 @@
 - **Ngày:** 2026-08-01
 - **Liên quan:** `app/Services/AvailabilityService.php`, `app/Http/Controllers/Admin/ProductController.php`,
   `app/Models/Order.php`, `app/Models/Product.php`, `products`, `product_service_location`, `orders`, `order_items`, `vouchers`
-- **ADR đi kèm:** [`adr_sales_shipping_carrier.md`](./adr_sales_shipping_carrier.md) (vận chuyển)
+- **Vận chuyển:** NGOÀI PHẠM VI — chủ shop tự book (chốt 2026-08-01). [`adr_sales_shipping_carrier.md`](./adr_sales_shipping_carrier.md) chuyển sang *Deferred*, giữ lại cho sau.
 - **Kế thừa:** [`adr_pricing_models.md`](./adr_pricing_models.md), [`adr_parent_child_orders.md`](./adr_parent_child_orders.md), [`design_spec_per_store_stock.md`](./design_spec_per_store_stock.md)
 
 ---
@@ -18,6 +18,7 @@ Bốn điều chủ shop đã chốt, và chúng thay đổi hoàn toàn mức �
 1. **Cho thuê dùng đồ CŨ, bán dùng đồ MỚI.** Hai kho tách biệt về mặt vật lý.
 2. **Đơn thuê và đơn mua tách riêng** — khách không trộn chung một giỏ.
 3. **Thanh toán: COD hoặc chuyển khoản** (khách chọn).
+3b. **Vận chuyển nằm NGOÀI hệ thống** — chủ shop tự book hãng, web không tính cước, không lưu mã vận đơn.
 4. **Chỉ cho ĐỔI, không cho TRẢ tiền. Hàng đổi về sẽ được làm sạch và chuyển sang kho CHO THUÊ.**
 
 Cộng thêm một điểm bán hàng: khách **thuê thử** để trải nghiệm, thích thì **mua mới**; sau khi trả đồ
@@ -43,7 +44,6 @@ Chiều này an toàn (chỉ làm tăng tồn thuê, không bao giờ phá đơn
 | Admin lưu sản phẩm | `syncStocks()` dùng `sync()` → **ghi đè** tồn **và xoá** dòng kho không được tick | `Admin/ProductController.php` |
 | `products.quantity` | = `SUM(product_service_location.quantity)`, do `syncStocks()` tính lại | như trên |
 | Có sổ cái kho không | **Không.** Không có bảng lịch sử, không có chỗ nào trừ tồn vĩnh viễn | quét toàn repo |
-| Cân nặng / kích thước sản phẩm | **Không có cột nào** | `PRAGMA table_info(products)` |
 | `orders.status` | khai báo `enum(5 giá trị)` trong migration → MySQL prod có ràng buộc thật | `2026_06_21_000004` |
 | `orders.start_date` / `end_date` | **NOT NULL** | như trên |
 | Chỗ bám vào `'returned'` | **13 nơi** trong `app/` (doanh thu, review-invite, referral, timeline, shipper) | grep |
