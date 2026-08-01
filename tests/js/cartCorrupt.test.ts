@@ -113,6 +113,86 @@ describe('giỏ hỏng không được làm vỡ site (bopcamping-gccu)', () => 
         expect(cartCount()).toBe(0);
     });
 
+    /**
+     * ⚠️ Nhóm test QUAN TRỌNG NHẤT của bản vá này.
+     *
+     * Rủi ro thật KHÔNG phải là dữ liệu hỏng — mà là bộ lọc quá tay làm vứt oan giỏ THẬT.
+     * Cái đó xảy ra với MỌI khách, chứ không chỉ khách có dữ liệu hỏng, nên còn tệ hơn lỗi
+     * gốc. Mỗi dạng dòng giỏ có thật ngoài đời phải sống sót qua bộ lọc.
+     */
+    describe('dòng giỏ THẬT không được lọc nhầm', () => {
+        it.each([
+            ['sản phẩm trơn', dongHopLe],
+            [
+                'combo',
+                {
+                    ...dongHopLe,
+                    cat: 'combo',
+                    kind: 'combo' as const,
+                    comboItems: [{ name: 'Lều', qty: 1 }],
+                },
+            ],
+            ['có chọn cửa hàng', { ...dongHopLe, location_id: 2 }],
+            ['chưa chọn cửa hàng', { ...dongHopLe, location_id: null }],
+            [
+                'có danh sách vị trí',
+                { ...dongHopLe, locations: [{ slug: 'vinh', name: 'Vinh' }] },
+            ],
+            [
+                'thuê nửa ngày',
+                {
+                    ...dongHopLe,
+                    session: 'morning' as const,
+                    early_return_pct: 10,
+                },
+            ],
+            ['thuê cả ngày', { ...dongHopLe, session: 'full' as const }],
+            [
+                'giỏ cũ thiếu trường tuỳ chọn',
+                {
+                    id: 9,
+                    name: 'Đèn',
+                    cat: 'den',
+                    grad: '',
+                    price: 35000,
+                    deposit: 0,
+                    qty: 1,
+                    start: '2026-09-01',
+                    end: '2026-09-01',
+                },
+            ],
+            ['cọc bằng 0', { ...dongHopLe, deposit: 0 }],
+            ['giá bằng 0 (khuyến mãi)', { ...dongHopLe, price: 0 }],
+        ])('giữ nguyên dòng: %s', (_ten, line) => {
+            set(JSON.stringify([line]));
+
+            expect(getCart()).toHaveLength(1);
+        });
+
+        it('giỏ nhiều dòng đủ loại -> giữ TẤT CẢ', () => {
+            const gioThat = [
+                dongHopLe,
+                {
+                    ...dongHopLe,
+                    id: 2,
+                    cat: 'combo',
+                    kind: 'combo' as const,
+                    comboItems: [{ name: 'Lều', qty: 1 }],
+                },
+                {
+                    ...dongHopLe,
+                    id: 3,
+                    location_id: 2,
+                    session: 'morning' as const,
+                },
+            ];
+            set(JSON.stringify(gioThat));
+
+            expect(getCart()).toHaveLength(3);
+            expect(cartCount()).toBe(6);
+        });
+    });
+
     it('localStorage chưa có gì -> mảng rỗng', () => {
         expect(getCart()).toEqual([]);
         expect(cartCount()).toBe(0);
