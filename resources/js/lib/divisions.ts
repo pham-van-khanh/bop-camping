@@ -25,7 +25,6 @@ export type Ward = {
 
 const SESSION_CACHE_KEYS = {
     provinces: 'bopcamping.divisions.provinces.v2',
-    legacyProvinces: 'bopcamping.divisions.provinces.v1',
 } as const;
 
 /** true nếu đang chạy trong trình duyệt và sessionStorage khả dụng (SSR-safe). */
