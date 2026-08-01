@@ -11,7 +11,11 @@ Hiện tại BopCamping thu tiền **thuần COD**: khách đặt đơn, admin t
 kiểm tra rồi bấm tay nút đánh dấu ở `/admin/orders/{order}/payment`
 (`payment_status` ∈ `unpaid|deposit|full`, thêm bởi bopcamping-7be). Hai vấn đề:
 
-1. **Đặt ảo khoá tồn kho.** Đơn `pending` vẫn tính vào `AvailabilityService`, nên khách
+1. **Đặt ảo khoá tồn kho.** ⚠️ **ĐÍNH CHÍNH 2026-08-01:** câu dưới đây SAI. Đã kiểm
+   `app/Models/Order.php:452` — `Order::activeStatuses()` trả `['confirmed', 'renting']`, tức đơn
+   `pending` **KHÔNG** tính vào `AvailabilityService` và **không** khoá tồn kho. Tiền đề này của epic
+   SePay cần xem lại trước khi triển khai. (Giữ nguyên văn cũ bên dưới để đối chiếu.)
+   ~~Đơn `pending` vẫn tính vào `AvailabilityService`, nên khách
    đặt cho vui cũng chặn khách thật — đau nhất vào cuối tuần/cao điểm.
 2. **Admin phải đối soát tay.** Mỗi đơn là một lần mở app bank, tìm giao dịch, bấm nút.
    Không scale, dễ sai, không có audit trail.
