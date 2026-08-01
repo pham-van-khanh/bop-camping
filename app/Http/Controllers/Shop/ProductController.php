@@ -14,6 +14,7 @@ use App\Models\Review;
 use App\Models\ServiceLocation;
 use App\Services\AvailabilityService;
 use App\Services\SeoService;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -32,6 +33,43 @@ class ProductController extends Controller
 
     /** Số vị trí đang mở (memoize) — biết sản phẩm có phục vụ "toàn hệ thống" không. */
     private ?int $openLocationCount = null;
+
+    /**
+     * Kho nào đang giữ con số "còn N" khi khách CHƯA chọn kho (bopcamping-kvcc).
+     *
+     * VẤN ĐỀ: chưa chọn kho thì badge lấy max qua các kho. Khách thấy "Còn 3 bộ", thêm 3 vào
+     * giỏ, rồi tới checkout mới biết KHÔNG kho nào có đủ 3 — vì StoreResolver buộc cả giỏ phải
+     * nằm trong MỘT kho. Thất bại muộn và khó hiểu.
+     *
+     * CÁCH SỬA: nói luôn con số đó ở kho nào. CHỈ nói khi các kho thật sự lệch nhau — bằng nhau
+     * thì con số đúng ở mọi kho, thêm tên kho chỉ làm rối. Món chưa gắn kho nào (dữ liệu cũ,
+     * dùng tồn toàn cục) cũng trả null vì không có kho nào để chỉ.
+     *
+     * @param  EloquentCollection<int, Product>  $products
+     * @return array<int, string> [product_id => tên kho], chỉ chứa món có kho lệch nhau
+     */
+    private function bestLocationNames(EloquentCollection $products, Carbon $start, Carbon $end): array
+    {
+        $matrix = $this->availability->availabilityMatrix($products, $start, $end);
+        $names = ServiceLocation::open()->pluck('name', 'id');
+        $out = [];
+
+        foreach ($matrix as $productId => $row) {
+            $byLocation = $row['by_location'];
+
+            // Cần ít nhất 2 kho và chúng phải lệch nhau mới đáng nói tên kho.
+            if (count($byLocation) < 2 || min($byLocation) === max($byLocation)) {
+                continue;
+            }
+
+            $bestId = array_search(max($byLocation), $byLocation, true);
+            if ($bestId !== false && isset($names[$bestId])) {
+                $out[$productId] = $names[$bestId];
+            }
+        }
+
+        return $out;
+    }
 
     private function openLocationCount(): int
     {
@@ -201,11 +239,19 @@ class ProductController extends Controller
             ? $this->availability->availableQuantitiesFor($productModels, $start, $end, $activeLocation)
             : [];
 
-        $products = $productModels->map(function (Product $p) use ($hasRange, $availability) {
+        // Khách CHƯA chọn kho: con số hiển thị là max qua các kho (quyết định #2, prd_date_first_booking).
+        // Nếu các kho lệch nhau thì phải nói rõ số đó ở kho NÀO — xem bestLocationNames().
+        $bestAt = $hasRange && $activeLocation === null
+            ? $this->bestLocationNames($productModels, $start, $end)
+            : [];
+
+        $products = $productModels->map(function (Product $p) use ($hasRange, $availability, $bestAt) {
             $shaped = $this->shape($p);
             // null khi khách chưa chọn ngày — FE phân biệt "chưa lọc" với "hết hàng".
             $shaped['available'] = $hasRange ? ($availability[$p->id] ?? 0) : null;
             $shaped['in_range'] = $hasRange ? ($shaped['available'] >= 1) : null;
+            // Tên kho giữ con số đó, chỉ khi các kho lệch nhau; null = con số đúng ở mọi kho.
+            $shaped['available_at'] = $bestAt[$p->id] ?? null;
 
             return $shaped;
         });
