@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Models\Category;
 use App\Models\Product;
+use App\Models\ServiceLocation;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Str;
 
@@ -98,7 +99,7 @@ class ProductSeeder extends Seeder
                 continue;
             }
 
-            Product::create([
+            $product = Product::create([
                 'category_id' => $category->id,
                 'name' => $data['name'],
                 'slug' => Str::slug($data['name']),
@@ -107,6 +108,41 @@ class ProductSeeder extends Seeder
                 'quantity' => $data['qty'],
                 'deposit' => $data['deposit'],
                 'status' => 'active',
+            ]);
+
+            $this->attachStock($product, $data['qty'], $data['category']);
+        }
+    }
+
+    /**
+     * Chia tồn kho về từng cơ sở (bopcamping-ry4u).
+     *
+     * VÌ SAO CẦN: từ khi trang /thiet-bi lọc theo ngày, badge "còn hàng" lấy theo
+     * AvailabilityService — hàm này đọc product_service_location.quantity, KHÔNG đọc
+     * products.quantity. Seed mà bỏ trống pivot thì mọi món hiện "Hết hàng" ngay sau
+     * migrate:fresh --seed, và không ai thử được luồng đặt hàng trên máy mình.
+     *
+     * Giữ BẤT BIẾN products.quantity = SUM(pivot.quantity) — đúng như syncStocks() của
+     * admin vẫn làm, để dữ liệu seed không khác dữ liệu thật.
+     */
+    private function attachStock(Product $product, int $total, string $categoryName): void
+    {
+        $locations = ServiceLocation::orderBy('sort_order')->pluck('id')->all();
+        if ($locations === []) {
+            return;
+        }
+
+        // Kho đầu nhận phần dư, để tổng luôn khớp $total.
+        $per = intdiv($total, count($locations));
+        $remainder = $total % count($locations);
+
+        // Đồ vải phải giặt/phơi sau mỗi lượt -> đệm 1 ngày (adr_turnaround_buffer).
+        $buffer = in_array($categoryName, ['Lều cắm trại', 'Túi ngủ'], true) ? 1 : 0;
+
+        foreach ($locations as $i => $locationId) {
+            $product->serviceLocations()->attach($locationId, [
+                'quantity' => $per + ($i === 0 ? $remainder : 0),
+                'buffer_days' => $buffer,
             ]);
         }
     }
