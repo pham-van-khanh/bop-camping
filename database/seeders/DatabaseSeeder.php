@@ -25,7 +25,10 @@ class DatabaseSeeder extends Seeder
 
         $this->call([
             CategorySeeder::class,
+            // Cơ sở phải có TRƯỚC sản phẩm: ProductSeeder gắn tồn kho theo kho (bopcamping-ry4u).
+            ServiceLocationSeeder::class,
             ProductSeeder::class,
+            ComboSeeder::class,
             AdminUserSeeder::class,
             CampingSpotSeeder::class,
             BannerSeeder::class,
