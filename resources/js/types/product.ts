@@ -21,6 +21,9 @@ export interface ProductResource {
     // khác hẳn 0 = đã chọn nhưng hết hàng — FE phải phân biệt hai trạng thái này.
     available?: number | null;
     in_range?: boolean | null;
+    // Kho đang giữ con số `available` khi khách CHƯA chọn kho (bopcamping-kvcc).
+    // null = con số đúng ở mọi kho; có tên = các kho lệch nhau, số đó là của kho này.
+    available_at?: string | null;
     // only present in show response
     unavailable_dates?: string[];
     // Trang chi tiết (Epic 1): thông số key–value + nội dung setup (HTML đã sanitize)

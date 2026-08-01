@@ -37,6 +37,16 @@ export default function ProductCard({
     const stock = hasRange ? (p.available as number) : p.quantity;
     const soldOut = hasRange && stock < 1;
     const low = !soldOut && stock <= 2;
+    /**
+     * Khách chưa chọn kho thì con số là max qua các kho. Kho nào giữ số đó thì nói ra
+     * (bopcamping-kvcc) — không nói thì khách thêm 3 vào giỏ rồi tới checkout mới biết không
+     * kho nào đủ 3, vì cả giỏ phải nằm trong MỘT kho. Server chỉ gửi tên khi các kho LỆCH nhau.
+     *
+     * `hasRange` là chốt phòng thủ CÓ CHỦ ĐÍCH: chưa chọn ngày thì `stock` là tồn TĨNH cả kho,
+     * ghép thêm tên kho vào đó sẽ thành một con số sai kiểu mới. Không cần chốt `!soldOut` vì
+     * nhánh 'Hết hàng' phía dưới vốn không dùng `at`.
+     */
+    const at = hasRange ? (p.available_at ?? null) : null;
 
     return (
         <motion.div
@@ -77,7 +87,7 @@ export default function ProductCard({
                         }}
                     />
                     <span
-                        className={`absolute left-3 top-3 rounded-pill px-2.5 py-1 font-mono text-[11px] font-bold text-white ${low || soldOut ? 'bg-campfire' : ''}`}
+                        className={`absolute left-3 top-3 max-w-[calc(100%-1.5rem)] truncate rounded-pill px-2.5 py-1 font-mono text-[11px] font-bold text-white ${low || soldOut ? 'bg-campfire' : ''}`}
                         style={
                             low || soldOut
                                 ? undefined
@@ -86,9 +96,7 @@ export default function ProductCard({
                     >
                         {soldOut
                             ? 'Hết hàng'
-                            : low
-                              ? `Sắp hết · ${stock} bộ`
-                              : `Còn ${stock} bộ`}
+                            : `${low ? 'Sắp hết · ' : 'Còn '}${stock} bộ${at ? ` tại ${at}` : ''}`}
                     </span>
                     <LocationBadges
                         locations={locations}
