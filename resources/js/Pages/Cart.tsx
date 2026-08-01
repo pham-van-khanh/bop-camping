@@ -6,6 +6,7 @@ import SiteLayout from '@/Layouts/SiteLayout';
 import { emit, EVENTS, on } from '@/lib/bus';
 import {
     addLine,
+    cartChosenStoreId,
     cartHasLocationConflict,
     cartTotals,
     locationConflict as checkLocationConflict,
@@ -279,12 +280,17 @@ export default function Cart() {
             return;
         }
         const t = setTimeout(() => {
-            const qs = lines
-                .map(
-                    (l) =>
-                        `${isComboLine(l) ? 'cr' : 'pr'}[]=${l.id}:${l.start}:${l.end}`,
-                )
-                .join('&');
+            // Gửi kèm kho khách đã chọn (bopcamping-3o0x) — không gửi thì server trả "max qua
+            // các kho" và giỏ nói cao hơn thực tế của chính kho khách chọn, để tới lúc bấm đặt
+            // mới bị chặn. `lines` là dependency nên đổi kho là tự gọi lại.
+            const loc = cartChosenStoreId(lines);
+            const qs =
+                lines
+                    .map(
+                        (l) =>
+                            `${isComboLine(l) ? 'cr' : 'pr'}[]=${l.id}:${l.start}:${l.end}`,
+                    )
+                    .join('&') + (loc != null ? `&loc=${loc}` : '');
             fetch(`${route('cart.refresh')}?${qs}`, {
                 headers: { Accept: 'application/json' },
             })
@@ -1424,15 +1430,13 @@ function toCheckoutItems(lines: CartLine[]): CheckoutItem[] {
 }
 
 function toCheckoutCombos(lines: CartLine[]): CheckoutCombo[] {
-    return lines
-        .filter(isComboLine)
-        .map((l) => ({
-            combo_id: l.id,
-            quantity: l.qty,
-            start: l.start,
-            end: l.end,
-            location_id: l.location_id ?? null,
-        }));
+    return lines.filter(isComboLine).map((l) => ({
+        combo_id: l.id,
+        quantity: l.qty,
+        start: l.start,
+        end: l.end,
+        location_id: l.location_id ?? null,
+    }));
 }
 
 function Row({

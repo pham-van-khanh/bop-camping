@@ -94,6 +94,7 @@ class CartController extends Controller
         // pr[]/cr[] dạng "id:start:end", trả map stock để giỏ cảnh báo ngay khi hết.
         $prLines = $this->rangesFromQuery($request, 'pr');
         $crLines = $this->rangesFromQuery($request, 'cr');
+        $chosen = $this->chosenLocation($request);
 
         if ($ids->isEmpty() && $comboIds->isEmpty() && $prLines->isEmpty() && $crLines->isEmpty()) {
             return response()->json(['products' => (object) [], 'combos' => (object) [], 'stock' => (object) []]);
@@ -160,7 +161,7 @@ class CartController extends Controller
             if ($subset->isEmpty()) {
                 continue;
             }
-            $avail = $this->availability->availableQuantitiesFor($subset, Carbon::parse($start), Carbon::parse($end));
+            $avail = $this->availability->availableQuantitiesFor($subset, Carbon::parse($start), Carbon::parse($end), $chosen);
             foreach ($lines as $r) {
                 if (isset($avail[$r['id']])) {
                     $stock["p:{$r['id']}:{$r['start']}:{$r['end']}"] = $avail[$r['id']];
@@ -174,7 +175,7 @@ class CartController extends Controller
             if ($subset->isEmpty()) {
                 continue;
             }
-            $avail = $this->availability->comboQuantitiesFor($subset, Carbon::parse($start), Carbon::parse($end));
+            $avail = $this->availability->comboQuantitiesFor($subset, Carbon::parse($start), Carbon::parse($end), $chosen);
             foreach ($lines as $r) {
                 if (isset($avail[$r['id']])) {
                     $stock["c:{$r['id']}:{$r['start']}:{$r['end']}"] = $avail[$r['id']];
@@ -201,6 +202,32 @@ class CartController extends Controller
      *
      * @return Collection<int, array{id: int, start: string, end: string}>
      */
+    /**
+     * Cơ sở khách đã chọn trong giỏ (bopcamping-3o0x).
+     *
+     * VÌ SAO CẦN: hai lời gọi tính tồn phía dưới trước đây KHÔNG truyền kho, nên luôn lấy
+     * "best" = max qua các kho đang mở. Khách chọn Hà Nội trong giỏ mà con số vẫn là của
+     * Vinh, rồi tới lúc bấm đặt mới bị StoreResolver chặn — thất bại ở bước cuối cùng, sau
+     * khi đã điền hết thông tin.
+     *
+     * Chưa chọn kho -> null -> giữ nguyên "best" (đúng, vì lúc đó StoreResolver sẽ tự chọn
+     * kho rộng nhất). Tham số rác hoặc kho chưa mở -> cũng null: giỏ TUYỆT ĐỐI không được
+     * vỡ vì một query param sai, thà hiển thị rộng rãi hơn còn hơn chặn oan khách.
+     */
+    private function chosenLocation(Request $request): ?ServiceLocation
+    {
+        $id = $request->query('loc');
+
+        if (! is_string($id) && ! is_int($id)) {
+            return null;
+        }
+        if (! ctype_digit((string) $id) || (int) $id < 1) {
+            return null;
+        }
+
+        return ServiceLocation::open()->find((int) $id);
+    }
+
     private function rangesFromQuery(Request $request, string $key): Collection
     {
         return collect($request->query($key, []))
