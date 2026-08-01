@@ -122,8 +122,10 @@ localStorage.setItem('bop_cart_v1', JSON.stringify([{id:1,name:'Lều thử',cat
 
 | Kiểm | Kết quả đúng |
 |---|---|
-| Số món trong giỏ | **Đúng 1 món** — "Lều thử" |
-| Badge trên đầu trang | **2** (đúng số lượng của món lành) |
+| Số món trong giỏ | **Đúng 1 món** |
+| Tên món | **Không phải "Lều thử"** mà là tên sản phẩm thật (`id:1` trong dữ liệu trên). Trang giỏ tự làm tươi tên/giá theo server — đúng như thiết kế, không phải lỗi |
+| Số lượng | **2** — giữ nguyên, đây mới là thứ phải đúng |
+| Ngày thuê | `01/09 → 03/09` — giữ nguyên |
 | 4 dòng rác | Biến mất, không gây lỗi gì |
 | Trang giỏ | Hiện đầy đủ, có ô chọn địa chỉ |
 
