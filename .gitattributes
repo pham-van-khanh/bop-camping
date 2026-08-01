@@ -12,3 +12,8 @@ CHANGELOG.md export-ignore
 
 # Use bd merge for beads JSONL files
 .beads/issues.jsonl merge=beads
+
+# File export beads sinh lại được từ Dolt — luôn lấy bản của nhánh đang merge vào,
+# không bao giờ cần giải xung đột tay (đã vướng 3 lần trong 1 phiên).
+.beads/issues.jsonl   -merge -diff
+.beads/interactions.jsonl -merge -diff
