@@ -19,6 +19,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -111,6 +112,10 @@ class CartController extends Controller
 
                 return [$p->id => [
                     'name' => $p->name,
+                    // Ảnh do SERVER cấp qua endpoint làm tươi, không phải do trang sản phẩm nhét
+                    // vào lúc thêm giỏ: nhờ vậy giỏ CŨ của khách cũng có ảnh ngay, và admin đổi
+                    // ảnh thì lần mở giỏ sau là cập nhật theo.
+                    'image' => $p->thumbnail ? Storage::disk('media')->url($p->thumbnail) : null,
                     'price_per_day' => (int) $p->price_per_day,
                     'deposit' => (int) ($p->deposit ?? 0),
                     'early_return_pct' => (int) $p->early_return_discount_pct,
@@ -122,7 +127,7 @@ class CartController extends Controller
         // Combo trong giỏ: giá/cọc/vị trí mới nhất; combo ẩn (vd US-07) không trả về → client gỡ.
         $combos = Combo::active()
             ->whereHas('items')
-            ->with('items.product.serviceLocations', 'serviceLocations')
+            ->with('items.product.serviceLocations', 'serviceLocations', 'images')
             ->whereIn('id', $comboIds)
             ->get()
             ->mapWithKeys(function (Combo $c) use ($openCount) {
@@ -130,6 +135,9 @@ class CartController extends Controller
 
                 return [$c->id => [
                     'name' => $c->name,
+                    'image' => $c->images->first()
+                        ? Storage::disk('media')->url($c->images->first()->path)
+                        : null,
                     'combo_price' => (int) $c->combo_price,
                     'deposit' => (int) ($c->deposit ?? 0),
                     'items' => $c->items->map(fn ($i) => ['name' => $i->product?->name ?? '', 'qty' => $i->quantity])->values(),
