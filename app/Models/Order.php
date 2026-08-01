@@ -35,7 +35,6 @@ class Order extends Model
         // vẫn là nguồn chân lý cho giao nhận.
         'province_code',
         'ward_code',
-        'legacy_ward_code',
         'street',
         'review_token',
         'review_invited_at',

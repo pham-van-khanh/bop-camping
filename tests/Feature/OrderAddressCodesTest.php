@@ -20,6 +20,8 @@ use Tests\TestCase;
  *
  * Điều BẮT BUỘC test: khách KHÔNG gửi mã (dùng ô text như cũ) vẫn đặt được đơn — nếu
  * không thì tính năng này làm vỡ luồng đặt hàng hiện tại.
+ *
+ * Không còn legacy_ward_code: phần "địa chỉ cũ" đã gỡ khỏi form (chủ shop chốt bỏ vì rối).
  */
 class OrderAddressCodesTest extends TestCase
 {
@@ -54,14 +56,13 @@ class OrderAddressCodesTest extends TestCase
 
     public function test_luu_du_ma_dia_chi_va_chuoi(): void
     {
-        $address = 'Số 5 Trần Phú, Phường Ba Đình, Thành phố Hà Nội (trước sát nhập: Phường Điện Biên, Quận Ba Đình)';
+        $address = 'Số 5 Trần Phú, Khối 3, Phường Ba Đình, Thành phố Hà Nội';
 
         $this->post('/dat-hang', $this->payload([
             'address' => $address,
             'street' => 'Số 5 Trần Phú',
             'province_code' => 1,
             'ward_code' => 4,
-            'legacy_ward_code' => 19,
         ]))->assertSessionHasNoErrors();
 
         $order = Order::where('is_parent', false)->firstOrFail();
@@ -70,23 +71,24 @@ class OrderAddressCodesTest extends TestCase
         $this->assertSame('Số 5 Trần Phú', $order->street);
         $this->assertSame(1, $order->province_code);
         $this->assertSame(4, $order->ward_code);
-        $this->assertSame(19, $order->legacy_ward_code);
     }
 
-    /** Khách đi đường "địa chỉ mới" (không qua địa chỉ cũ) → legacy_ward_code null. */
-    public function test_khong_di_duong_dia_chi_cu_thi_legacy_null(): void
+    /**
+     * Khối/xóm/thôn KHÔNG có cột riêng — nó nằm trong chuỗi customer_address. Test này
+     * chốt điều đó, để sau này ai muốn lọc theo khối thì biết là phải thêm cột trước.
+     */
+    public function test_khoi_nam_trong_chuoi_dia_chi_khong_co_cot_rieng(): void
     {
         $this->post('/dat-hang', $this->payload([
-            'address' => 'Số 1 Lê Lợi, Phường Trường Thi, Tỉnh Nghệ An',
-            'street' => 'Số 1 Lê Lợi',
+            'address' => 'Khối 3, Phường Trường Thi, Tỉnh Nghệ An',
             'province_code' => 40,
             'ward_code' => 16600,
         ]))->assertSessionHasNoErrors();
 
         $order = Order::where('is_parent', false)->firstOrFail();
 
+        $this->assertStringContainsString('Khối 3', $order->customer_address);
         $this->assertSame(40, $order->province_code);
-        $this->assertNull($order->legacy_ward_code);
     }
 
     /**
@@ -103,7 +105,6 @@ class OrderAddressCodesTest extends TestCase
         $this->assertSame('Số 9 đường Nào Đó, TP Vinh', $order->customer_address);
         $this->assertNull($order->province_code);
         $this->assertNull($order->ward_code);
-        $this->assertNull($order->legacy_ward_code);
         $this->assertNull($order->street);
     }
 
@@ -123,7 +124,7 @@ class OrderAddressCodesTest extends TestCase
             'ward_code là chữ' => ['ward_code', 'abc'],
             'province_code là 0' => ['province_code', 0],
             'province_code âm' => ['province_code', -5],
-            'legacy_ward_code là mảng' => ['legacy_ward_code', [1, 2]],
+            'ward_code là mảng' => ['ward_code', [1, 2]],
         ];
     }
 

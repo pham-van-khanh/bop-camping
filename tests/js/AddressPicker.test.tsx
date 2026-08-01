@@ -7,22 +7,16 @@ import { useState } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 /**
- * bopcamping-vj4x — AddressPicker.
+ * bopcamping-vj4x — AddressPicker (chỉ địa chỉ SAU sát nhập + ô khối tuỳ chọn).
  *
- * Chốt 3 ca của phép suy ra (map xã cũ -> xã mới là NHIỀU-NHIỀU, đo thật: Phường Điện Biên
- * -> 4 phường mới) và FALLBACK về ô text — cái sau quan trọng nhất vì nó là thứ giữ cho
- * khách vẫn đặt được hàng khi API địa chỉ chết.
+ * Quan trọng nhất là FALLBACK về ô text: nó là thứ giữ cho khách vẫn đặt được hàng khi
+ * API địa chỉ của bên thứ ba chết. Kế đến là chuỗi ghép, vì customer_address mới là cái
+ * shipper đọc — mã tỉnh/xã chỉ để thống kê.
  */
 
 const mocks = vi.hoisted(() => ({
     getProvinces: vi.fn(),
     getWards: vi.fn(),
-    getLegacyProvinces: vi.fn(),
-    getLegacyDistricts: vi.fn(),
-    getLegacyWards: vi.fn(),
-    inferNewWards: vi.fn(),
-    getLegaciesOfWard: vi.fn(),
-    getLegacyDistrictName: vi.fn(),
 }));
 
 vi.mock('@/lib/divisions', () => mocks);
@@ -45,43 +39,18 @@ const BA_DINH = {
     code: 4,
     codename: 'phuong_ba_dinh',
     division_type: 'phường',
-    province_code: 1,
 };
 const HOAN_KIEM = {
     name: 'Phường Hoàn Kiếm',
     code: 5,
     codename: 'phuong_hoan_kiem',
     division_type: 'phường',
-    province_code: 1,
 };
-const O_CHO_DUA = {
-    name: 'Phường Ô Chợ Dừa',
-    code: 6,
-    codename: 'phuong_o_cho_dua',
+const HUNG_BINH = {
+    name: 'Phường Hưng Bình',
+    code: 16600,
+    codename: 'phuong_hung_binh',
     division_type: 'phường',
-    province_code: 1,
-};
-const VAN_MIEU = {
-    name: 'Phường Văn Miếu',
-    code: 7,
-    codename: 'phuong_van_mieu',
-    division_type: 'phường',
-    province_code: 1,
-};
-
-const LEGACY_DISTRICT = {
-    name: 'Quận Ba Đình',
-    code: 1,
-    division_type: 'quận',
-    codename: 'quan_ba_dinh',
-    province_code: 1,
-};
-const LEGACY_WARD = {
-    name: 'Phường Điện Biên',
-    code: 19,
-    codename: 'phuong_dien_bien',
-    division_type: 'phường',
-    district_code: 1,
 };
 
 const EMPTY: AddressValue = {
@@ -89,7 +58,6 @@ const EMPTY: AddressValue = {
     street: '',
     province_code: null,
     ward_code: null,
-    legacy_ward_code: null,
 };
 
 /**
@@ -118,7 +86,6 @@ function renderPicker() {
     return { ...utils, onChange };
 }
 
-/** Query option TRONG một select cụ thể — tỉnh mới và tỉnh cũ có tên trùng nhau. */
 const optionIn = (selectLabel: string, name: string) =>
     within(screen.getByLabelText(selectLabel)).getByRole('option', { name });
 
@@ -129,434 +96,223 @@ const waitOption = (selectLabel: string, name: string) =>
 const last = (onChange: ReturnType<typeof vi.fn>): AddressValue =>
     onChange.mock.calls[onChange.mock.calls.length - 1][0];
 
+/** Chọn Hà Nội -> Ba Đình, trả về onChange để khẳng định tiếp. */
+async function chonHaNoiBaDinh(user: ReturnType<typeof userEvent.setup>) {
+    const { onChange } = renderPicker();
+
+    await waitOption('Tỉnh / Thành phố', 'Thành phố Hà Nội');
+    await user.selectOptions(screen.getByLabelText('Tỉnh / Thành phố'), '1');
+    await waitOption('Xã / Phường', 'Phường Ba Đình');
+    await user.selectOptions(screen.getByLabelText('Xã / Phường'), '4');
+
+    return onChange;
+}
+
 describe('AddressPicker', () => {
     beforeEach(() => {
         vi.clearAllMocks();
         mocks.getProvinces.mockResolvedValue([HANOI, NGHEAN]);
-        mocks.getWards.mockResolvedValue([BA_DINH, HOAN_KIEM]);
-        mocks.getLegacyProvinces.mockResolvedValue([HANOI]);
-        mocks.getLegacyDistricts.mockResolvedValue([LEGACY_DISTRICT]);
-        mocks.getLegacyWards.mockResolvedValue([LEGACY_WARD]);
-        mocks.getLegaciesOfWard.mockResolvedValue([LEGACY_WARD]);
-        mocks.getLegacyDistrictName.mockResolvedValue('Quận Ba Đình');
+        mocks.getWards.mockImplementation(async (code: number) =>
+            code === 1 ? [BA_DINH, HOAN_KIEM] : [HUNG_BINH],
+        );
     });
 
-    it('nạp tỉnh khi mở, chọn tỉnh thì nạp xã của tỉnh đó', async () => {
-        const user = userEvent.setup();
+    it('đổ danh sách tỉnh sau sát nhập vào select', async () => {
         renderPicker();
 
         await waitOption('Tỉnh / Thành phố', 'Thành phố Hà Nội');
-
-        await user.selectOptions(
-            screen.getByLabelText('Tỉnh / Thành phố'),
-            '1',
-        );
-
-        await waitFor(() => expect(mocks.getWards).toHaveBeenCalledWith(1));
-        await waitOption('Xã / Phường', 'Phường Ba Đình');
+        expect(
+            optionIn('Tỉnh / Thành phố', 'Tỉnh Nghệ An'),
+        ).toBeInTheDocument();
     });
 
-    it('ghép address đúng định dạng khi chọn đủ', async () => {
-        const user = userEvent.setup();
-        const { onChange } = renderPicker();
+    it('chưa chọn tỉnh thì select xã bị khoá', async () => {
+        renderPicker();
 
         await waitOption('Tỉnh / Thành phố', 'Thành phố Hà Nội');
+        expect(screen.getByLabelText('Xã / Phường')).toBeDisabled();
+    });
+
+    it('chọn tỉnh xong mới nạp xã của đúng tỉnh đó', async () => {
+        const user = userEvent.setup();
+        renderPicker();
+
+        await waitOption('Tỉnh / Thành phố', 'Tỉnh Nghệ An');
+        await user.selectOptions(
+            screen.getByLabelText('Tỉnh / Thành phố'),
+            '40',
+        );
+
+        await waitOption('Xã / Phường', 'Phường Hưng Bình');
+        expect(mocks.getWards).toHaveBeenCalledWith(40);
+        expect(screen.getByLabelText('Xã / Phường')).toBeEnabled();
+    });
+
+    it('ghép chuỗi đủ 4 phần theo thứ tự số nhà, khối, xã, tỉnh', async () => {
+        const user = userEvent.setup();
+        const onChange = await chonHaNoiBaDinh(user);
+
+        await user.type(
+            screen.getByLabelText('Khối / Xóm / Thôn (nếu có)'),
+            'Khối 3',
+        );
         await user.type(
             screen.getByLabelText('Số nhà, tên đường'),
             'Số 5 Trần Phú',
         );
-        await user.selectOptions(
-            screen.getByLabelText('Tỉnh / Thành phố'),
-            '1',
-        );
-        await waitOption('Xã / Phường', 'Phường Ba Đình');
-        await user.selectOptions(screen.getByLabelText('Xã / Phường'), '4');
 
-        // Chọn xã mới giờ TỰ tra địa chỉ cũ (getLegaciesOfWard) nên chuỗi kèm phần ngoặc.
-        await waitFor(() =>
-            expect(last(onChange).address).toBe(
-                'Số 5 Trần Phú, Phường Ba Đình, Thành phố Hà Nội (trước sát nhập: Phường Điện Biên, Quận Ba Đình)',
-            ),
+        expect(last(onChange).address).toBe(
+            'Số 5 Trần Phú, Khối 3, Phường Ba Đình, Thành phố Hà Nội',
         );
+    });
+
+    it('bỏ trống khối thì chuỗi không có dấu phẩy thừa', async () => {
+        const user = userEvent.setup();
+        const onChange = await chonHaNoiBaDinh(user);
+
+        await user.type(
+            screen.getByLabelText('Số nhà, tên đường'),
+            'Số 5 Trần Phú',
+        );
+
+        expect(last(onChange).address).toBe(
+            'Số 5 Trần Phú, Phường Ba Đình, Thành phố Hà Nội',
+        );
+    });
+
+    it('gửi lên mã tỉnh + mã xã, và street tách riêng khỏi chuỗi', async () => {
+        const user = userEvent.setup();
+        const onChange = await chonHaNoiBaDinh(user);
+
+        await user.type(
+            screen.getByLabelText('Số nhà, tên đường'),
+            'Số 5 Trần Phú',
+        );
+
         const v = last(onChange);
         expect(v.province_code).toBe(1);
         expect(v.ward_code).toBe(4);
-        expect(v.legacy_ward_code).toBe(19);
-    });
-
-    it('xã chưa chọn tỉnh thì bị vô hiệu', async () => {
-        renderPicker();
-        await waitOption('Tỉnh / Thành phố', 'Thành phố Hà Nội');
-
-        expect(screen.getByLabelText('Xã / Phường')).toBeDisabled();
-    });
-
-    it('bấm "địa chỉ cũ" mở 3 select cũ', async () => {
-        const user = userEvent.setup();
-        renderPicker();
-        await waitOption('Tỉnh / Thành phố', 'Thành phố Hà Nội');
-
-        await user.click(
-            screen.getByRole('button', { name: /Tôi chỉ biết địa chỉ cũ/ }),
-        );
-
-        expect(screen.getByLabelText('Tỉnh cũ')).toBeInTheDocument();
-        expect(screen.getByLabelText('Quận / Huyện cũ')).toBeInTheDocument();
-        expect(screen.getByLabelText('Xã / Phường cũ')).toBeInTheDocument();
-        await waitFor(() =>
-            expect(mocks.getLegacyProvinces).toHaveBeenCalled(),
-        );
-    });
-
-    /** Chọn hết 3 select cũ rồi trả về giá trị onChange gần nhất. */
-    async function walkLegacy(user: ReturnType<typeof userEvent.setup>) {
-        await user.click(
-            screen.getByRole('button', { name: /Tôi chỉ biết địa chỉ cũ/ }),
-        );
-        await waitOption('Tỉnh cũ', 'Thành phố Hà Nội');
-        await user.selectOptions(screen.getByLabelText('Tỉnh cũ'), '1');
-        await waitOption('Quận / Huyện cũ', 'Quận Ba Đình');
-        await user.selectOptions(screen.getByLabelText('Quận / Huyện cũ'), '1');
-        await waitOption('Xã / Phường cũ', 'Phường Điện Biên');
-        await user.selectOptions(screen.getByLabelText('Xã / Phường cũ'), '19');
-    }
-
-    /** CA 1 — map 1-1: tự điền luôn. */
-    it('suy ra đúng 1 xã thì tự điền + hiện "Đã suy ra"', async () => {
-        const user = userEvent.setup();
-        mocks.inferNewWards.mockResolvedValue({
-            wards: [BA_DINH],
-            exact: true,
-        });
-        const { onChange } = renderPicker();
-        await waitOption('Tỉnh / Thành phố', 'Thành phố Hà Nội');
-
-        await walkLegacy(user);
-
-        await waitFor(() =>
-            expect(screen.getByText(/Đã suy ra/)).toBeInTheDocument(),
-        );
-        const v = last(onChange);
-        expect(v.ward_code).toBe(4);
-        expect(v.province_code).toBe(1);
-        expect(v.legacy_ward_code).toBe(19);
-        expect(v.address).toContain(
-            '(trước sát nhập: Phường Điện Biên, Quận Ba Đình)',
-        );
-    });
-
-    /** CA N — xã cũ bị CHIA (ca thật của Phường Điện Biên): hiện đúng N ứng viên, KHÔNG tự chọn. */
-    it('suy ra nhiều xã thì thu hẹp danh sách và không tự chọn', async () => {
-        const user = userEvent.setup();
-        mocks.inferNewWards.mockResolvedValue({
-            wards: [BA_DINH, HOAN_KIEM, O_CHO_DUA, VAN_MIEU],
-            exact: false,
-        });
-        const { onChange } = renderPicker();
-        await waitOption('Tỉnh / Thành phố', 'Thành phố Hà Nội');
-
-        await walkLegacy(user);
-
-        await waitFor(() =>
-            expect(
-                screen.getByText(/thuộc 4 xã\/phường mới/),
-            ).toBeInTheDocument(),
-        );
-        // Danh sách xã mới thu hẹp còn đúng 4 ứng viên.
-        expect(
-            screen.getByRole('option', { name: 'Phường Ô Chợ Dừa' }),
-        ).toBeInTheDocument();
-        expect(
-            screen.getByRole('option', { name: 'Phường Văn Miếu' }),
-        ).toBeInTheDocument();
-        // KHÔNG tự chọn xã nào — khách phải tự quyết.
-        expect(last(onChange).ward_code).toBeNull();
-        expect(last(onChange).legacy_ward_code).toBe(19);
-    });
-
-    /** CA 0 — không tra được: nói rõ, giữ cho khách chọn tay. */
-    it('không suy ra được thì báo rõ và không chặn', async () => {
-        const user = userEvent.setup();
-        mocks.inferNewWards.mockResolvedValue({ wards: [], exact: false });
-        const { onChange } = renderPicker();
-        await waitOption('Tỉnh / Thành phố', 'Thành phố Hà Nội');
-
-        await walkLegacy(user);
-
-        await waitFor(() =>
-            expect(
-                screen.getByText(/Không tra được tự động/),
-            ).toBeInTheDocument(),
-        );
-        expect(last(onChange).legacy_ward_code).toBe(19);
-    });
-
-    /** inferNewWards throw cũng không được chặn khách. */
-    it('suy ra lỗi mạng thì vẫn cho chọn tay', async () => {
-        const user = userEvent.setup();
-        mocks.inferNewWards.mockRejectedValue(new Error('mạng lỗi'));
-        renderPicker();
-        await waitOption('Tỉnh / Thành phố', 'Thành phố Hà Nội');
-
-        await walkLegacy(user);
-
-        await waitFor(() =>
-            expect(
-                screen.getByText(/Không tra được tự động/),
-            ).toBeInTheDocument(),
-        );
-        // Vẫn còn select xã mới để chọn tay.
-        expect(screen.getByLabelText('Xã / Phường')).toBeInTheDocument();
-    });
-
-    it('sau khi thu hẹp, bấm "Xem tất cả xã" thì nạp lại full list', async () => {
-        const user = userEvent.setup();
-        mocks.inferNewWards.mockResolvedValue({
-            wards: [BA_DINH, HOAN_KIEM],
-            exact: false,
-        });
-        renderPicker();
-        await waitOption('Tỉnh / Thành phố', 'Thành phố Hà Nội');
-        await walkLegacy(user);
-        await waitFor(() =>
-            expect(
-                screen.getByText(/thuộc 2 xã\/phường mới/),
-            ).toBeInTheDocument(),
-        );
-
-        mocks.getWards.mockClear();
-        await user.click(
-            screen.getByRole('button', { name: /Xem tất cả xã của tỉnh/ }),
-        );
-
-        await waitFor(() => expect(mocks.getWards).toHaveBeenCalledWith(1));
+        expect(v.street).toBe('Số 5 Trần Phú');
     });
 
     /**
-     * FALLBACK — quan trọng nhất. API chết thì về đúng ô text tự do như trước khi có
-     * tính năng này, và onChange vẫn trả address khách gõ để đơn đặt được.
+     * Đổi tỉnh mà giữ nguyên xã cũ thì địa chỉ sai tỉnh — ca dễ vỡ nhất của form 2 cấp.
      */
-    it('không tải được tỉnh thì về ô text tự do, vẫn gửi được address', async () => {
+    it('đổi tỉnh thì xoá xã đã chọn và bỏ ward_code', async () => {
         const user = userEvent.setup();
-        mocks.getProvinces.mockRejectedValue(new Error('API chết'));
-        const { onChange } = renderPicker();
+        const onChange = await chonHaNoiBaDinh(user);
 
-        await waitFor(() =>
-            expect(
-                screen.getByText(/Không tải được danh sách địa chỉ/),
-            ).toBeInTheDocument(),
-        );
-        expect(
-            screen.queryByLabelText('Tỉnh / Thành phố'),
-        ).not.toBeInTheDocument();
+        expect(last(onChange).ward_code).toBe(4);
 
-        await user.type(
-            screen.getByLabelText('Địa chỉ giao nhận'),
-            'Số 9 ngõ 2',
+        await user.selectOptions(
+            screen.getByLabelText('Tỉnh / Thành phố'),
+            '40',
         );
 
         const v = last(onChange);
-        expect(v.address).toBe('Số 9 ngõ 2');
+        expect(v.ward_code).toBeNull();
+        expect(v.province_code).toBe(40);
+        expect(v.address).not.toContain('Ba Đình');
+        expect(screen.getByLabelText('Xã / Phường')).toHaveValue('');
+    });
+
+    it('ô khối là tuỳ chọn, không chặn và không tạo mã riêng', async () => {
+        const user = userEvent.setup();
+        const onChange = await chonHaNoiBaDinh(user);
+
+        const khoi = screen.getByLabelText('Khối / Xóm / Thôn (nếu có)');
+        expect(khoi).not.toBeRequired();
+
+        await user.type(khoi, 'Xóm 4');
+        const v = last(onChange);
+        expect(v.address).toBe('Xóm 4, Phường Ba Đình, Thành phố Hà Nội');
+        expect(Object.keys(v).sort()).toEqual([
+            'address',
+            'province_code',
+            'street',
+            'ward_code',
+        ]);
+    });
+
+    /** Bố cục chủ shop chốt: chọn vùng trước, gõ chi tiết sau. */
+    it('hai select nằm TRÊN ô số nhà trong DOM', async () => {
+        const { container } = renderPicker();
+
+        await waitOption('Tỉnh / Thành phố', 'Thành phố Hà Nội');
+
+        const fields = Array.from(container.querySelectorAll('select, input'));
+        const nhan = fields.map((el) => el.getAttribute('aria-label'));
+
+        expect(nhan).toEqual([
+            'Tỉnh / Thành phố',
+            'Xã / Phường',
+            'Khối / Xóm / Thôn (nếu có)',
+            'Số nhà, tên đường',
+        ]);
+    });
+
+    it('không còn phần địa chỉ cũ (trước sát nhập)', async () => {
+        renderPicker();
+
+        await waitOption('Tỉnh / Thành phố', 'Thành phố Hà Nội');
+
+        expect(screen.queryByText(/trước sát nhập/i)).not.toBeInTheDocument();
+        expect(screen.queryByText(/địa chỉ cũ/i)).not.toBeInTheDocument();
+    });
+
+    // ---- Fallback: thứ giữ cho khách vẫn đặt được hàng khi API chết ----
+
+    it('API tỉnh lỗi -> về ô text tự do, vẫn nhập và gửi được địa chỉ', async () => {
+        mocks.getProvinces.mockRejectedValue(new Error('mạng chết'));
+        const user = userEvent.setup();
+        const { onChange } = renderPicker();
+
+        const o = await screen.findByLabelText('Địa chỉ giao nhận');
+        expect(
+            screen.queryByLabelText('Tỉnh / Thành phố'),
+        ).not.toBeInTheDocument();
+        expect(screen.getByText(/nhập tay giúp nhé/i)).toBeInTheDocument();
+
+        await user.type(o, 'Số 9 đường Nào Đó, TP Vinh');
+
+        const v = last(onChange);
+        expect(v.address).toBe('Số 9 đường Nào Đó, TP Vinh');
         expect(v.province_code).toBeNull();
         expect(v.ward_code).toBeNull();
     });
 
-    // ---------- Ô "địa chỉ cũ" tự tra từ địa chỉ MỚI ----------
-
-    /** Chọn xong xã mới -> ô địa chỉ cũ hiện ra và ĐÃ ĐIỀN SẴN (ca 1 xã cũ). */
-    it('chọn xã mới thì ô địa chỉ cũ hiện ra, điền sẵn khi chỉ có 1 xã cũ', async () => {
+    it('API xã lỗi giữa chừng -> cũng rơi về ô text, không kẹt select rỗng', async () => {
+        mocks.getWards.mockRejectedValue(new Error('mạng chết'));
         const user = userEvent.setup();
-        const { onChange } = renderPicker();
-        await waitOption('Tỉnh / Thành phố', 'Thành phố Hà Nội');
-
-        // Chưa chọn xã thì chưa có ô địa chỉ cũ.
-        expect(
-            screen.queryByLabelText('Địa chỉ cũ (trước sát nhập)'),
-        ).not.toBeInTheDocument();
-
-        await user.selectOptions(
-            screen.getByLabelText('Tỉnh / Thành phố'),
-            '1',
-        );
-        await waitOption('Xã / Phường', 'Phường Ba Đình');
-        await user.selectOptions(screen.getByLabelText('Xã / Phường'), '4');
-
-        await waitFor(() =>
-            expect(
-                screen.getByLabelText('Địa chỉ cũ (trước sát nhập)'),
-            ).toHaveValue('Phường Điện Biên, Quận Ba Đình'),
-        );
-        await waitFor(() =>
-            expect(mocks.getLegaciesOfWard).toHaveBeenCalledWith(4),
-        );
-        await waitFor(() =>
-            expect(last(onChange).address).toContain(
-                '(trước sát nhập: Phường Điện Biên, Quận Ba Đình)',
-            ),
-        );
-        expect(last(onChange).legacy_ward_code).toBe(19);
-    });
-
-    /**
-     * Một xã MỚI thường gộp từ NHIỀU xã cũ (đo thật: Phường Ba Đình <- 10 xã cũ).
-     * KHÔNG được điền bừa cái đầu — phải cho khách chọn.
-     */
-    it('nhiều xã cũ gộp lại thì không điền bừa, cho khách chọn', async () => {
-        const user = userEvent.setup();
-        const TRUC_BACH = {
-            name: 'Phường Trúc Bạch',
-            code: 4,
-            codename: 'truc_bach',
-            division_type: 'phường',
-            district_code: 1,
-        };
-        const QUAN_THANH = {
-            name: 'Phường Quán Thánh',
-            code: 13,
-            codename: 'quan_thanh',
-            division_type: 'phường',
-            district_code: 1,
-        };
-        mocks.getLegaciesOfWard.mockResolvedValue([TRUC_BACH, QUAN_THANH]);
-        const { onChange } = renderPicker();
-        await waitOption('Tỉnh / Thành phố', 'Thành phố Hà Nội');
-
-        await user.selectOptions(
-            screen.getByLabelText('Tỉnh / Thành phố'),
-            '1',
-        );
-        await waitOption('Xã / Phường', 'Phường Ba Đình');
-        await user.selectOptions(screen.getByLabelText('Xã / Phường'), '4');
-
-        // Ô để TRỐNG, hiện select cho khách chọn.
-        await waitFor(() =>
-            expect(
-                screen.getByLabelText('Chọn địa chỉ cũ tương ứng'),
-            ).toBeInTheDocument(),
-        );
-        expect(
-            screen.getByLabelText('Địa chỉ cũ (trước sát nhập)'),
-        ).toHaveValue('');
-        expect(last(onChange).address).not.toContain('trước sát nhập');
-
-        // Chọn 1 trong số đó -> điền vào ô.
-        mocks.getLegacyDistrictName.mockResolvedValue('Quận Ba Đình');
-        await user.selectOptions(
-            screen.getByLabelText('Chọn địa chỉ cũ tương ứng'),
-            '13',
-        );
-
-        await waitFor(() =>
-            expect(
-                screen.getByLabelText('Địa chỉ cũ (trước sát nhập)'),
-            ).toHaveValue('Phường Quán Thánh, Quận Ba Đình'),
-        );
-        expect(last(onChange).legacy_ward_code).toBe(13);
-    });
-
-    it('khách sửa ô địa chỉ cũ thì chuỗi address đổi theo', async () => {
-        const user = userEvent.setup();
-        const { onChange } = renderPicker();
-        await waitOption('Tỉnh / Thành phố', 'Thành phố Hà Nội');
-        await user.selectOptions(
-            screen.getByLabelText('Tỉnh / Thành phố'),
-            '1',
-        );
-        await waitOption('Xã / Phường', 'Phường Ba Đình');
-        await user.selectOptions(screen.getByLabelText('Xã / Phường'), '4');
-        await waitFor(() =>
-            expect(
-                screen.getByLabelText('Địa chỉ cũ (trước sát nhập)'),
-            ).toHaveValue('Phường Điện Biên, Quận Ba Đình'),
-        );
-
-        await user.clear(screen.getByLabelText('Địa chỉ cũ (trước sát nhập)'));
-        await user.type(
-            screen.getByLabelText('Địa chỉ cũ (trước sát nhập)'),
-            'Tôi tự ghi',
-        );
-
-        await waitFor(() =>
-            expect(last(onChange).address).toContain(
-                '(trước sát nhập: Tôi tự ghi)',
-            ),
-        );
-    });
-
-    /** Xoá sạch ô địa chỉ cũ -> chuỗi không còn phần ngoặc. */
-    it('xoá sạch ô địa chỉ cũ thì bỏ luôn phần trong ngoặc', async () => {
-        const user = userEvent.setup();
-        const { onChange } = renderPicker();
-        await waitOption('Tỉnh / Thành phố', 'Thành phố Hà Nội');
-        await user.selectOptions(
-            screen.getByLabelText('Tỉnh / Thành phố'),
-            '1',
-        );
-        await waitOption('Xã / Phường', 'Phường Ba Đình');
-        await user.selectOptions(screen.getByLabelText('Xã / Phường'), '4');
-        await waitFor(() =>
-            expect(
-                screen.getByLabelText('Địa chỉ cũ (trước sát nhập)'),
-            ).toHaveValue('Phường Điện Biên, Quận Ba Đình'),
-        );
-
-        await user.clear(screen.getByLabelText('Địa chỉ cũ (trước sát nhập)'));
-
-        await waitFor(() =>
-            expect(last(onChange).address).not.toContain('trước sát nhập'),
-        );
-    });
-
-    it('tra địa chỉ cũ lỗi thì ô vẫn hiện và trống, không chặn', async () => {
-        const user = userEvent.setup();
-        mocks.getLegaciesOfWard.mockRejectedValue(new Error('API lỗi'));
-        const { onChange } = renderPicker();
-        await waitOption('Tỉnh / Thành phố', 'Thành phố Hà Nội');
-
-        await user.selectOptions(
-            screen.getByLabelText('Tỉnh / Thành phố'),
-            '1',
-        );
-        await waitOption('Xã / Phường', 'Phường Ba Đình');
-        await user.selectOptions(screen.getByLabelText('Xã / Phường'), '4');
-
-        await waitFor(() =>
-            expect(
-                screen.getByLabelText('Địa chỉ cũ (trước sát nhập)'),
-            ).toHaveValue(''),
-        );
-        // Vẫn ghi được address đầy đủ phần mới.
-        expect(last(onChange).ward_code).toBe(4);
-    });
-
-    /** Yêu cầu bố cục: ô số nhà nằm DƯỚI hai select. */
-    it('ô số nhà nằm dưới select tỉnh và xã', async () => {
         renderPicker();
+
         await waitOption('Tỉnh / Thành phố', 'Thành phố Hà Nội');
+        await user.selectOptions(
+            screen.getByLabelText('Tỉnh / Thành phố'),
+            '1',
+        );
 
-        const provinceSel = screen.getByLabelText('Tỉnh / Thành phố');
-        const street = screen.getByLabelText('Số nhà, tên đường');
-
-        // compareDocumentPosition: FOLLOWING = street đứng sau select trong DOM.
         expect(
-            provinceSel.compareDocumentPosition(street) &
-                Node.DOCUMENT_POSITION_FOLLOWING,
-        ).toBeTruthy();
+            await screen.findByLabelText('Địa chỉ giao nhận'),
+        ).toBeInTheDocument();
     });
 
-    it('hiện lỗi validate từ server', async () => {
+    it('hiện lỗi validate từ server và tô viền đỏ ô số nhà', async () => {
         render(
             <AddressPicker
                 value={EMPTY}
                 onChange={vi.fn()}
-                error="Vui lòng nhập địa chỉ."
+                error="Nhập địa chỉ giúp tụi mình"
             />,
         );
 
-        await waitFor(() =>
-            expect(
-                screen.getByText('Vui lòng nhập địa chỉ.'),
-            ).toBeInTheDocument(),
+        await waitOption('Tỉnh / Thành phố', 'Thành phố Hà Nội');
+
+        expect(
+            screen.getByText('Nhập địa chỉ giúp tụi mình'),
+        ).toBeInTheDocument();
+        expect(screen.getByLabelText('Số nhà, tên đường').className).toContain(
+            'border-red-400',
         );
     });
 });

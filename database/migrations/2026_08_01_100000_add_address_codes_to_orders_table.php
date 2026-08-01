@@ -21,17 +21,15 @@ return new class extends Migration
         Schema::table('orders', function (Blueprint $table) {
             $table->unsignedInteger('province_code')->nullable()->after('customer_address');
             $table->unsignedInteger('ward_code')->nullable()->after('province_code');
-            // Chỉ có khi khách đi đường "tôi chỉ biết địa chỉ cũ".
-            $table->unsignedInteger('legacy_ward_code')->nullable()->after('ward_code');
             // Số nhà / đường — phần khách tự gõ, tách khỏi phần chọn từ select.
-            $table->string('street')->nullable()->after('legacy_ward_code');
+            $table->string('street')->nullable()->after('ward_code');
         });
     }
 
     public function down(): void
     {
         Schema::table('orders', function (Blueprint $table) {
-            $table->dropColumn(['province_code', 'ward_code', 'legacy_ward_code', 'street']);
+            $table->dropColumn(['province_code', 'ward_code', 'street']);
         });
     }
 };

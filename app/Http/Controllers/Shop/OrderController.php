@@ -54,7 +54,6 @@ class OrderController extends Controller
             // customer_address (thứ khách thấy và shipper dùng) mới là nguồn chân lý.
             'province_code' => ['nullable', 'integer', 'min:1'],
             'ward_code' => ['nullable', 'integer', 'min:1'],
-            'legacy_ward_code' => ['nullable', 'integer', 'min:1'],
             'street' => ['nullable', 'string', 'max:255'],
             'note' => ['nullable', 'string', 'max:500'],
             // max:50 — chặn giỏ khổng lồ tạo hàng loạt đơn con/1 request (CWE-770, bopcamping-wtuv).
@@ -179,7 +178,6 @@ class OrderController extends Controller
             'customer_address' => $validated['address'] ?? null,
             'province_code' => $validated['province_code'] ?? null,
             'ward_code' => $validated['ward_code'] ?? null,
-            'legacy_ward_code' => $validated['legacy_ward_code'] ?? null,
             'street' => $validated['street'] ?? null,
             'note' => $validated['note'] ?? null,
         ];

@@ -156,7 +156,6 @@ export default function Cart() {
         street: string;
         province_code: number | null;
         ward_code: number | null;
-        legacy_ward_code: number | null;
         note: string;
         referral_code: string;
         voucher_codes: string[];
@@ -170,7 +169,6 @@ export default function Cart() {
         street: '',
         province_code: null,
         ward_code: null,
-        legacy_ward_code: null,
         note: '',
         referral_code: firstOrderEligible ? (referralRef ?? '') : '',
         voucher_codes: [],
@@ -1077,7 +1075,6 @@ export default function Cart() {
                                         street: data.street,
                                         province_code: data.province_code,
                                         ward_code: data.ward_code,
-                                        legacy_ward_code: data.legacy_ward_code,
                                     }}
                                     onChange={(v: AddressValue) =>
                                         setData((d) => ({ ...d, ...v }))
