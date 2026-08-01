@@ -70,10 +70,12 @@ Không còn phụ thuộc bên ngoài nào sau khi bỏ vận chuyển — tiế
 ### P0 — Gỡ chặn
 
 #### T0.1 · Chủ shop chốt 6 câu còn treo ⛔ CHẶN TOÀN EPIC
-Sáu câu ở mục 7 của ADR kho. Câu nặng nhất: **khách bùng đơn COD giá trị lớn thì sao** — đơn thuê có
-tiền cọc làm ràng buộc, đơn mua không có gì cả, và hàng gửi đi toàn quốc thì mất cả cước hai chiều.
-Không trả lời câu này thì không thiết kế được ngưỡng bắt buộc chuyển khoản.
-**Xong khi:** ADR chuyển trạng thái `Accepted`, 6 câu có câu trả lời ghi trong artifact.
+**Năm** câu còn treo ở mục 7 ADR kho (câu 6 về ngưỡng bắt buộc chuyển khoản đã chốt: KHÔNG có ngưỡng,
+khách tự chọn COD hay chuyển khoản).
+
+Câu nặng nhất còn lại: **thời hạn và điều kiện được đổi hàng** — nó quyết định vòng đời đơn mua và
+việc hàng đổi về có vào được kho thuê hay không.
+**Xong khi:** ADR chuyển trạng thái `Accepted`, 5 câu có câu trả lời ghi trong artifact.
 
 #### T0.3 · Vá `bopcamping-gccu` — `getCart()` không kiểm mảng
 `resources/js/lib/cart.ts:44` `JSON.parse` xong không kiểm `Array.isArray`, nên một giỏ hỏng làm
@@ -261,7 +263,7 @@ Kiểm trên trình duyệt thật cả hai luồng. Viết checklist cho chủ 
 | Sót một trong 15 điểm ở mục 4 ADR | Sai **âm thầm**: số doanh thu lệch, đơn mua lọt vào lịch shipper | T5.2/T5.3 làm theo danh sách, mỗi dòng một test |
 | Bẫy `sync()` xoá `sale_quantity` | Mất số kho không dấu vết | T1.2 có test riêng + mutation |
 | Migration T1.4 trên dữ liệu thật | Đổi kiểu cột `status`, cho ngày NULL | Sao lưu trước, `down()` chạy được, thử trên bản sao prod |
-| Khách bùng đơn COD giá trị lớn | Mất cước hai chiều, mất hàng | **Chưa có lời giải** — chờ T0.1 |
+| Khách bùng đơn COD giá trị lớn | Mất cước hai chiều, mất hàng | **Chấp nhận như rủi ro kinh doanh** — chủ shop chốt không ép trả trước. Chốt bằng vận hành: bước gọi điện xác nhận trước khi giao (đã có trong luồng) |
 | Vốn chết trong kho hàng mới | Tiền thật nằm im | Ngoài phạm vi kỹ thuật; sổ cái + lãi gộp cho chủ shop nhìn thấy sớm |
 
 ## 5. Việc KHÔNG làm trong epic này

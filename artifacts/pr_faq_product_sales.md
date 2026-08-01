@@ -105,7 +105,10 @@ Ba lý do, xếp theo mức quan trọng:
 
 Hướng xử lý đề xuất (cần chủ shop chốt con số):
 
-- **Ngưỡng giá trị cho COD.** Đơn dưới ngưỡng X thì cho COD tự do; đơn từ X trở lên yêu cầu **chuyển khoản toàn phần hoặc đặt cọc một phần** trước khi gửi. Giá trị X do chủ shop quyết dựa trên khẩu vị rủi ro.
+- ~~Ngưỡng giá trị cho COD.~~ **Chủ shop đã chốt 2026-08-01: KHÔNG ép trả trước.** Khách tự chọn COD
+  hoặc chuyển khoản ở mọi giá trị đơn. Ép trả trước với đơn giá trị cao là ép đúng nhóm khách đáng giá
+  nhất, trong khi COD là mặc định khách Việt quen dùng. Rủi ro được chốt bằng **vận hành** (gọi điện
+  xác nhận trước khi gửi — bước đã có trong luồng), không bằng phần mềm.
 - **Gọi xác nhận trước khi gửi** với đơn giá trị cao, và với khách mới hoàn toàn.
 - **Danh sách khách bùng đơn.** Khách đã từ chối nhận hàng không lý do sẽ bị chặn COD ở các đơn sau, chỉ cho chuyển khoản trước.
 - **Ưu tiên khách có lịch sử thuê.** Khách đã thuê và trả đồ đúng hẹn nhiều lần là nhóm rủi ro thấp — có thể nới ngưỡng COD cho nhóm này. Đây là lợi thế riêng của BopCamping mà sàn TMĐT không có.
@@ -215,7 +218,7 @@ Ghi rõ để tránh phình phạm vi:
 
 ## Các điểm cần chủ shop chốt trước khi sang PRD
 
-1. Ngưỡng giá trị đơn bắt buộc chuyển khoản (không cho COD).
+1. ~~Ngưỡng giá trị đơn bắt buộc chuyển khoản.~~ **Đã chốt: không có** — khách tự chọn một trong hai.
 2. Mức giảm và thời hạn của voucher sau thuê; có trần giảm tuyệt đối hay không.
 3. Thời hạn đổi hàng và điều kiện sản phẩm được chấp nhận đổi.
 4. Ai chịu phí vận chuyển khi đổi hàng, theo từng lý do đổi.
