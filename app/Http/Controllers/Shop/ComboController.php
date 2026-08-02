@@ -107,6 +107,7 @@ class ComboController extends Controller
 
         return Inertia::render('ComboDetail', [
             'combo' => $shaped,
+            'stores' => $this->storesFor($combo),
             'seo' => [
                 'title' => $combo->name.' — Thuê trọn bộ tại BỐP CAMPING',
                 'description' => $seoDesc,
@@ -189,6 +190,36 @@ class ComboController extends Controller
      * @param  int  $openLocationCount  số kho đang mở — TRUYỀN VÀO, đếm sẵn 1 lần ở phía gọi.
      *                                  Đếm bên trong đây = 1 query/combo (N+1) khi map danh sách.
      */
+    /**
+     * Danh sách cơ sở để hiện trên trang combo.
+     *
+     * Chủ shop chốt: mỗi combo dựng ở MỘT địa điểm cố định, nhưng vẫn hiện đủ các cơ sở và
+     * KHOÁ những nơi không có — để khách (và admin) nhìn phát biết combo nằm ở đâu, thay vì
+     * phải đoán từ một nhãn chữ.
+     *
+     * Cố ý KHÔNG ép "đúng một cơ sở" trong dữ liệu: hiện đã có combo gắn 2 cơ sở (chủ shop
+     * tự chỉnh). Hàm này đúng cho cả hai — 1 nơi thì khoá cái còn lại, 2 nơi thì không khoá
+     * cái nào.
+     *
+     * @return array<int, array{id: int, name: string, slug: string, served: bool}>
+     */
+    private function storesFor(Combo $combo): array
+    {
+        $servedIds = $combo->openLocationIds();
+
+        return ServiceLocation::open()
+            ->orderBy('sort_order')
+            ->get()
+            ->map(fn (ServiceLocation $l) => [
+                'id' => $l->id,
+                'name' => $l->name,
+                'slug' => $l->slug,
+                'served' => in_array($l->id, $servedIds, true),
+            ])
+            ->values()
+            ->all();
+    }
+
     private function shape(Combo $combo, int $openLocationCount): array
     {
         $sumIndividual = $combo->sumIndividualPrice();
