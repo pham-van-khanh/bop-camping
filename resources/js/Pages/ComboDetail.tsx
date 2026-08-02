@@ -42,11 +42,15 @@ type AvailabilityResult = {
     substitutes: { id: number; slug: string; name: string; price_per_day: number; thumbnail: string | null }[];
 };
 
+/** Cơ sở để hiện trên trang combo — `served=false` thì khoá lại (bopcamping-gmup). */
+type ComboStore = { id: number; name: string; slug: string; served: boolean };
+
 interface Props {
     combo: ComboData;
+    stores?: ComboStore[];
 }
 
-export default function ComboDetail({ combo }: Props) {
+export default function ComboDetail({ combo, stores = [] }: Props) {
     const [activeImg, setActiveImg] = useState(0);
     const [lightboxOpen, setLightboxOpen] = useState(false);
     // Lịch thu gọn — bấm mới sổ popup (đồng bộ trang chi tiết sản phẩm)
@@ -335,6 +339,58 @@ export default function ComboDetail({ combo }: Props) {
                                 )}
                             </div>
                         </div>
+
+                        {/*
+                          Cơ sở của combo (bopcamping-gmup). Mỗi combo dựng ở một địa điểm cố
+                          định, nhưng vẫn hiện đủ các cơ sở và KHOÁ nơi không có — nhìn phát
+                          biết combo nằm ở đâu, thay vì phải đoán từ một dòng chữ.
+                        */}
+                        {stores.length > 1 && (
+                            <div className="mb-3.5 rounded-[14px] border border-cardBorder bg-white p-3.5">
+                                <div className="mb-2.5 flex items-center gap-1.5">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" className="flex-none">
+                                        <path d="M12 21s7-5.6 7-11a7 7 0 1 0-14 0c0 5.4 7 11 7 11Z" fill="#C97B36" stroke="#C97B36" strokeWidth="1.5" strokeLinejoin="round" />
+                                        <circle cx="12" cy="10" r="2.4" fill="#fff" />
+                                    </svg>
+                                    <span className="text-[14.5px] font-extrabold tracking-tight text-ink">
+                                        Combo này có tại
+                                    </span>
+                                </div>
+                                <div className="flex flex-wrap gap-2.5">
+                                    {stores.map((st) => (
+                                        <div
+                                            key={st.id}
+                                            aria-disabled={!st.served}
+                                            className={`flex items-center gap-2 rounded-[12px] border px-3.5 py-2.5 text-left ${
+                                                st.served
+                                                    ? 'border-grass bg-[#eef5e1]'
+                                                    : 'border-cardBorder bg-[#f6f8f1] opacity-60'
+                                            }`}
+                                        >
+                                            <span
+                                                className={`grid h-[18px] w-[18px] place-items-center rounded-full border text-[10px] font-bold ${
+                                                    st.served
+                                                        ? 'border-grass bg-grass text-white'
+                                                        : 'border-[#c4cca8] text-transparent'
+                                                }`}
+                                            >
+                                                ✓
+                                            </span>
+                                            <span className="leading-tight">
+                                                <span className="block text-[13.5px] font-bold text-ink">
+                                                    {st.name}
+                                                </span>
+                                                <span
+                                                    className={`block text-[11.5px] font-semibold ${st.served ? 'text-moss' : 'text-campfire'}`}
+                                                >
+                                                    {st.served ? 'có combo này' : 'không có'}
+                                                </span>
+                                            </span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
 
                         {/* Lịch thu gọn — bấm để sổ popup, chọn xong tự đóng (đồng bộ trang chi tiết SP) */}
                         <button
