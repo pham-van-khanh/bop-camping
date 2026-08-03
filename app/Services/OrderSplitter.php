@@ -115,6 +115,11 @@ class OrderSplitter
         foreach ($comboLines as $line) {
             $key = $line['start'].'|'.$line['end'];
             $groups[$key] ??= ['start' => $line['start'], 'end' => $line['end'], 'items' => [], 'combos' => [], 'session' => null, 'half_day' => false, 'req_pickup' => null, 'req_return' => null];
+            // Buổi từ dòng COMBO (bopcamping-w7gi) — trước đây chỉ đọc từ dòng item, nên khách
+            // chọn buổi trên trang combo là mất im lặng.
+            if (empty($groups[$key]['session']) && ! empty($line['session'])) {
+                $groups[$key]['session'] = $line['session'];
+            }
             $groups[$key]['combos'][] = $line;
         }
 
@@ -171,12 +176,15 @@ class OrderSplitter
             $combo = $combos->get($line['combo_id']);
             $days = $this->rentalDays($line['start'], $line['end']);
             $allocation = $this->comboPricing->allocate($combo);
-            $comboPercent = $this->pricing->tierPercentForDays($days);
+            // Nửa ngày: áp ưu đãi trả sớm của CHÍNH combo (cột riêng, bopcamping-w7gi) — không
+            // suy từ các món, để chủ shop linh động giảm hoặc không cho từng combo.
+            $earlyPct = ($halfDay && $days === 1) ? (int) $combo->early_return_discount_pct : 0;
 
             for ($instance = 0; $instance < $line['quantity']; $instance++) {
                 $groupUuid = (string) Str::uuid();
                 foreach ($allocation as $alloc) {
-                    $lineNet = $this->pricing->priceLine((int) $alloc['allocated_price'], 1, $days)['net'];
+                    $priced = $this->pricing->priceLine((int) $alloc['allocated_price'], 1, $days, $earlyPct);
+                    $lineNet = $priced['net'];
                     $order->items()->create([
                         'product_id' => $alloc['product_id'],
                         'combo_id' => $combo->id,
@@ -187,7 +195,7 @@ class OrderSplitter
                         'start_date' => $line['start'],
                         'end_date' => $line['end'],
                         'subtotal' => $lineNet,
-                        'duration_discount_percent' => $comboPercent,
+                        'duration_discount_percent' => $priced['percent'],
                         'allocated_price' => $alloc['allocated_price'],
                         'allocated_deposit' => $alloc['allocated_deposit'],
                     ]);

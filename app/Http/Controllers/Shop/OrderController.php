@@ -72,6 +72,9 @@ class OrderController extends Controller
             'combos.*.start' => ['required', 'date_format:Y-m-d', 'after_or_equal:today'],
             'combos.*.end' => ['required', 'date_format:Y-m-d', 'after_or_equal:combos.*.start'],
             'combos.*.location_id' => ['nullable', 'integer', 'exists:service_locations,id'],
+            // Buổi cho combo (bopcamping-w7gi) — cùng luật với items.*.session. Thiếu dòng này
+            // thì Laravel loại session khỏi $validated và lựa chọn của khách mất im lặng.
+            'combos.*.session' => ['nullable', 'in:morning,afternoon,full'],
             'referral_code' => ['nullable', 'string', 'max:20'],
             'voucher_codes' => ['nullable', 'array', 'max:10'],
             'voucher_codes.*' => ['string', 'max:30'],

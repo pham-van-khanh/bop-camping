@@ -14,6 +14,7 @@ import {
 import { dayCount, ddmm, money, rangeText, toISO } from '@/lib/format';
 import { durationTierPercent, netFromGross } from '@/lib/pricing';
 import { queryDateRange } from '@/lib/queryDateRange';
+import { isHalfDaySession, type Session } from '@/lib/session';
 import type { PageProps } from '@/types';
 import { Head, Link, usePage } from '@inertiajs/react';
 import { ReactNode, useEffect, useMemo, useRef, useState } from 'react';
@@ -42,6 +43,7 @@ type ComboData = {
     images: { url: string; type: 'image' | 'video' }[];
     locations: CartLocation[];
     all_locations: boolean;
+    early_return_pct?: number;
 };
 
 // Kết quả check tồn kho realtime từ /combos/{slug}/kha-dung (Case 4)
@@ -73,8 +75,31 @@ interface Props {
 
 export default function ComboDetail({ combo, stores = [] }: Props) {
     // Bậc giảm dài ngày là prop DÙNG CHUNG của mọi trang — không cần controller truyền thêm.
-    const { durationTiers, site } = usePage<PageProps>().props;
+    const { durationTiers } = usePage<PageProps>().props;
+    // Khung giờ shop: đọc rời khỏi PageProps vì type SiteInfo chưa khai các trường giờ —
+    // ProductDetail cũng làm y hệt, giữ giống nhau để hai trang không lệch.
+    const site = (
+        usePage().props as {
+            site?: {
+                pickup_hour?: number;
+                return_hour?: number;
+                morning_end_hour?: number;
+                afternoon_start_hour?: number;
+                zalo_1?: { url?: string | null };
+            };
+        }
+    ).site;
     const zaloUrl = site?.zalo_1?.url ?? null;
+    // Đọc trực tiếp từng trường như ProductDetail — type SiteInfo chưa khai các trường giờ.
+    const hours = {
+        pickup: site?.pickup_hour ?? 8,
+        morningEnd: site?.morning_end_hour ?? 12,
+        afternoonStart: site?.afternoon_start_hour ?? 13,
+        close: site?.return_hour ?? 20,
+    };
+    /** Buổi CHỈ có nghĩa khi thuê đúng 1 ngày (adr_pricing_models). */
+    const [session, setSession] = useState<Session>('full');
+    const earlyPct = combo.early_return_pct ?? 0;
     const [activeImg, setActiveImg] = useState(0);
     const [lightboxOpen, setLightboxOpen] = useState(false);
     // Lịch thu gọn — bấm mới sổ popup (đồng bộ trang chi tiết sản phẩm)
@@ -161,11 +186,15 @@ export default function ComboDetail({ combo, stores = [] }: Props) {
      * thuê dài ngày thành vô hình.
      */
     const tierPct = durationTierPercent(days, durationTiers);
-    const subtotal = netFromGross(
-        combo.combo_price * qty * days,
-        days,
-        durationTiers,
-    );
+    const gross = combo.combo_price * qty * days;
+    /**
+     * Nửa ngày dùng ưu đãi trả sớm THAY cho bậc dài ngày (đơn 1 ngày không có bậc) — mirror
+     * đúng `lineRent` ở giỏ và `priceLine` ở server; lệch là ba nơi nói ba giá.
+     */
+    const nuaNgay = days === 1 && isHalfDaySession(session) && earlyPct > 0;
+    const subtotal = nuaNgay
+        ? Math.round(gross * (1 - earlyPct / 100))
+        : netFromGross(gross, days, durationTiers);
     const subDeposit = combo.deposit * qty;
     const showAllBadge = combo.all_locations && combo.locations.length > 1;
 
@@ -181,6 +210,9 @@ export default function ComboDetail({ combo, stores = [] }: Props) {
         start: start as string,
         end: end as string,
         locations: combo.locations,
+        // Buổi chỉ gửi khi thuê đúng 1 ngày; nhiều ngày thì server cũng bỏ (bopcamping-w7gi).
+        session: days === 1 ? session : null,
+        early_return_pct: earlyPct,
         comboItems: combo.items.map((it) => ({
             name: it.name ?? `#${it.product_id}`,
             qty: it.quantity,
@@ -708,6 +740,73 @@ export default function ComboDetail({ combo, stores = [] }: Props) {
                                 />
                             </svg>
                         </button>
+
+                        {days === 1 && (
+                            <div className="mt-2.5 rounded-[12px] border border-cardBorder bg-white p-3.5">
+                                <div className="mb-2">
+                                    <span className="text-[14.5px] font-extrabold tracking-tight text-ink">
+                                        Chọn buổi
+                                    </span>
+                                    <div className="text-[11.5px] text-moss">
+                                        Thuê trong ngày — chọn buổi phù hợp
+                                        {earlyPct > 0
+                                            ? ', buổi sáng/chiều được giảm giá'
+                                            : ''}
+                                        .
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-3 gap-2">
+                                    {(
+                                        [
+                                            {
+                                                key: 'morning',
+                                                label: 'Buổi sáng',
+                                                time: `${hours.pickup}h–${hours.morningEnd}h`,
+                                                half: true,
+                                            },
+                                            {
+                                                key: 'afternoon',
+                                                label: 'Buổi chiều',
+                                                time: `${hours.afternoonStart}h–${hours.close}h`,
+                                                half: true,
+                                            },
+                                            {
+                                                key: 'full',
+                                                label: 'Cả ngày',
+                                                time: `${hours.pickup}h–${hours.close}h`,
+                                                half: false,
+                                            },
+                                        ] as const
+                                    ).map((opt) => {
+                                        const active = session === opt.key;
+
+                                        return (
+                                            <button
+                                                key={opt.key}
+                                                type="button"
+                                                onClick={() =>
+                                                    setSession(opt.key)
+                                                }
+                                                aria-pressed={active}
+                                                className={`rounded-[10px] border px-2 py-2 text-center transition ${active ? 'border-grass bg-[#eef5e1] ring-1 ring-grass' : 'border-cardBorder bg-white hover:border-grass'}`}
+                                            >
+                                                <span className="block text-[12.5px] font-bold text-ink">
+                                                    {opt.label}
+                                                </span>
+                                                <span className="block text-[11px] text-moss">
+                                                    {opt.time}
+                                                </span>
+                                                {opt.half && earlyPct > 0 && (
+                                                    <span className="mt-0.5 block text-[10.5px] font-semibold text-grass">
+                                                        −{earlyPct}%
+                                                    </span>
+                                                )}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
 
                         {/* Khung giờ nhận/trả — dùng chung component với trang sản phẩm để hai
                             trang không bao giờ nói hai giờ khác nhau. */}

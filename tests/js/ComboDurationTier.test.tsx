@@ -69,6 +69,7 @@ const combo = {
     items: [],
     locations: [{ slug: 'vinh', name: 'Vinh' }],
     all_locations: false,
+    early_return_pct: 10,
 } as unknown as Parameters<typeof ComboDetail>[0]['combo'];
 
 describe('bậc giảm dài ngày trên trang combo (bopcamping-4j3h)', () => {
@@ -128,6 +129,16 @@ describe('bậc giảm dài ngày trên trang combo (bopcamping-4j3h)', () => {
 
         const a = screen.getByText('Liên hệ Zalo');
         expect(a).toHaveAttribute('href', 'https://zalo.me/x');
+    });
+
+    /**
+     * Thuê NHIỀU ngày thì không có ô chọn buổi — buổi chỉ có nghĩa với đơn cùng ngày.
+     * Mock ở file này trả khoảng 5 ngày nên khối buổi phải KHÔNG xuất hiện.
+     */
+    it('thuê nhiều ngày -> không hiện ô chọn buổi', () => {
+        render(<ComboDetail combo={combo} />);
+
+        expect(screen.queryByText('Chọn buổi')).not.toBeInTheDocument();
     });
 
     /** Cọc KHÔNG được giảm theo bậc — nó là tiền giữ chân, hoàn lại nguyên vẹn. */
