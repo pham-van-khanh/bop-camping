@@ -231,6 +231,7 @@ class ComboController extends Controller
             'description' => $combo->description,
             'combo_price' => (int) $combo->combo_price,
             'deposit' => (int) ($combo->deposit ?? 0),
+            'early_return_pct' => (int) $combo->early_return_discount_pct,
             'suitable_for' => $combo->suitable_for,
             'sum_individual' => $sumIndividual,
             'savings_amount' => $combo->savingsAmount(),

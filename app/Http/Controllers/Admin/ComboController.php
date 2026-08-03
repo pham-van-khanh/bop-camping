@@ -38,6 +38,7 @@ class ComboController extends Controller
                     'description' => $combo->description,
                     'combo_price' => $combo->combo_price,
                     'deposit' => $combo->deposit,
+                    'early_return_discount_pct' => (int) $combo->early_return_discount_pct,
                     'suitable_for' => $combo->suitable_for,
                     'is_active' => $combo->is_active,
                     'sort_order' => $combo->sort_order,
@@ -247,6 +248,9 @@ class ComboController extends Controller
             'description' => 'nullable|string',
             'combo_price' => 'required|numeric|min:0',
             'deposit' => 'nullable|numeric|min:0',
+            // Ưu đãi trả sớm (nửa ngày) riêng cho combo — trần 50% giống sản phẩm lẻ
+            // (adr_pricing_models). Để 0 = không giảm (bopcamping-w7gi).
+            'early_return_discount_pct' => 'nullable|integer|min:0|max:50',
             'suitable_for' => 'nullable|integer|min:1|max:100',
             'is_active' => 'sometimes|boolean',
             'sort_order' => 'nullable|integer|min:0',
@@ -302,6 +306,7 @@ class ComboController extends Controller
                 'description' => $data['description'] ?? null,
                 'combo_price' => $comboPrice,
                 'deposit' => isset($data['deposit']) ? (int) $data['deposit'] : null,
+                'early_return_discount_pct' => (int) ($data['early_return_discount_pct'] ?? 0),
                 'suitable_for' => $data['suitable_for'] ?? null,
                 'is_active' => $data['is_active'] ?? true,
                 'sort_order' => $data['sort_order'] ?? 0,
