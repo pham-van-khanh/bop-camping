@@ -37,6 +37,7 @@ type Combo = {
     description: string | null;
     combo_price: number;
     deposit: number | null;
+    early_return_discount_pct?: number;
     suitable_for: number | null;
     is_active: boolean;
     sort_order: number;
@@ -53,6 +54,7 @@ type ComboFormData = {
     description: string;
     combo_price: number | '';
     deposit: number | null;
+    early_return_discount_pct: number;
     suitable_for: number | null;
     is_active: boolean;
     sort_order: number;
@@ -94,6 +96,7 @@ export default function AdminCombos({
         description: '',
         combo_price: '',
         deposit: null,
+        early_return_discount_pct: 0,
         suitable_for: null,
         is_active: true,
         sort_order: 0,
@@ -160,6 +163,7 @@ export default function AdminCombos({
             description: '',
             combo_price: '',
             deposit: null,
+            early_return_discount_pct: 0,
             suitable_for: null,
             is_active: true,
             sort_order: 0,
@@ -179,6 +183,7 @@ export default function AdminCombos({
             description: c.description ?? '',
             combo_price: c.combo_price,
             deposit: c.deposit ?? null,
+            early_return_discount_pct: c.early_return_discount_pct ?? 0,
             suitable_for: c.suitable_for ?? null,
             is_active: c.is_active,
             sort_order: c.sort_order,
@@ -721,6 +726,29 @@ export default function AdminCombos({
                                         className="w-full rounded-[10px] border border-cardBorder px-3 py-2.5 text-[13.5px] outline-none transition focus:border-grass"
                                         placeholder="500000"
                                     />
+                                </div>
+                                <div>
+                                    <label className="mb-1.5 block text-[13px] font-semibold text-pine">
+                                        Giảm khi trả sớm nửa ngày (%)
+                                    </label>
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        max="50"
+                                        value={form.data.early_return_discount_pct}
+                                        onChange={(e) =>
+                                            form.setData(
+                                                'early_return_discount_pct',
+                                                Math.min(50, Math.max(0, Number(e.target.value) || 0)),
+                                            )
+                                        }
+                                        className="w-full rounded-[10px] border border-cardBorder px-3 py-2.5 text-[13.5px] outline-none transition focus:border-grass"
+                                        placeholder="0"
+                                    />
+                                    <p className="mt-1 text-[11.5px] text-moss">
+                                        Để <b>0</b> là không giảm. Chỉ áp khi khách thuê đúng 1 ngày và
+                                        chọn buổi sáng/chiều.
+                                    </p>
                                 </div>
                                 <div>
                                     <label className="mb-1.5 block text-[13px] font-semibold text-pine">

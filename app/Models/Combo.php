@@ -21,6 +21,7 @@ class Combo extends Model
         'description',
         'combo_price',
         'deposit',
+        'early_return_discount_pct',
         'suitable_for',
         'is_active',
         'sort_order',
@@ -29,6 +30,7 @@ class Combo extends Model
     protected $casts = [
         'combo_price' => 'integer',
         'deposit' => 'integer',
+        'early_return_discount_pct' => 'integer',
         'suitable_for' => 'integer',
         'is_active' => 'boolean',
         'sort_order' => 'integer',

@@ -139,6 +139,8 @@ class CartController extends Controller
                         ? Storage::disk('media')->url($c->images->first()->path)
                         : null,
                     'combo_price' => (int) $c->combo_price,
+                    // Ưu đãi trả sớm riêng của combo (bopcamping-w7gi) — giỏ cần để mirror giá.
+                    'early_return_pct' => (int) $c->early_return_discount_pct,
                     'deposit' => (int) ($c->deposit ?? 0),
                     'items' => $c->items->map(fn ($i) => ['name' => $i->product?->name ?? '', 'qty' => $i->quantity])->values(),
                     'locations' => $locations,
