@@ -24,7 +24,16 @@ vi.mock('@inertiajs/react', () => ({
     Link: ({ children, ...p }: { children: React.ReactNode }) => (
         <a {...p}>{children}</a>
     ),
-    usePage: () => ({ props: { durationTiers: tiers } }),
+    usePage: () => ({
+        props: {
+            durationTiers: tiers,
+            site: {
+                pickup_hour: 8,
+                return_hour: 21,
+                zalo_1: { url: 'https://zalo.me/x' },
+            },
+        },
+    }),
 }));
 vi.mock('@/Layouts/SiteLayout', () => ({
     default: ({ children }: { children: React.ReactNode }) => (
@@ -100,6 +109,25 @@ describe('bậc giảm dài ngày trên trang combo (bopcamping-4j3h)', () => {
         expect(screen.getByText(/≥5 ngày −20% ✓/)).toBeInTheDocument();
         expect(screen.queryByText(/≥3 ngày −5% ✓/)).not.toBeInTheDocument();
         expect(screen.queryByText(/≥10 ngày −30% ✓/)).not.toBeInTheDocument();
+    });
+
+    /**
+     * Khung giờ dùng CHUNG component với trang sản phẩm — hai trang không được nói hai giờ
+     * khác nhau. Test chốt nó có mặt và đọc đúng giờ từ setting shop.
+     */
+    it('hiện khung giờ nhận/trả theo setting shop', () => {
+        render(<ComboDetail combo={combo} />);
+
+        expect(screen.getByText(/Nhận từ/)).toBeInTheDocument();
+        expect(screen.getByText('8h')).toBeInTheDocument();
+        expect(screen.getByText('21h')).toBeInTheDocument();
+    });
+
+    it('có đường dẫn Zalo để xin giờ khác', () => {
+        render(<ComboDetail combo={combo} />);
+
+        const a = screen.getByText('Liên hệ Zalo');
+        expect(a).toHaveAttribute('href', 'https://zalo.me/x');
     });
 
     /** Cọc KHÔNG được giảm theo bậc — nó là tiền giữ chân, hoàn lại nguyên vẹn. */
