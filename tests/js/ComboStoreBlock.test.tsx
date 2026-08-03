@@ -17,7 +17,7 @@ vi.mock('@inertiajs/react', () => ({
     ),
     // ComboDetail đọc durationTiers từ prop dùng chung (bopcamping-4j3h) — thiếu mock này
     // là cả file test nổ, không liên quan gì tới thứ đang kiểm.
-    usePage: () => ({ props: { durationTiers: [] } }),
+    usePage: () => ({ props: { durationTiers: [], site: {} } }),
 }));
 vi.mock('@/Layouts/SiteLayout', () => ({
     default: ({ children }: { children: React.ReactNode }) => (

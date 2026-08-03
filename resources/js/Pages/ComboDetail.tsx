@@ -1,5 +1,6 @@
 import { COMBO_GRAD } from '@/Components/site/ComboCard';
 import DateRangeCalendar from '@/Components/site/DateRangeCalendar';
+import PickupReturnNote from '@/Components/site/PickupReturnNote';
 import SiteLayout from '@/Layouts/SiteLayout';
 import { emit, EVENTS } from '@/lib/bus';
 import {
@@ -72,7 +73,8 @@ interface Props {
 
 export default function ComboDetail({ combo, stores = [] }: Props) {
     // Bậc giảm dài ngày là prop DÙNG CHUNG của mọi trang — không cần controller truyền thêm.
-    const { durationTiers } = usePage<PageProps>().props;
+    const { durationTiers, site } = usePage<PageProps>().props;
+    const zaloUrl = site?.zalo_1?.url ?? null;
     const [activeImg, setActiveImg] = useState(0);
     const [lightboxOpen, setLightboxOpen] = useState(false);
     // Lịch thu gọn — bấm mới sổ popup (đồng bộ trang chi tiết sản phẩm)
@@ -706,6 +708,32 @@ export default function ComboDetail({ combo, stores = [] }: Props) {
                                 />
                             </svg>
                         </button>
+
+                        {/* Khung giờ nhận/trả — dùng chung component với trang sản phẩm để hai
+                            trang không bao giờ nói hai giờ khác nhau. */}
+                        <div className="mt-2.5 rounded-[12px] border border-cardBorder bg-[#fbfcf8] px-3.5 py-2.5">
+                            <PickupReturnNote />
+                            <p className="mt-1.5 flex items-start gap-1.5 text-[12px] text-moss">
+                                <span aria-hidden>⏰</span>
+                                <span>
+                                    Muốn giờ nhận/trả khác?{' '}
+                                    {zaloUrl ? (
+                                        <a
+                                            href={zaloUrl}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="font-semibold text-grass underline"
+                                        >
+                                            Liên hệ Zalo
+                                        </a>
+                                    ) : (
+                                        'Liên hệ shop'
+                                    )}{' '}
+                                    để sắp xếp thêm.
+                                </span>
+                            </p>
+                        </div>
+
                         {calOpen && (
                             <div
                                 className="fixed inset-0 z-[150] flex items-center justify-center bg-black/45 px-4"
