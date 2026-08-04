@@ -55,18 +55,37 @@ export function estimateDiscount(params: {
     refereeValue: number | null; // giảm referee đơn đầu (đã tính), null nếu không áp
     emailBonusValue?: number | null; // giảm email-bonus đơn đầu (đã tính), null nếu không áp
     selectedVouchers: AvailableVoucher[];
-}): { total: number; capped: boolean; lines: { label: string; amount: number }[] } {
-    const { rentalTotal, promo, refereeValue, emailBonusValue, selectedVouchers } = params;
+}): {
+    total: number;
+    capped: boolean;
+    lines: { label: string; amount: number }[];
+} {
+    const {
+        rentalTotal,
+        promo,
+        refereeValue,
+        emailBonusValue,
+        selectedVouchers,
+    } = params;
     const lines: { label: string; amount: number }[] = [];
 
     if (refereeValue && refereeValue > 0) {
-        lines.push({ label: 'Ưu đãi đơn đầu (mã giới thiệu)', amount: refereeValue });
+        lines.push({
+            label: 'Ưu đãi đơn đầu (mã giới thiệu)',
+            amount: refereeValue,
+        });
     }
     if (emailBonusValue && emailBonusValue > 0) {
-        lines.push({ label: 'Ưu đãi thêm email (đơn đầu)', amount: emailBonusValue });
+        lines.push({
+            label: 'Ưu đãi thêm email (đơn đầu)',
+            amount: emailBonusValue,
+        });
     }
     for (const v of selectedVouchers) {
-        lines.push({ label: `Voucher ${voucherValueText(v.type, v.value)}`, amount: rawDiscount(v.type, v.value, rentalTotal) });
+        lines.push({
+            label: `Voucher ${voucherValueText(v.type, v.value)}`,
+            amount: rawDiscount(v.type, v.value, rentalTotal),
+        });
     }
 
     const rawTotal = lines.reduce((s, l) => s + l.amount, 0);
@@ -75,4 +94,3 @@ export function estimateDiscount(params: {
 
     return { total, capped: total < rawTotal, lines };
 }
-

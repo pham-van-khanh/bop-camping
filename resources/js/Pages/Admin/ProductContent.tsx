@@ -1,8 +1,8 @@
+import RichTextEditor from '@/Components/admin/RichTextEditor';
+import AdminLayout from '@/Layouts/AdminLayout';
+import type { PageProps } from '@/types';
 import { Head, Link, useForm, usePage } from '@inertiajs/react';
 import { ReactNode, useEffect, useState } from 'react';
-import AdminLayout from '@/Layouts/AdminLayout';
-import RichTextEditor from '@/Components/admin/RichTextEditor';
-import type { PageProps } from '@/types';
 
 /**
  * Màn soạn "nội dung chi tiết" (setup/mô tả lớn) của sản phẩm — Epic 1 mục 1.4.
@@ -12,7 +12,12 @@ import type { PageProps } from '@/types';
 export default function AdminProductContent({
     product,
 }: {
-    product: { id: number; name: string; slug: string; setup_content: string | null };
+    product: {
+        id: number;
+        name: string;
+        slug: string;
+        setup_content: string | null;
+    };
 }) {
     const { flash } = usePage<PageProps>().props;
     const [toastMsg, setToastMsg] = useState('');
@@ -31,7 +36,9 @@ export default function AdminProductContent({
 
     const submit = (e: React.FormEvent) => {
         e.preventDefault();
-        form.put(route('admin.products.content.update', product.id), { preserveScroll: true });
+        form.put(route('admin.products.content.update', product.id), {
+            preserveScroll: true,
+        });
     };
 
     return (
@@ -39,16 +46,24 @@ export default function AdminProductContent({
             <Head title={`Nội dung — ${product.name}`} />
             <div className="mx-auto max-w-[880px]">
                 <div className="mb-1 text-[12.5px] text-moss">
-                    <Link href={route('admin.products')} className="font-semibold text-grass hover:underline">Sản phẩm</Link>
+                    <Link
+                        href={route('admin.products')}
+                        className="font-semibold text-grass hover:underline"
+                    >
+                        Sản phẩm
+                    </Link>
                     {' / '}
                     <span>{product.name}</span>
                 </div>
                 <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
                     <div>
-                        <h1 className="text-[22px] font-extrabold tracking-tight text-pine">Nội dung chi tiết</h1>
+                        <h1 className="text-[22px] font-extrabold tracking-tight text-pine">
+                            Nội dung chi tiết
+                        </h1>
                         <p className="mt-1 text-[13px] text-moss">
-                            Hướng dẫn setup, ảnh minh hoạ… — hiện ở trang sản phẩm, nút “Xem thêm” cuộn tới khối này.
-                            Để trống = ẩn khối và ẩn nút “Xem thêm”.
+                            Hướng dẫn setup, ảnh minh hoạ… — hiện ở trang sản
+                            phẩm, nút “Xem thêm” cuộn tới khối này. Để trống =
+                            ẩn khối và ẩn nút “Xem thêm”.
                         </p>
                     </div>
                     <a
@@ -68,7 +83,9 @@ export default function AdminProductContent({
                         minHeight={480}
                     />
                     {form.errors.setup_content && (
-                        <p className="mt-2 text-[12px] text-[#b3493a]">{form.errors.setup_content}</p>
+                        <p className="mt-2 text-[12px] text-[#b3493a]">
+                            {form.errors.setup_content}
+                        </p>
                     )}
                     <div className="mt-4 flex items-center justify-end gap-3">
                         <Link
@@ -97,4 +114,6 @@ export default function AdminProductContent({
     );
 }
 
-AdminProductContent.layout = (page: ReactNode) => <AdminLayout>{page}</AdminLayout>;
+AdminProductContent.layout = (page: ReactNode) => (
+    <AdminLayout>{page}</AdminLayout>
+);

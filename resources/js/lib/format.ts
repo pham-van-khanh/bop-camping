@@ -5,7 +5,8 @@ export const money = (n: number) => Number(n).toLocaleString('vi-VN') + 'đ';
 const pad = (n: number) => String(n).padStart(2, '0');
 
 /** ISO yyyy-mm-dd (local, không lệch timezone) */
-export const toISO = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+export const toISO = (d: Date) =>
+    `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 
 export const fromISO = (s: string) => {
     const [y, m, d] = s.split('-').map(Number);

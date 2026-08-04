@@ -1,7 +1,7 @@
+import type { PageProps, SiteZalo } from '@/types';
 import { usePage } from '@inertiajs/react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useEffect, useRef, useState } from 'react';
-import type { PageProps, SiteZalo } from '@/types';
 
 const EASE: [number, number, number, number] = [0.2, 0.7, 0.2, 1];
 
@@ -10,7 +10,15 @@ const EASE: [number, number, number, number] = [0.2, 0.7, 0.2, 1];
  * alt rỗng vì nút/link bọc ngoài đã có aria-label mô tả rồi.
  */
 function ZaloMark({ size = 48 }: { size?: number }) {
-    return <img src="/images/zalo-icon.png" width={size} height={size} alt="" className="flex-none" />;
+    return (
+        <img
+            src="/images/zalo-icon.png"
+            width={size}
+            height={size}
+            alt=""
+            className="flex-none"
+        />
+    );
 }
 
 /**
@@ -31,7 +39,9 @@ export default function ZaloFloatButton() {
     const [open, setOpen] = useState(false);
     const wrapRef = useRef<HTMLDivElement>(null);
 
-    const accounts: SiteZalo[] = [site?.zalo_1, site?.zalo_2].filter((z): z is SiteZalo => Boolean(z?.url));
+    const accounts: SiteZalo[] = [site?.zalo_1, site?.zalo_2].filter(
+        (z): z is SiteZalo => Boolean(z?.url),
+    );
 
     // Đóng panel khi bấm ra ngoài hoặc nhấn Esc.
     useEffect(() => {
@@ -60,7 +70,9 @@ export default function ZaloFloatButton() {
                 href={only.url as string}
                 target="_blank"
                 rel="noreferrer"
-                aria-label={only.label ? `Liên hệ Zalo — ${only.label}` : 'Liên hệ Zalo'}
+                aria-label={
+                    only.label ? `Liên hệ Zalo — ${only.label}` : 'Liên hệ Zalo'
+                }
                 title={only.phone ? `Nhắn Zalo ${only.phone}` : 'Nhắn Zalo'}
                 className={`fixed bottom-[80px] right-5 z-[80] ${BTN_CLS}`}
             >
@@ -82,7 +94,9 @@ export default function ZaloFloatButton() {
                         transition={{ duration: 0.18, ease: EASE }}
                         className="absolute bottom-[calc(100%+10px)] right-0 w-[248px] rounded-[14px] border border-cardBorder bg-white p-2 shadow-xl"
                     >
-                        <div className="px-2 pb-1.5 pt-1 font-mono text-[11px] tracking-[0.1em] text-campfire">NHẮN ZALO CHO TỤI MÌNH</div>
+                        <div className="px-2 pb-1.5 pt-1 font-mono text-[11px] tracking-[0.1em] text-campfire">
+                            NHẮN ZALO CHO TỤI MÌNH
+                        </div>
                         {accounts.map((z, i) => (
                             <a
                                 key={i}
@@ -95,8 +109,14 @@ export default function ZaloFloatButton() {
                             >
                                 <ZaloMark size={32} />
                                 <span className="min-w-0 flex-1">
-                                    <span className="block truncate text-[13.5px] font-bold text-ink">{z.label || 'Liên hệ Zalo'}</span>
-                                    {z.phone && <span className="block font-mono text-[12.5px] text-moss">{z.phone}</span>}
+                                    <span className="block truncate text-[13.5px] font-bold text-ink">
+                                        {z.label || 'Liên hệ Zalo'}
+                                    </span>
+                                    {z.phone && (
+                                        <span className="block font-mono text-[12.5px] text-moss">
+                                            {z.phone}
+                                        </span>
+                                    )}
                                 </span>
                             </a>
                         ))}

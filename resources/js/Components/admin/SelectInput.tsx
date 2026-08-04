@@ -27,7 +27,9 @@ export default function SelectInput({
                 onChange={(e) => onChange(e.target.value)}
                 className="h-11 w-full cursor-pointer appearance-none rounded-[10px] border border-cardBorder bg-white pl-3.5 pr-10 text-[14px] font-medium text-ink outline-none transition hover:border-grass/60 focus:border-grass"
             >
-                {placeholder !== undefined && <option value="">{placeholder}</option>}
+                {placeholder !== undefined && (
+                    <option value="">{placeholder}</option>
+                )}
                 {options.map((o) => (
                     <option key={o.value} value={o.value}>
                         {o.label}
@@ -40,7 +42,13 @@ export default function SelectInput({
                 fill="none"
                 aria-hidden="true"
             >
-                <path d="m6 8 4 4 4-4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                <path
+                    d="m6 8 4 4 4-4"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                />
             </svg>
         </div>
     );

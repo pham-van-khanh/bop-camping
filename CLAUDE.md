@@ -73,9 +73,17 @@ php artisan migrate:fresh --seed   # reset DB + seed lại dữ liệu mẫu
 php artisan test                       # chạy toàn bộ test
 php artisan test --filter=TenTest      # chạy một test cụ thể
 
+# Lint JS/TS
+npm run lint       # QUALITY GATE — chỉ kiểm, KHÔNG sửa file. Phải pass trước khi commit.
+npm run lint:fix   # tự sửa format (eslint --fix) — chạy khi lint báo lỗi, rồi xem lại diff
+
 # Build production
 npm run build
 ```
+
+> ⚠️ **Không thêm `--fix` vào script `lint`.** Gate phải là read-only; nếu nó tự sửa
+> file thì "lint pass" chẳng chứng minh được gì và mọi thay đổi nhỏ đều đẻ ra diff
+> khổng lồ. Chi tiết ở [.claude/rules/tech-strategy.md](.claude/rules/tech-strategy.md).
 
 ## Core Principles
 
