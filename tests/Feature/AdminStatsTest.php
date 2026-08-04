@@ -120,6 +120,84 @@ class AdminStatsTest extends TestCase
         $this->assertSame(0, Expense::count());
     }
 
+    /**
+     * @test
+     *
+     * bopcamping-wlee — bảng doanh thu theo ngày: gom đơn đã trả theo ngày trả (updated_at).
+     */
+    public function revenue_by_day_groups_returned_orders_by_return_date(): void
+    {
+        $a = $this->order('returned', 300000, 50000); // 250k — hôm nay
+        $b = $this->order('returned', 120000);        // 120k — hôm nay
+        $old = $this->order('returned', 90000);       // 90k  — 3 ngày trước
+        $this->order('confirmed', 999000);            // chưa trả → không được lọt vào
+
+        $this->returnedOn($old, now()->subDays(3));
+
+        $this->actingAs($this->admin())->get(route('admin.stats'))->assertInertia(fn (Assert $p) => $p
+            ->has('revenue_by_day', 2)
+            // Ngày mới nhất đứng trước.
+            ->where('revenue_by_day.0.date', now()->toDateString())
+            ->where('revenue_by_day.0.total', 370000)
+            ->has('revenue_by_day.0.orders', 2)
+            ->where('revenue_by_day.1.date', now()->subDays(3)->toDateString())
+            ->where('revenue_by_day.1.total', 90000)
+            ->where('revenue_by_day.1.orders.0.code', $old->code)
+            ->where('revenue_by_day.1.orders.0.amount', 90000)
+            ->where('has_more_days', false));
+
+        // Mã đơn của ngày hôm nay xuất hiện đủ (thứ tự trong ngày không ràng buộc).
+        $codes = collect($this->statsProps()['revenue_by_day'][0]['orders'])->pluck('code')->all();
+        $this->assertEqualsCanonicalizing([$a->code, $b->code], $codes);
+    }
+
+    /**
+     * @test
+     *
+     * bopcamping-wlee — ràng buộc quan trọng nhất: tổng bảng phải KHỚP ô "Tổng thu",
+     * nếu không màn hình sẽ có 2 con số đá nhau.
+     */
+    public function revenue_by_day_total_matches_finance_revenue(): void
+    {
+        $this->returnedOn($this->order('returned', 300000, 50000), now()->subDays(1));
+        $this->returnedOn($this->order('returned', 120000), now()->subDays(1));
+        $this->returnedOn($this->order('returned', 90000), now()->subDays(5));
+        $this->order('pending', 400000);
+
+        $props = $this->statsProps(['period' => 'all']);
+        $sum = collect($props['revenue_by_day'])->sum('total');
+
+        $this->assertSame($props['finance']['revenue'], $sum);
+        $this->assertSame(460000, $sum);
+    }
+
+    /**
+     * @test
+     *
+     * bopcamping-wlee — đơn trả ngoài kỳ đang chọn thì không hiện trong bảng.
+     */
+    public function revenue_by_day_respects_period_filter(): void
+    {
+        $this->returnedOn($this->order('returned', 500000), now()->subMonths(2));
+        $this->returnedOn($this->order('returned', 70000), now()->startOfMonth()->addHours(2));
+
+        $this->assertSame(70000, collect($this->statsProps(['period' => 'month'])['revenue_by_day'])->sum('total'));
+        $this->assertSame(570000, collect($this->statsProps(['period' => 'all'])['revenue_by_day'])->sum('total'));
+    }
+
+    /** Đặt mốc trả đơn (updated_at) — ghi thẳng DB để không bị timestamp tự ghi đè. */
+    private function returnedOn(Order $order, \DateTimeInterface $at): void
+    {
+        \DB::table('orders')->where('id', $order->id)->update(['updated_at' => $at]);
+    }
+
+    /** @return array<string, mixed> */
+    private function statsProps(array $query = []): array
+    {
+        return $this->actingAs($this->admin())->get(route('admin.stats', $query))
+            ->original->getData()['page']['props'];
+    }
+
     /** @test bopcamping-trc — badge đơn mới: shared prop pending_orders cho admin. */
     public function pending_orders_shared_prop_reflects_pending_count(): void
     {
