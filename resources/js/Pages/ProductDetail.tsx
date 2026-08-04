@@ -15,6 +15,13 @@ import { isHalfDaySession, type Session } from '@/lib/session';
 import { emit, EVENTS } from '@/lib/bus';
 import { gradFor } from '@/lib/grad';
 import { pickObjectFit, type ObjectFit } from '@/lib/imageFit';
+
+/**
+ * Khung ảnh chính: full width trên mobile, cột ~668px từ breakpoint lg (grid
+ * lg:grid-cols-[minmax(0,1fr)_440px] trong max-w-[1400px], trừ padding + dải thumb).
+ * Nói đúng cỡ thì browser mới chọn được bậc srcset hợp lý thay vì tải bậc to nhất.
+ */
+const MAIN_IMAGE_SIZES = '(min-width: 1024px) 668px, 100vw';
 import type { PageProps } from '@/types';
 import type { ProductResource } from '@/types/product';
 
@@ -186,9 +193,17 @@ export default function ProductDetail({ product, unavailable_dates, unavailable_
 
     const baseGrad = gradFor(product.category.slug);
     // Build gallery: real images first, then fallback gradient variants
-    const gallery: ({ type: 'img'; src: string } | { type: 'video'; src: string } | { type: 'grad'; bg: string })[] = useMemo(() => {
+    const gallery: (
+        | { type: 'img'; src: string; srcset?: string | null }
+        | { type: 'video'; src: string }
+        | { type: 'grad'; bg: string }
+    )[] = useMemo(() => {
         if (product.images.length > 0) {
-            return product.images.map((img) => (img.type === 'video' ? { type: 'video' as const, src: img.url } : { type: 'img' as const, src: img.url }));
+            return product.images.map((img) =>
+                img.type === 'video'
+                    ? { type: 'video' as const, src: img.url }
+                    : { type: 'img' as const, src: img.url, srcset: img.srcset },
+            );
         }
         return [150, 35, 205, 330].map((a) => ({
             type: 'grad' as const,
@@ -391,7 +406,14 @@ export default function ProductDetail({ product, unavailable_dates, unavailable_
             className={`relative ${sizeClass} overflow-hidden rounded-[11px] transition`}
         >
             {g.type === 'img' ? (
-                <img src={g.src} alt="" className="h-full w-full object-cover" />
+                <img
+                    src={g.src}
+                    srcSet={g.srcset ?? undefined}
+                    /* Ô thumbnail chỉ 76x64 CSS → @2x cần ~152px, browser chọn bậc 400. */
+                    sizes="76px"
+                    alt=""
+                    className="h-full w-full object-cover"
+                />
             ) : g.type === 'video' ? (
                 <>
                     <video src={g.src} className="h-full w-full object-cover" muted />
@@ -441,6 +463,8 @@ export default function ProductDetail({ product, unavailable_dates, unavailable_
                                         key={activeSlide.src}
                                         src={activeSlide.src}
                                         alt={product.name}
+                                        srcSet={activeSlide.srcset ?? undefined}
+                                        sizes={MAIN_IMAGE_SIZES}
                                         onLoad={measureMainFit}
                                         onClick={() => setLightboxOpen(true)}
                                         className={`absolute inset-0 h-full w-full cursor-zoom-in ${mainFit === 'contain' ? 'object-contain' : 'object-cover'}`}
@@ -967,6 +991,9 @@ export default function ProductDetail({ product, unavailable_dates, unavailable_
                     )}
                     {activeSlide.type === 'img' ? (
                         <img
+                            srcSet={activeSlide.srcset ?? undefined}
+                            /* Lightbox chiếm gần hết màn → cần bậc lớn nhất. */
+                            sizes="100vw"
                             src={activeSlide.src}
                             alt={product.name}
                             onClick={(e) => e.stopPropagation()}

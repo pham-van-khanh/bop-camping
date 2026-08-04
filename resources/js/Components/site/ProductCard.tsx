@@ -75,6 +75,11 @@ export default function ProductCard({
                     {p.thumbnail && (
                         <img
                             src={p.thumbnail}
+                            srcSet={p.thumbnail_srcset ?? undefined}
+                            /* Thẻ rộng ~293px ở lưới desktop, gần full width trên mobile
+                               → @2x cần ~586px, browser chọn bậc 800 (bopcamping-ix4n). */
+                            sizes="(min-width: 1024px) 300px, (min-width: 640px) 50vw, 100vw"
+                            loading="lazy"
                             alt={p.name}
                             className="absolute inset-0 h-full w-full object-cover"
                         />

@@ -10,9 +10,11 @@ export interface ProductResource {
     early_return_discount_pct?: number;
     // Khung giờ nhận/trả override theo sản phẩm (null = theo shop) — bopcamping-fica.
     thumbnail: string | null;
+    // srcset của thumbnail (bopcamping-ix4n) — null khi ảnh chưa có biến thể resize.
+    thumbnail_srcset?: string | null;
     status: string;
     category: { id: number; name: string; slug: string };
-    images: { url: string; sort_order: number; type: 'image' | 'video' }[];
+    images: { url: string; srcset?: string | null; sort_order: number; type: 'image' | 'video' }[];
     featured: boolean;
     // Vị trí phục vụ đang mở (badge thẻ). all_locations = phục vụ toàn hệ thống.
     locations?: { name: string; slug: string }[];
