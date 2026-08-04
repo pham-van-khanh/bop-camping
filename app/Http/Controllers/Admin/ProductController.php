@@ -15,6 +15,7 @@ use App\Support\MediaType;
 use App\Support\Slug;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -54,7 +55,10 @@ class ProductController extends Controller
     /** Màn THÊM sản phẩm (trang riêng, thay cho popup cũ). */
     public function create(): Response
     {
-        return Inertia::render('Admin/ProductForm', $this->formSharedProps());
+        return Inertia::render('Admin/ProductForm', [
+            // Kho ảnh cho picker của gallery nháp (bopcamping-7czf) — nạp lazy khi mở picker.
+            'mediaLibrary' => Inertia::optional(fn () => MediaRef::library()),
+        ] + $this->formSharedProps());
     }
 
     /** Màn SỬA sản phẩm (trang riêng): form đầy đủ + quản lý ảnh phụ. */
@@ -165,7 +169,17 @@ class ProductController extends Controller
             'specs.*.value' => 'required|string|max:500',
             'related_ids' => 'sometimes|nullable|array|max:12',
             'related_ids.*' => 'integer|distinct|exists:products,id',
+            // Ảnh phụ gửi kèm form thêm mới (bopcamping-7czf) — cùng trần với
+            // storeImage() ở màn sửa để hai đường không lệch luật nhau.
+            'gallery' => 'sometimes|nullable|array|max:12',
+            'gallery.*' => ['file', MediaType::MIMES_RULE, 'max:51200'],
+            'gallery_sources' => 'sometimes|nullable|array|max:24',
+            'gallery_sources.*.type' => 'required|in:product,combo',
+            'gallery_sources.*.id' => 'required|integer',
         ], [
+            'gallery.max' => 'Tối đa 12 ảnh/video mỗi lần.',
+            'gallery.*.mimetypes' => 'Chỉ nhận ảnh (jpg, png, gif, webp) hoặc video (mp4, webm, mov).',
+            'gallery.*.max' => 'Mỗi tệp tối đa 50MB.',
             'name.required' => 'Tên sản phẩm không được bỏ trống.',
             'category_id.required' => 'Vui lòng chọn danh mục.',
             'category_id.exists' => 'Danh mục không hợp lệ.',
@@ -206,8 +220,17 @@ class ProductController extends Controller
         $this->syncSortedRelation($product, $data, 'accessory_ids', 'accessories');
         $this->syncSortedRelation($product, $data, 'related_ids', 'related');
 
-        // Sang thẳng màn sửa để admin thêm ảnh phụ (gallery cần product đã tồn tại).
-        return to_route('admin.products.edit', $product)->with('success', 'Đã thêm sản phẩm. Giờ có thể thêm ảnh phụ.');
+        // Ảnh phụ admin đã chọn ngay trên form thêm mới (bopcamping-7czf).
+        if ($request->hasFile('gallery')) {
+            $this->saveUploadedImages($product, $request->file('gallery'));
+        }
+        if (! empty($data['gallery_sources'])) {
+            $this->attachSharedImages($product, $data['gallery_sources']);
+        }
+
+        // Sang màn sửa để sắp xếp thứ tự ảnh / thêm tiếp (cần ảnh có id thật).
+        return to_route('admin.products.edit', $product)
+            ->with('success', 'Đã thêm sản phẩm.');
     }
 
     public function update(Request $request, Product $product): RedirectResponse
@@ -371,21 +394,19 @@ class ProductController extends Controller
         return back()->with('success', 'Đã xoá sản phẩm.');
     }
 
-    public function storeImage(Request $request, Product $product): RedirectResponse
+    /**
+     * Lưu file ảnh/video vừa upload thành ảnh phụ, nối vào cuối thứ tự hiện có.
+     * Dùng chung bởi store() (thêm mới, ảnh gửi kèm form) và storeImage()
+     * (thêm ảnh ở màn sửa) — một chỗ duy nhất quyết định path, type, sort_order.
+     *
+     * @param  array<int, UploadedFile>  $files
+     */
+    private function saveUploadedImages(Product $product, array $files): void
     {
-        $request->validate([
-            'images' => ['required', 'array', 'max:12'],
-            'images.*' => ['file', MediaType::MIMES_RULE, 'max:51200'], // ≤50MB
-        ], [
-            'images.max' => 'Tối đa 12 ảnh/video mỗi lần.',
-            'images.*.mimetypes' => 'Chỉ nhận ảnh (jpg, png, gif, webp) hoặc video (mp4, webm, mov).',
-            'images.*.max' => 'Mỗi tệp tối đa 50MB.',
-        ]);
-
         $maxSort = $product->images()->max('sort_order') ?? 0;
         $newImagePaths = [];
 
-        foreach ($request->file('images') as $file) {
+        foreach ($files as $file) {
             $path = $file->store('admin/products', 'media');
             $type = MediaType::detect($file);
             $product->images()->create([
@@ -402,6 +423,42 @@ class ProductController extends Controller
         if ($newImagePaths !== []) {
             GenerateMediaVariants::dispatch($newImagePaths);
         }
+    }
+
+    /**
+     * Gắn ảnh có sẵn (chia sẻ file, không copy) vào sản phẩm. Bỏ qua ảnh mà sản
+     * phẩm này đã có để không tạo row trùng path.
+     *
+     * @param  array<int, array{type: string, id: int|string}>  $sources
+     */
+    private function attachSharedImages(Product $product, array $sources): void
+    {
+        $existing = $product->images()->pluck('path')->all();
+        $maxSort = $product->images()->max('sort_order') ?? 0;
+
+        MediaRef::resolveSources($sources)
+            ->reject(fn (array $src) => in_array($src['path'], $existing, true))
+            ->each(function (array $src) use ($product, &$maxSort) {
+                $product->images()->create([
+                    'path' => $src['path'],
+                    'sort_order' => ++$maxSort,
+                    'type' => $src['type'],
+                ]);
+            });
+    }
+
+    public function storeImage(Request $request, Product $product): RedirectResponse
+    {
+        $request->validate([
+            'images' => ['required', 'array', 'max:12'],
+            'images.*' => ['file', MediaType::MIMES_RULE, 'max:51200'], // ≤50MB
+        ], [
+            'images.max' => 'Tối đa 12 ảnh/video mỗi lần.',
+            'images.*.mimetypes' => 'Chỉ nhận ảnh (jpg, png, gif, webp) hoặc video (mp4, webm, mov).',
+            'images.*.max' => 'Mỗi tệp tối đa 50MB.',
+        ]);
+
+        $this->saveUploadedImages($product, $request->file('images'));
 
         return back()->with('success', 'Đã tải lên ảnh.');
     }
@@ -420,18 +477,7 @@ class ProductController extends Controller
             'sources.required' => 'Chưa chọn ảnh nào.',
         ]);
 
-        $existing = $product->images()->pluck('path')->all();
-        $maxSort = $product->images()->max('sort_order') ?? 0;
-
-        MediaRef::resolveSources($data['sources'])
-            ->reject(fn (array $src) => in_array($src['path'], $existing, true))
-            ->each(function (array $src) use ($product, &$maxSort) {
-                $product->images()->create([
-                    'path' => $src['path'],
-                    'sort_order' => ++$maxSort,
-                    'type' => $src['type'],
-                ]);
-            });
+        $this->attachSharedImages($product, $data['sources']);
 
         return back()->with('success', 'Đã thêm ảnh.');
     }

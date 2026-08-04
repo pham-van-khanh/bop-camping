@@ -1,6 +1,9 @@
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import { ReactNode, useEffect, useState } from 'react';
 import AdminLayout from '@/Layouts/AdminLayout';
+import DraftMediaGallery, {
+    type DraftMedia,
+} from '@/Components/admin/DraftMediaGallery';
 import MediaGallery from '@/Components/admin/MediaGallery';
 import type { PageProps } from '@/types';
 
@@ -49,12 +52,17 @@ type ProductFormData = {
     buffers: Record<number, number | ''>;
     accessory_ids: number[];
     related_ids: number[];
+    // Ảnh phụ khi THÊM MỚI (bopcamping-7czf): stage ở client rồi gửi kèm request
+    // tạo, vì route ảnh cần product id. Form sửa để trống, dùng MediaGallery.
+    gallery: File[];
+    gallery_sources: { type: 'product' | 'combo'; id: number }[];
 };
 
 /**
  * Màn THÊM / SỬA sản phẩm — trang riêng (thay cho popup cũ, vốn quá bé).
  * Cùng 1 form dùng cho create (không có `product`) lẫn edit (có `product`).
- * Ảnh phụ (MediaGallery) chỉ hiện ở chế độ sửa vì cần product đã tồn tại.
+ * Ảnh phụ: form sửa dùng MediaGallery (lưu ngay qua route ảnh); form thêm mới
+ * dùng DraftMediaGallery (stage ở client, gửi kèm request tạo).
  */
 export default function AdminProductForm({
     product,
@@ -98,6 +106,8 @@ export default function AdminProductForm({
                   buffers: { ...(product.buffers ?? {}) },
                   accessory_ids: product.accessory_ids ?? [],
                   related_ids: product.related_ids ?? [],
+                  gallery: [],
+                  gallery_sources: [],
               }
             : {
                   name: '',
@@ -115,6 +125,8 @@ export default function AdminProductForm({
                   buffers: {},
                   accessory_ids: [],
                   related_ids: [],
+                  gallery: [],
+                  gallery_sources: [],
               },
     );
 
@@ -543,13 +555,26 @@ export default function AdminProductForm({
                             ))}
                     </div>
 
-                    {/* Ảnh phụ — chỉ ở chế độ sửa (gallery cần product đã tồn tại) */}
-                    {isEdit && product && (
-                        <div className={cardCls}>
-                            <h2 className={sectionTitle}>Ảnh phụ (gallery)</h2>
+                    {/* Ảnh phụ. Sửa: lưu ngay qua route ảnh. Thêm mới: chưa có product
+                        id nên stage ở client rồi gửi kèm request tạo (bopcamping-7czf). */}
+                    <div className={cardCls}>
+                        <h2 className={sectionTitle}>Ảnh phụ (gallery)</h2>
+                        {isEdit && product ? (
                             <MediaGallery kind="product" itemId={product.id} images={product.images} label="Ảnh phụ" reloadOnly={['product', 'flash']} />
-                        </div>
-                    )}
+                        ) : (
+                            <DraftMediaGallery
+                                label="Ảnh phụ"
+                                value={{ files: form.data.gallery, sources: form.data.gallery_sources }}
+                                onChange={(next: DraftMedia) => {
+                                    form.setData('gallery', next.files);
+                                    form.setData('gallery_sources', next.sources);
+                                }}
+                            />
+                        )}
+                        {form.errors.gallery && (
+                            <p className="mt-1 text-[12px] text-[#b3493a]">{form.errors.gallery}</p>
+                        )}
+                    </div>
 
                     {/* Actions */}
                     <div className="sticky bottom-0 -mx-6 flex items-center justify-end gap-3 border-t border-cardBorder bg-[#faf9f4]/95 px-6 py-4 backdrop-blur">
