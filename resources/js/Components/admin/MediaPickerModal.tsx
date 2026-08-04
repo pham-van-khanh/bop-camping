@@ -93,6 +93,7 @@ export default function MediaPickerModal({
                         Chọn ảnh có sẵn
                     </h3>
                     <button
+                        type="button"
                         onClick={close}
                         className="text-[20px] leading-none text-moss hover:text-pine"
                     >
@@ -200,12 +201,14 @@ export default function MediaPickerModal({
                     </span>
                     <div className="flex gap-2">
                         <button
+                            type="button"
                             onClick={close}
                             className="rounded-[10px] border border-cardBorder px-4 py-2 text-[13px] font-semibold text-moss hover:border-pine hover:text-pine"
                         >
                             Huỷ
                         </button>
                         <button
+                            type="button"
                             onClick={confirm}
                             disabled={selected.size === 0 || submitting}
                             className="rounded-[10px] bg-grass px-4 py-2 text-[13px] font-semibold text-white transition hover:brightness-95 disabled:opacity-50"
