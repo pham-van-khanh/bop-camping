@@ -23,9 +23,6 @@ interface Props {
     range_summary: { days: number; unavailable_count: number } | null;
 }
 
-const segBtn = (active: boolean) =>
-    `rounded-[9px] px-3 py-1.5 text-[13px] font-semibold transition ${active ? 'bg-grass text-white' : 'text-moss hover:text-pine'}`;
-
 const chipBtn = (active: boolean) =>
     `rounded-pill border px-3.5 py-2 text-[13.5px] font-semibold transition ${
         active

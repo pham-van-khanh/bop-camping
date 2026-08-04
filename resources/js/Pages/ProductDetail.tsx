@@ -353,7 +353,7 @@ export default function ProductDetail({
     const buildLine = (): CartLine => ({
         id: product.id,
         name: product.name,
-        cat: product.category.slug as any,
+        cat: product.category.slug,
         grad: baseGrad,
         price: product.price_per_day,
         deposit: product.deposit,
@@ -439,7 +439,7 @@ export default function ProductDetail({
         const lines: CartLine[] = selectedAccessories.map((a) => ({
             id: a.id,
             name: a.name,
-            cat: a.category.slug as any,
+            cat: a.category.slug,
             grad: gradFor(a.category.slug),
             price: a.price_per_day,
             deposit: a.deposit,
