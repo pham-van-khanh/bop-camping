@@ -6,6 +6,7 @@ use App\Models\Expense;
 use App\Models\Order;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
@@ -123,66 +124,87 @@ class AdminStatsTest extends TestCase
     /**
      * @test
      *
-     * bopcamping-wlee — bảng doanh thu theo ngày: gom đơn đã trả theo ngày trả (updated_at).
+     * bopcamping-wlee — bảng doanh thu: gom đơn đã trả theo ngày trả (updated_at),
+     * liệt kê MỌI ngày trong tháng kể cả ngày không có đơn.
      */
-    public function revenue_by_day_groups_returned_orders_by_return_date(): void
+    public function revenue_by_day_lists_every_day_of_month_including_empty_ones(): void
     {
-        $a = $this->order('returned', 300000, 50000); // 250k — hôm nay
-        $b = $this->order('returned', 120000);        // 120k — hôm nay
-        $old = $this->order('returned', 90000);       // 90k  — 3 ngày trước
+        $this->travelTo(Carbon::parse('2026-08-05 10:00'));
+
+        $a = $this->order('returned', 300000, 50000); // 250k — 03/08
+        $b = $this->order('returned', 120000);        // 120k — 03/08
+        $c = $this->order('returned', 90000);         //  90k — 01/08
         $this->order('confirmed', 999000);            // chưa trả → không được lọt vào
 
-        $this->returnedOn($old, now()->subDays(3));
+        $this->returnedOn($a, Carbon::parse('2026-08-03 09:00'));
+        $this->returnedOn($b, Carbon::parse('2026-08-03 15:00'));
+        $this->returnedOn($c, Carbon::parse('2026-08-01 08:00'));
 
-        $this->actingAs($this->admin())->get(route('admin.stats'))->assertInertia(fn (Assert $p) => $p
-            ->has('revenue_by_day', 2)
-            // Ngày mới nhất đứng trước.
-            ->where('revenue_by_day.0.date', now()->toDateString())
-            ->where('revenue_by_day.0.total', 370000)
-            ->has('revenue_by_day.0.orders', 2)
-            ->where('revenue_by_day.1.date', now()->subDays(3)->toDateString())
-            ->where('revenue_by_day.1.total', 90000)
-            ->where('revenue_by_day.1.orders.0.code', $old->code)
-            ->where('revenue_by_day.1.orders.0.amount', 90000)
-            ->where('has_more_days', false));
+        $days = $this->statsProps()['revenue_by_day'];
 
-        // Mã đơn của ngày hôm nay xuất hiện đủ (thứ tự trong ngày không ràng buộc).
-        $codes = collect($this->statsProps()['revenue_by_day'][0]['orders'])->pluck('code')->all();
-        $this->assertEqualsCanonicalizing([$a->code, $b->code], $codes);
+        // 01/08 → 05/08 (hôm nay), không có ngày tương lai.
+        $this->assertCount(5, $days);
+        $this->assertSame(['2026-08-01', '2026-08-02', '2026-08-03', '2026-08-04', '2026-08-05'], array_column($days, 'date'));
+
+        $this->assertSame('01/08/2026', $days[0]['label']);
+        $this->assertSame(90000, $days[0]['total']);
+        $this->assertSame($c->code, $days[0]['orders'][0]['code']);
+
+        // Ngày trống vẫn có dòng, tổng 0, không đơn nào.
+        $this->assertSame(0, $days[1]['total']);
+        $this->assertSame([], $days[1]['orders']);
+
+        $this->assertSame(370000, $days[2]['total']);
+        $this->assertEqualsCanonicalizing([$a->code, $b->code], array_column($days[2]['orders'], 'code'));
     }
 
     /**
      * @test
      *
-     * bopcamping-wlee — ràng buộc quan trọng nhất: tổng bảng phải KHỚP ô "Tổng thu",
-     * nếu không màn hình sẽ có 2 con số đá nhau.
+     * bopcamping-wlee — lọc theo tháng: chỉ đơn trả trong tháng đó, tháng cũ hiện đủ ngày.
      */
-    public function revenue_by_day_total_matches_finance_revenue(): void
+    public function revenue_by_day_filters_by_selected_month(): void
     {
-        $this->returnedOn($this->order('returned', 300000, 50000), now()->subDays(1));
-        $this->returnedOn($this->order('returned', 120000), now()->subDays(1));
-        $this->returnedOn($this->order('returned', 90000), now()->subDays(5));
-        $this->order('pending', 400000);
+        $this->travelTo(Carbon::parse('2026-10-10 10:00'));
 
-        $props = $this->statsProps(['period' => 'all']);
-        $sum = collect($props['revenue_by_day'])->sum('total');
+        $this->returnedOn($this->order('returned', 500000), Carbon::parse('2026-08-20 10:00'));
+        $this->returnedOn($this->order('returned', 70000), Carbon::parse('2026-09-02 10:00'));
 
-        $this->assertSame($props['finance']['revenue'], $sum);
-        $this->assertSame(460000, $sum);
+        $aug = $this->statsProps(['month' => '2026-08']);
+        $this->assertSame('2026-08', $aug['revenue_month']);
+        $this->assertCount(31, $aug['revenue_by_day']); // tháng cũ → đủ 31 ngày
+        $this->assertSame(500000, collect($aug['revenue_by_day'])->sum('total'));
+
+        $sep = $this->statsProps(['month' => '2026-09']);
+        $this->assertCount(30, $sep['revenue_by_day']);
+        $this->assertSame(70000, collect($sep['revenue_by_day'])->sum('total'));
+
+        // Tháng hiện tại là mặc định, chỉ chạy tới hôm nay.
+        $now = $this->statsProps();
+        $this->assertSame('2026-10', $now['revenue_month']);
+        $this->assertCount(10, $now['revenue_by_day']);
     }
 
     /**
      * @test
      *
-     * bopcamping-wlee — đơn trả ngoài kỳ đang chọn thì không hiện trong bảng.
+     * bopcamping-wlee — chỉ tổng hợp từ 08/2026 trở đi; tháng ngoài khoảng rơi về mặc định.
      */
-    public function revenue_by_day_respects_period_filter(): void
+    public function revenue_month_options_start_at_august_2026_and_clamp_bad_input(): void
     {
-        $this->returnedOn($this->order('returned', 500000), now()->subMonths(2));
-        $this->returnedOn($this->order('returned', 70000), now()->startOfMonth()->addHours(2));
+        $this->travelTo(Carbon::parse('2026-10-10 10:00'));
 
-        $this->assertSame(70000, collect($this->statsProps(['period' => 'month'])['revenue_by_day'])->sum('total'));
-        $this->assertSame(570000, collect($this->statsProps(['period' => 'all'])['revenue_by_day'])->sum('total'));
+        $props = $this->statsProps();
+        $this->assertSame(
+            ['2026-10', '2026-09', '2026-08'],
+            array_column($props['revenue_months'], 'value'),
+        );
+        $this->assertSame('Tháng 8/2026', $props['revenue_months'][2]['label']);
+
+        // Trước mốc, sau mốc, và rác → đều về tháng hiện tại.
+        foreach (['2026-07', '2027-01', 'linh-tinh', '2026-13'] as $bad) {
+            $this->assertSame('2026-10', $this->statsProps(['month' => $bad])['revenue_month'], "month=$bad");
+        }
     }
 
     /** Đặt mốc trả đơn (updated_at) — ghi thẳng DB để không bị timestamp tự ghi đè. */
