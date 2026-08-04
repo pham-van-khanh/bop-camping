@@ -1,7 +1,7 @@
+import { EVENTS, on } from '@/lib/bus';
 import { Link } from '@inertiajs/react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useEffect, useRef, useState } from 'react';
-import { on, EVENTS } from '@/lib/bus';
 
 /** Toast nổi giữa-dưới, tự ẩn ~3.2s (RULES mục 7). Nghe sự kiện EVENTS.toast. */
 export default function Toast() {
@@ -28,11 +28,31 @@ export default function Toast() {
                     style={{ background: '#2C3D22' }}
                     role="status"
                 >
-                    <span className="grid h-6 w-6 flex-none place-items-center rounded-full" style={{ background: '#7FA64B' }}>
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="m5 13 4 4L19 7" stroke="#fff" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                    <span
+                        className="grid h-6 w-6 flex-none place-items-center rounded-full"
+                        style={{ background: '#7FA64B' }}
+                    >
+                        <svg
+                            width="14"
+                            height="14"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                        >
+                            <path
+                                d="m5 13 4 4L19 7"
+                                stroke="#fff"
+                                strokeWidth="2.6"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                            />
+                        </svg>
                     </span>
                     <span className="text-[14px] font-semibold">{msg}</span>
-                    <Link href="/gio-thue" className="rounded-[9px] bg-grass px-3 py-[7px] text-[13px] font-bold text-white" onClick={() => setMsg(null)}>
+                    <Link
+                        href="/gio-thue"
+                        className="rounded-[9px] bg-grass px-3 py-[7px] text-[13px] font-bold text-white"
+                        onClick={() => setMsg(null)}
+                    >
                         Xem giỏ
                     </Link>
                 </motion.div>

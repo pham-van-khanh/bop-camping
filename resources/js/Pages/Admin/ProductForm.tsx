@@ -1,13 +1,27 @@
+import MediaGallery from '@/Components/admin/MediaGallery';
+import AdminLayout from '@/Layouts/AdminLayout';
+import type { PageProps } from '@/types';
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import { ReactNode, useEffect, useState } from 'react';
-import AdminLayout from '@/Layouts/AdminLayout';
-import MediaGallery from '@/Components/admin/MediaGallery';
-import type { PageProps } from '@/types';
 
-type ProductImage = { id: number; path: string; sort_order: number; type: 'image' | 'video' };
+type ProductImage = {
+    id: number;
+    path: string;
+    sort_order: number;
+    type: 'image' | 'video';
+};
 type CategoryOption = { id: number; name: string };
-type ServiceLocationOption = { id: number; name: string; area: string | null; status: 'open' | 'coming' };
-type AccessoryOption = { id: number; name: string; status: 'active' | 'hidden' };
+type ServiceLocationOption = {
+    id: number;
+    name: string;
+    area: string | null;
+    status: 'open' | 'coming';
+};
+type AccessoryOption = {
+    id: number;
+    name: string;
+    status: 'active' | 'hidden';
+};
 type SpecRow = { key: string; value: string };
 type Product = {
     id: number;
@@ -79,7 +93,9 @@ export default function AdminProductForm({
         }
     }, [flash.success]);
 
-    const openLocationIds = service_locations.filter((l) => l.status === 'open').map((l) => l.id);
+    const openLocationIds = service_locations
+        .filter((l) => l.status === 'open')
+        .map((l) => l.id);
 
     const form = useForm<ProductFormData>(
         product
@@ -90,7 +106,8 @@ export default function AdminProductForm({
                   specs: product.specs ?? [],
                   price_per_day: product.price_per_day,
                   deposit: product.deposit ?? null,
-                  early_return_discount_pct: product.early_return_discount_pct ?? 0,
+                  early_return_discount_pct:
+                      product.early_return_discount_pct ?? 0,
                   status: product.status,
                   thumbnail: null,
                   service_location_ids: product.service_location_ids ?? [],
@@ -120,32 +137,57 @@ export default function AdminProductForm({
 
     const toggleLocation = (id: number) => {
         const cur = form.data.service_location_ids;
-        form.setData('service_location_ids', cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]);
+        form.setData(
+            'service_location_ids',
+            cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id],
+        );
     };
 
     const setStock = (id: number, value: string) => {
-        form.setData('stocks', { ...form.data.stocks, [id]: value === '' ? '' : Math.max(0, Number(value)) });
+        form.setData('stocks', {
+            ...form.data.stocks,
+            [id]: value === '' ? '' : Math.max(0, Number(value)),
+        });
     };
 
     const setBuffer = (id: number, value: string) => {
-        form.setData('buffers', { ...form.data.buffers, [id]: value === '' ? '' : Math.min(30, Math.max(0, Number(value))) });
+        form.setData('buffers', {
+            ...form.data.buffers,
+            [id]: value === '' ? '' : Math.min(30, Math.max(0, Number(value))),
+        });
     };
 
     const toggleAccessory = (id: number) => {
         const cur = form.data.accessory_ids;
-        form.setData('accessory_ids', cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]);
+        form.setData(
+            'accessory_ids',
+            cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id],
+        );
     };
 
     const toggleRelated = (id: number) => {
         const cur = form.data.related_ids;
-        form.setData('related_ids', cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]);
+        form.setData(
+            'related_ids',
+            cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id],
+        );
     };
 
     const setSpec = (i: number, field: keyof SpecRow, value: string) => {
-        form.setData('specs', form.data.specs.map((row, idx) => (idx === i ? { ...row, [field]: value } : row)));
+        form.setData(
+            'specs',
+            form.data.specs.map((row, idx) =>
+                idx === i ? { ...row, [field]: value } : row,
+            ),
+        );
     };
-    const addSpecRow = () => form.setData('specs', [...form.data.specs, { key: '', value: '' }]);
-    const removeSpecRow = (i: number) => form.setData('specs', form.data.specs.filter((_, idx) => idx !== i));
+    const addSpecRow = () =>
+        form.setData('specs', [...form.data.specs, { key: '', value: '' }]);
+    const removeSpecRow = (i: number) =>
+        form.setData(
+            'specs',
+            form.data.specs.filter((_, idx) => idx !== i),
+        );
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -154,18 +196,32 @@ export default function AdminProductForm({
         // FormData không gửi được mảng rỗng → gửi '' để backend hiểu "xoá hết".
         form.transform((data) => ({
             ...data,
-            category_id: data.category_id === '' ? '' : Number(data.category_id),
-            early_return_discount_pct: data.early_return_discount_pct === '' ? 0 : Number(data.early_return_discount_pct),
+            category_id:
+                data.category_id === '' ? '' : Number(data.category_id),
+            early_return_discount_pct:
+                data.early_return_discount_pct === ''
+                    ? 0
+                    : Number(data.early_return_discount_pct),
             accessory_ids: data.accessory_ids.length ? data.accessory_ids : '',
             related_ids: data.related_ids.length ? data.related_ids : '',
             specs: data.specs.length ? data.specs : '',
             // Tồn kho: chỉ gửi số của store đã tick.
             stocks: Object.fromEntries(
-                data.service_location_ids.map((id) => [id, data.stocks[id] === '' || data.stocks[id] == null ? 0 : data.stocks[id]]),
+                data.service_location_ids.map((id) => [
+                    id,
+                    data.stocks[id] === '' || data.stocks[id] == null
+                        ? 0
+                        : data.stocks[id],
+                ]),
             ),
             // Đệm giặt/phơi theo kho — cùng quy tắc: chỉ gửi số của store đã tick.
             buffers: Object.fromEntries(
-                data.service_location_ids.map((id) => [id, data.buffers[id] === '' || data.buffers[id] == null ? 0 : data.buffers[id]]),
+                data.service_location_ids.map((id) => [
+                    id,
+                    data.buffers[id] === '' || data.buffers[id] == null
+                        ? 0
+                        : data.buffers[id],
+                ]),
             ),
             // PHP không nạp $_FILES cho PUT → POST kèm _method spoofing khi sửa.
             ...(isEdit ? { _method: 'put' } : {}),
@@ -193,7 +249,10 @@ export default function AdminProductForm({
             <div className="mx-auto max-w-[960px]">
                 {/* Breadcrumb + header */}
                 <div className="mb-1 text-[12.5px] text-moss">
-                    <Link href={route('admin.products')} className="font-semibold text-grass hover:underline">
+                    <Link
+                        href={route('admin.products')}
+                        className="font-semibold text-grass hover:underline"
+                    >
                         Sản phẩm
                     </Link>
                     {' / '}
@@ -206,12 +265,22 @@ export default function AdminProductForm({
                     {isEdit && (
                         <div className="flex gap-2">
                             <button
-                                onClick={() => router.get(route('admin.products.content.edit', product!.id))}
+                                onClick={() =>
+                                    router.get(
+                                        route(
+                                            'admin.products.content.edit',
+                                            product!.id,
+                                        ),
+                                    )
+                                }
                                 className="relative rounded-[8px] border border-cardBorder px-3 py-1.5 text-[12px] font-semibold text-pine transition hover:border-grass hover:text-grass"
                             >
                                 Nội dung chi tiết
                                 {product!.has_setup_content && (
-                                    <span className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full bg-grass ring-2 ring-white" title="Đã có nội dung" />
+                                    <span
+                                        className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full bg-grass ring-2 ring-white"
+                                        title="Đã có nội dung"
+                                    />
                                 )}
                             </button>
                             <a
@@ -234,41 +303,73 @@ export default function AdminProductForm({
                             <div className="space-y-4">
                                 <div>
                                     <label className="mb-1.5 block text-[13px] font-semibold text-pine">
-                                        Tên sản phẩm <span className="text-[#b3493a]">*</span>
+                                        Tên sản phẩm{' '}
+                                        <span className="text-[#b3493a]">
+                                            *
+                                        </span>
                                     </label>
                                     <input
                                         type="text"
                                         value={form.data.name}
-                                        onChange={(e) => form.setData('name', e.target.value)}
+                                        onChange={(e) =>
+                                            form.setData('name', e.target.value)
+                                        }
                                         className="w-full rounded-[10px] border border-cardBorder px-3.5 py-2.5 text-[13.5px] outline-none transition focus:border-grass"
                                         placeholder="VD: Lều 2 người Naturehike Cloud Up 2"
                                         autoFocus
                                     />
-                                    {form.errors.name && <p className="mt-1 text-[12px] text-[#b3493a]">{form.errors.name}</p>}
+                                    {form.errors.name && (
+                                        <p className="mt-1 text-[12px] text-[#b3493a]">
+                                            {form.errors.name}
+                                        </p>
+                                    )}
                                 </div>
 
                                 <div>
                                     <label className="mb-1.5 block text-[13px] font-semibold text-pine">
-                                        Danh mục <span className="text-[#b3493a]">*</span>
+                                        Danh mục{' '}
+                                        <span className="text-[#b3493a]">
+                                            *
+                                        </span>
                                     </label>
                                     <select
                                         value={form.data.category_id}
-                                        onChange={(e) => form.setData('category_id', e.target.value === '' ? '' : Number(e.target.value))}
+                                        onChange={(e) =>
+                                            form.setData(
+                                                'category_id',
+                                                e.target.value === ''
+                                                    ? ''
+                                                    : Number(e.target.value),
+                                            )
+                                        }
                                         className="w-full rounded-[10px] border border-cardBorder px-3.5 py-2.5 text-[13.5px] outline-none transition focus:border-grass"
                                     >
                                         <option value="">Chọn danh mục</option>
                                         {categories.map((c) => (
-                                            <option key={c.id} value={c.id}>{c.name}</option>
+                                            <option key={c.id} value={c.id}>
+                                                {c.name}
+                                            </option>
                                         ))}
                                     </select>
-                                    {form.errors.category_id && <p className="mt-1 text-[12px] text-[#b3493a]">{form.errors.category_id}</p>}
+                                    {form.errors.category_id && (
+                                        <p className="mt-1 text-[12px] text-[#b3493a]">
+                                            {form.errors.category_id}
+                                        </p>
+                                    )}
                                 </div>
 
                                 <div>
-                                    <label className="mb-1.5 block text-[13px] font-semibold text-pine">Mô tả</label>
+                                    <label className="mb-1.5 block text-[13px] font-semibold text-pine">
+                                        Mô tả
+                                    </label>
                                     <textarea
                                         value={form.data.description}
-                                        onChange={(e) => form.setData('description', e.target.value)}
+                                        onChange={(e) =>
+                                            form.setData(
+                                                'description',
+                                                e.target.value,
+                                            )
+                                        }
                                         rows={4}
                                         className="w-full rounded-[10px] border border-cardBorder px-3.5 py-2.5 text-[13.5px] outline-none transition focus:border-grass"
                                         placeholder="Mô tả sản phẩm, tính năng nổi bật..."
@@ -284,25 +385,52 @@ export default function AdminProductForm({
                                 <div className="grid grid-cols-2 gap-3">
                                     <div>
                                         <label className="mb-1.5 block text-[13px] font-semibold text-pine">
-                                            Giá/ngày (₫) <span className="text-[#b3493a]">*</span>
+                                            Giá/ngày (₫){' '}
+                                            <span className="text-[#b3493a]">
+                                                *
+                                            </span>
                                         </label>
                                         <input
                                             type="number"
                                             min="0"
                                             value={form.data.price_per_day}
-                                            onChange={(e) => form.setData('price_per_day', e.target.value === '' ? '' : Number(e.target.value))}
+                                            onChange={(e) =>
+                                                form.setData(
+                                                    'price_per_day',
+                                                    e.target.value === ''
+                                                        ? ''
+                                                        : Number(
+                                                              e.target.value,
+                                                          ),
+                                                )
+                                            }
                                             className="w-full rounded-[10px] border border-cardBorder px-3 py-2.5 text-[13.5px] outline-none transition focus:border-grass"
                                             placeholder="50000"
                                         />
-                                        {form.errors.price_per_day && <p className="mt-1 text-[12px] text-[#b3493a]">{form.errors.price_per_day}</p>}
+                                        {form.errors.price_per_day && (
+                                            <p className="mt-1 text-[12px] text-[#b3493a]">
+                                                {form.errors.price_per_day}
+                                            </p>
+                                        )}
                                     </div>
                                     <div>
-                                        <label className="mb-1.5 block text-[13px] font-semibold text-pine">Tiền cọc (₫)</label>
+                                        <label className="mb-1.5 block text-[13px] font-semibold text-pine">
+                                            Tiền cọc (₫)
+                                        </label>
                                         <input
                                             type="number"
                                             min="0"
                                             value={form.data.deposit ?? ''}
-                                            onChange={(e) => form.setData('deposit', e.target.value === '' ? null : Number(e.target.value))}
+                                            onChange={(e) =>
+                                                form.setData(
+                                                    'deposit',
+                                                    e.target.value === ''
+                                                        ? null
+                                                        : Number(
+                                                              e.target.value,
+                                                          ),
+                                                )
+                                            }
                                             className="w-full rounded-[10px] border border-cardBorder px-3 py-2.5 text-[13.5px] outline-none transition focus:border-grass"
                                             placeholder="200000"
                                         />
@@ -312,60 +440,120 @@ export default function AdminProductForm({
                                 <div>
                                     <label className="mb-1.5 block text-[13px] font-semibold text-pine">
                                         Ưu đãi trả sớm trong ngày (%)
-                                        <span className="ml-1 font-normal text-moss">(giảm khi khách thuê & trả trong cùng một ngày; 0 = không giảm)</span>
+                                        <span className="ml-1 font-normal text-moss">
+                                            (giảm khi khách thuê & trả trong
+                                            cùng một ngày; 0 = không giảm)
+                                        </span>
                                     </label>
                                     <input
                                         type="number"
                                         min="0"
                                         max="50"
-                                        value={form.data.early_return_discount_pct}
-                                        onChange={(e) => form.setData('early_return_discount_pct', e.target.value === '' ? '' : Number(e.target.value))}
+                                        value={
+                                            form.data.early_return_discount_pct
+                                        }
+                                        onChange={(e) =>
+                                            form.setData(
+                                                'early_return_discount_pct',
+                                                e.target.value === ''
+                                                    ? ''
+                                                    : Number(e.target.value),
+                                            )
+                                        }
                                         className="w-28 rounded-[10px] border border-cardBorder px-3 py-2.5 text-[13.5px] outline-none transition focus:border-grass"
                                         placeholder="0"
                                     />
-                                    {form.errors.early_return_discount_pct && <p className="mt-1 text-[12px] text-[#b3493a]">{form.errors.early_return_discount_pct}</p>}
-                                </div>
-
-                                <div>
-                                    <label className="mb-1.5 block text-[13px] font-semibold text-pine">Trạng thái</label>
-                                    <div className="flex gap-3">
-                                        {(['active', 'hidden'] as const).map((s) => (
-                                            <label key={s} className="flex cursor-pointer items-center gap-2">
-                                                <input
-                                                    type="radio"
-                                                    name="status"
-                                                    value={s}
-                                                    checked={form.data.status === s}
-                                                    onChange={() => form.setData('status', s)}
-                                                    className="accent-grass"
-                                                />
-                                                <span className="text-[13px] text-pine">{s === 'active' ? 'Đang bán' : 'Ẩn'}</span>
-                                            </label>
-                                        ))}
-                                    </div>
-                                    {/* US-07: ẩn sản phẩm đang thuộc combo → combo tự ẩn theo */}
-                                    {form.data.status === 'hidden' && product && product.combo_names.length > 0 && (
-                                        <p className="mt-2 rounded-[9px] bg-[#fdf3f1] px-3.5 py-2.5 text-[12.5px] font-semibold text-[#b3493a]">
-                                            ⚠ Sản phẩm này thuộc combo: {product.combo_names.join(', ')}. Ẩn sản phẩm sẽ tự ẩn các combo đó khỏi trang bán.
+                                    {form.errors.early_return_discount_pct && (
+                                        <p className="mt-1 text-[12px] text-[#b3493a]">
+                                            {
+                                                form.errors
+                                                    .early_return_discount_pct
+                                            }
                                         </p>
                                     )}
                                 </div>
 
                                 <div>
                                     <label className="mb-1.5 block text-[13px] font-semibold text-pine">
+                                        Trạng thái
+                                    </label>
+                                    <div className="flex gap-3">
+                                        {(['active', 'hidden'] as const).map(
+                                            (s) => (
+                                                <label
+                                                    key={s}
+                                                    className="flex cursor-pointer items-center gap-2"
+                                                >
+                                                    <input
+                                                        type="radio"
+                                                        name="status"
+                                                        value={s}
+                                                        checked={
+                                                            form.data.status ===
+                                                            s
+                                                        }
+                                                        onChange={() =>
+                                                            form.setData(
+                                                                'status',
+                                                                s,
+                                                            )
+                                                        }
+                                                        className="accent-grass"
+                                                    />
+                                                    <span className="text-[13px] text-pine">
+                                                        {s === 'active'
+                                                            ? 'Đang bán'
+                                                            : 'Ẩn'}
+                                                    </span>
+                                                </label>
+                                            ),
+                                        )}
+                                    </div>
+                                    {/* US-07: ẩn sản phẩm đang thuộc combo → combo tự ẩn theo */}
+                                    {form.data.status === 'hidden' &&
+                                        product &&
+                                        product.combo_names.length > 0 && (
+                                            <p className="mt-2 rounded-[9px] bg-[#fdf3f1] px-3.5 py-2.5 text-[12.5px] font-semibold text-[#b3493a]">
+                                                ⚠ Sản phẩm này thuộc combo:{' '}
+                                                {product.combo_names.join(', ')}
+                                                . Ẩn sản phẩm sẽ tự ẩn các combo
+                                                đó khỏi trang bán.
+                                            </p>
+                                        )}
+                                </div>
+
+                                <div>
+                                    <label className="mb-1.5 block text-[13px] font-semibold text-pine">
                                         Ảnh đại diện
-                                        {isEdit && product!.thumbnail && <span className="ml-1 font-normal text-moss">(để trống = giữ ảnh cũ)</span>}
+                                        {isEdit && product!.thumbnail && (
+                                            <span className="ml-1 font-normal text-moss">
+                                                (để trống = giữ ảnh cũ)
+                                            </span>
+                                        )}
                                     </label>
                                     {isEdit && product!.thumbnail && (
-                                        <img src={product!.thumbnail} alt="" className="mb-2 h-16 w-16 rounded-[9px] border border-cardBorder object-cover" />
+                                        <img
+                                            src={product!.thumbnail}
+                                            alt=""
+                                            className="mb-2 h-16 w-16 rounded-[9px] border border-cardBorder object-cover"
+                                        />
                                     )}
                                     <input
                                         type="file"
                                         accept="image/*"
-                                        onChange={(e) => form.setData('thumbnail', e.target.files?.[0] ?? null)}
+                                        onChange={(e) =>
+                                            form.setData(
+                                                'thumbnail',
+                                                e.target.files?.[0] ?? null,
+                                            )
+                                        }
                                         className="w-full rounded-[10px] border border-cardBorder px-3 py-2 text-[13px] file:mr-3 file:rounded-[7px] file:border-0 file:bg-[#f1f4ea] file:px-3 file:py-1 file:text-[12px] file:font-semibold file:text-pine"
                                     />
-                                    {form.errors.thumbnail && <p className="mt-1 text-[12px] text-[#b3493a]">{form.errors.thumbnail}</p>}
+                                    {form.errors.thumbnail && (
+                                        <p className="mt-1 text-[12px] text-[#b3493a]">
+                                            {form.errors.thumbnail}
+                                        </p>
+                                    )}
                                 </div>
                             </div>
                         </div>
@@ -374,16 +562,24 @@ export default function AdminProductForm({
                     {/* Vị trí phục vụ + tồn kho theo cơ sở */}
                     <div className={cardCls}>
                         <h2 className={sectionTitle}>
-                            Vị trí phục vụ & tồn kho <span className="text-[#b3493a]">*</span>
+                            Vị trí phục vụ & tồn kho{' '}
+                            <span className="text-[#b3493a]">*</span>
                         </h2>
                         {service_locations.length === 0 ? (
                             <p className="text-[12.5px] text-moss">
-                                Chưa có vị trí phục vụ nào. Thêm ở mục <span className="font-semibold">Điểm cắm trại</span> trước.
+                                Chưa có vị trí phục vụ nào. Thêm ở mục{' '}
+                                <span className="font-semibold">
+                                    Điểm cắm trại
+                                </span>{' '}
+                                trước.
                             </p>
                         ) : (
                             <div className="flex flex-wrap gap-2">
                                 {service_locations.map((l) => {
-                                    const on = form.data.service_location_ids.includes(l.id);
+                                    const on =
+                                        form.data.service_location_ids.includes(
+                                            l.id,
+                                        );
                                     const coming = l.status === 'coming';
                                     return (
                                         <button
@@ -401,68 +597,130 @@ export default function AdminProductForm({
                                         >
                                             <span
                                                 className={`grid h-[17px] w-[17px] place-items-center rounded-[5px] border text-[11px] font-bold ${
-                                                    on ? 'border-grass bg-grass text-white' : 'border-[#c4cca8] text-transparent'
+                                                    on
+                                                        ? 'border-grass bg-grass text-white'
+                                                        : 'border-[#c4cca8] text-transparent'
                                                 }`}
                                             >
                                                 ✓
                                             </span>
                                             <span className="text-left leading-tight">
                                                 {l.name}
-                                                {coming && <span className="ml-1 rounded-pill bg-[#eef2e3] px-1.5 py-0.5 text-[10px] font-semibold text-moss">Sắp mở</span>}
-                                                {l.area && <span className="block text-[10.5px] font-normal text-moss">{l.area}</span>}
+                                                {coming && (
+                                                    <span className="ml-1 rounded-pill bg-[#eef2e3] px-1.5 py-0.5 text-[10px] font-semibold text-moss">
+                                                        Sắp mở
+                                                    </span>
+                                                )}
+                                                {l.area && (
+                                                    <span className="block text-[10.5px] font-normal text-moss">
+                                                        {l.area}
+                                                    </span>
+                                                )}
                                             </span>
                                         </button>
                                     );
                                 })}
                             </div>
                         )}
-                        {form.errors.service_location_ids && <p className="mt-1 text-[12px] text-[#b3493a]">{form.errors.service_location_ids}</p>}
+                        {form.errors.service_location_ids && (
+                            <p className="mt-1 text-[12px] text-[#b3493a]">
+                                {form.errors.service_location_ids}
+                            </p>
+                        )}
 
                         {form.data.service_location_ids.length > 0 && (
                             <div className="mt-3 rounded-[11px] border border-cardBorder bg-[#f8faf4] p-3">
                                 <div className="mb-2 text-[12px] font-semibold text-pine">
                                     Số lượng & ngày giặt/phơi tại mỗi cơ sở
-                                    <span className="ml-1 font-normal text-moss">(ngày phơi = số ngày chừa sau khi trả trước khi cho thuê lại; 0 = cho thuê ngay hôm sau)</span>
+                                    <span className="ml-1 font-normal text-moss">
+                                        (ngày phơi = số ngày chừa sau khi trả
+                                        trước khi cho thuê lại; 0 = cho thuê
+                                        ngay hôm sau)
+                                    </span>
                                 </div>
                                 <div className="flex flex-wrap gap-x-6 gap-y-3">
-                                    {form.data.service_location_ids.map((id) => {
-                                        const loc = service_locations.find((l) => l.id === id);
-                                        if (!loc) return null;
-                                        return (
-                                            <div key={id} className="flex items-center gap-2 text-[13px]">
-                                                <span className="font-semibold text-pine">{loc.name}</span>
-                                                <label className="flex items-center gap-1 text-moss">
-                                                    <span className="text-[11.5px]">SL</span>
-                                                    <input
-                                                        type="number"
-                                                        min="0"
-                                                        value={form.data.stocks[id] ?? ''}
-                                                        onChange={(e) => setStock(id, e.target.value)}
-                                                        placeholder="0"
-                                                        className="w-16 rounded-[9px] border border-cardBorder px-2.5 py-1.5 text-[13px] text-ink outline-none transition focus:border-grass"
-                                                    />
-                                                </label>
-                                                <label className="flex items-center gap-1 text-moss">
-                                                    <span className="text-[11.5px]">ngày phơi</span>
-                                                    <input
-                                                        type="number"
-                                                        min="0"
-                                                        max="30"
-                                                        value={form.data.buffers[id] ?? ''}
-                                                        onChange={(e) => setBuffer(id, e.target.value)}
-                                                        placeholder="0"
-                                                        className="w-16 rounded-[9px] border border-cardBorder px-2.5 py-1.5 text-[13px] text-ink outline-none transition focus:border-grass"
-                                                    />
-                                                </label>
-                                            </div>
-                                        );
-                                    })}
+                                    {form.data.service_location_ids.map(
+                                        (id) => {
+                                            const loc = service_locations.find(
+                                                (l) => l.id === id,
+                                            );
+                                            if (!loc) return null;
+                                            return (
+                                                <div
+                                                    key={id}
+                                                    className="flex items-center gap-2 text-[13px]"
+                                                >
+                                                    <span className="font-semibold text-pine">
+                                                        {loc.name}
+                                                    </span>
+                                                    <label className="flex items-center gap-1 text-moss">
+                                                        <span className="text-[11.5px]">
+                                                            SL
+                                                        </span>
+                                                        <input
+                                                            type="number"
+                                                            min="0"
+                                                            value={
+                                                                form.data
+                                                                    .stocks[
+                                                                    id
+                                                                ] ?? ''
+                                                            }
+                                                            onChange={(e) =>
+                                                                setStock(
+                                                                    id,
+                                                                    e.target
+                                                                        .value,
+                                                                )
+                                                            }
+                                                            placeholder="0"
+                                                            className="w-16 rounded-[9px] border border-cardBorder px-2.5 py-1.5 text-[13px] text-ink outline-none transition focus:border-grass"
+                                                        />
+                                                    </label>
+                                                    <label className="flex items-center gap-1 text-moss">
+                                                        <span className="text-[11.5px]">
+                                                            ngày phơi
+                                                        </span>
+                                                        <input
+                                                            type="number"
+                                                            min="0"
+                                                            max="30"
+                                                            value={
+                                                                form.data
+                                                                    .buffers[
+                                                                    id
+                                                                ] ?? ''
+                                                            }
+                                                            onChange={(e) =>
+                                                                setBuffer(
+                                                                    id,
+                                                                    e.target
+                                                                        .value,
+                                                                )
+                                                            }
+                                                            placeholder="0"
+                                                            className="w-16 rounded-[9px] border border-cardBorder px-2.5 py-1.5 text-[13px] text-ink outline-none transition focus:border-grass"
+                                                        />
+                                                    </label>
+                                                </div>
+                                            );
+                                        },
+                                    )}
                                 </div>
                                 {Object.entries(form.errors)
-                                    .filter(([k]) => k.startsWith('stocks') || k.startsWith('buffers'))
+                                    .filter(
+                                        ([k]) =>
+                                            k.startsWith('stocks') ||
+                                            k.startsWith('buffers'),
+                                    )
                                     .slice(0, 1)
                                     .map(([k, v]) => (
-                                        <p key={k} className="mt-1.5 text-[12px] text-[#b3493a]">{v}</p>
+                                        <p
+                                            key={k}
+                                            className="mt-1.5 text-[12px] text-[#b3493a]"
+                                        >
+                                            {v}
+                                        </p>
                                     ))}
                             </div>
                         )}
@@ -496,23 +754,41 @@ export default function AdminProductForm({
                     {/* Thông số kỹ thuật */}
                     <div className={cardCls}>
                         <h2 className={sectionTitle}>
-                            Thông số <span className="ml-1 text-[12px] font-normal text-moss">(hiện thành bảng dưới ảnh sản phẩm)</span>
+                            Thông số{' '}
+                            <span className="ml-1 text-[12px] font-normal text-moss">
+                                (hiện thành bảng dưới ảnh sản phẩm)
+                            </span>
                         </h2>
                         {form.data.specs.length > 0 && (
                             <div className="mb-2 space-y-1.5">
                                 {form.data.specs.map((row, i) => (
-                                    <div key={i} className="flex items-center gap-1.5">
+                                    <div
+                                        key={i}
+                                        className="flex items-center gap-1.5"
+                                    >
                                         <input
                                             type="text"
                                             value={row.key}
-                                            onChange={(e) => setSpec(i, 'key', e.target.value)}
+                                            onChange={(e) =>
+                                                setSpec(
+                                                    i,
+                                                    'key',
+                                                    e.target.value,
+                                                )
+                                            }
                                             placeholder="VD: Sức chứa"
                                             className="w-[38%] rounded-[10px] border border-cardBorder px-3 py-2 text-[13px] outline-none transition focus:border-grass"
                                         />
                                         <input
                                             type="text"
                                             value={row.value}
-                                            onChange={(e) => setSpec(i, 'value', e.target.value)}
+                                            onChange={(e) =>
+                                                setSpec(
+                                                    i,
+                                                    'value',
+                                                    e.target.value,
+                                                )
+                                            }
                                             placeholder="VD: 4 người"
                                             className="flex-1 rounded-[10px] border border-cardBorder px-3 py-2 text-[13px] outline-none transition focus:border-grass"
                                         />
@@ -539,7 +815,12 @@ export default function AdminProductForm({
                             .filter(([k]) => k.startsWith('specs'))
                             .slice(0, 1)
                             .map(([k, v]) => (
-                                <p key={k} className="mt-1 text-[12px] text-[#b3493a]">{v}</p>
+                                <p
+                                    key={k}
+                                    className="mt-1 text-[12px] text-[#b3493a]"
+                                >
+                                    {v}
+                                </p>
                             ))}
                     </div>
 
@@ -547,7 +828,13 @@ export default function AdminProductForm({
                     {isEdit && product && (
                         <div className={cardCls}>
                             <h2 className={sectionTitle}>Ảnh phụ (gallery)</h2>
-                            <MediaGallery kind="product" itemId={product.id} images={product.images} label="Ảnh phụ" reloadOnly={['product', 'flash']} />
+                            <MediaGallery
+                                kind="product"
+                                itemId={product.id}
+                                images={product.images}
+                                label="Ảnh phụ"
+                                reloadOnly={['product', 'flash']}
+                            />
                         </div>
                     )}
 
@@ -564,7 +851,11 @@ export default function AdminProductForm({
                             disabled={form.processing}
                             className="rounded-[10px] bg-grass px-6 py-2 text-[13px] font-bold text-white transition hover:bg-pine disabled:opacity-60"
                         >
-                            {form.processing ? 'Đang lưu…' : isEdit ? 'Lưu thay đổi' : 'Tạo sản phẩm'}
+                            {form.processing
+                                ? 'Đang lưu…'
+                                : isEdit
+                                  ? 'Lưu thay đổi'
+                                  : 'Tạo sản phẩm'}
                         </button>
                     </div>
                 </form>
@@ -601,20 +892,28 @@ function SortedProductPicker({
     errorPrefix: string;
 }) {
     const [search, setSearch] = useState('');
-    const nameOf = (id: number) => options.find((o) => o.id === id)?.name ?? `#${id}`;
+    const nameOf = (id: number) =>
+        options.find((o) => o.id === id)?.name ?? `#${id}`;
 
     return (
         <div>
             <label className="mb-1.5 block text-[13px] font-semibold text-pine">
                 {label}
-                <span className="ml-1 font-normal text-moss">(thứ tự chọn = thứ tự hiển thị)</span>
+                <span className="ml-1 font-normal text-moss">
+                    (thứ tự chọn = thứ tự hiển thị)
+                </span>
             </label>
 
             {selectedIds.length > 0 && (
                 <div className="mb-2 flex flex-wrap gap-1.5">
                     {selectedIds.map((id, i) => (
-                        <span key={id} className="flex items-center gap-1.5 rounded-pill bg-[#eef5e1] py-1 pl-2.5 pr-1.5 text-[12px] font-semibold text-grass">
-                            <span className="font-mono text-[10.5px] text-moss">{i + 1}.</span>
+                        <span
+                            key={id}
+                            className="flex items-center gap-1.5 rounded-pill bg-[#eef5e1] py-1 pl-2.5 pr-1.5 text-[12px] font-semibold text-grass"
+                        >
+                            <span className="font-mono text-[10.5px] text-moss">
+                                {i + 1}.
+                            </span>
                             {nameOf(id)}
                             <button
                                 type="button"
@@ -639,7 +938,9 @@ function SortedProductPicker({
             <div className="mt-1.5 max-h-[160px] overflow-y-auto rounded-[10px] border border-cardBorder">
                 {options
                     .filter((o) => o.id !== excludeId)
-                    .filter((o) => o.name.toLowerCase().includes(search.toLowerCase()))
+                    .filter((o) =>
+                        o.name.toLowerCase().includes(search.toLowerCase()),
+                    )
                     .map((o) => {
                         const on = selectedIds.includes(o.id);
                         return (
@@ -648,19 +949,25 @@ function SortedProductPicker({
                                 key={o.id}
                                 onClick={() => onToggle(o.id)}
                                 className={`flex w-full items-center gap-2 border-b border-[#f1f4ea] px-3 py-2 text-left text-[12.5px] transition last:border-b-0 ${
-                                    on ? 'bg-[#f4f8ec] font-semibold text-grass' : 'text-pine hover:bg-[#fafcf7]'
+                                    on
+                                        ? 'bg-[#f4f8ec] font-semibold text-grass'
+                                        : 'text-pine hover:bg-[#fafcf7]'
                                 }`}
                             >
                                 <span
                                     className={`grid h-[15px] w-[15px] flex-none place-items-center rounded-[4px] border text-[10px] font-bold ${
-                                        on ? 'border-grass bg-grass text-white' : 'border-[#c4cca8] text-transparent'
+                                        on
+                                            ? 'border-grass bg-grass text-white'
+                                            : 'border-[#c4cca8] text-transparent'
                                     }`}
                                 >
                                     ✓
                                 </span>
                                 <span className="flex-1">{o.name}</span>
                                 {o.status === 'hidden' && (
-                                    <span className="rounded-pill bg-[#f1f4ea] px-1.5 py-0.5 text-[10px] font-semibold text-moss">Đang ẩn</span>
+                                    <span className="rounded-pill bg-[#f1f4ea] px-1.5 py-0.5 text-[10px] font-semibold text-moss">
+                                        Đang ẩn
+                                    </span>
                                 )}
                             </button>
                         );
@@ -669,10 +976,14 @@ function SortedProductPicker({
             {Object.entries(errors)
                 .filter(([k]) => k.startsWith(errorPrefix))
                 .map(([k, v]) => (
-                    <p key={k} className="mt-1 text-[12px] text-[#b3493a]">{v}</p>
+                    <p key={k} className="mt-1 text-[12px] text-[#b3493a]">
+                        {v}
+                    </p>
                 ))}
         </div>
     );
 }
 
-AdminProductForm.layout = (page: ReactNode) => <AdminLayout>{page}</AdminLayout>;
+AdminProductForm.layout = (page: ReactNode) => (
+    <AdminLayout>{page}</AdminLayout>
+);

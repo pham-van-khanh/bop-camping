@@ -42,14 +42,25 @@ type ScheduleOrder = {
     // Lượt của dòng này ('pickup'|'return') — dùng để tô đúng mốc trong nội dung Zalo.
     leg: TripKind;
     // Ai đã làm gì + việc còn lại của lượt này (bopcamping-3wfk)
-    actions: { key: string; label: string; done: boolean; at: string | null; by: string | null }[];
+    actions: {
+        key: string;
+        label: string;
+        done: boolean;
+        at: string | null;
+        by: string | null;
+    }[];
     todo: string[];
 };
 
 /** Số đơn giao/thu của 1 ngày trong tháng — chỉ những ngày CÓ đơn được trả về. */
 type DayCount = { date: string; pickups: number; returns: number };
 
-type Stats = { pickups: number; returns: number; unscheduled: number; unassigned: number };
+type Stats = {
+    pickups: number;
+    returns: number;
+    unscheduled: number;
+    unassigned: number;
+};
 
 /** Shipper để gán đơn (bopcamping-yc7d). */
 type ShipperOption = { id: number; name: string };
@@ -108,9 +119,12 @@ export default function AdminDeliverySchedule({
             <Head title="Quản trị · Lịch giao" />
             <div className="p-4 sm:p-6">
                 <div className="mb-4">
-                    <h1 className="text-[20px] font-extrabold text-pine">Lịch giao/thu</h1>
+                    <h1 className="text-[20px] font-extrabold text-pine">
+                        Lịch giao/thu
+                    </h1>
                     <p className="mt-0.5 text-[13px] text-moss">
-                        Ngày bôi đỏ là ngày có đơn — bấm vào ngày để xem cần giao/thu những đơn nào.
+                        Ngày bôi đỏ là ngày có đơn — bấm vào ngày để xem cần
+                        giao/thu những đơn nào.
                     </p>
                 </div>
 
@@ -126,7 +140,9 @@ export default function AdminDeliverySchedule({
                             ‹
                         </button>
                         <div className="text-center">
-                            <div className="text-[15px] font-bold text-pine">{month_label}</div>
+                            <div className="text-[15px] font-bold text-pine">
+                                {month_label}
+                            </div>
                             <button
                                 type="button"
                                 onClick={goToday}
@@ -178,7 +194,9 @@ export default function AdminDeliverySchedule({
 
                 {/* Ngày đang chọn */}
                 <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                    <h2 className="text-[16px] font-bold text-pine">{date_label}</h2>
+                    <h2 className="text-[16px] font-bold text-pine">
+                        {date_label}
+                    </h2>
                     {/* Lọc theo shipper — áp dụng cho cả lịch tháng và danh sách dưới */}
                     <label className="flex items-center gap-2 text-[12.5px] text-moss">
                         Shipper
@@ -205,12 +223,18 @@ export default function AdminDeliverySchedule({
                         {stats.returns} thu
                     </span>
                     {stats.unscheduled > 0 && (
-                        <span className="rounded-pill px-3 py-1.5" style={{ background: '#fbe9d8', color: '#9a5a1f' }}>
+                        <span
+                            className="rounded-pill px-3 py-1.5"
+                            style={{ background: '#fbe9d8', color: '#9a5a1f' }}
+                        >
                             {stats.unscheduled} chưa chốt giờ
                         </span>
                     )}
                     {stats.unassigned > 0 && (
-                        <span className="rounded-pill px-3 py-1.5" style={{ background: '#f6ddd6', color: '#b3493a' }}>
+                        <span
+                            className="rounded-pill px-3 py-1.5"
+                            style={{ background: '#f6ddd6', color: '#b3493a' }}
+                        >
                             {stats.unassigned} chưa có shipper
                         </span>
                     )}
@@ -244,7 +268,7 @@ export default function AdminDeliverySchedule({
 function ZaloLine({ line, leg }: { line: string; leg: TripKind }) {
     const activeLabel = leg === 'pickup' ? 'Ngày giờ giao: ' : 'Ngày giờ thu: ';
 
-    if (! line.startsWith(activeLabel)) {
+    if (!line.startsWith(activeLabel)) {
         return <>{line + '\n'}</>;
     }
 
@@ -304,7 +328,10 @@ function DayCell({
                 {day}
             </div>
             {hasOrders && (
-                <div className="font-mono text-[10px] leading-tight" style={{ color: RED.fg }}>
+                <div
+                    className="font-mono text-[10px] leading-tight"
+                    style={{ color: RED.fg }}
+                >
                     {pickups > 0 && `${pickups}↓`}
                     {pickups > 0 && returns > 0 && ' '}
                     {returns > 0 && `${returns}↑`}
@@ -335,10 +362,18 @@ function ScheduleSection({
         <div className="mb-8">
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                 <h3 className="text-[15px] font-bold text-pine">
-                    {title} <span className="font-mono text-[13px] font-normal text-moss">({orders.length})</span>
+                    {title}{' '}
+                    <span className="font-mono text-[13px] font-normal text-moss">
+                        ({orders.length})
+                    </span>
                 </h3>
                 {unassigned > 0 && shippers.length > 0 && (
-                    <AssignAll kind={kind} date={date} shippers={shippers} count={unassigned} />
+                    <AssignAll
+                        kind={kind}
+                        date={date}
+                        shippers={shippers}
+                        count={unassigned}
+                    />
                 )}
             </div>
             <ScheduleAssignList
@@ -346,7 +381,9 @@ function ScheduleSection({
                 orders={orders}
                 shippers={shippers}
                 emptyText={emptyText}
-                renderCard={(order) => <ScheduleOrderCard order={order} kind={kind} />}
+                renderCard={(order) => (
+                    <ScheduleOrderCard order={order} kind={kind} />
+                )}
             />
         </div>
     );
@@ -366,7 +403,7 @@ function AssignAll({
 }) {
     const [shipperId, setShipperId] = useState('');
     const [saving, setSaving] = useState(false);
-    const [both, setBoth] = useState(true);   // gán luôn lượt còn lại của chính những đơn đó
+    const [both, setBoth] = useState(true); // gán luôn lượt còn lại của chính những đơn đó
 
     const submit = () => {
         if (!shipperId) return;
@@ -374,7 +411,11 @@ function AssignAll({
         router.post(
             route('admin.schedule.assignAll'),
             { leg: kind, date, shipper_id: Number(shipperId), both },
-            { preserveScroll: true, preserveState: true, onFinish: () => setSaving(false) },
+            {
+                preserveScroll: true,
+                preserveState: true,
+                onFinish: () => setSaving(false),
+            },
         );
     };
 
@@ -413,11 +454,26 @@ function AssignAll({
     );
 }
 
-function ScheduleOrderCard({ order, kind }: { order: ScheduleOrder; kind: TripKind }) {
-    const hours = shopHours((usePage().props as { site?: Parameters<typeof shopHours>[0] }).site);
+function ScheduleOrderCard({
+    order,
+    kind,
+}: {
+    order: ScheduleOrder;
+    kind: TripKind;
+}) {
+    const hours = shopHours(
+        (usePage().props as { site?: Parameters<typeof shopHours>[0] }).site,
+    );
     const sessTag = sessionLabel(order.session, hours);
-    const remaining = (order.rental_paid ? 0 : order.rental_due) + (order.deposit_paid ? 0 : order.deposit_total);
-    const unpaidLabel = [!order.rental_paid && 'tiền thuê', !order.deposit_paid && 'cọc'].filter(Boolean).join(' + ');
+    const remaining =
+        (order.rental_paid ? 0 : order.rental_due) +
+        (order.deposit_paid ? 0 : order.deposit_total);
+    const unpaidLabel = [
+        !order.rental_paid && 'tiền thuê',
+        !order.deposit_paid && 'cọc',
+    ]
+        .filter(Boolean)
+        .join(' + ');
 
     return (
         <div className="rounded-[16px] border border-cardBorder bg-white p-4">
@@ -443,7 +499,9 @@ function ScheduleOrderCard({ order, kind }: { order: ScheduleOrder; kind: TripKi
             </div>
 
             <div className="mt-2 flex flex-wrap items-center gap-2">
-                <div className="text-[14px] font-semibold text-ink">{order.customer_name}</div>
+                <div className="text-[14px] font-semibold text-ink">
+                    {order.customer_name}
+                </div>
                 {order.status === 'pending' && (
                     <span
                         className="rounded-pill px-2 py-0.5 text-[11px] font-bold"
@@ -461,7 +519,11 @@ function ScheduleOrderCard({ order, kind }: { order: ScheduleOrder; kind: TripKi
                 📞 {order.customer_phone}
             </a>
 
-            {order.customer_address && <div className="text-[13px] text-moss">{order.customer_address}</div>}
+            {order.customer_address && (
+                <div className="text-[13px] text-moss">
+                    {order.customer_address}
+                </div>
+            )}
             <div className="mt-1 text-[12.5px] text-moss">
                 {order.service_location ?? 'Chưa gán cửa hàng'}
                 {sessTag && <span className="text-grass"> · {sessTag}</span>}
@@ -483,18 +545,27 @@ function ScheduleOrderCard({ order, kind }: { order: ScheduleOrder; kind: TripKi
                 {kind === 'pickup' ? (
                     remaining > 0 ? (
                         <>
-                            <span className="font-mono font-bold text-ink">Thu khi giao: {money(remaining)}</span>
-                            <span className="ml-1 text-moss">({unpaidLabel})</span>
+                            <span className="font-mono font-bold text-ink">
+                                Thu khi giao: {money(remaining)}
+                            </span>
+                            <span className="ml-1 text-moss">
+                                ({unpaidLabel})
+                            </span>
                         </>
                     ) : (
-                        <span style={{ color: '#3a5a1f' }}>✓ Đã thu đủ tiền đơn này</span>
+                        <span style={{ color: '#3a5a1f' }}>
+                            ✓ Đã thu đủ tiền đơn này
+                        </span>
                     )
                 ) : (
                     <>
-                        <span className="font-mono font-bold text-ink">Hoàn cọc: {money(order.deposit_total)}</span>
+                        <span className="font-mono font-bold text-ink">
+                            Hoàn cọc: {money(order.deposit_total)}
+                        </span>
                         {remaining > 0 && (
                             <span className="ml-1" style={{ color: RED.fg }}>
-                                · còn phải thu {money(remaining)} ({unpaidLabel})
+                                · còn phải thu {money(remaining)} ({unpaidLabel}
+                                )
                             </span>
                         )}
                     </>
@@ -505,11 +576,17 @@ function ScheduleOrderCard({ order, kind }: { order: ScheduleOrder; kind: TripKi
             <div className="mt-2 border-t border-[#f1f4ea] pt-2 text-[12.5px]">
                 {order.todo.length > 0 ? (
                     <div>
-                        <span className="font-bold" style={{ color: RED.fg }}>Việc còn lại: </span>
-                        <span className="text-ink">{order.todo.join(' · ')}</span>
+                        <span className="font-bold" style={{ color: RED.fg }}>
+                            Việc còn lại:{' '}
+                        </span>
+                        <span className="text-ink">
+                            {order.todo.join(' · ')}
+                        </span>
                         <span className="text-moss">
                             {' — '}
-                            {order.shipper_name ? `${order.shipper_name}` : 'chưa gán shipper'}
+                            {order.shipper_name
+                                ? `${order.shipper_name}`
+                                : 'chưa gán shipper'}
                         </span>
                     </div>
                 ) : (
@@ -519,7 +596,10 @@ function ScheduleOrderCard({ order, kind }: { order: ScheduleOrder; kind: TripKi
                     <div className="mt-1 text-[12px] text-moss">
                         {order.actions
                             .filter((a) => a.done)
-                            .map((a) => `${a.label}: ${a.by ?? 'không rõ ai'}${a.at ? ` (${a.at})` : ''}`)
+                            .map(
+                                (a) =>
+                                    `${a.label}: ${a.by ?? 'không rõ ai'}${a.at ? ` (${a.at})` : ''}`,
+                            )
                             .join(' · ')}
                     </div>
                 )}
@@ -530,7 +610,9 @@ function ScheduleOrderCard({ order, kind }: { order: ScheduleOrder; kind: TripKi
                     className="mt-2 rounded-[10px] p-2.5 text-[12.5px]"
                     style={{ background: '#f8faf4', color: '#5C6E47' }}
                 >
-                    <span className="font-bold text-pine">Ghi chú shipper: </span>
+                    <span className="font-bold text-pine">
+                        Ghi chú shipper:{' '}
+                    </span>
                     {order.schedule_note}
                 </div>
             )}
@@ -555,7 +637,7 @@ function ZaloMessageBox({ order }: { order: ScheduleOrder }) {
             setCopied(true);
             setTimeout(() => setCopied(false), 2000);
         } catch {
-            setCopied(false);   // trình duyệt chặn clipboard → admin tự chọn text trong ô
+            setCopied(false); // trình duyệt chặn clipboard → admin tự chọn text trong ô
         }
     };
 
@@ -586,7 +668,9 @@ function ZaloMessageBox({ order }: { order: ScheduleOrder }) {
                             type="button"
                             onClick={copy}
                             className="min-h-[38px] rounded-[10px] px-3 text-[13px] font-bold text-white"
-                            style={{ background: copied ? '#3a5a1f' : '#557A2B' }}
+                            style={{
+                                background: copied ? '#3a5a1f' : '#557A2B',
+                            }}
                         >
                             {copied ? '✓ Đã copy' : 'Copy nội dung'}
                         </button>
@@ -598,7 +682,10 @@ function ZaloMessageBox({ order }: { order: ScheduleOrder }) {
                                 className="min-h-[38px] rounded-[10px] px-3 text-[13px] font-bold leading-[38px] text-white"
                                 style={{ background: '#0068FF' }}
                             >
-                                Mở Zalo {order.shipper_name ? `· ${order.shipper_name}` : ''}
+                                Mở Zalo{' '}
+                                {order.shipper_name
+                                    ? `· ${order.shipper_name}`
+                                    : ''}
                             </a>
                         ) : (
                             <span className="self-center text-[12px] text-[#a3ad92]">
@@ -612,4 +699,6 @@ function ZaloMessageBox({ order }: { order: ScheduleOrder }) {
     );
 }
 
-AdminDeliverySchedule.layout = (page: ReactNode) => <AdminLayout>{page}</AdminLayout>;
+AdminDeliverySchedule.layout = (page: ReactNode) => (
+    <AdminLayout>{page}</AdminLayout>
+);

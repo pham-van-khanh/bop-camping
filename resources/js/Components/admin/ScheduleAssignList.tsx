@@ -41,7 +41,11 @@ export default function ScheduleAssignList<T extends AssignableOrder>({
             {orders.map((order, i) => (
                 <div key={order.id}>
                     {renderCard(order, i)}
-                    <ShipperPicker order={order} leg={leg} shippers={shippers} />
+                    <ShipperPicker
+                        order={order}
+                        leg={leg}
+                        shippers={shippers}
+                    />
                 </div>
             ))}
         </div>
@@ -58,7 +62,7 @@ function ShipperPicker<T extends AssignableOrder>({
     shippers: ShipperOption[];
 }) {
     const [saving, setSaving] = useState(false);
-    const [both, setBoth] = useState(true);   // mặc định gán cả 2 lượt — trường hợp thường gặp nhất
+    const [both, setBoth] = useState(true); // mặc định gán cả 2 lượt — trường hợp thường gặp nhất
     const otherLegLabel = leg === 'pickup' ? 'lượt thu' : 'lượt giao';
 
     const assign = (value: string) => {
@@ -66,14 +70,20 @@ function ShipperPicker<T extends AssignableOrder>({
         router.patch(
             route('admin.schedule.assign', order.id),
             { leg, shipper_id: value === '' ? null : Number(value), both },
-            { preserveScroll: true, preserveState: true, onFinish: () => setSaving(false) },
+            {
+                preserveScroll: true,
+                preserveState: true,
+                onFinish: () => setSaving(false),
+            },
         );
     };
 
     return (
         <div className="mt-2 rounded-[10px] border border-[#eef2e3] bg-white px-3 py-2">
             <div className="flex flex-wrap items-center gap-2">
-                <span className="text-[12px] font-bold uppercase tracking-[0.04em] text-grass">Shipper</span>
+                <span className="text-[12px] font-bold uppercase tracking-[0.04em] text-grass">
+                    Shipper
+                </span>
                 <select
                     value={order.shipper_id ?? ''}
                     disabled={saving}
@@ -100,7 +110,9 @@ function ShipperPicker<T extends AssignableOrder>({
             {/* Cho admin thấy ngay lượt còn lại đã có người chưa — chỗ dễ quên nhất */}
             <div className="mt-1 text-[11.5px] text-[#a3ad92]">
                 {otherLegLabel}:{' '}
-                {order.other_leg_shipper_name ?? <span style={{ color: '#9a5a1f' }}>chưa gán</span>}
+                {order.other_leg_shipper_name ?? (
+                    <span style={{ color: '#9a5a1f' }}>chưa gán</span>
+                )}
             </div>
         </div>
     );

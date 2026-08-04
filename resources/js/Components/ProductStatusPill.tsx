@@ -13,7 +13,9 @@ export default function ProductStatusPill({ status, label }: Props) {
     return (
         <span
             className={`rounded-pill px-2.5 py-1 text-[11.5px] font-bold ${
-                active ? 'bg-[#dcebc4] text-[#3a5a1f]' : 'bg-[#f6ddd6] text-[#b3493a]'
+                active
+                    ? 'bg-[#dcebc4] text-[#3a5a1f]'
+                    : 'bg-[#f6ddd6] text-[#b3493a]'
             }`}
         >
             {label ?? (active ? 'Đang bán' : 'Đã ẩn')}

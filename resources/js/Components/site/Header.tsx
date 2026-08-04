@@ -1,7 +1,7 @@
+import Logo from '@/Components/Logo';
+import { emit, EVENTS } from '@/lib/bus';
 import { Link, useForm, usePage } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
-import { emit, EVENTS } from '@/lib/bus';
-import Logo from '@/Components/Logo';
 
 const NAV = [
     { label: 'Trang chủ', href: '/' },
@@ -15,7 +15,13 @@ function isActive(current: string, href: string) {
     return current.startsWith(href);
 }
 
-export default function Header({ cartCount = 0, userName }: { cartCount?: number; userName?: string }) {
+export default function Header({
+    cartCount = 0,
+    userName,
+}: {
+    cartCount?: number;
+    userName?: string;
+}) {
     const url = usePage().url;
     const { post, processing } = useForm({});
     const [menuOpen, setMenuOpen] = useState(false);
@@ -29,7 +35,8 @@ export default function Header({ cartCount = 0, userName }: { cartCount?: number
     // Đóng menu mobile khi đổi trang / nhấn Esc.
     useEffect(() => setMenuOpen(false), [url]);
     useEffect(() => {
-        const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setMenuOpen(false);
+        const onKey = (e: KeyboardEvent) =>
+            e.key === 'Escape' && setMenuOpen(false);
         window.addEventListener('keydown', onKey);
         return () => window.removeEventListener('keydown', onKey);
     }, []);
@@ -46,15 +53,23 @@ export default function Header({ cartCount = 0, userName }: { cartCount?: number
     return (
         <header
             className="sticky top-0 z-50 border-b border-[#c2dcec]"
-            style={{ background: 'rgba(221,239,250,.78)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)' }}
+            style={{
+                background: 'rgba(221,239,250,.78)',
+                backdropFilter: 'blur(14px)',
+                WebkitBackdropFilter: 'blur(14px)',
+            }}
         >
             <div className="mx-auto flex h-16 max-w-[1400px] items-center gap-4 px-4 sm:px-5">
                 {/* Logo — chữ ẩn trên mobile, chỉ còn icon */}
                 <Link href="/" className="flex shrink-0 items-center gap-2.5">
                     <Logo size={38} />
                     <span className="leading-tight">
-                        <span className="block text-[15px] font-extrabold tracking-tight text-pine sm:text-[17px]">BỐP CAMPING</span>
-                        <span className="hidden font-mono text-[10px] tracking-[0.14em] text-moss sm:block">THUÊ ĐỒ DÃ NGOẠI</span>
+                        <span className="block text-[15px] font-extrabold tracking-tight text-pine sm:text-[17px]">
+                            BỐP CAMPING
+                        </span>
+                        <span className="hidden font-mono text-[10px] tracking-[0.14em] text-moss sm:block">
+                            THUÊ ĐỒ DÃ NGOẠI
+                        </span>
                     </span>
                 </Link>
 
@@ -67,7 +82,9 @@ export default function Header({ cartCount = 0, userName }: { cartCount?: number
                                 key={n.href}
                                 href={n.href}
                                 className={`shrink-0 rounded-[10px] px-3.5 py-2 text-sm font-semibold transition ${
-                                    active ? 'bg-grass text-white' : 'text-[#3f4a32] hover:bg-black/5'
+                                    active
+                                        ? 'bg-grass text-white'
+                                        : 'text-[#3f4a32] hover:bg-black/5'
                                 }`}
                             >
                                 {n.label}
@@ -86,9 +103,29 @@ export default function Header({ cartCount = 0, userName }: { cartCount?: number
                         className="grid h-10 w-10 place-items-center rounded-control border border-cardBorder bg-card text-pine transition hover:border-grass md:hidden"
                     >
                         {menuOpen ? (
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="m6 6 12 12M18 6 6 18" /></svg>
+                            <svg
+                                width="20"
+                                height="20"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                            >
+                                <path d="m6 6 12 12M18 6 6 18" />
+                            </svg>
                         ) : (
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M4 7h16M4 12h16M4 17h16" /></svg>
+                            <svg
+                                width="20"
+                                height="20"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                            >
+                                <path d="M4 7h16M4 12h16M4 17h16" />
+                            </svg>
                         )}
                     </button>
 
@@ -96,8 +133,12 @@ export default function Header({ cartCount = 0, userName }: { cartCount?: number
                     <button
                         onClick={handleUserClick}
                         disabled={processing}
-                        title={userName ? `Đăng xuất (${userName})` : 'Đăng nhập'}
-                        aria-label={userName ? `Đăng xuất (${userName})` : 'Đăng nhập'}
+                        title={
+                            userName ? `Đăng xuất (${userName})` : 'Đăng nhập'
+                        }
+                        aria-label={
+                            userName ? `Đăng xuất (${userName})` : 'Đăng nhập'
+                        }
                         className="flex h-10 w-10 items-center justify-center gap-2 rounded-control border border-cardBorder bg-card text-sm font-semibold text-pine transition hover:border-grass disabled:opacity-60 md:w-auto md:px-3"
                     >
                         {userName ? (
@@ -105,14 +146,29 @@ export default function Header({ cartCount = 0, userName }: { cartCount?: number
                                 {userName.trim().charAt(0).toUpperCase()}
                             </span>
                         ) : (
-                            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                            <svg
+                                width="19"
+                                height="19"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="1.8"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                            >
                                 <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" />
                                 <path d="m10 17 5-5-5-5" />
                                 <path d="M15 12H3" />
                             </svg>
                         )}
-                        <span className="hidden max-w-[120px] truncate md:inline">{userName ? userName : 'Đăng nhập'}</span>
-                        {userName && <span className="hidden text-[11px] text-moss md:inline">↩</span>}
+                        <span className="hidden max-w-[120px] truncate md:inline">
+                            {userName ? userName : 'Đăng nhập'}
+                        </span>
+                        {userName && (
+                            <span className="hidden text-[11px] text-moss md:inline">
+                                ↩
+                            </span>
+                        )}
                     </button>
 
                     {/* Giỏ thuê */}
@@ -122,7 +178,16 @@ export default function Header({ cartCount = 0, userName }: { cartCount?: number
                         aria-label={`Giỏ thuê (${cartCount})`}
                         className="relative flex h-10 w-10 items-center justify-center gap-2 rounded-control bg-grass text-sm font-bold text-white transition hover:bg-pine md:w-auto md:px-3.5"
                     >
-                        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                        <svg
+                            width="19"
+                            height="19"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="1.8"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                        >
                             <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
                             <path d="M3 6h18" />
                             <path d="M16 10a4 4 0 0 1-8 0" />
@@ -138,8 +203,19 @@ export default function Header({ cartCount = 0, userName }: { cartCount?: number
             {/* Dropdown nav (mobile) */}
             {menuOpen && (
                 <>
-                    <button aria-label="Đóng menu" onClick={() => setMenuOpen(false)} className="fixed inset-0 top-16 z-40 cursor-default md:hidden" style={{ background: 'rgba(24,35,15,.25)' }} />
-                    <nav className="absolute inset-x-0 top-16 z-50 flex flex-col gap-1 border-b border-[#c2dcec] px-4 py-2.5 md:hidden" style={{ background: 'rgba(228,243,251,.97)', backdropFilter: 'blur(14px)' }}>
+                    <button
+                        aria-label="Đóng menu"
+                        onClick={() => setMenuOpen(false)}
+                        className="fixed inset-0 top-16 z-40 cursor-default md:hidden"
+                        style={{ background: 'rgba(24,35,15,.25)' }}
+                    />
+                    <nav
+                        className="absolute inset-x-0 top-16 z-50 flex flex-col gap-1 border-b border-[#c2dcec] px-4 py-2.5 md:hidden"
+                        style={{
+                            background: 'rgba(228,243,251,.97)',
+                            backdropFilter: 'blur(14px)',
+                        }}
+                    >
                         {nav.map((n) => {
                             const active = isActive(url, n.href);
                             return (
@@ -148,7 +224,9 @@ export default function Header({ cartCount = 0, userName }: { cartCount?: number
                                     href={n.href}
                                     onClick={() => setMenuOpen(false)}
                                     className={`rounded-[11px] px-4 py-3 text-[15px] font-semibold transition ${
-                                        active ? 'bg-grass text-white' : 'text-[#3f4a32] hover:bg-black/5'
+                                        active
+                                            ? 'bg-grass text-white'
+                                            : 'text-[#3f4a32] hover:bg-black/5'
                                     }`}
                                 >
                                     {n.label}

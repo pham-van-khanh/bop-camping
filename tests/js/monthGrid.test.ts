@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
 import { buildMonthGrid, WEEKDAY_LABELS } from '@/lib/monthGrid';
+import { describe, expect, it } from 'vitest';
 
 /**
  * Lưới lịch tháng của trang Lịch giao (feedback 2026-07-28). Kiểm thuần logic ngày —
@@ -32,8 +32,12 @@ describe('buildMonthGrid', () => {
     });
 
     it('xử lý tháng 2 năm nhuận và tháng bắt đầu đúng Thứ 2', () => {
-        expect(buildMonthGrid('2028-02').flat().filter(Boolean)).toHaveLength(29);
-        expect(buildMonthGrid('2027-02').flat().filter(Boolean)).toHaveLength(28);
+        expect(buildMonthGrid('2028-02').flat().filter(Boolean)).toHaveLength(
+            29,
+        );
+        expect(buildMonthGrid('2027-02').flat().filter(Boolean)).toHaveLength(
+            28,
+        );
 
         // 01/06/2026 là Thứ 2 → không có ô trống đầu tháng
         expect(buildMonthGrid('2026-06')[0][0]).toBe('2026-06-01');

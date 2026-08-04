@@ -14,7 +14,9 @@ const patch = vi.hoisted(() => vi.fn());
 
 vi.mock('@inertiajs/react', () => ({
     Head: () => null,
-    usePage: () => ({ props: { errors: state.errors, auth: { user: { name: 'Shipper A' } } } }),
+    usePage: () => ({
+        props: { errors: state.errors, auth: { user: { name: 'Shipper A' } } },
+    }),
     router: { patch, get: vi.fn(), post: vi.fn() },
 }));
 
@@ -23,10 +25,13 @@ vi.mock('@/Layouts/ShipperLayout', () => ({
 }));
 
 // Ziggy thật nối param theo thứ tự trong URI; stub bắt chước đủ để assert payload/route.
-vi.stubGlobal('route', (name: string, params?: number | Record<string, unknown>) =>
-    typeof params === 'object' && params !== null
-        ? `/${name}/${Object.values(params).join('/')}`
-        : `/${name}/${params ?? ''}`);
+vi.stubGlobal(
+    'route',
+    (name: string, params?: number | Record<string, unknown>) =>
+        typeof params === 'object' && params !== null
+            ? `/${name}/${Object.values(params).join('/')}`
+            : `/${name}/${params ?? ''}`,
+);
 
 const ORDER = {
     id: 7,
@@ -50,7 +55,13 @@ const ORDER = {
     deposit_paid: false,
     deposit_refund_status: 'pending',
     schedule_note: 'Gọi trước 15 phút',
-    actions: [] as { key: string; label: string; done: boolean; at: string | null; by: string | null }[],
+    actions: [] as {
+        key: string;
+        label: string;
+        done: boolean;
+        at: string | null;
+        by: string | null;
+    }[],
     items: [{ name: 'Lều 2 người', quantity: 1 }],
 };
 
@@ -102,7 +113,9 @@ describe('Lịch giao của shipper', () => {
         expect(screen.getByText('Tiền thuê')).toBeInTheDocument();
         expect(screen.getByText('Tiền cọc')).toBeInTheDocument();
         expect(screen.getByText(/Gọi trước 15 phút/)).toBeInTheDocument();
-        expect(screen.getByRole('link', { name: /0912345678/ })).toHaveAttribute('href', 'tel:0912345678');
+        expect(
+            screen.getByRole('link', { name: /0912345678/ }),
+        ).toHaveAttribute('href', 'tel:0912345678');
     });
 
     it('thu tiền thuê: hỏi lại 1 bước rồi gọi đúng route kèm kind', async () => {
@@ -126,20 +139,36 @@ describe('Lịch giao của shipper', () => {
         render(
             <ShipperSchedule
                 {...PROPS}
-                pickups={[{
-                    ...ORDER,
-                    rental_paid: true,
-                    deposit_paid: true,
-                    actions: [
-                        { key: 'rental_paid', label: 'Đã nhận tiền thuê', done: true, at: '30/07 10:00', by: 'Khánh' },
-                        { key: 'deposit_paid', label: 'Đã nhận tiền cọc', done: true, at: '30/07 14:00', by: 'An' },
-                    ],
-                }]}
+                pickups={[
+                    {
+                        ...ORDER,
+                        rental_paid: true,
+                        deposit_paid: true,
+                        actions: [
+                            {
+                                key: 'rental_paid',
+                                label: 'Đã nhận tiền thuê',
+                                done: true,
+                                at: '30/07 10:00',
+                                by: 'Khánh',
+                            },
+                            {
+                                key: 'deposit_paid',
+                                label: 'Đã nhận tiền cọc',
+                                done: true,
+                                at: '30/07 14:00',
+                                by: 'An',
+                            },
+                        ],
+                    },
+                ]}
             />,
         );
         await openDetail(user);
 
-        expect(screen.queryByRole('button', { name: /Thu tiền/ })).not.toBeInTheDocument();
+        expect(
+            screen.queryByRole('button', { name: /Thu tiền/ }),
+        ).not.toBeInTheDocument();
         expect(screen.getAllByText('✓ Đã thu')).toHaveLength(2);
         // Shipper thấy rõ khoản nào admin đã nhận, khoản nào mình nhận.
         expect(screen.getByText(/Khánh · 30\/07 10:00/)).toBeInTheDocument();
@@ -152,11 +181,21 @@ describe('Lịch giao của shipper', () => {
         render(
             <ShipperSchedule
                 {...PROPS}
-                pickups={[{
-                    ...ORDER,
-                    rental_paid: true,
-                    actions: [{ key: 'rental_paid', label: 'Đã nhận tiền thuê', done: true, at: null, by: null }],
-                }]}
+                pickups={[
+                    {
+                        ...ORDER,
+                        rental_paid: true,
+                        actions: [
+                            {
+                                key: 'rental_paid',
+                                label: 'Đã nhận tiền thuê',
+                                done: true,
+                                at: null,
+                                by: null,
+                            },
+                        ],
+                    },
+                ]}
             />,
         );
         await openDetail(user);
@@ -167,10 +206,16 @@ describe('Lịch giao của shipper', () => {
     it('lượt THU có nút hoàn cọc; đã hoàn rồi thì hiện dấu đã hoàn', async () => {
         const user = userEvent.setup();
         render(
-            <ShipperSchedule {...PROPS} pickups={[]} returns={[{ ...ORDER, status: 'renting' }]} />,
+            <ShipperSchedule
+                {...PROPS}
+                pickups={[]}
+                returns={[{ ...ORDER, status: 'renting' }]}
+            />,
         );
         await openDetail(user);
-        expect(screen.getByRole('button', { name: 'Đã hoàn cọc' })).toBeInTheDocument();
+        expect(
+            screen.getByRole('button', { name: 'Đã hoàn cọc' }),
+        ).toBeInTheDocument();
     });
 
     it('phải xác nhận thêm một bước mới gửi "đã giao"', async () => {
@@ -179,10 +224,16 @@ describe('Lịch giao của shipper', () => {
         await openDetail(user);
 
         await user.click(screen.getByRole('button', { name: 'Đã giao xong' }));
-        expect(patch).not.toHaveBeenCalled();   // bấm lần đầu chỉ hỏi lại
+        expect(patch).not.toHaveBeenCalled(); // bấm lần đầu chỉ hỏi lại
 
-        await user.click(screen.getByRole('button', { name: /Xác nhận đã giao/ }));
-        expect(patch).toHaveBeenCalledWith('/shipper.orders.delivered/7', {}, expect.objectContaining({ preserveScroll: true }));
+        await user.click(
+            screen.getByRole('button', { name: /Xác nhận đã giao/ }),
+        );
+        expect(patch).toHaveBeenCalledWith(
+            '/shipper.orders.delivered/7',
+            {},
+            expect.objectContaining({ preserveScroll: true }),
+        );
     });
 
     it('bấm "Chưa" thì huỷ, không gửi gì', async () => {
@@ -194,18 +245,27 @@ describe('Lịch giao của shipper', () => {
         await user.click(screen.getByRole('button', { name: 'Chưa' }));
 
         expect(patch).not.toHaveBeenCalled();
-        expect(screen.getByRole('button', { name: 'Đã giao xong' })).toBeInTheDocument();
+        expect(
+            screen.getByRole('button', { name: 'Đã giao xong' }),
+        ).toBeInTheDocument();
     });
 
     it('đơn chờ xác nhận: không có nút thu tiền, chỉ ghi chưa thu', async () => {
         // Server đã chặn, nhưng UI cũng không được mời bấm (review 31/07).
         const user = userEvent.setup();
-        render(<ShipperSchedule {...PROPS} pickups={[{ ...ORDER, status: 'pending' }]} />);
+        render(
+            <ShipperSchedule
+                {...PROPS}
+                pickups={[{ ...ORDER, status: 'pending' }]}
+            />,
+        );
 
         expect(screen.queryByText('Cần thu tiền')).not.toBeInTheDocument();
         await openDetail(user);
 
-        expect(screen.queryByRole('button', { name: /Thu tiền/ })).not.toBeInTheDocument();
+        expect(
+            screen.queryByRole('button', { name: /Thu tiền/ }),
+        ).not.toBeInTheDocument();
         expect(screen.getAllByText('chưa thu')).toHaveLength(2);
         expect(screen.getByText(/chưa thu tiền/)).toBeInTheDocument();
     });
@@ -215,21 +275,35 @@ describe('Lịch giao của shipper', () => {
         render(<ShipperSchedule {...PROPS} />);
         await openDetail(user);
 
-        expect(screen.getByRole('button', { name: /Thu tiền thuê/ })).toBeInTheDocument();
+        expect(
+            screen.getByRole('button', { name: /Thu tiền thuê/ }),
+        ).toBeInTheDocument();
     });
 
     it('đơn chờ xác nhận thì không có nút đánh dấu', async () => {
         const user = userEvent.setup();
-        render(<ShipperSchedule {...PROPS} pickups={[{ ...ORDER, status: 'pending' }]} />);
+        render(
+            <ShipperSchedule
+                {...PROPS}
+                pickups={[{ ...ORDER, status: 'pending' }]}
+            />,
+        );
         await openDetail(user);
 
-        expect(screen.queryByRole('button', { name: 'Đã giao xong' })).not.toBeInTheDocument();
+        expect(
+            screen.queryByRole('button', { name: 'Đã giao xong' }),
+        ).not.toBeInTheDocument();
         expect(screen.getByText('Chờ shop xác nhận đơn')).toBeInTheDocument();
     });
 
     it('đơn đã giao rồi thì hiện dấu đã xong', async () => {
         const user = userEvent.setup();
-        render(<ShipperSchedule {...PROPS} pickups={[{ ...ORDER, status: 'renting' }]} />);
+        render(
+            <ShipperSchedule
+                {...PROPS}
+                pickups={[{ ...ORDER, status: 'renting' }]}
+            />,
+        );
         await openDetail(user);
 
         expect(screen.getByText('✓ Đã giao')).toBeInTheDocument();
@@ -247,9 +321,15 @@ describe('Lịch giao của shipper', () => {
         await openDetail(user);
 
         await user.click(screen.getByRole('button', { name: 'Đã thu đồ' }));
-        await user.click(screen.getByRole('button', { name: /Xác nhận đã thu đồ/ }));
+        await user.click(
+            screen.getByRole('button', { name: /Xác nhận đã thu đồ/ }),
+        );
 
-        expect(patch).toHaveBeenCalledWith('/shipper.orders.collected/7', {}, expect.objectContaining({ preserveScroll: true }));
+        expect(patch).toHaveBeenCalledWith(
+            '/shipper.orders.collected/7',
+            {},
+            expect.objectContaining({ preserveScroll: true }),
+        );
     });
 
     it('hiện cả mốc giao và mốc thu trong chi tiết', async () => {
@@ -258,8 +338,12 @@ describe('Lịch giao của shipper', () => {
         await openDetail(user);
 
         // Tiêu đề trang cũng chứa ngày → khoanh vùng trong 2 dòng mốc Giao/Thu.
-        expect(screen.getByText('Giao').parentElement).toHaveTextContent('01/08/2030 · 14:30');
-        expect(screen.getByText('Thu').parentElement).toHaveTextContent('03/08/2030 · 12:00');
+        expect(screen.getByText('Giao').parentElement).toHaveTextContent(
+            '01/08/2030 · 14:30',
+        );
+        expect(screen.getByText('Thu').parentElement).toHaveTextContent(
+            '03/08/2030 · 12:00',
+        );
     });
 
     it('KHÔNG in giờ ở đầu card — giờ chỉ nằm trong chi tiết (feedback 31/07)', () => {
@@ -275,7 +359,13 @@ describe('Lịch giao của shipper', () => {
         render(
             <ShipperSchedule
                 {...PROPS}
-                pickups={[{ ...ORDER, pickup_time: '08:00', pickup_time_is_default: true }]}
+                pickups={[
+                    {
+                        ...ORDER,
+                        pickup_time: '08:00',
+                        pickup_time_is_default: true,
+                    },
+                ]}
             />,
         );
         await openDetail(user);
@@ -297,7 +387,13 @@ describe('Lịch giao của shipper', () => {
 
     it('lượt THU thì giờ thu mới được tô đỏ', async () => {
         const user = userEvent.setup();
-        render(<ShipperSchedule {...PROPS} pickups={[]} returns={[{ ...ORDER, status: 'renting' }]} />);
+        render(
+            <ShipperSchedule
+                {...PROPS}
+                pickups={[]}
+                returns={[{ ...ORDER, status: 'renting' }]}
+            />,
+        );
         await openDetail(user);
 
         expect(screen.getByText('12:00')).toHaveStyle({ color: '#b3493a' });
@@ -309,12 +405,21 @@ describe('Lịch giao của shipper', () => {
         render(
             <ShipperSchedule
                 {...PROPS}
-                pickups={[{ ...ORDER, time: null, pickup_time: null, pickup_time_is_default: false }]}
+                pickups={[
+                    {
+                        ...ORDER,
+                        time: null,
+                        pickup_time: null,
+                        pickup_time_is_default: false,
+                    },
+                ]}
             />,
         );
         await openDetail(user);
 
-        expect(screen.getByText('Giao').parentElement).toHaveTextContent('01/08/2030 · chưa chốt giờ');
+        expect(screen.getByText('Giao').parentElement).toHaveTextContent(
+            '01/08/2030 · chưa chốt giờ',
+        );
     });
 
     it('hiện lỗi trạng thái trả về từ server', async () => {
@@ -323,6 +428,8 @@ describe('Lịch giao của shipper', () => {
         render(<ShipperSchedule {...PROPS} />);
         await openDetail(user);
 
-        expect(screen.getByText('Đơn chưa được xác nhận hoặc đã giao rồi.')).toBeInTheDocument();
+        expect(
+            screen.getByText('Đơn chưa được xác nhận hoặc đã giao rồi.'),
+        ).toBeInTheDocument();
     });
 });

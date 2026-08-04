@@ -2,7 +2,8 @@
 // (mở modal đăng nhập, bắn toast, báo giỏ thay đổi) mà không cần global state.
 
 type Detail = unknown;
-const target: EventTarget | null = typeof window !== 'undefined' ? new EventTarget() : null;
+const target: EventTarget | null =
+    typeof window !== 'undefined' ? new EventTarget() : null;
 
 export function emit(name: string, detail?: Detail) {
     target?.dispatchEvent(new CustomEvent(name, { detail }));
