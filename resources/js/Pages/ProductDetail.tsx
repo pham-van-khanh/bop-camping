@@ -14,6 +14,14 @@ import { queryDateRange } from '@/lib/queryDateRange';
 import { isHalfDaySession, type Session } from '@/lib/session';
 import { emit, EVENTS } from '@/lib/bus';
 import { gradFor } from '@/lib/grad';
+import { pickObjectFit, type ObjectFit } from '@/lib/imageFit';
+
+/**
+ * Khung ảnh chính: full width trên mobile, cột ~668px từ breakpoint lg (grid
+ * lg:grid-cols-[minmax(0,1fr)_440px] trong max-w-[1400px], trừ padding + dải thumb).
+ * Nói đúng cỡ thì browser mới chọn được bậc srcset hợp lý thay vì tải bậc to nhất.
+ */
+const MAIN_IMAGE_SIZES = '(min-width: 1024px) 668px, 100vw';
 import type { PageProps } from '@/types';
 import type { ProductResource } from '@/types/product';
 
@@ -185,9 +193,17 @@ export default function ProductDetail({ product, unavailable_dates, unavailable_
 
     const baseGrad = gradFor(product.category.slug);
     // Build gallery: real images first, then fallback gradient variants
-    const gallery: ({ type: 'img'; src: string } | { type: 'video'; src: string } | { type: 'grad'; bg: string })[] = useMemo(() => {
+    const gallery: (
+        | { type: 'img'; src: string; srcset?: string | null }
+        | { type: 'video'; src: string }
+        | { type: 'grad'; bg: string }
+    )[] = useMemo(() => {
         if (product.images.length > 0) {
-            return product.images.map((img) => (img.type === 'video' ? { type: 'video' as const, src: img.url } : { type: 'img' as const, src: img.url }));
+            return product.images.map((img) =>
+                img.type === 'video'
+                    ? { type: 'video' as const, src: img.url }
+                    : { type: 'img' as const, src: img.url, srcset: img.srcset },
+            );
         }
         return [150, 35, 205, 330].map((a) => ({
             type: 'grad' as const,
@@ -332,6 +348,25 @@ export default function ProductDetail({ product, unavailable_dates, unavailable_
     // 1.8: chuyển ảnh chính bằng nút ‹ › (vòng tròn), sync với thumbnail active.
     const goImg = (dir: number) => setActiveImg((i) => (i + dir + gallery.length) % gallery.length);
 
+    // bopcamping-slnb: ảnh gốc nhỏ (578-790px) bị `object-cover` phóng thêm để lấp
+    // kín khung 668x680 → mờ trên màn Retina. Đo kích thước thật lúc ảnh load rồi
+    // chọn cover/contain sao cho phóng ít nhất (xem lib/imageFit.ts).
+    const mainImgRef = useRef<HTMLImageElement>(null);
+    const [mainFit, setMainFit] = useState<ObjectFit>('cover');
+    const measureMainFit = () => {
+        const el = mainImgRef.current;
+        if (!el) return;
+        const natural = { width: el.naturalWidth, height: el.naturalHeight };
+        const box = { width: el.clientWidth, height: el.clientHeight };
+        setMainFit(pickObjectFit(natural, box, window.devicePixelRatio || 1));
+    };
+    // Khung ảnh đổi cao/rộng theo breakpoint → đo lại khi resize.
+    useEffect(() => {
+        window.addEventListener('resize', measureMainFit);
+        return () => window.removeEventListener('resize', measureMainFit);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
     // Feedback #1: dải thumbnails cuộn được (dọc trên desktop, ngang trên mobile);
     // đổi ảnh active (click, nút ‹ ›, phím) thì tự trượt đưa thumbnail đó vào GIỮA
     // — các ảnh kế tiếp tự lộ ra, khách không phải cuộn tay.
@@ -371,7 +406,14 @@ export default function ProductDetail({ product, unavailable_dates, unavailable_
             className={`relative ${sizeClass} overflow-hidden rounded-[11px] transition`}
         >
             {g.type === 'img' ? (
-                <img src={g.src} alt="" className="h-full w-full object-cover" />
+                <img
+                    src={g.src}
+                    srcSet={g.srcset ?? undefined}
+                    /* Ô thumbnail chỉ 76x64 CSS → @2x cần ~152px, browser chọn bậc 400. */
+                    sizes="76px"
+                    alt=""
+                    className="h-full w-full object-cover"
+                />
             ) : g.type === 'video' ? (
                 <>
                     <video src={g.src} className="h-full w-full object-cover" muted />
@@ -417,10 +459,15 @@ export default function ProductDetail({ product, unavailable_dates, unavailable_
                             >
                                 {activeSlide.type === 'img' && (
                                     <img
+                                        ref={mainImgRef}
+                                        key={activeSlide.src}
                                         src={activeSlide.src}
                                         alt={product.name}
+                                        srcSet={activeSlide.srcset ?? undefined}
+                                        sizes={MAIN_IMAGE_SIZES}
+                                        onLoad={measureMainFit}
                                         onClick={() => setLightboxOpen(true)}
-                                        className="absolute inset-0 h-full w-full cursor-zoom-in object-cover"
+                                        className={`absolute inset-0 h-full w-full cursor-zoom-in ${mainFit === 'contain' ? 'object-contain' : 'object-cover'}`}
                                     />
                                 )}
                                 {activeSlide.type === 'video' && (
@@ -944,6 +991,9 @@ export default function ProductDetail({ product, unavailable_dates, unavailable_
                     )}
                     {activeSlide.type === 'img' ? (
                         <img
+                            srcSet={activeSlide.srcset ?? undefined}
+                            /* Lightbox chiếm gần hết màn → cần bậc lớn nhất. */
+                            sizes="100vw"
                             src={activeSlide.src}
                             alt={product.name}
                             onClick={(e) => e.stopPropagation()}

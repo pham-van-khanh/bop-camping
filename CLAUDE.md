@@ -60,6 +60,11 @@ npm run dev               # Vite dev server (frontend assets)
 php artisan queue:work    # BẮT BUỘC để gửi mail (OTP, xác nhận đơn...) — mail là ShouldQueue,
                           # chạy nền qua queue. KHÔNG có worker = mail nằm chờ, KHÔNG gửi.
 
+# Ảnh: sinh biến thể WebP đã resize (400/800/1600px) cho ảnh cũ — idempotent.
+# Ảnh MỚI upload tự sinh qua queue, nên cần queue worker chạy.
+php artisan media:variants            # backfill
+php artisan media:variants --dry-run  # chỉ đếm
+
 # Database (SQLite khi dev)
 php artisan migrate           # chạy migration
 php artisan migrate:fresh --seed   # reset DB + seed lại dữ liệu mẫu
