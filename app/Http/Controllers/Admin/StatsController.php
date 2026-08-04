@@ -19,6 +19,12 @@ class StatsController extends Controller
 {
     private const PERIODS = ['today', 'week', 'month', 'all'];
 
+    /** Số ngày tối đa hiện trong bảng doanh thu theo ngày (kỳ "all" có thể rất dài). */
+    private const MAX_REVENUE_DAYS = 60;
+
+    /** Thứ trong tuần theo Carbon::dayOfWeek (0 = Chủ nhật). */
+    private const WEEKDAYS = ['Chủ nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy'];
+
     public function index(Request $request): Response
     {
         $period = in_array($request->query('period'), self::PERIODS, true) ? $request->query('period') : 'month';
@@ -81,10 +87,14 @@ class StatsController extends Controller
                 'note' => $e->note,
             ])->values();
 
+        [$revenueByDay, $hasMoreDays] = $this->revenueByDay($from);
+
         return Inertia::render('Admin/Stats', [
             'period' => $period,
             'order_counts' => $orderCounts,
             'chart' => $this->ordersPerDay(30),
+            'revenue_by_day' => $revenueByDay,
+            'has_more_days' => $hasMoreDays,
             'finance' => [
                 'revenue' => $revenue,
                 'expense' => $expenseTotal,
@@ -98,6 +108,45 @@ class StatsController extends Controller
                 'label' => Expense::CATEGORY_LABELS[$c],
             ])->values(),
         ]);
+    }
+
+    /**
+     * Doanh thu từng ngày + chi tiết đơn của ngày đó.
+     *
+     * Dùng ĐÚNG bộ lọc của $revenue ở index() (đơn con, status=returned, mốc updated_at)
+     * để tổng bảng khớp ô "Tổng thu" — hai con số lệch nhau trên cùng màn hình là bug UX.
+     * Gom ở PHP như ordersPerDay() vì DATE() khác cú pháp giữa sqlite và MySQL.
+     *
+     * @return array{0: array<int, array{date: string, label: string, weekday: string, total: int, count: int, orders: array<int, array{id: int, code: string, amount: int}>}>, 1: bool}
+     */
+    private function revenueByDay(?Carbon $from): array
+    {
+        // updated_at DESC ⇒ các nhóm ngày sinh ra cũng đã theo thứ tự mới → cũ.
+        $grouped = Order::where('is_parent', false)->where('status', 'returned')
+            ->when($from, fn ($q) => $q->where('updated_at', '>=', $from))
+            ->orderByDesc('updated_at')->orderByDesc('id')
+            ->get(['id', 'code', 'updated_at', 'total_price', 'discount_total'])
+            ->groupBy(fn (Order $o) => $o->updated_at->toDateString());
+
+        $days = $grouped->take(self::MAX_REVENUE_DAYS)
+            ->map(function ($orders, string $date) {
+                $d = Carbon::parse($date);
+
+                return [
+                    'date' => $date,
+                    'label' => $d->format('d/m/Y'),
+                    'weekday' => self::WEEKDAYS[$d->dayOfWeek],
+                    'total' => (int) $orders->sum(fn (Order $o) => $o->total_price - $o->discount_total),
+                    'count' => $orders->count(),
+                    'orders' => $orders->map(fn (Order $o) => [
+                        'id' => $o->id,
+                        'code' => $o->code,
+                        'amount' => (int) ($o->total_price - $o->discount_total),
+                    ])->values()->all(),
+                ];
+            })->values()->all();
+
+        return [$days, $grouped->count() > self::MAX_REVENUE_DAYS];
     }
 
     /**

@@ -1,4 +1,4 @@
-import { Head, router, useForm, usePage } from '@inertiajs/react';
+import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import { ReactNode, useMemo, useState } from 'react';
 import AdminLayout from '@/Layouts/AdminLayout';
 import { money } from '@/lib/format';
@@ -8,6 +8,15 @@ type ChartPoint = { date: string; label: string; count: number };
 type CategoryStat = { category: string; label: string; total: number; count: number };
 type ExpenseRow = { id: number; spent_on: string; spent_on_label: string; amount: number; category: string; category_label: string; note: string | null };
 type CategoryOption = { value: string; label: string };
+type RevenueOrder = { id: number; code: string; amount: number };
+type RevenueDay = {
+    date: string;
+    label: string;
+    weekday: string;
+    total: number;
+    count: number;
+    orders: RevenueOrder[];
+};
 
 type Props = PageProps<{
     period: 'today' | 'week' | 'month' | 'all';
@@ -17,6 +26,8 @@ type Props = PageProps<{
     by_category: CategoryStat[];
     expenses: ExpenseRow[];
     categories: CategoryOption[];
+    revenue_by_day: RevenueDay[];
+    has_more_days: boolean;
 }>;
 
 const PERIODS: { key: Props['period']; label: string }[] = [
@@ -32,7 +43,17 @@ const todayISO = () => {
 };
 
 export default function AdminStats() {
-    const { period, order_counts, chart, finance, by_category, expenses, categories } = usePage<Props>().props;
+    const {
+        period,
+        order_counts,
+        chart,
+        finance,
+        by_category,
+        expenses,
+        categories,
+        revenue_by_day,
+        has_more_days,
+    } = usePage<Props>().props;
 
     const setPeriod = (p: Props['period']) =>
         router.get(route('admin.stats'), { period: p }, { preserveState: true, replace: true, preserveScroll: true });
@@ -86,6 +107,9 @@ export default function AdminStats() {
                     {/* Quản lý chi phí */}
                     <ExpenseManager expenses={expenses} categories={categories} />
                 </div>
+
+                {/* Doanh thu theo ngày */}
+                <RevenueByDay days={revenue_by_day} hasMore={has_more_days} />
             </div>
         </>
     );
@@ -188,6 +212,101 @@ function ExpenseByCategory({ rows, total }: { rows: CategoryStat[]; total: numbe
                         </li>
                     ))}
                 </ul>
+            )}
+        </div>
+    );
+}
+
+/**
+ * Doanh thu theo ngày — mỗi ngày một khối: cột trái là ngày + tổng, cột phải liệt kê
+ * từng đơn (mã + tiền). Chỉ đơn đã trả, gom theo ngày trả nên tổng khớp ô "Tổng thu".
+ */
+function RevenueByDay({
+    days,
+    hasMore,
+}: {
+    days: RevenueDay[];
+    hasMore: boolean;
+}) {
+    const totalOrders = days.reduce((s, d) => s + d.count, 0);
+
+    return (
+        <div className="mt-5 rounded-[16px] border border-cardBorder bg-white p-5">
+            <div className="mb-1 flex items-baseline justify-between gap-3">
+                <h2 className="text-[15px] font-bold text-ink">
+                    Doanh thu theo ngày
+                </h2>
+                <span className="text-[12px] text-moss">
+                    {days.length} ngày ·{' '}
+                    <span className="font-mono font-bold text-pine">
+                        {totalOrders}
+                    </span>{' '}
+                    đơn đã trả
+                </span>
+            </div>
+            <p className="mb-2 text-[11.5px] text-[#a3ad92]">
+                Tính theo ngày đánh dấu đã trả đơn, đã trừ giảm giá.
+            </p>
+
+            {days.length === 0 ? (
+                <p className="py-6 text-center text-[13px] text-[#a3ad92]">
+                    Chưa có đơn nào đã trả trong kỳ.
+                </p>
+            ) : (
+                <ul className="max-h-[520px] overflow-y-auto">
+                    {days.map((d) => (
+                        <li
+                            key={d.date}
+                            className="flex flex-col gap-1 border-t border-[#f1f4ea] py-3 sm:flex-row sm:gap-5"
+                        >
+                            {/* Ngày + tổng của ngày */}
+                            <div className="shrink-0 sm:w-[170px]">
+                                <div className="font-mono text-[13.5px] font-bold text-pine">
+                                    {d.label}
+                                </div>
+                                <div className="text-[11.5px] text-[#a3ad92]">
+                                    {d.weekday} · {d.count} đơn
+                                </div>
+                                <div
+                                    className="mt-0.5 font-mono text-[15px] font-extrabold"
+                                    style={{ color: '#3a5a1f' }}
+                                >
+                                    {money(d.total)}
+                                </div>
+                            </div>
+
+                            {/* Chi tiết từng đơn trong ngày */}
+                            <div className="min-w-0 flex-1">
+                                {d.orders.map((o) => (
+                                    <div
+                                        key={o.id}
+                                        className="flex items-baseline justify-between gap-3 py-[3px] text-[12.5px]"
+                                    >
+                                        <Link
+                                            href={route(
+                                                'admin.orders.show',
+                                                o.id,
+                                            )}
+                                            className="truncate font-mono font-semibold text-pine hover:text-grass hover:underline"
+                                        >
+                                            {o.code}
+                                        </Link>
+                                        <span className="shrink-0 font-mono font-semibold text-ink">
+                                            {money(o.amount)}
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
+                        </li>
+                    ))}
+                </ul>
+            )}
+
+            {hasMore && (
+                <p className="mt-3 border-t border-[#f1f4ea] pt-2.5 text-[11.5px] text-[#a3ad92]">
+                    Chỉ hiện 60 ngày gần nhất — tổng ở bảng này nhỏ hơn ô “Tổng
+                    thu”.
+                </p>
             )}
         </div>
     );
