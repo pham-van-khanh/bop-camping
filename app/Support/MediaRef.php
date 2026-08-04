@@ -6,6 +6,7 @@ use App\Models\Combo;
 use App\Models\ComboImage;
 use App\Models\Product;
 use App\Models\ProductImage;
+use App\Services\MediaVariantService;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Storage;
 
@@ -28,10 +29,13 @@ final class MediaRef
     /**
      * Xoá file vật lý CHỈ KHI không còn row nào tham chiếu.
      * Phải gọi SAU khi đã xoá row DB (để refCount phản ánh trạng thái sau xoá).
+     * Dọn luôn biến thể đã resize của file đó (bopcamping-ix4n) — nếu không thì
+     * file variants/*.webp sẽ nằm lại vĩnh viễn trên S3.
      */
     public static function deleteFileIfOrphan(?string $path): void
     {
         if ($path && self::refCount($path) === 0) {
+            MediaVariantService::make()->forget($path);
             Storage::disk('media')->delete($path);
         }
     }

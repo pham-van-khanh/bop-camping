@@ -3,11 +3,13 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\GenerateMediaVariants;
 use App\Models\Category;
 use App\Models\Combo;
 use App\Models\Product;
 use App\Models\ProductImage;
 use App\Models\ServiceLocation;
+use App\Services\MediaVariantService;
 use App\Support\MediaRef;
 use App\Support\MediaType;
 use App\Support\Slug;
@@ -183,6 +185,7 @@ class ProductController extends Controller
         $thumbnailPath = null;
         if ($request->hasFile('thumbnail')) {
             $thumbnailPath = $request->file('thumbnail')->store('admin/products', 'media');
+            GenerateMediaVariants::dispatch([$thumbnailPath]);
         }
 
         $product = Product::create([
@@ -254,9 +257,11 @@ class ProductController extends Controller
         $thumbnailPath = $product->thumbnail;
         if ($request->hasFile('thumbnail')) {
             if ($thumbnailPath) {
+                MediaVariantService::make()->forget($thumbnailPath);
                 Storage::disk('media')->delete($thumbnailPath);
             }
             $thumbnailPath = $request->file('thumbnail')->store('admin/products', 'media');
+            GenerateMediaVariants::dispatch([$thumbnailPath]);
         }
 
         $wasActive = $product->status === 'active';
@@ -357,6 +362,7 @@ class ProductController extends Controller
 
         // Xóa thumbnail
         if ($product->thumbnail) {
+            MediaVariantService::make()->forget($product->thumbnail);
             Storage::disk('media')->delete($product->thumbnail);
         }
 
@@ -377,13 +383,24 @@ class ProductController extends Controller
         ]);
 
         $maxSort = $product->images()->max('sort_order') ?? 0;
+        $newImagePaths = [];
 
         foreach ($request->file('images') as $file) {
+            $path = $file->store('admin/products', 'media');
+            $type = MediaType::detect($file);
             $product->images()->create([
-                'path' => $file->store('admin/products', 'media'),
+                'path' => $path,
                 'sort_order' => ++$maxSort,
-                'type' => MediaType::detect($file),
+                'type' => $type,
             ]);
+            // Video không resize được bằng GD — chỉ ảnh mới cần biến thể.
+            if ($type === 'image') {
+                $newImagePaths[] = $path;
+            }
+        }
+
+        if ($newImagePaths !== []) {
+            GenerateMediaVariants::dispatch($newImagePaths);
         }
 
         return back()->with('success', 'Đã tải lên ảnh.');
