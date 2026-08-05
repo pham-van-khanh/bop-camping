@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Category;
 use App\Models\Order;
 use App\Models\Product;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -76,6 +77,69 @@ class OrderCheckoutTest extends TestCase
             'quantity' => 2,
             'days' => 3,
         ]);
+    }
+
+    /**
+     * @test
+     *
+     * QUY TẮC NGHIỆP VỤ: cọc cố định theo từng lần thuê — KHÔNG nhân theo số ngày.
+     * Chỉ tiền thuê tăng theo ngày. Giữ mọi thứ khác cố định, chỉ đổi số ngày.
+     */
+    public function deposit_is_fixed_per_rental_and_never_scales_with_days(): void
+    {
+        $p = $this->product(qty: 5, price: 100000, deposit: 200000);
+
+        // Khoảng ngày KHÔNG chồng nhau để không vướng kiểm tồn kho; chỉ số ngày thay đổi.
+        $cases = [
+            ['2030-07-01', '2030-07-01', 1],
+            ['2030-08-01', '2030-08-03', 3],
+            ['2030-09-01', '2030-09-07', 7],
+        ];
+
+        foreach ($cases as [$start, $end, $days]) {
+            $this->post(route('order.store'), [
+                'name' => 'Khách A',
+                'phone' => '0912345678',
+                'items' => [['product_id' => $p->id, 'quantity' => 2, 'start' => $start, 'end' => $end]],
+            ])->assertSessionHas('order_code');
+
+            $order = Order::latest('id')->first();
+
+            // Cọc = 200000 × 2 cái, KHÔNG × số ngày — bằng nhau ở mọi độ dài thuê.
+            $this->assertSame(400000, $order->deposit_total, "cọc sai khi thuê $days ngày");
+            // Đối chứng: tiền thuê thì có nhân ngày.
+            $this->assertSame(100000 * 2 * $days, $order->total_price, "tiền thuê sai khi thuê $days ngày");
+        }
+    }
+
+    /**
+     * @test
+     *
+     * Đổi ngày thuê (admin dời lịch) làm tiền thuê đổi theo, nhưng cọc phải GIỮ NGUYÊN.
+     */
+    public function changing_rental_dates_does_not_change_deposit(): void
+    {
+        $p = $this->product(qty: 5, price: 100000, deposit: 200000);
+
+        $this->post(route('order.store'), [
+            'name' => 'Khách A',
+            'phone' => '0912345678',
+            'items' => [['product_id' => $p->id, 'quantity' => 2, 'start' => '2030-07-01', 'end' => '2030-07-02']],
+        ])->assertSessionHas('order_code');
+
+        $order = Order::firstOrFail();
+        $depositBefore = $order->deposit_total;
+        $this->assertSame(400000, $depositBefore);
+
+        $admin = User::factory()->create(['is_admin' => true]);
+        $this->actingAs($admin)->patch(route('admin.orders.dates', $order), [
+            'start_date' => '2030-07-01',
+            'end_date' => '2030-07-06', // 2 ngày → 6 ngày
+        ])->assertSessionHasNoErrors();
+
+        $order->refresh();
+        $this->assertSame($depositBefore, $order->deposit_total, 'cọc không được đổi khi dời lịch');
+        $this->assertSame(100000 * 2 * 6, $order->total_price, 'tiền thuê phải tính lại theo ngày mới');
     }
 
     /** @test */
