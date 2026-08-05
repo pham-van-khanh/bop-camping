@@ -5,7 +5,8 @@
     "scripts": {
         "build": "tsc && vite build",
         "dev": "vite",
-        "lint": "eslint resources/js tests/js --ext .js,.jsx,.ts,.tsx --ignore-path .gitignore --fix",
+        "lint": "eslint resources/js tests/js --ext .js,.jsx,.ts,.tsx --ignore-path .gitignore",
+        "lint:fix": "npm run lint -- --fix",
         "test": "vitest run",
         "test:watch": "vitest"
     },

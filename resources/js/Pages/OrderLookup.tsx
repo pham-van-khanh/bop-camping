@@ -1,8 +1,10 @@
+import OrderLookupPanel, {
+    type LookupProps,
+} from '@/Components/site/OrderLookupPanel';
+import SiteLayout from '@/Layouts/SiteLayout';
+import type { PageProps } from '@/types';
 import { Head, usePage } from '@inertiajs/react';
 import { ReactNode } from 'react';
-import SiteLayout from '@/Layouts/SiteLayout';
-import OrderLookupPanel, { type LookupProps } from '@/Components/site/OrderLookupPanel';
-import type { PageProps } from '@/types';
 
 // Trang tra cứu đứng riêng — giữ cho khách vãng lai (link "Theo dõi đơn này" sau
 // checkout, bookmark cũ). Khách đăng nhập dùng section tra cứu trong /tai-khoan.
@@ -21,7 +23,9 @@ export default function OrderLookup() {
                 >
                     Tra cứu đơn thuê
                 </h1>
-                <p className="mb-6 text-moss">Nhập mã đơn và số điện thoại đã đặt để xem trạng thái.</p>
+                <p className="mb-6 text-moss">
+                    Nhập mã đơn và số điện thoại đã đặt để xem trạng thái.
+                </p>
 
                 <OrderLookupPanel
                     key={`${query.code}|${query.phone}`}

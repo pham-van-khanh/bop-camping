@@ -1,14 +1,14 @@
-import { ReactNode, useEffect, useState } from 'react';
-import { usePage } from '@inertiajs/react';
-import Header from '@/Components/site/Header';
-import Footer from '@/Components/site/Footer';
-import Toast from '@/Components/site/Toast';
-import LoginModal from '@/Components/site/LoginModal';
 import FeedbackWidget from '@/Components/site/FeedbackWidget';
+import Footer from '@/Components/site/Footer';
+import Header from '@/Components/site/Header';
+import LoginModal from '@/Components/site/LoginModal';
+import Toast from '@/Components/site/Toast';
 import ZaloFloatButton from '@/Components/site/ZaloFloatButton';
-import { on, EVENTS } from '@/lib/bus';
+import { EVENTS, on } from '@/lib/bus';
 import { cartCount, getCart } from '@/lib/cart';
 import type { PageProps } from '@/types';
+import { usePage } from '@inertiajs/react';
+import { ReactNode, useEffect, useState } from 'react';
 
 /**
  * Khung chung mọi trang khách: Header + nội dung + Footer + Toast + Modal đăng nhập.
@@ -20,8 +20,12 @@ export default function SiteLayout({ children }: { children: ReactNode }) {
 
     useEffect(() => {
         setCount(cartCount(getCart()));
-        const offCart = on(EVENTS.cartChange, () => setCount(cartCount(getCart())));
-        return () => { offCart(); };
+        const offCart = on(EVENTS.cartChange, () =>
+            setCount(cartCount(getCart())),
+        );
+        return () => {
+            offCart();
+        };
     }, []);
 
     return (

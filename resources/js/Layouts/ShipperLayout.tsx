@@ -1,12 +1,14 @@
 // Layout khu vực shipper (bopcamping-lsch) — CỐ TÌNH tối giản: chỉ tên người đăng nhập
 // và nút đăng xuất. KHÔNG có nav admin, không link sang dashboard/thống kê/sản phẩm:
 // shipper chỉ có một việc là xem lịch của mình (adr_shipper_role_and_access mục 3).
+import Logo from '@/Components/Logo';
 import { router, usePage } from '@inertiajs/react';
 import { ReactNode } from 'react';
-import Logo from '@/Components/Logo';
 
 export default function ShipperLayout({ children }: { children: ReactNode }) {
-    const user = (usePage().props as { auth?: { user?: { name?: string } | null } }).auth?.user;
+    const user = (
+        usePage().props as { auth?: { user?: { name?: string } | null } }
+    ).auth?.user;
 
     return (
         <div className="min-h-screen" style={{ background: '#f4f6ef' }}>
@@ -15,8 +17,12 @@ export default function ShipperLayout({ children }: { children: ReactNode }) {
                     <div className="flex items-center gap-2.5">
                         <Logo size={34} />
                         <div>
-                            <div className="text-[14px] font-extrabold leading-tight text-pine">Lịch giao</div>
-                            <div className="text-[12px] leading-tight text-moss">{user?.name ?? 'Shipper'}</div>
+                            <div className="text-[14px] font-extrabold leading-tight text-pine">
+                                Lịch giao
+                            </div>
+                            <div className="text-[12px] leading-tight text-moss">
+                                {user?.name ?? 'Shipper'}
+                            </div>
                         </div>
                     </div>
                     <button

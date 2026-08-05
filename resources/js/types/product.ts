@@ -30,5 +30,10 @@ export interface ProductResource {
     specs?: { key: string; value: string }[];
     setup_content?: string | null;
     // Per-store stock: tồn theo từng cửa hàng phục vụ (trang chi tiết)
-    stock_by_location?: { id: number; name: string; slug: string; quantity: number }[];
+    stock_by_location?: {
+        id: number;
+        name: string;
+        slug: string;
+        quantity: number;
+    }[];
 }

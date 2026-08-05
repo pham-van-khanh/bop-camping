@@ -5,7 +5,10 @@
 export type DurationTier = { minDays: number; percent: number };
 
 /** % giảm của bậc áp cho số ngày (bậc có minDays lớn nhất ≤ days); 0 nếu không bậc nào. */
-export function durationTierPercent(days: number, tiers: DurationTier[]): number {
+export function durationTierPercent(
+    days: number,
+    tiers: DurationTier[],
+): number {
     if (days < 1 || !tiers?.length) return 0;
     // tiers đã sort minDays giảm dần từ server; vẫn tự sort để an toàn.
     const sorted = [...tiers].sort((a, b) => b.minDays - a.minDays);
@@ -14,7 +17,11 @@ export function durationTierPercent(days: number, tiers: DurationTier[]): number
 }
 
 /** Giá net sau bậc, khớp server: round(gross × (1 − %/100)). */
-export function netFromGross(gross: number, days: number, tiers: DurationTier[]): number {
+export function netFromGross(
+    gross: number,
+    days: number,
+    tiers: DurationTier[],
+): number {
     const percent = durationTierPercent(days, tiers);
     return Math.round(gross * (1 - percent / 100));
 }

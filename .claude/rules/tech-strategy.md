@@ -40,12 +40,29 @@ This is the **SINGLE SOURCE OF TRUTH** for technology choices on BopCamping
 | Package manager (PHP) | **Composer** | `composer install` |
 | Package manager (JS) | **npm** | `npm install` |
 | PHP formatter | **Laravel Pint** | `./vendor/bin/pint` |
-| JS/TS lint + format | **ESLint + Prettier** | `npm run lint` (do Breeze tạo) |
+| JS/TS lint (quality gate) | **ESLint + Prettier** | `npm run lint` — CHỈ kiểm, KHÔNG sửa file |
+| JS/TS auto-format | **ESLint `--fix`** | `npm run lint:fix` — tự sửa; chạy trước khi commit nếu `lint` báo lỗi format |
 | Type check | **TypeScript (`tsc`)** | `npx tsc --noEmit` |
 | Test (backend) | **PHPUnit** (Laravel mặc định) | `php artisan test` |
 | Test (component React) | **Vitest + @testing-library/react** (jsdom) | `npm test` |
 
 > Tất cả phải pass trước khi commit: `php artisan test` · `npm test` · `npx tsc --noEmit` · `npm run lint` · `./vendor/bin/pint --test` · `npm run build`.
+
+**Lint — `lint` vs `lint:fix` (đọc kỹ, đây là quality gate)**
+
+`npm run lint` **không có `--fix`**: nó chỉ báo lỗi, không đụng vào file. Đây mới là
+quality gate đúng nghĩa — lint pass nghĩa là code trong repo thật sự đúng format.
+Khi cần sửa, chạy `npm run lint:fix` rồi **xem lại diff trước khi commit**.
+
+TUYỆT ĐỐI không thêm `--fix` lại vào script `lint`. Trước 04/08/2026 script này có
+`--fix`, hậu quả: mỗi lần chạy gate tự viết lại hàng loạt file (thực đo 75–77 file),
+nên "lint pass" chỉ vì công cụ vừa sửa hộ chứ không phải vì code đúng — và mọi thay
+đổi nhỏ đều đẻ ra diff khổng lồ. Toàn bộ `resources/js` + `tests/js` đã được format
+một lần ở commit `chore(format)` riêng (bopcamping-26st) để diff về sau sạch.
+
+Quy ước biến không dùng: đặt tên bắt đầu bằng `_` (vd `_u`) để `@typescript-eslint/no-unused-vars`
+bỏ qua — dùng cho tham số phải giữ lại vì chữ ký hàm (API deprecated), không phải để
+giấu code chết. Code chết thì xoá.
 
 **Test component React** — cấu hình ở `vitest.config.ts`, test đặt trong `tests/js/`.
 Truy vấn theo vai trò/nhãn (`getByRole`), mock ranh giới ngoài (Inertia `usePage`,

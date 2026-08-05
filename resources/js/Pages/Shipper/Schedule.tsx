@@ -36,7 +36,13 @@ type ScheduleOrder = {
     deposit_refund_status: string;
     schedule_note: string | null;
     // Ai đã làm gì trên đơn (bopcamping-3wfk) — shipper thấy admin đã nhận khoản nào chưa.
-    actions: { key: string; label: string; done: boolean; at: string | null; by: string | null }[];
+    actions: {
+        key: string;
+        label: string;
+        done: boolean;
+        at: string | null;
+        by: string | null;
+    }[];
     items: ScheduleItem[];
 };
 
@@ -78,7 +84,11 @@ export default function ShipperSchedule({
     const byDate = new Map(days.map((d) => [d.date, d]));
 
     const nav = (params: Record<string, string>) =>
-        router.get(route('shipper.schedule'), { month, date, ...params }, { preserveState: true, preserveScroll: true });
+        router.get(
+            route('shipper.schedule'),
+            { month, date, ...params },
+            { preserveState: true, preserveScroll: true },
+        );
 
     return (
         <>
@@ -96,11 +106,18 @@ export default function ShipperSchedule({
                         ‹
                     </button>
                     <div className="text-center">
-                        <div className="text-[15px] font-bold text-pine">{month_label}</div>
+                        <div className="text-[15px] font-bold text-pine">
+                            {month_label}
+                        </div>
                         {date !== today && (
                             <button
                                 type="button"
-                                onClick={() => nav({ month: today.slice(0, 7), date: today })}
+                                onClick={() =>
+                                    nav({
+                                        month: today.slice(0, 7),
+                                        date: today,
+                                    })
+                                }
                                 className="text-[12px] font-semibold text-grass underline-offset-2 hover:underline"
                             >
                                 Về hôm nay
@@ -149,10 +166,22 @@ export default function ShipperSchedule({
                 </div>
             </div>
 
-            <h2 className="mb-3 text-[15px] font-bold text-pine">{date_label}</h2>
+            <h2 className="mb-3 text-[15px] font-bold text-pine">
+                {date_label}
+            </h2>
 
-            <Section title="Cần giao" kind="pickup" orders={pickups} emptyText="Không có đơn nào cần giao." />
-            <Section title="Cần thu" kind="return" orders={returns} emptyText="Không có đơn nào cần thu." />
+            <Section
+                title="Cần giao"
+                kind="pickup"
+                orders={pickups}
+                emptyText="Không có đơn nào cần giao."
+            />
+            <Section
+                title="Cần thu"
+                kind="return"
+                orders={returns}
+                emptyText="Không có đơn nào cần thu."
+            />
         </>
     );
 }
@@ -197,7 +226,10 @@ function DayCell({
                 {day}
             </div>
             {has && (
-                <div className="font-mono text-[10px] leading-tight" style={{ color: RED.fg }}>
+                <div
+                    className="font-mono text-[10px] leading-tight"
+                    style={{ color: RED.fg }}
+                >
                     {pickups > 0 && `${pickups}↓`}
                     {pickups > 0 && returns > 0 && ' '}
                     {returns > 0 && `${returns}↑`}
@@ -221,7 +253,10 @@ function Section({
     return (
         <div className="mb-7">
             <h3 className="mb-2.5 text-[14px] font-bold uppercase tracking-[0.04em] text-grass">
-                {title} <span className="font-mono text-[13px] font-normal normal-case text-moss">({orders.length})</span>
+                {title}{' '}
+                <span className="font-mono text-[13px] font-normal normal-case text-moss">
+                    ({orders.length})
+                </span>
             </h3>
             {orders.length === 0 ? (
                 <div className="rounded-[16px] border border-cardBorder bg-white py-8 text-center text-[13px] text-moss">
@@ -242,7 +277,10 @@ function Section({
 function OrderCard({ order, kind }: { order: ScheduleOrder; kind: TripKind }) {
     const [open, setOpen] = useState(false);
     // Chỉ nhắc "cần thu tiền" khi đơn đã xác nhận — đơn chờ xác nhận thì chưa thu gì cả.
-    const moneyLeft = kind === 'pickup' && order.status !== 'pending' && (!order.rental_paid || !order.deposit_paid);
+    const moneyLeft =
+        kind === 'pickup' &&
+        order.status !== 'pending' &&
+        (!order.rental_paid || !order.deposit_paid);
 
     return (
         <div className="overflow-hidden rounded-[16px] border border-cardBorder bg-white">
@@ -253,10 +291,16 @@ function OrderCard({ order, kind }: { order: ScheduleOrder; kind: TripKind }) {
                 className="flex w-full items-start justify-between gap-3 p-4 text-left"
             >
                 <div className="min-w-0">
-                    <div className="font-mono text-[12.5px] text-moss">{order.code}</div>
-                    <div className="mt-1 text-[15px] font-semibold text-ink">{order.customer_name}</div>
+                    <div className="font-mono text-[12.5px] text-moss">
+                        {order.code}
+                    </div>
+                    <div className="mt-1 text-[15px] font-semibold text-ink">
+                        {order.customer_name}
+                    </div>
                     {order.customer_address && (
-                        <div className="mt-0.5 line-clamp-2 text-[13px] text-moss">{order.customer_address}</div>
+                        <div className="mt-0.5 line-clamp-2 text-[13px] text-moss">
+                            {order.customer_address}
+                        </div>
                     )}
                     {moneyLeft && (
                         <span
@@ -267,7 +311,9 @@ function OrderCard({ order, kind }: { order: ScheduleOrder; kind: TripKind }) {
                         </span>
                     )}
                 </div>
-                <span className="mt-1 shrink-0 text-[15px] text-[#a3ad92]">{open ? '▲' : '▼'}</span>
+                <span className="mt-1 shrink-0 text-[15px] text-[#a3ad92]">
+                    {open ? '▲' : '▼'}
+                </span>
             </button>
 
             {open && <OrderDetail order={order} kind={kind} />}
@@ -275,7 +321,13 @@ function OrderCard({ order, kind }: { order: ScheduleOrder; kind: TripKind }) {
     );
 }
 
-function OrderDetail({ order, kind }: { order: ScheduleOrder; kind: TripKind }) {
+function OrderDetail({
+    order,
+    kind,
+}: {
+    order: ScheduleOrder;
+    kind: TripKind;
+}) {
     const errors = usePage().props.errors as Record<string, string>;
     // Đơn chưa xác nhận: KHÔNG mời thu tiền (server cũng chặn) — chỉ hiện số cho biết.
     const confirmed = order.status !== 'pending';
@@ -321,12 +373,19 @@ function OrderDetail({ order, kind }: { order: ScheduleOrder; kind: TripKind }) 
 
             {order.items.length > 0 && (
                 <div className="mt-2 border-t border-[#f1f4ea] pt-2">
-                    <div className="mb-1 text-[12px] font-bold uppercase tracking-[0.04em] text-grass">Sản phẩm</div>
+                    <div className="mb-1 text-[12px] font-bold uppercase tracking-[0.04em] text-grass">
+                        Sản phẩm
+                    </div>
                     <ul className="text-[14px] text-ink">
                         {order.items.map((it, i) => (
-                            <li key={i} className="flex justify-between gap-3 py-0.5">
+                            <li
+                                key={i}
+                                className="flex justify-between gap-3 py-0.5"
+                            >
                                 <span>{it.name}</span>
-                                <span className="font-mono shrink-0">× {it.quantity}</span>
+                                <span className="shrink-0 font-mono">
+                                    × {it.quantity}
+                                </span>
                             </li>
                         ))}
                     </ul>
@@ -336,26 +395,63 @@ function OrderDetail({ order, kind }: { order: ScheduleOrder; kind: TripKind }) 
             {/* Tiền: 2 khoản độc lập. Khoản nào chưa thu thì shipper thu tại chỗ (bopcamping-lvw3),
                 nhưng CHỈ khi đơn đã được shop xác nhận (review 31/07). */}
             <div className="mt-3 border-t border-[#f1f4ea] pt-2">
-                {errors.payment && <p className="mb-2 text-[12.5px] text-[#b3493a]">{errors.payment}</p>}
-                <MoneyRow order={order} kind="rental" label="Tiền thuê" amount={order.rental_due} paid={order.rental_paid} collectable={confirmed} />
-                <MoneyRow order={order} kind="deposit" label="Tiền cọc" amount={order.deposit_total} paid={order.deposit_paid} collectable={confirmed} />
+                {errors.payment && (
+                    <p className="mb-2 text-[12.5px] text-[#b3493a]">
+                        {errors.payment}
+                    </p>
+                )}
+                <MoneyRow
+                    order={order}
+                    kind="rental"
+                    label="Tiền thuê"
+                    amount={order.rental_due}
+                    paid={order.rental_paid}
+                    collectable={confirmed}
+                />
+                <MoneyRow
+                    order={order}
+                    kind="deposit"
+                    label="Tiền cọc"
+                    amount={order.deposit_total}
+                    paid={order.deposit_paid}
+                    collectable={confirmed}
+                />
                 {!confirmed ? (
-                    <p className="mt-1.5 text-[12px]" style={{ color: '#9a5a1f' }}>
-                        Đơn chưa được shop xác nhận — <strong>chưa thu tiền</strong>. Gọi chủ shop nếu khách muốn trả.
+                    <p
+                        className="mt-1.5 text-[12px]"
+                        style={{ color: '#9a5a1f' }}
+                    >
+                        Đơn chưa được shop xác nhận —{' '}
+                        <strong>chưa thu tiền</strong>. Gọi chủ shop nếu khách
+                        muốn trả.
                     </p>
                 ) : !order.rental_paid || !order.deposit_paid ? (
                     <p className="mt-1.5 text-[12px] text-[#a3ad92]">
-                        Tổng cần thu: <span className="font-mono font-bold text-ink">
-                            {money((order.rental_paid ? 0 : order.rental_due) + (order.deposit_paid ? 0 : order.deposit_total))}
+                        Tổng cần thu:{' '}
+                        <span className="font-mono font-bold text-ink">
+                            {money(
+                                (order.rental_paid ? 0 : order.rental_due) +
+                                    (order.deposit_paid
+                                        ? 0
+                                        : order.deposit_total),
+                            )}
                         </span>
                     </p>
                 ) : (
-                    <p className="mt-1.5 text-[12px]" style={{ color: GREEN.fg }}>Đã thu đủ tiền đơn này.</p>
+                    <p
+                        className="mt-1.5 text-[12px]"
+                        style={{ color: GREEN.fg }}
+                    >
+                        Đã thu đủ tiền đơn này.
+                    </p>
                 )}
             </div>
 
             {order.schedule_note && (
-                <div className="mt-3 rounded-[10px] p-2.5 text-[13px]" style={{ background: '#f8faf4', color: '#5C6E47' }}>
+                <div
+                    className="mt-3 rounded-[10px] p-2.5 text-[13px]"
+                    style={{ background: '#f8faf4', color: '#5C6E47' }}
+                >
                     <span className="font-bold text-pine">Ghi chú: </span>
                     {order.schedule_note}
                 </div>
@@ -386,17 +482,28 @@ function LegTime({
 }) {
     return (
         <div className="flex justify-between gap-3 py-0.5">
-            <span className={active ? 'font-bold text-ink' : 'text-moss'}>{label}</span>
-            <span className={`text-right font-mono ${active ? 'text-ink' : 'text-moss'}`}>
+            <span className={active ? 'font-bold text-ink' : 'text-moss'}>
+                {label}
+            </span>
+            <span
+                className={`text-right font-mono ${active ? 'text-ink' : 'text-moss'}`}
+            >
                 {date} ·{' '}
                 {time ? (
-                    <span className={active ? 'font-bold' : ''} style={active ? { color: RED.fg } : undefined}>
+                    <span
+                        className={active ? 'font-bold' : ''}
+                        style={active ? { color: RED.fg } : undefined}
+                    >
                         {time}
                     </span>
                 ) : (
                     'chưa chốt giờ'
                 )}
-                {time && isDefault && <span className="ml-1 font-sans text-[11px] text-[#a3ad92]">mặc định</span>}
+                {time && isDefault && (
+                    <span className="ml-1 font-sans text-[11px] text-[#a3ad92]">
+                        mặc định
+                    </span>
+                )}
             </span>
         </div>
     );
@@ -419,7 +526,8 @@ function MoneyRow({
     /** false khi đơn chưa được shop xác nhận — không hiện nút thu (server cũng chặn). */
     collectable: boolean;
 }) {
-    const done = order.actions.find((a) => a.key === `${kind}_paid` && a.done) ?? null;
+    const done =
+        order.actions.find((a) => a.key === `${kind}_paid` && a.done) ?? null;
     const [confirming, setConfirming] = useState(false);
     const [saving, setSaving] = useState(false);
 
@@ -428,15 +536,25 @@ function MoneyRow({
         router.patch(
             route('shipper.orders.collect', { order: order.id, kind }),
             {},
-            { preserveScroll: true, onFinish: () => { setSaving(false); setConfirming(false); } },
+            {
+                preserveScroll: true,
+                onFinish: () => {
+                    setSaving(false);
+                    setConfirming(false);
+                },
+            },
         );
     };
 
     return (
         <div className="flex flex-wrap items-center justify-between gap-2 py-1.5">
             <div>
-                <span className="text-[13.5px] font-semibold text-ink">{label}</span>
-                <span className="ml-1.5 font-mono text-[14px] text-ink">{money(amount)}</span>
+                <span className="text-[13.5px] font-semibold text-ink">
+                    {label}
+                </span>
+                <span className="ml-1.5 font-mono text-[14px] text-ink">
+                    {money(amount)}
+                </span>
             </div>
             {paid ? (
                 <span className="text-right">
@@ -454,7 +572,7 @@ function MoneyRow({
                         </span>
                     )}
                 </span>
-            ) : ! collectable ? (
+            ) : !collectable ? (
                 <span className="text-[12.5px] text-[#a3ad92]">chưa thu</span>
             ) : confirming ? (
                 <div className="flex gap-2">
@@ -497,10 +615,15 @@ function RefundDeposit({ order }: { order: ScheduleOrder }) {
     const [saving, setSaving] = useState(false);
 
     if (order.deposit_refund_status === 'refunded') {
-        const done = order.actions.find((a) => a.key === 'deposit_refunded' && a.done) ?? null;
+        const done =
+            order.actions.find((a) => a.key === 'deposit_refunded' && a.done) ??
+            null;
 
         return (
-            <div className="mt-3 rounded-[10px] p-2.5 text-[13px]" style={{ background: GREEN.bg, color: GREEN.fg }}>
+            <div
+                className="mt-3 rounded-[10px] p-2.5 text-[13px]"
+                style={{ background: GREEN.bg, color: GREEN.fg }}
+            >
                 ✓ Đã hoàn cọc {money(order.deposit_total)} cho khách
                 {done && (
                     <span className="ml-1 text-[11.5px]">
@@ -517,18 +640,30 @@ function RefundDeposit({ order }: { order: ScheduleOrder }) {
         router.patch(
             route('shipper.orders.refund', order.id),
             { deposit_refund_note: note || null },
-            { preserveScroll: true, onFinish: () => { setSaving(false); setOpen(false); } },
+            {
+                preserveScroll: true,
+                onFinish: () => {
+                    setSaving(false);
+                    setOpen(false);
+                },
+            },
         );
     };
 
     return (
         <div className="mt-3 rounded-[12px] border border-[#eef2e3] p-3">
-            <div className="text-[13px] font-bold text-pine">Trả cọc cho khách</div>
+            <div className="text-[13px] font-bold text-pine">
+                Trả cọc cho khách
+            </div>
             <p className="mt-0.5 text-[12.5px] text-moss">
-                Kiểm đồ trước khi trả {money(order.deposit_total)}. Nếu thiếu/hư thì ghi lý do trừ cọc — có gì khác
-                thường thì gọi chủ shop.
+                Kiểm đồ trước khi trả {money(order.deposit_total)}. Nếu thiếu/hư
+                thì ghi lý do trừ cọc — có gì khác thường thì gọi chủ shop.
             </p>
-            {errors.refund && <p className="mt-1.5 text-[12.5px] text-[#b3493a]">{errors.refund}</p>}
+            {errors.refund && (
+                <p className="mt-1.5 text-[12.5px] text-[#b3493a]">
+                    {errors.refund}
+                </p>
+            )}
             {open ? (
                 <>
                     <textarea
@@ -575,7 +710,13 @@ function RefundDeposit({ order }: { order: ScheduleOrder }) {
  * Đánh dấu đã giao (confirmed → renting) / đã thu (renting → returned). Chỉ hiện khi đơn
  * đang ở đúng trạng thái. Bấm 1 lần ra hỏi lại vì việc này gửi mail cho khách.
  */
-function MarkDoneButton({ order, kind }: { order: ScheduleOrder; kind: TripKind }) {
+function MarkDoneButton({
+    order,
+    kind,
+}: {
+    order: ScheduleOrder;
+    kind: TripKind;
+}) {
     const errors = usePage().props.errors as Record<string, string>;
     const [confirming, setConfirming] = useState(false);
     const [saving, setSaving] = useState(false);
@@ -599,15 +740,30 @@ function MarkDoneButton({ order, kind }: { order: ScheduleOrder; kind: TripKind 
     const submit = () => {
         setSaving(true);
         router.patch(
-            route(canDeliver ? 'shipper.orders.delivered' : 'shipper.orders.collected', order.id),
+            route(
+                canDeliver
+                    ? 'shipper.orders.delivered'
+                    : 'shipper.orders.collected',
+                order.id,
+            ),
             {},
-            { preserveScroll: true, onFinish: () => { setSaving(false); setConfirming(false); } },
+            {
+                preserveScroll: true,
+                onFinish: () => {
+                    setSaving(false);
+                    setConfirming(false);
+                },
+            },
         );
     };
 
     return (
         <div className="mt-3">
-            {errors.status && <p className="mb-2 text-[12.5px] text-[#b3493a]">{errors.status}</p>}
+            {errors.status && (
+                <p className="mb-2 text-[12.5px] text-[#b3493a]">
+                    {errors.status}
+                </p>
+            )}
             {confirming ? (
                 <div className="flex gap-2">
                     <button
@@ -624,7 +780,9 @@ function MarkDoneButton({ order, kind }: { order: ScheduleOrder; kind: TripKind 
                         className="min-h-[48px] flex-[2] rounded-[12px] text-[14px] font-bold text-white disabled:opacity-60"
                         style={{ background: '#557A2B' }}
                     >
-                        {saving ? 'Đang lưu…' : `Xác nhận ${label.toLowerCase()}`}
+                        {saving
+                            ? 'Đang lưu…'
+                            : `Xác nhận ${label.toLowerCase()}`}
                     </button>
                 </div>
             ) : (
@@ -641,4 +799,6 @@ function MarkDoneButton({ order, kind }: { order: ScheduleOrder; kind: TripKind 
     );
 }
 
-ShipperSchedule.layout = (page: ReactNode) => <ShipperLayout>{page}</ShipperLayout>;
+ShipperSchedule.layout = (page: ReactNode) => (
+    <ShipperLayout>{page}</ShipperLayout>
+);

@@ -735,19 +735,30 @@ export default function AdminCombos({
                                         type="number"
                                         min="0"
                                         max="50"
-                                        value={form.data.early_return_discount_pct}
+                                        value={
+                                            form.data.early_return_discount_pct
+                                        }
                                         onChange={(e) =>
                                             form.setData(
                                                 'early_return_discount_pct',
-                                                Math.min(50, Math.max(0, Number(e.target.value) || 0)),
+                                                Math.min(
+                                                    50,
+                                                    Math.max(
+                                                        0,
+                                                        Number(
+                                                            e.target.value,
+                                                        ) || 0,
+                                                    ),
+                                                ),
                                             )
                                         }
                                         className="w-full rounded-[10px] border border-cardBorder px-3 py-2.5 text-[13.5px] outline-none transition focus:border-grass"
                                         placeholder="0"
                                     />
                                     <p className="mt-1 text-[11.5px] text-moss">
-                                        Để <b>0</b> là không giảm. Chỉ áp khi khách thuê đúng 1 ngày và
-                                        chọn buổi sáng/chiều.
+                                        Để <b>0</b> là không giảm. Chỉ áp khi
+                                        khách thuê đúng 1 ngày và chọn buổi
+                                        sáng/chiều.
                                     </p>
                                 </div>
                                 <div>
