@@ -88,4 +88,36 @@ class OrderSplitTest extends TestCase
         // Danh sách top-level chỉ có cha (ẩn con).
         $this->assertSame(1, Order::topLevel()->count());
     }
+
+    /**
+     * @test
+     *
+     * QUYẾT ĐỊNH NGHIỆP VỤ (chốt 05/08/2026): cọc cố định theo TỪNG LẦN THUÊ, và mỗi
+     * đợt giao là một lần thuê riêng — shop giữ cọc cho từng lần cầm đồ thực tế.
+     * Nên CÙNG một món đặt ở 2 khoảng ngày ⇒ thu cọc 2 lần. Đây là CỐ Ý, đừng "sửa"
+     * thành cộng dồn 1 lần. (Cọc vẫn không nhân theo số ngày — xem OrderCheckoutTest.)
+     */
+    public function same_product_in_two_batches_charges_deposit_once_per_batch(): void
+    {
+        // Cùng món A ở 2 khoảng rời nhau, mỗi khoảng 1 cái.
+        $this->post(route('order.store'), [
+            'name' => 'Khách', 'phone' => '0912345678',
+            'items' => [
+                ['product_id' => $this->a->id, 'quantity' => 1, 'start' => '2030-10-01', 'end' => '2030-10-02'],
+                ['product_id' => $this->a->id, 'quantity' => 1, 'start' => '2030-10-20', 'end' => '2030-10-21'],
+            ],
+        ])->assertSessionHas('order_code');
+
+        $parent = Order::where('is_parent', true)->firstOrFail();
+        $children = $parent->children()->get();
+        $this->assertSame(2, $children->count());
+
+        // Mỗi đợt thu đủ cọc của món A (200k), KHÔNG phải chia đôi hay thu 1 lần.
+        $this->assertSame(200000, (int) $children[0]->deposit_total);
+        $this->assertSame(200000, (int) $children[1]->deposit_total);
+        $this->assertSame(400000, (int) $parent->deposit_total);
+
+        // Đối chứng: mỗi đợt 2 ngày × 100k = 200k tiền thuê.
+        $this->assertSame(400000, (int) $parent->total_price);
+    }
 }
