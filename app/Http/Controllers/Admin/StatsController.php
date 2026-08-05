@@ -19,6 +19,9 @@ class StatsController extends Controller
 {
     private const PERIODS = ['today', 'week', 'month', 'all'];
 
+    /** Tháng sớm nhất bảng doanh thu theo ngày nhận — trước mốc này không tổng hợp. */
+    private const REVENUE_FROM_MONTH = '2026-08';
+
     public function index(Request $request): Response
     {
         $period = in_array($request->query('period'), self::PERIODS, true) ? $request->query('period') : 'month';
@@ -81,10 +84,15 @@ class StatsController extends Controller
                 'note' => $e->note,
             ])->values();
 
+        $revenueMonth = $this->resolveRevenueMonth($request->query('month'));
+
         return Inertia::render('Admin/Stats', [
             'period' => $period,
             'order_counts' => $orderCounts,
             'chart' => $this->ordersPerDay(30),
+            'revenue_month' => $revenueMonth->format('Y-m'),
+            'revenue_months' => $this->revenueMonthOptions(),
+            'revenue_by_day' => $this->revenueByDay($revenueMonth),
             'finance' => [
                 'revenue' => $revenue,
                 'expense' => $expenseTotal,
@@ -98,6 +106,95 @@ class StatsController extends Controller
                 'label' => Expense::CATEGORY_LABELS[$c],
             ])->values(),
         ]);
+    }
+
+    /**
+     * Tháng đang xem của bảng doanh thu — kẹp trong [REVENUE_FROM_MONTH, tháng hiện tại],
+     * mặc định là tháng hiện tại. Input sai định dạng cũng rơi về mặc định.
+     */
+    private function resolveRevenueMonth(?string $month): Carbon
+    {
+        $first = Carbon::createFromFormat('Y-m', self::REVENUE_FROM_MONTH)->startOfMonth();
+        $last = Carbon::now()->startOfMonth();
+        $default = $last->lt($first) ? $first : $last;
+
+        if (! is_string($month) || preg_match('/^\d{4}-\d{2}$/', $month) !== 1) {
+            return $default;
+        }
+
+        try {
+            $picked = Carbon::createFromFormat('Y-m', $month)->startOfMonth();
+        } catch (\Throwable) {
+            return $default;
+        }
+
+        return $picked->lt($first) || $picked->gt($last) ? $default : $picked;
+    }
+
+    /**
+     * Các tháng chọn được: từ REVENUE_FROM_MONTH đến tháng hiện tại, mới nhất trước.
+     *
+     * @return array<int, array{value: string, label: string}>
+     */
+    private function revenueMonthOptions(): array
+    {
+        $cursor = Carbon::createFromFormat('Y-m', self::REVENUE_FROM_MONTH)->startOfMonth();
+        $last = Carbon::now()->startOfMonth();
+
+        $out = [];
+        while ($cursor->lte($last)) {
+            $out[] = [
+                'value' => $cursor->format('Y-m'),
+                'label' => 'Tháng '.$cursor->month.'/'.$cursor->year,
+            ];
+            $cursor->addMonth();
+        }
+
+        return array_reverse($out);
+    }
+
+    /**
+     * Doanh thu từng ngày trong tháng + chi tiết đơn của ngày đó.
+     *
+     * Liệt kê MỌI ngày của tháng (ngày không có đơn vẫn có dòng, total = 0) để đọc như
+     * lịch. Tháng hiện tại chỉ chạy đến hôm nay — không hiện ngày tương lai.
+     * Thu = đơn con status=returned, tính theo mốc trả (updated_at), đã trừ giảm giá —
+     * cùng định nghĩa với ô "Tổng thu". Gom ở PHP như ordersPerDay() vì DATE() khác cú
+     * pháp giữa sqlite và MySQL.
+     *
+     * @return array<int, array{date: string, label: string, total: int, orders: array<int, array{id: int, code: string, amount: int}>}>
+     */
+    private function revenueByDay(Carbon $month): array
+    {
+        $start = $month->copy()->startOfMonth();
+        $end = $month->copy()->endOfMonth();
+        $today = Carbon::today()->endOfDay();
+        if ($end->gt($today)) {
+            $end = $today;
+        }
+
+        $grouped = Order::where('is_parent', false)->where('status', 'returned')
+            ->whereBetween('updated_at', [$start->copy()->startOfDay(), $end])
+            ->orderBy('updated_at')->orderBy('id')
+            ->get(['id', 'code', 'updated_at', 'total_price', 'discount_total'])
+            ->groupBy(fn (Order $o) => $o->updated_at->toDateString());
+
+        $out = [];
+        for ($d = $start->copy(); $d->lte($end); $d->addDay()) {
+            $orders = $grouped[$d->toDateString()] ?? collect();
+            $out[] = [
+                'date' => $d->toDateString(),
+                'label' => $d->format('d/m/Y'),
+                'total' => (int) $orders->sum(fn (Order $o) => $o->total_price - $o->discount_total),
+                'orders' => $orders->map(fn (Order $o) => [
+                    'id' => $o->id,
+                    'code' => $o->code,
+                    'amount' => (int) ($o->total_price - $o->discount_total),
+                ])->values()->all(),
+            ];
+        }
+
+        return $out;
     }
 
     /**

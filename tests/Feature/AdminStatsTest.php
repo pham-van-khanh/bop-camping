@@ -6,6 +6,7 @@ use App\Models\Expense;
 use App\Models\Order;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
@@ -118,6 +119,105 @@ class AdminStatsTest extends TestCase
         $this->actingAs($user)->post(route('admin.expenses.store'), ['spent_on' => now()->toDateString(), 'amount' => 1000, 'category' => 'other'])
             ->assertRedirect(route('admin.login'));
         $this->assertSame(0, Expense::count());
+    }
+
+    /**
+     * @test
+     *
+     * bopcamping-wlee — bảng doanh thu: gom đơn đã trả theo ngày trả (updated_at),
+     * liệt kê MỌI ngày trong tháng kể cả ngày không có đơn.
+     */
+    public function revenue_by_day_lists_every_day_of_month_including_empty_ones(): void
+    {
+        $this->travelTo(Carbon::parse('2026-08-05 10:00'));
+
+        $a = $this->order('returned', 300000, 50000); // 250k — 03/08
+        $b = $this->order('returned', 120000);        // 120k — 03/08
+        $c = $this->order('returned', 90000);         //  90k — 01/08
+        $this->order('confirmed', 999000);            // chưa trả → không được lọt vào
+
+        $this->returnedOn($a, Carbon::parse('2026-08-03 09:00'));
+        $this->returnedOn($b, Carbon::parse('2026-08-03 15:00'));
+        $this->returnedOn($c, Carbon::parse('2026-08-01 08:00'));
+
+        $days = $this->statsProps()['revenue_by_day'];
+
+        // 01/08 → 05/08 (hôm nay), không có ngày tương lai.
+        $this->assertCount(5, $days);
+        $this->assertSame(['2026-08-01', '2026-08-02', '2026-08-03', '2026-08-04', '2026-08-05'], array_column($days, 'date'));
+
+        $this->assertSame('01/08/2026', $days[0]['label']);
+        $this->assertSame(90000, $days[0]['total']);
+        $this->assertSame($c->code, $days[0]['orders'][0]['code']);
+
+        // Ngày trống vẫn có dòng, tổng 0, không đơn nào.
+        $this->assertSame(0, $days[1]['total']);
+        $this->assertSame([], $days[1]['orders']);
+
+        $this->assertSame(370000, $days[2]['total']);
+        $this->assertEqualsCanonicalizing([$a->code, $b->code], array_column($days[2]['orders'], 'code'));
+    }
+
+    /**
+     * @test
+     *
+     * bopcamping-wlee — lọc theo tháng: chỉ đơn trả trong tháng đó, tháng cũ hiện đủ ngày.
+     */
+    public function revenue_by_day_filters_by_selected_month(): void
+    {
+        $this->travelTo(Carbon::parse('2026-10-10 10:00'));
+
+        $this->returnedOn($this->order('returned', 500000), Carbon::parse('2026-08-20 10:00'));
+        $this->returnedOn($this->order('returned', 70000), Carbon::parse('2026-09-02 10:00'));
+
+        $aug = $this->statsProps(['month' => '2026-08']);
+        $this->assertSame('2026-08', $aug['revenue_month']);
+        $this->assertCount(31, $aug['revenue_by_day']); // tháng cũ → đủ 31 ngày
+        $this->assertSame(500000, collect($aug['revenue_by_day'])->sum('total'));
+
+        $sep = $this->statsProps(['month' => '2026-09']);
+        $this->assertCount(30, $sep['revenue_by_day']);
+        $this->assertSame(70000, collect($sep['revenue_by_day'])->sum('total'));
+
+        // Tháng hiện tại là mặc định, chỉ chạy tới hôm nay.
+        $now = $this->statsProps();
+        $this->assertSame('2026-10', $now['revenue_month']);
+        $this->assertCount(10, $now['revenue_by_day']);
+    }
+
+    /**
+     * @test
+     *
+     * bopcamping-wlee — chỉ tổng hợp từ 08/2026 trở đi; tháng ngoài khoảng rơi về mặc định.
+     */
+    public function revenue_month_options_start_at_august_2026_and_clamp_bad_input(): void
+    {
+        $this->travelTo(Carbon::parse('2026-10-10 10:00'));
+
+        $props = $this->statsProps();
+        $this->assertSame(
+            ['2026-10', '2026-09', '2026-08'],
+            array_column($props['revenue_months'], 'value'),
+        );
+        $this->assertSame('Tháng 8/2026', $props['revenue_months'][2]['label']);
+
+        // Trước mốc, sau mốc, và rác → đều về tháng hiện tại.
+        foreach (['2026-07', '2027-01', 'linh-tinh', '2026-13'] as $bad) {
+            $this->assertSame('2026-10', $this->statsProps(['month' => $bad])['revenue_month'], "month=$bad");
+        }
+    }
+
+    /** Đặt mốc trả đơn (updated_at) — ghi thẳng DB để không bị timestamp tự ghi đè. */
+    private function returnedOn(Order $order, \DateTimeInterface $at): void
+    {
+        \DB::table('orders')->where('id', $order->id)->update(['updated_at' => $at]);
+    }
+
+    /** @return array<string, mixed> */
+    private function statsProps(array $query = []): array
+    {
+        return $this->actingAs($this->admin())->get(route('admin.stats', $query))
+            ->original->getData()['page']['props'];
     }
 
     /** @test bopcamping-trc — badge đơn mới: shared prop pending_orders cho admin. */
