@@ -19,7 +19,6 @@ import {
 } from '@/lib/cart';
 import { dayCount, ddmm, fromISO, money, rangeText, toISO } from '@/lib/format';
 import { gradFor } from '@/lib/grad';
-import { pickObjectFit, type ObjectFit } from '@/lib/imageFit';
 import { durationTierPercent, netFromGross } from '@/lib/pricing';
 import { queryDateRange } from '@/lib/queryDateRange';
 import { isHalfDaySession, type Session } from '@/lib/session';
@@ -483,25 +482,6 @@ export default function ProductDetail({
     const goImg = (dir: number) =>
         setActiveImg((i) => (i + dir + gallery.length) % gallery.length);
 
-    // bopcamping-slnb: ảnh gốc nhỏ (578-790px) bị `object-cover` phóng thêm để lấp
-    // kín khung 668x680 → mờ trên màn Retina. Đo kích thước thật lúc ảnh load rồi
-    // chọn cover/contain sao cho phóng ít nhất (xem lib/imageFit.ts).
-    const mainImgRef = useRef<HTMLImageElement>(null);
-    const [mainFit, setMainFit] = useState<ObjectFit>('cover');
-    const measureMainFit = () => {
-        const el = mainImgRef.current;
-        if (!el) return;
-        const natural = { width: el.naturalWidth, height: el.naturalHeight };
-        const box = { width: el.clientWidth, height: el.clientHeight };
-        setMainFit(pickObjectFit(natural, box, window.devicePixelRatio || 1));
-    };
-    // Khung ảnh đổi cao/rộng theo breakpoint → đo lại khi resize.
-    useEffect(() => {
-        window.addEventListener('resize', measureMainFit);
-        return () => window.removeEventListener('resize', measureMainFit);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
-
     // Feedback #1: dải thumbnails cuộn được (dọc trên desktop, ngang trên mobile);
     // đổi ảnh active (click, nút ‹ ›, phím) thì tự trượt đưa thumbnail đó vào GIỮA
     // — các ảnh kế tiếp tự lộ ra, khách không phải cuộn tay.
@@ -621,15 +601,12 @@ export default function ProductDetail({
                             >
                                 {activeSlide.type === 'img' && (
                                     <img
-                                        ref={mainImgRef}
-                                        key={activeSlide.src}
                                         src={activeSlide.src}
                                         alt={product.name}
                                         srcSet={activeSlide.srcset ?? undefined}
                                         sizes={MAIN_IMAGE_SIZES}
-                                        onLoad={measureMainFit}
                                         onClick={() => setLightboxOpen(true)}
-                                        className={`absolute inset-0 h-full w-full cursor-zoom-in ${mainFit === 'contain' ? 'object-contain' : 'object-cover'}`}
+                                        className="absolute inset-0 h-full w-full cursor-zoom-in object-cover"
                                     />
                                 )}
                                 {activeSlide.type === 'video' && (
