@@ -58,6 +58,9 @@ class CartController extends Controller
         $emailBonusOn = (bool) $settings->email_bonus_enabled;
 
         return Inertia::render('Cart', [
+            // Hình thức GIAO cho khách chọn (bopcamping-z3ug) — nhãn/gợi ý lấy từ Order
+            // để checkout, email và admin luôn nói cùng một thứ tiếng.
+            'delivery_methods' => Order::deliveryMethodOptions(),
             'availableVouchers' => $vouchers,
             'referralRef' => $request->session()->get('referral_ref', ''),
             'firstOrderEligible' => $firstOrderEligible,

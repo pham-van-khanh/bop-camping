@@ -50,6 +50,8 @@ class OrderLookupService
             // Giờ shop đã chốt (spec 2026-07-28) — null nếu chưa chốt. KHÔNG đưa schedule_note ra đây (nội bộ shipper).
             'confirmed_pickup_time' => $o->confirmed_pickup_time,
             'confirmed_return_time' => $o->confirmed_return_time,
+            'delivery_method' => $o->delivery_method,
+            'delivery_method_label' => $o->deliveryMethodLabel(),
             'total_price' => $o->total_price,
             'deposit_total' => $o->deposit_total,
             'discount_total' => $o->discount_total,
