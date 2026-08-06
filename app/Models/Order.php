@@ -25,6 +25,7 @@ class Order extends Model
         'parent_id',
         'is_parent',
         'service_location_id',
+        'delivery_method',
         'location_auto_assigned',
         'code',
         'customer_name',
@@ -119,6 +120,40 @@ class Order extends Model
 
     /** Hai khoản tiền thu riêng của 1 đơn (bopcamping-q7i0). */
     public const PAYMENT_KINDS = ['rental', 'deposit'];
+
+    /**
+     * Hình thức GIAO khách chọn ở checkout (bopcamping-z3ug).
+     *
+     * Chỉ hỏi lượt GIAO. Lượt TRẢ thoả thuận khi shop nhắn tin với khách rồi ghi vào
+     * `schedule_note`; phí ship ghi vào `extra_fee` — checkout KHÔNG tự tính tiền.
+     */
+    public const DELIVERY_METHODS = ['self_pickup', 'ship'];
+
+    public const DELIVERY_METHOD_LABELS = [
+        'self_pickup' => 'Tự đến xem đồ',
+        'ship' => 'Nhận tại địa điểm',
+    ];
+
+    /** Mô tả ngắn đi kèm nhãn — nói thẳng chuyện phí để khách không bất ngờ lúc gọi xác nhận. */
+    public const DELIVERY_METHOD_HINTS = [
+        'self_pickup' => 'Bạn tới kho xem và kiểm đồ tại chỗ. Không mất phí.',
+        'ship' => 'Bốp giao tới nơi bạn hẹn. Phí giao tụi mình báo khi gọi xác nhận đơn.',
+    ];
+
+    /** @return array<int, array{value: string, label: string, hint: string}> */
+    public static function deliveryMethodOptions(): array
+    {
+        return array_map(fn (string $v) => [
+            'value' => $v,
+            'label' => self::DELIVERY_METHOD_LABELS[$v],
+            'hint' => self::DELIVERY_METHOD_HINTS[$v],
+        ], self::DELIVERY_METHODS);
+    }
+
+    public function deliveryMethodLabel(): string
+    {
+        return self::DELIVERY_METHOD_LABELS[$this->delivery_method] ?? $this->delivery_method;
+    }
 
     /** Tự sinh mã đơn khi tạo */
     protected static function booted(): void

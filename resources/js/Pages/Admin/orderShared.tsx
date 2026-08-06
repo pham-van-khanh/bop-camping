@@ -111,6 +111,8 @@ export type Order = {
     referral: { referrer_name: string | null; status: string } | null;
     // Per-store: cửa hàng thuê + đơn hệ thống tự gán (admin review theo địa chỉ)
     service_location: { id: number; name: string } | null;
+    delivery_method: string;
+    delivery_method_label: string;
     location_auto_assigned: boolean;
     // Đơn cha/con (bopcamping-wtuv): cha gom N đợt giao; con nằm trong children của cha.
     is_parent: boolean;
@@ -1001,6 +1003,34 @@ export function OrderDetailPanel({
                         )}
                 </div>
                 <StoreChanger order={order} locations={locations} />
+
+                {/* Hình thức giao khách chọn (bopcamping-z3ug). Đơn 'ship' phải báo phí
+                    cho khách rồi nhập vào Phí phát sinh — checkout không tự tính. */}
+                <div className="mb-2 mt-3 text-[12px] font-bold uppercase tracking-[0.04em] text-grass">
+                    Hình thức giao
+                </div>
+                <div
+                    className={`rounded-[11px] border px-3 py-2.5 text-[13px] ${
+                        order.delivery_method === 'ship'
+                            ? 'border-[#e6c9a8] bg-[#fdf6ee]'
+                            : 'border-cardBorder bg-white'
+                    }`}
+                >
+                    <span className="font-bold text-ink">
+                        {order.delivery_method_label}
+                    </span>
+                    {order.delivery_method === 'ship' ? (
+                        <p className="mt-0.5 text-[12px] text-[#8a5a1f]">
+                            Khách chọn Bốp giao — nhớ báo phí giao khi gọi xác
+                            nhận, rồi nhập vào <b>Phí phát sinh</b> bên dưới.
+                        </p>
+                    ) : (
+                        <p className="mt-0.5 text-[12px] text-moss">
+                            Khách tự đến kho lấy và kiểm đồ tại chỗ. Không phát
+                            sinh phí giao.
+                        </p>
+                    )}
+                </div>
 
                 {/* Đổi lịch — chỉ đơn chưa giao (bopcamping-5hjm) */}
                 {['pending', 'confirmed'].includes(order.status) && (
