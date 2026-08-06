@@ -10,7 +10,7 @@ use Illuminate\Support\Str;
 
 class ServiceLocation extends Model
 {
-    protected $fillable = ['name', 'area', 'status', 'sort_order'];
+    protected $fillable = ['name', 'area', 'address', 'map_url', 'status', 'sort_order'];
 
     /** Slug không dấu từ tên (vd 'Hà Nội' -> 'ha-noi') để dùng cho filter URL. */
     public function getSlugAttribute(): string

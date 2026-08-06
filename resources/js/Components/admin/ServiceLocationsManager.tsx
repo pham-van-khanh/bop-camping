@@ -5,6 +5,9 @@ export type ServiceLocation = {
     id: number;
     name: string;
     area: string | null;
+    // Địa chỉ + link bản đồ hiện cho khách chọn "Tự đến xem đồ" (bopcamping-n0db).
+    address: string | null;
+    map_url: string | null;
     status: 'open' | 'coming';
     sort_order: number;
     spots_count: number;
@@ -13,6 +16,8 @@ export type ServiceLocation = {
 type FormData = {
     name: string;
     area: string;
+    address: string;
+    map_url: string;
     status: 'open' | 'coming';
     sort_order: number | '';
 };
@@ -37,6 +42,8 @@ export default function ServiceLocationsManager({
     const blank = (): FormData => ({
         name: '',
         area: '',
+        address: '',
+        map_url: '',
         status: 'open',
         sort_order: '',
     });
@@ -52,6 +59,8 @@ export default function ServiceLocationsManager({
         form.setData({
             name: l.name,
             area: l.area ?? '',
+            address: l.address ?? '',
+            map_url: l.map_url ?? '',
             status: l.status,
             sort_order: l.sort_order,
         });
@@ -264,6 +273,61 @@ export default function ServiceLocationsManager({
                                     className={inputCls}
                                     placeholder="VD: Nghệ An / Nội thành"
                                 />
+                            </div>
+
+                            {/* Địa chỉ + link bản đồ — khách chọn "Tự đến xem đồ"
+                                sẽ thấy hai thứ này ở checkout (bopcamping-n0db). */}
+                            <div>
+                                <label className="mb-1.5 block text-[13px] font-semibold text-pine">
+                                    Địa chỉ cửa hàng
+                                </label>
+                                <input
+                                    type="text"
+                                    value={form.data.address}
+                                    onChange={(e) =>
+                                        form.setData('address', e.target.value)
+                                    }
+                                    className={inputCls}
+                                    placeholder="VD: 25 Nguyễn Văn Cừ, TP Vinh"
+                                />
+                                <p className="mt-1 text-[12px] text-moss">
+                                    Hiện ở checkout khi khách chọn “Tự đến xem
+                                    đồ”.
+                                </p>
+                                {form.errors.address && (
+                                    <p className="mt-1 text-[12px] text-[#b3493a]">
+                                        {form.errors.address}
+                                    </p>
+                                )}
+                            </div>
+                            <div>
+                                <label className="mb-1.5 flex items-center gap-1.5 text-[13px] font-semibold text-pine">
+                                    <img
+                                        src="/images/google-maps.png"
+                                        alt=""
+                                        aria-hidden
+                                        className="h-4 w-4 object-contain"
+                                    />
+                                    Link Google Maps
+                                </label>
+                                <input
+                                    type="url"
+                                    value={form.data.map_url}
+                                    onChange={(e) =>
+                                        form.setData('map_url', e.target.value)
+                                    }
+                                    className={inputCls}
+                                    placeholder="https://maps.app.goo.gl/..."
+                                />
+                                <p className="mt-1 text-[12px] text-moss">
+                                    Mở Google Maps → Chia sẻ → sao chép link.
+                                    Chỉ nhận link http/https.
+                                </p>
+                                {form.errors.map_url && (
+                                    <p className="mt-1 text-[12px] text-[#b3493a]">
+                                        {form.errors.map_url}
+                                    </p>
+                                )}
                             </div>
                             <div className="grid grid-cols-2 gap-3">
                                 <div>
