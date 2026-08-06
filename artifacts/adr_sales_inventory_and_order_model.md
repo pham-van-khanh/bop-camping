@@ -1,7 +1,7 @@
 # ADR — Mô hình kho & mô hình đơn cho tính năng BÁN sản phẩm
 
-- **Trạng thái:** Proposed — chờ chủ shop duyệt
-- **Ngày:** 2026-08-01
+- **Trạng thái:** **Accepted** — chủ shop đã duyệt và chốt toàn bộ câu treo (2026-08-05)
+- **Ngày:** 2026-08-01 · *chốt 5 câu còn treo 2026-08-05 (bopcamping-u6ml)*
 - **Liên quan:** `app/Services/AvailabilityService.php`, `app/Http/Controllers/Admin/ProductController.php`,
   `app/Models/Order.php`, `app/Models/Product.php`, `products`, `product_service_location`, `orders`, `order_items`, `vouchers`
 - **Vận chuyển:** NGOÀI PHẠM VI — chủ shop tự book (chốt 2026-08-01). [`adr_sales_shipping_carrier.md`](./adr_sales_shipping_carrier.md) chuyển sang *Deferred*, giữ lại cho sau.
@@ -261,6 +261,13 @@ Voucher sinh tự động khi đơn thuê chuyển sang `returned`, bám đúng 
 dùng (`OrderObserver::updated`). Cấu hình trong `PromotionSetting`: bật/tắt, loại (%/tiền), giá trị,
 số ngày hiệu lực, giá trị đơn tối thiểu.
 
+**Giá trị mặc định đã chốt** (xem [7.4](#74--voucher-thuêmua-giảm-5-hạn-30-ngày-không-yêu-cầu-đơn-tối-thiểu)):
+`percent` · **5%** · hạn **30 ngày** · **không** đơn tối thiểu.
+
+`source` còn nhận thêm giá trị `'exchange_refund'` cho voucher bù chênh lệch khi khách đổi sang món rẻ
+hơn (xem [7.1](#71--đổi-sang-món-rẻ-hơn-cấp-voucher-phần-chênh-lệch)) — loại này là `fixed`, đúng bằng
+phần chênh, `applicable_order_kind='both'`.
+
 ### QĐ-11 — Giỏ mua tách riêng khỏi giỏ thuê
 
 Khoá localStorage mới `bop_sale_cart_v1`, route `/gio-hang` riêng với `/gio-thue`.
@@ -272,6 +279,11 @@ Khoá localStorage mới `bop_sale_cart_v1`, route `/gio-hang` riêng với `/gi
 ### QĐ-12 — Đổi hàng: ghi sổ cái, nhưng KHÔNG tự cộng vào kho thuê
 
 Luồng đổi: `delivered → exchanging → exchanged`.
+
+**Điều kiện mở luồng này** (chốt ở [7.2](#72--hạn-đổi-7-ngày-kể-từ-ngày-nhận-hàng-chưa-sử-dụng-còn-đủ-hộptem)):
+trong **7 ngày** kể từ ngày khách NHẬN hàng, hàng chưa sử dụng và còn đủ hộp/tem. Quá hạn thì
+`delivered` là trạng thái cuối, không cho chuyển `exchanging`. Nếu món mới rẻ hơn, phần chênh trả bằng
+voucher chứ không bằng tiền mặt ([7.1](#71--đổi-sang-món-rẻ-hơn-cấp-voucher-phần-chênh-lệch)).
 
 Khi hoàn tất đổi, hệ thống ghi **hai** dòng sổ cái:
 - `pool='sale', delta=-1, reason='exchange_out'` (món mới gửi đi cho khách)
@@ -362,25 +374,76 @@ Mỗi dòng dưới đây là một chỗ hiện **ngầm giả định mọi đ
 
 ---
 
-## 7. Điều CHƯA CHỐT — cần chủ shop trả lời trước khi code
+## 7. Câu hỏi chính sách — ĐÃ CHỐT TOÀN BỘ
 
-1. **Đổi sang món rẻ hơn thì xử lý chênh lệch thế nào?** Không hoàn tiền? Cấp voucher? Chính sách "chỉ
-   đổi không trả" chưa nói rõ chiều này.
-2. **Thời hạn được đổi là bao lâu** kể từ ngày nhận, và điều kiện gì (còn nguyên seal? đã dùng?).
-3. **Đơn mua có được tính cho chương trình giới thiệu không?** Hiện `conversion_trigger_status` chỉ
-   nhận 4 trạng thái của đơn thuê.
-4. **Voucher thuê→mua**: giảm bao nhiêu, hạn mấy ngày, có yêu cầu giá trị đơn tối thiểu không.
-5. **Đơn mua `pending` treo bao lâu thì tự huỷ** (đề xuất 48h).
-6. ~~Có ngưỡng tiền nào bắt buộc chuyển khoản trước không?~~ — **ĐÃ CHỐT 2026-08-01: KHÔNG.**
-   Khách **tự chọn** COD hoặc chuyển khoản, không có ngưỡng nào chặn. Đây là quyết định của chủ shop và
-   nó đúng với thị trường Việt Nam: COD là mặc định khách quen dùng, ép trả trước cho đơn giá trị cao
-   là ép đúng nhóm khách đáng giá nhất.
+Tất cả do chủ shop quyết ngày **2026-08-05** (bopcamping-u6ml). Mục này là nguồn chân lý cho các
+task T1.x; đừng suy diễn lại từ đầu khi code.
 
-   Rủi ro khách bùng đơn COD **vẫn còn**, nhưng được chấp nhận như rủi ro kinh doanh chứ không giải
-   bằng phần mềm. Lý do việc đó hợp lý: luồng hiện tại **đã có** bước *"Tụi mình gọi điện xác nhận
-   thông tin đơn"* trước khi giao — đơn mua đi qua đúng bước đó, và nó chặn được phần lớn đơn ảo mà
-   không làm mất khách thật. Một cột `payment_method` sẵn có là đủ; **không** cần cột ngưỡng, không cần
-   logic chặn.
+### 7.1 — Đổi sang món RẺ HƠN: cấp voucher phần chênh lệch
 
-   Nếu sau này số liệu cho thấy tỷ lệ bùng đơn cao, hãy siết bằng **vận hành** trước (gọi xác nhận kỹ
-   hơn, chặn số điện thoại xấu) rồi mới nghĩ tới phần mềm.
+Không hoàn tiền mặt. Hệ thống sinh voucher `type='fixed'` đúng bằng phần chênh, cấp cho khách ngay khi
+đơn chuyển `exchanged`. Giữ đúng nguyên tắc "chỉ đổi, không trả tiền" ở mục 1 mà khách vẫn không mất
+trắng phần chênh.
+
+- `source='exchange_refund'` (giá trị mới, thêm cạnh `'rental_to_sale'` ở QĐ-10).
+- `applicable_order_kind='both'`, `applies_to='total'` — dùng được cho cả đơn thuê lẫn đơn mua.
+- Hạn dùng: **30 ngày** kể từ ngày cấp, không yêu cầu đơn tối thiểu (cùng quy ước với 7.4).
+
+### 7.2 — Hạn đổi: 7 ngày kể từ ngày NHẬN, hàng chưa sử dụng, còn đủ hộp/tem
+
+Đây là câu quyết vòng đời đơn mua:
+
+- Mốc đếm là **ngày khách nhận hàng**, không phải ngày đặt. Cần cột thời điểm giao thành công trên đơn
+  mua để tính hạn — nếu chưa có thì T1.4 phải thêm.
+- Quá 7 ngày, đơn **chốt sổ**: không còn chuyển sang `exchanging` được nữa.
+- Điều kiện hàng: chưa qua sử dụng, còn đủ hộp và tem/nhãn. Người xác nhận là **admin lúc nhận hàng
+  đổi về** — phần mềm không tự phán, chỉ ghi lại quyết định.
+- Hệ quả cho kho: hàng đổi về trong 7 ngày còn đủ mới để chuyển sang kho **thuê** theo QĐ-12.
+
+### 7.3 — Đơn mua CÓ tính cho chương trình giới thiệu
+
+Tính khi đơn mua **hoàn tất**, tương đương mốc `returned` của đơn thuê. Đơn mua giá trị cao hơn đơn
+thuê nên bỏ qua là phí động lực giới thiệu.
+
+Việc phải làm: `conversion_trigger_status` hiện validate `in:pending,confirmed,renting,returned`
+([`PromotionController.php:54`](../app/Http/Controllers/Admin/PromotionController.php)) — chỉ hiểu đơn
+thuê. Phải mở rộng cho trạng thái hoàn tất của đơn mua, và
+[`ReferralService.php:98`](../app/Services/Referral/ReferralService.php) so khớp trạng thái phải xét
+thêm `orders.kind`. Không chỉ là đổi giá trị cấu hình.
+
+### 7.4 — Voucher thuê→mua: giảm 5%, hạn 30 ngày, không yêu cầu đơn tối thiểu
+
+| Tham số | Giá trị chốt |
+|---|---|
+| Loại | `percent` |
+| Giá trị | **5%** giá trị đơn |
+| Hạn | **30 ngày** kể từ ngày trả đồ thuê |
+| Đơn tối thiểu | **Không** (`min_order_amount = null`) |
+
+Chọn phần trăm thay vì số tiền cố định vì mức giảm tự cân theo giá trị đơn: món phụ kiện rẻ giảm ít,
+món lớn giảm nhiều. Nhờ vậy **không cần** ngưỡng đơn tối thiểu để chặn lỗ — thứ vốn hay làm khách bị
+từ chối ngay ở bước thanh toán.
+
+Toàn bộ tham số này nằm trong `PromotionSetting` (xem QĐ-10) nên chủ shop đổi được sau, không cần deploy.
+
+### 7.5 — Đơn mua `pending` tự huỷ sau 48 giờ
+
+Đủ để khách suy nghĩ và để shop gọi xác nhận, mà không giữ hàng quá lâu. Hiện **chưa có cơ chế tự huỷ
+đơn nào trong hệ thống** — cần thêm một lệnh artisan chạy theo lịch (`schedule:run`), không có sẵn để
+tái dùng. Lệnh phải chỉ đụng `orders.kind='sale'` và `status='pending'`; đơn thuê giữ nguyên hành vi.
+
+### 7.6 — Ngưỡng bắt buộc chuyển khoản: KHÔNG (chốt 2026-08-01)
+
+Nguyên văn quyết định cũ, giữ lại để không ai mở lại:
+
+**KHÔNG có ngưỡng.** Khách **tự chọn** COD hoặc chuyển khoản ở mọi giá trị đơn. Đây là quyết định của
+chủ shop và nó đúng với thị trường Việt Nam: COD là mặc định khách quen dùng, ép trả trước cho đơn giá
+trị cao là ép đúng nhóm khách đáng giá nhất.
+
+Rủi ro khách bùng đơn COD **vẫn còn**, nhưng được chấp nhận như rủi ro kinh doanh chứ không giải bằng
+phần mềm. Lý do việc đó hợp lý: luồng hiện tại **đã có** bước *"Tụi mình gọi điện xác nhận thông tin
+đơn"* trước khi giao — đơn mua đi qua đúng bước đó, và nó chặn được phần lớn đơn ảo mà không làm mất
+khách thật. Một cột `payment_method` sẵn có là đủ; **không** cần cột ngưỡng, không cần logic chặn.
+
+Nếu sau này số liệu cho thấy tỷ lệ bùng đơn cao, hãy siết bằng **vận hành** trước (gọi xác nhận kỹ hơn,
+chặn số điện thoại xấu) rồi mới nghĩ tới phần mềm.
