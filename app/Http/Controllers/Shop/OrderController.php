@@ -56,6 +56,9 @@ class OrderController extends Controller
             'ward_code' => ['nullable', 'integer', 'min:1'],
             'street' => ['nullable', 'string', 'max:255'],
             'note' => ['nullable', 'string', 'max:500'],
+            // Hình thức GIAO (bopcamping-z3ug). Thiếu → 'self_pickup': phương án rẻ nhất,
+            // KHÔNG im lặng rơi vào 'ship' (Nghệ An phải thuê xe ngoài, rơi nhầm là tốn tiền thật).
+            'delivery_method' => ['nullable', 'in:'.implode(',', Order::DELIVERY_METHODS)],
             // max:50 — chặn giỏ khổng lồ tạo hàng loạt đơn con/1 request (CWE-770, bopcamping-wtuv).
             'items' => ['nullable', 'array', 'max:50'],
             'items.*.product_id' => ['required', 'integer', 'exists:products,id'],
@@ -183,6 +186,8 @@ class OrderController extends Controller
             'ward_code' => $validated['ward_code'] ?? null,
             'street' => $validated['street'] ?? null,
             'note' => $validated['note'] ?? null,
+            // Nằm trong $base nên đơn CHA và mọi đơn CON đều thừa hưởng (bopcamping-wtuv).
+            'delivery_method' => $validated['delivery_method'] ?? 'self_pickup',
         ];
 
         // Tách đơn theo khoảng ngày (bopcamping-wtuv): 1 khoảng → đơn thường; ≥2 → cha + con.

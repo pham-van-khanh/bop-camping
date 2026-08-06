@@ -106,12 +106,15 @@ type FreshCombo = {
     all_locations: boolean;
 };
 
+type DeliveryMethodOption = { value: string; label: string; hint: string };
+
 type Props = PageProps<{
     availableVouchers: AvailableVoucher[];
     referralRef: string;
     firstOrderEligible: boolean;
     promo: PromoInfo;
     emailBonus: EmailBonusInfo;
+    delivery_methods: DeliveryMethodOption[];
 }>;
 
 export default function Cart() {
@@ -124,6 +127,7 @@ export default function Cart() {
         promo,
         emailBonus,
         durationTiers,
+        delivery_methods,
     } = usePage<Props>().props;
     const hours = shopHours(
         (usePage().props as { site?: Parameters<typeof shopHours>[0] }).site,
@@ -160,6 +164,9 @@ export default function Cart() {
         province_code: number | null;
         ward_code: number | null;
         note: string;
+        // Hình thức GIAO (bopcamping-z3ug). Chỉ hỏi lượt giao — lượt trả và phí ship
+        // shop thoả thuận với khách khi gọi xác nhận rồi note vào đơn.
+        delivery_method: string;
         referral_code: string;
         voucher_codes: string[];
         items: CheckoutItem[];
@@ -173,6 +180,8 @@ export default function Cart() {
         province_code: null,
         ward_code: null,
         note: '',
+        // Mặc định rẻ nhất — không im lặng đẩy khách vào phương án có phí.
+        delivery_method: 'self_pickup',
         referral_code: firstOrderEligible ? (referralRef ?? '') : '',
         voucher_codes: [],
         items: [],
@@ -1101,6 +1110,56 @@ export default function Cart() {
                                     error={errors.address}
                                 />
                             </div>
+
+                            {/* Hình thức nhận đồ (bopcamping-z3ug) */}
+                            <fieldset>
+                                <legend className="mb-1.5 text-[13px] font-semibold text-pine">
+                                    Bạn muốn nhận đồ thế nào?
+                                </legend>
+                                <div className="grid gap-2 sm:grid-cols-2">
+                                    {delivery_methods.map((m) => {
+                                        const active =
+                                            data.delivery_method === m.value;
+                                        return (
+                                            <label
+                                                key={m.value}
+                                                className={`flex cursor-pointer gap-2.5 rounded-[11px] border p-3 transition ${
+                                                    active
+                                                        ? 'border-grass bg-[#f4f7ec]'
+                                                        : 'border-cardBorder bg-white hover:border-grass'
+                                                }`}
+                                            >
+                                                <input
+                                                    type="radio"
+                                                    name="delivery_method"
+                                                    value={m.value}
+                                                    checked={active}
+                                                    onChange={() =>
+                                                        setData(
+                                                            'delivery_method',
+                                                            m.value,
+                                                        )
+                                                    }
+                                                    className="mt-0.5 h-4 w-4 shrink-0 accent-grass"
+                                                />
+                                                <span className="min-w-0">
+                                                    <span className="block text-[14px] font-semibold text-ink">
+                                                        {m.label}
+                                                    </span>
+                                                    <span className="mt-0.5 block text-[12px] leading-snug text-moss">
+                                                        {m.hint}
+                                                    </span>
+                                                </span>
+                                            </label>
+                                        );
+                                    })}
+                                </div>
+                                {errors.delivery_method && (
+                                    <p className="mt-1 text-[12px] text-red-500">
+                                        {errors.delivery_method}
+                                    </p>
+                                )}
+                            </fieldset>
 
                             <textarea
                                 value={data.note}
