@@ -7,6 +7,7 @@ import { emit, EVENTS, on } from '@/lib/bus';
 import {
     addLine,
     cartChosenStoreId,
+    cartCommonLocations,
     cartHasLocationConflict,
     cartTotals,
     locationConflict as checkLocationConflict,
@@ -107,6 +108,13 @@ type FreshCombo = {
 };
 
 type DeliveryMethodOption = { value: string; label: string; hint: string };
+type PickupLocation = {
+    slug: string;
+    name: string;
+    area: string | null;
+    address: string | null;
+    map_url: string | null;
+};
 
 type Props = PageProps<{
     availableVouchers: AvailableVoucher[];
@@ -115,6 +123,7 @@ type Props = PageProps<{
     promo: PromoInfo;
     emailBonus: EmailBonusInfo;
     delivery_methods: DeliveryMethodOption[];
+    pickup_locations: PickupLocation[];
 }>;
 
 export default function Cart() {
@@ -128,6 +137,7 @@ export default function Cart() {
         emailBonus,
         durationTiers,
         delivery_methods,
+        pickup_locations,
     } = usePage<Props>().props;
     const hours = shopHours(
         (usePage().props as { site?: Parameters<typeof shopHours>[0] }).site,
@@ -507,6 +517,18 @@ export default function Cart() {
         () => cartHasLocationConflict(lines),
         [lines],
     );
+
+    /**
+     * Cơ sở phục vụ được TOÀN BỘ giỏ hiện tại — dùng để hiện địa chỉ khi khách chọn
+     * "Tự đến xem đồ" (bopcamping-n0db). Giỏ không ràng buộc cơ sở nào (mọi món bán ở
+     * tất cả cơ sở) thì hiện hết để khách tự chọn nơi gần mình.
+     */
+    const pickupHere = useMemo(() => {
+        const common = cartCommonLocations(lines);
+        if (common.length === 0) return pickup_locations;
+        const slugs = new Set(common.map((c) => c.slug));
+        return pickup_locations.filter((l) => slugs.has(l.slug));
+    }, [lines, pickup_locations]);
 
     const canSubmit =
         data.name.trim().length >= 2 &&
@@ -1159,6 +1181,59 @@ export default function Cart() {
                                         {errors.delivery_method}
                                     </p>
                                 )}
+
+                                {/* Chọn tự đến thì phải biết đi đâu (bopcamping-n0db).
+                                    Chỉ hiện cơ sở phục vụ được giỏ hiện tại. */}
+                                {data.delivery_method === 'self_pickup' &&
+                                    pickupHere.length > 0 && (
+                                        <div className="mt-2 rounded-[11px] border border-cardBorder bg-[#faf9f4] p-3">
+                                            <p className="mb-1.5 text-[12px] font-semibold uppercase tracking-[0.04em] text-moss">
+                                                Địa chỉ nhận đồ
+                                            </p>
+                                            <ul className="flex flex-col gap-2">
+                                                {pickupHere.map((l) => (
+                                                    <li key={l.slug}>
+                                                        <div className="text-[13.5px] font-semibold text-ink">
+                                                            {l.name}
+                                                            {l.area && (
+                                                                <span className="font-normal text-moss">
+                                                                    {' '}
+                                                                    · {l.area}
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                        {l.address ? (
+                                                            <div className="text-[13px] text-moss">
+                                                                {l.address}
+                                                            </div>
+                                                        ) : (
+                                                            <div className="text-[13px] text-[#a3ad92]">
+                                                                Tụi mình gửi địa
+                                                                chỉ khi gọi xác
+                                                                nhận đơn.
+                                                            </div>
+                                                        )}
+                                                        {l.map_url && (
+                                                            <a
+                                                                href={l.map_url}
+                                                                target="_blank"
+                                                                rel="noopener noreferrer nofollow"
+                                                                className="mt-1 inline-flex items-center gap-1.5 rounded-pill border border-cardBorder bg-white px-2.5 py-1 text-[12.5px] font-semibold text-pine transition hover:border-grass"
+                                                            >
+                                                                <img
+                                                                    src="/images/google-maps.png"
+                                                                    alt=""
+                                                                    aria-hidden
+                                                                    className="h-4 w-4 object-contain"
+                                                                />
+                                                                Xem đường đi
+                                                            </a>
+                                                        )}
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        </div>
+                                    )}
                             </fieldset>
 
                             <textarea

@@ -49,6 +49,9 @@ class CampingSpotController extends Controller
                     'id' => $l->id,
                     'name' => $l->name,
                     'area' => $l->area,
+                    // Địa chỉ + link bản đồ hiện cho khách chọn "Tự đến xem đồ" (bopcamping-n0db).
+                    'address' => $l->address,
+                    'map_url' => $l->map_url,
                     'status' => $l->status,
                     'sort_order' => $l->sort_order,
                     'spots_count' => $l->camping_spots_count,
