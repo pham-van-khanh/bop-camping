@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Order;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Tests\TestCase;
 
 /**
@@ -88,16 +89,53 @@ class OrderActionAttributionTest extends TestCase
     }
 
     /** @test */
-    public function who_marked_collected_is_recorded(): void
+    public function who_marked_collected_is_recorded_for_both_admin_and_shipper(): void
     {
+        // Shipper bấm đã thu đồ trong app.
         $shipper = $this->shipper();
-        $order = $this->order(['status' => 'renting', 'return_shipper_id' => $shipper->id]);
+        $byShipper = $this->order(['status' => 'renting', 'return_shipper_id' => $shipper->id]);
+        $this->actingAs($shipper)->patch(route('shipper.orders.collected', $byShipper));
 
-        $this->actingAs($shipper)->patch(route('shipper.orders.collected', $order));
-
-        $entry = $this->entry($order, 'collected');
+        $entry = $this->entry($byShipper, 'collected');
         $this->assertTrue($entry['done']);
         $this->assertSame($shipper->name, $entry['by']);
+
+        // Admin chuyển đơn sang "đã trả" trong panel.
+        $admin = $this->admin();
+        $byAdmin = $this->order(['status' => 'renting']);
+        $this->actingAs($admin)->patch(route('admin.orders.update', $byAdmin), ['status' => 'returned']);
+
+        $this->assertSame($admin->name, $this->entry($byAdmin, 'collected')['by']);
+    }
+
+    /**
+     * bopcamping-54ie — mốc GIỜ THẬT của lượt thu đồ, không chỉ tên người thu.
+     * Cam kết hoàn cọc 24h (bopcamping-ud3l) đếm hạn từ collected_at, nên cột này phải
+     * có giá trị thật ở CẢ HAI đường ghi status 'returned' — suy từ status là không đủ.
+     *
+     * @test
+     */
+    public function collecting_stamps_a_real_timestamp_the_refund_deadline_can_count_from(): void
+    {
+        $shipper = $this->shipper();
+        $admin = $this->admin();
+
+        $byShipper = $this->order(['status' => 'renting', 'return_shipper_id' => $shipper->id]);
+        $this->actingAs($shipper)->patch(route('shipper.orders.collected', $byShipper));
+
+        $byAdmin = $this->order(['status' => 'renting']);
+        $this->actingAs($admin)->patch(route('admin.orders.update', $byAdmin), ['status' => 'returned']);
+
+        foreach ([[$byShipper, $shipper], [$byAdmin, $admin]] as [$order, $actor]) {
+            $fresh = $order->fresh();
+
+            $this->assertSame('returned', $fresh->status);
+            $this->assertNotNull($fresh->collected_at, 'thiếu mốc giờ thu đồ → không đếm được hạn hoàn cọc');
+            $this->assertSame($actor->id, $fresh->collected_by);
+            // Cast datetime chứ không phải chuỗi thô — hạn 24h tính bằng addDay() trên Carbon.
+            $this->assertInstanceOf(Carbon::class, $fresh->collected_at);
+            $this->assertTrue($fresh->collected_at->isToday());
+        }
     }
 
     /** @test */
