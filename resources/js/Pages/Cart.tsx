@@ -562,7 +562,7 @@ export default function Cart() {
         return (
             <>
                 <Head title="Đã gửi yêu cầu thuê" />
-                <main className="mx-auto max-w-[1060px] px-5 pb-12 pt-[30px]">
+                <main className="mx-auto max-w-[1400px] px-5 pb-12 pt-[30px]">
                     <div
                         className="mx-auto mt-2.5 max-w-[600px] rounded-[20px] border border-cardBorder bg-card text-center"
                         style={{ padding: 'clamp(28px,4vw,44px)' }}
@@ -652,7 +652,7 @@ export default function Cart() {
         return (
             <>
                 <Head title="Giỏ thuê" />
-                <main className="mx-auto max-w-[1060px] px-5 pb-12 pt-[30px]">
+                <main className="mx-auto max-w-[1400px] px-5 pb-12 pt-[30px]">
                     <h1
                         className="mb-[22px] font-extrabold tracking-tight text-ink"
                         style={{ fontSize: 'clamp(24px,3vw,32px)' }}
@@ -692,7 +692,7 @@ export default function Cart() {
     return (
         <>
             <Head title="Giỏ thuê" />
-            <main className="mx-auto max-w-[1060px] px-5 pb-12 pt-[30px]">
+            <main className="mx-auto max-w-[1400px] px-5 pb-12 pt-[30px]">
                 <h1
                     className="mb-[22px] font-extrabold tracking-tight text-ink"
                     style={{ fontSize: 'clamp(24px,3vw,32px)' }}
@@ -801,13 +801,10 @@ export default function Cart() {
                     </div>
                 )}
 
-                <div
-                    className="grid items-start gap-6"
-                    style={{
-                        gridTemplateColumns:
-                            'repeat(auto-fit, minmax(300px, 1fr))',
-                    }}
-                >
+                {/* Danh sách món co giãn + panel checkout cố định 440px — cùng quy ước
+                    với trang chi tiết SP/combo trong khung 1400px (bopcamping-7wp6).
+                    Chia đôi đều thì ở 1400px panel checkout bị kéo rộng ra trông loãng. */}
+                <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_440px]">
                     {/* Danh sách món */}
                     <div>
                         {lines.map((it, i) => (
