@@ -38,6 +38,9 @@ export interface SiteZalo {
 export interface SiteInfo {
     hotline_primary: string | null;
     hotline_secondary: string | null;
+    /** Zalo OA chính thức — nút nổi dùng cái này (hằng, luôn có). */
+    zalo_oa: string;
+    /** Liên hệ THEO SỐ cho footer — khác OA, xem SiteSetting::zaloUrl. */
     zalo_1: SiteZalo;
     zalo_2: SiteZalo;
     facebook_url: string | null;
