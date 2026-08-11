@@ -156,6 +156,43 @@ class SeoMetaTest extends TestCase
         $res->assertSee('Combo Cắm Trại 2 Người', false);
     }
 
+    /**
+     * Combo SEO "mạnh" (bopcamping-gyg8): /combos có ItemList; chi tiết combo dùng
+     * hasPart cho món bên trong và KHÔNG bịa aggregateRating.
+     *
+     * @test
+     */
+    public function combo_pages_carry_rich_structured_data(): void
+    {
+        $cat = Category::create(['name' => 'Lều', 'slug' => 'leu-rich-seo']);
+        $product = Product::create([
+            'category_id' => $cat->id, 'name' => 'Lều đôi Rich', 'slug' => 'leu-doi-rich-seo',
+            'price_per_day' => 100000, 'quantity' => 5, 'status' => 'active',
+        ]);
+        $combo = Combo::create([
+            'name' => 'Combo Rich SEO', 'slug' => 'combo-rich-seo',
+            'combo_price' => 250000, 'deposit' => 500000,
+            'suitable_for' => 2, 'is_active' => true,
+        ]);
+        $combo->items()->create(['product_id' => $product->id, 'quantity' => 1]);
+
+        // Trang danh sách: ItemList nêu tên + giá combo.
+        $list = $this->get('/combos');
+        $list->assertSee('"ItemList"', false);
+        $list->assertSee('Combo Rich SEO', false);
+
+        $detail = $this->get('/combos/'.$combo->slug);
+        // hasPart = combo GỒM món này. isSimilarTo là sai nghĩa ("sản phẩm tương tự"),
+        // khoá lại để không ai đổi ngược.
+        $detail->assertSee('"hasPart"', false);
+        $detail->assertDontSee('"isSimilarTo"', false);
+        $detail->assertSee('Lều đôi Rich', false);
+        $detail->assertSee('"sku"', false);
+        $detail->assertSee('PeopleAudience', false);
+        // Review chỉ gắn vào product — combo không có, đừng bịa điểm.
+        $detail->assertDontSee('aggregateRating', false);
+    }
+
     /** @test */
     public function gtm_not_rendered_without_id(): void
     {

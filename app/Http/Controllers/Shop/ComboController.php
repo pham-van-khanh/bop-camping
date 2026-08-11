@@ -13,6 +13,7 @@ use App\Services\SeoService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
@@ -83,10 +84,16 @@ class ComboController extends Controller
             'seo' => $this->seo->page(
                 'Combo thuê đồ cắm trại trọn bộ — tiết kiệm hơn thuê lẻ',
                 'Combo lều, bếp, túi ngủ, bàn ghế... gói sẵn theo nhu cầu. Thuê trọn bộ rẻ hơn thuê lẻ, giao nhận tận nơi tại Vinh & Hà Nội, trả tiền khi nhận (COD).',
-                jsonld: $this->seo->breadcrumb([
-                    ['Trang chủ', url('/')],
-                    ['Combo', url('/combos')],
-                ]),
+                jsonld: [
+                    $this->seo->breadcrumb([
+                        ['Trang chủ', url('/')],
+                        ['Combo', url('/combos')],
+                    ]),
+                    // ItemList để Google hiểu đây là trang DANH SÁCH và biết có gì trong
+                    // đó, thay vì chỉ thấy một trang chữ (bopcamping-gyg8). Dùng thứ tự
+                    // đang render — khách thấy sao thì khai vậy.
+                    $this->comboListJsonLd($combos),
+                ],
             ),
             'combos' => $combos,
             'service_locations' => $openLocations->map(fn (ServiceLocation $l) => [
@@ -226,46 +233,127 @@ class ComboController extends Controller
      * @return array<int, array{id: int, name: string, slug: string, served: bool}>
      */
     /**
-     * Product JSON-LD cho combo (bopcamping-u3u3) — soi theo productJsonLd() của
-     * ProductController để Google thấy combo và sản phẩm lẻ cùng một kiểu.
+     * ItemList cho trang /combos (bopcamping-gyg8).
      *
-     * Dùng `Product` + `isSimilarTo` chứ không phải `ProductCollection`: combo ở đây bán
-     * như MỘT món (một giá, một mức cọc), không phải nhóm sản phẩm cho khách chọn lẻ.
-     * `price` là giá thuê/ngày trọn bộ — cùng đơn vị với sản phẩm lẻ, không phải tổng.
+     * Trang danh sách trước đây chỉ có BreadcrumbList nên với Google nó là một trang chữ
+     * không rõ chứa gì. ItemList nêu tên + link + giá từng combo, giúp Google hiểu cấu
+     * trúc và có cửa hiện dạng danh sách trên SERP.
+     *
+     * Khai theo ĐÚNG thứ tự đang render (đã sắp: combo đặt được lên trước) — khách thấy
+     * thứ tự nào thì markup nói thứ tự đó.
+     *
+     * @param  Collection<int, array<string, mixed>>  $combos
+     * @return array<string, mixed>
+     */
+    private function comboListJsonLd($combos): array
+    {
+        return [
+            '@context' => 'https://schema.org',
+            '@type' => 'ItemList',
+            'name' => 'Combo thuê đồ cắm trại',
+            'numberOfItems' => $combos->count(),
+            'itemListElement' => $combos->values()->map(fn (array $c, int $i) => [
+                '@type' => 'ListItem',
+                'position' => $i + 1,
+                'item' => array_filter([
+                    '@type' => 'Product',
+                    'name' => $c['name'] ?? null,
+                    'url' => ! empty($c['slug']) ? url('/combos/'.$c['slug']) : null,
+                    'offers' => ! empty($c['combo_price']) ? [
+                        '@type' => 'Offer',
+                        'price' => (int) $c['combo_price'],
+                        'priceCurrency' => 'VND',
+                    ] : null,
+                ], fn ($v) => $v !== null),
+            ])->all(),
+        ];
+    }
+
+    /**
+     * Product JSON-LD cho combo (bopcamping-u3u3, mở rộng ở bopcamping-gyg8).
+     *
+     * Dùng `Product` chứ không `ProductCollection`: combo bán như MỘT món — một giá,
+     * một mức cọc, không cho khách tách lẻ. `price` là giá thuê/ngày trọn bộ, cùng đơn
+     * vị với sản phẩm lẻ (KHÔNG phải tổng nhiều ngày).
+     *
+     * KHÔNG khai `aggregateRating`: review trong dự án chỉ gắn vào `product_id`, combo
+     * không có review riêng. Mượn điểm của món bên trong rồi gán cho combo là bịa số —
+     * Google phạt nặng chuyện này.
      *
      * @param  array<string, mixed>  $shaped
      * @return array<string, mixed>
      */
     private function comboJsonLd(Combo $combo, array $shaped, string $image, string $desc): array
     {
-        return [
+        // Nhiều ảnh giúp Google chọn được ảnh hợp ngữ cảnh; ảnh chính vẫn đứng đầu.
+        $images = collect($shaped['images'] ?? [])
+            ->pluck('url')->filter()->values()->all();
+
+        $data = [
             '@context' => 'https://schema.org',
             '@type' => 'Product',
             'name' => $combo->name,
             'description' => $desc,
-            'image' => $image,
+            'image' => $images ?: $image,
+            'sku' => 'COMBO-'.$combo->slug,
             'category' => 'Combo thuê đồ cắm trại',
-            'brand' => ['@type' => 'Brand', 'name' => 'BỐP CAMPING'],
+            'brand' => ['@type' => 'Brand', 'name' => SeoService::BRAND],
             'offers' => [
                 '@type' => 'Offer',
                 'price' => (int) $combo->combo_price,
                 'priceCurrency' => 'VND',
-                // Chi tiết combo không tra tồn theo ngày (khách chưa chọn ngày ở đây), nên
-                // khai InStock khi combo còn bán — đừng bịa OutOfStock lúc chưa biết.
+                // Trang này không tra tồn theo ngày (khách chưa chọn ngày ở đây) nên khai
+                // InStock khi combo còn bán — đừng bịa OutOfStock lúc chưa biết.
                 'availability' => 'https://schema.org/InStock',
                 'url' => url()->current(),
                 'description' => 'Giá thuê trọn bộ theo ngày',
+                'seller' => ['@type' => 'Organization', 'name' => SeoService::BRAND],
             ],
-            // Liệt kê món trong combo — giúp Google hiểu combo gồm gì.
-            'isSimilarTo' => collect($shaped['items'] ?? [])
+            // `hasPart` = combo GỒM những món này. Trước dùng `isSimilarTo` là sai nghĩa
+            // (nó có nghĩa "sản phẩm tương tự"), tức là đang nói với Google rằng combo
+            // giống mấy món đó chứ không phải chứa chúng.
+            'hasPart' => collect($shaped['items'] ?? [])
+                ->filter(fn (array $it) => ! empty($it['name']))
                 ->map(fn (array $it) => array_filter([
                     '@type' => 'Product',
-                    'name' => $it['name'] ?? null,
+                    'name' => $it['name'],
+                    'url' => ! empty($it['slug']) ? url('/thiet-bi/'.$it['slug']) : null,
                 ]))
-                ->filter(fn (array $p) => ! empty($p['name']))
                 ->values()
                 ->all(),
         ];
+
+        // Mức tiết kiệm là lợi thế bán hàng chính của combo — khai ra để Google đọc được.
+        $props = [];
+        if (($shaped['savings_percent'] ?? 0) > 0) {
+            $props[] = [
+                '@type' => 'PropertyValue',
+                'name' => 'Tiết kiệm so với thuê lẻ',
+                'value' => $shaped['savings_percent'].'%',
+            ];
+        }
+        if (($shaped['deposit'] ?? 0) > 0) {
+            $props[] = [
+                '@type' => 'PropertyValue',
+                'name' => 'Tiền cọc (hoàn lại)',
+                'value' => $shaped['deposit'].' VND',
+            ];
+        }
+        if ($props) {
+            $data['additionalProperty'] = $props;
+        }
+
+        // suitable_for là SỐ NGƯỜI (không phải nhãn đối tượng) — map sang suggestedMinAge
+        // thì sai, dùng PeopleAudience.suggestedMaxAge cũng sai. Diễn đạt bằng audience
+        // có tên rõ ràng là an toàn và vẫn đúng nghĩa.
+        if (($combo->suitable_for ?? 0) > 0) {
+            $data['audience'] = [
+                '@type' => 'PeopleAudience',
+                'name' => 'Nhóm '.$combo->suitable_for.' người',
+            ];
+        }
+
+        return $data;
     }
 
     private function storesFor(Combo $combo): array
