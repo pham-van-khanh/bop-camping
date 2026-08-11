@@ -35,9 +35,19 @@ class SiteSetting extends Model
     }
 
     /**
-     * URL Zalo cho tài khoản thứ $n (1|2): ưu tiên url override, nếu trống mà có
-     * số điện thoại thì fallback zalo.me/<sđt> (mở đúng trang cá nhân của số đã
-     * đăng ký Zalo). Null nếu không có cả hai.
+     * Zalo OA chính thức của shop (bopcamping-yki5) — SINGLE SOURCE, đừng chép link
+     * này ra chỗ khác. Shop đã chốt dùng một OA cố định thay cho Zalo cá nhân.
+     */
+    public const ZALO_OA_URL = 'https://zalo.me/791036380751013489';
+
+    /**
+     * URL Zalo THEO SỐ cho tài khoản thứ $n (1|2): url override → zalo.me/<sđt> → null.
+     *
+     * Cố ý KHÁC với OA ở trên (bopcamping-h0hh). Hai đường liên hệ phục vụ hai nhu
+     * cầu khác nhau, đừng gộp lại:
+     *   - OA (nút nổi): kênh chính thức, tiện, hiện to.
+     *   - Theo số (footer): khách chưa tin OA thì vẫn nhắn thẳng được số nhân viên.
+     * Từng gộp hết về OA ở bopcamping-yki5 và hậu quả là mất hẳn đường thứ hai.
      */
     public function zaloUrl(int $n): ?string
     {

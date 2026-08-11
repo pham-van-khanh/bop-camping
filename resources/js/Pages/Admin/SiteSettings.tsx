@@ -250,11 +250,10 @@ export default function AdminSiteSettings() {
                             Tài khoản Zalo
                         </h2>
                         <p className="mb-3 text-[12.5px] text-moss">
-                            Để trống ô "Link Zalo" thì hệ thống tự dùng{' '}
-                            <span className="font-mono">
-                                zalo.me/&lt;số điện thoại&gt;
-                            </span>
-                            .
+                            Để trống ô "Link Zalo" thì nút Zalo trỏ về{' '}
+                            <span className="font-mono">Zalo OA</span> chính
+                            thức của shop. Số điện thoại vẫn hiện ở footer để
+                            khách gọi, nhưng không còn dùng để tạo đường dẫn.
                         </p>
                         <div className="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
                             {field(

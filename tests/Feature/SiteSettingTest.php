@@ -35,7 +35,7 @@ class SiteSettingTest extends TestCase
 
     /**
      * zaloUrl: có url override → dùng url; không có url nhưng có phone →
-     * fallback zalo.me/<phone>; không có cả hai → null.
+     * zalo.me/<phone>; không có cả hai → null.
      *
      * @test
      */
@@ -51,6 +51,27 @@ class SiteSettingTest extends TestCase
 
         $s->update(['zalo1_phone' => null, 'zalo1_url' => null]);
         $this->assertNull($s->zaloUrl(1));
+    }
+
+    /**
+     * Hai đường Zalo phải TÁCH nhau (bopcamping-h0hh): OA cho nút nổi, số cho footer.
+     * Gộp lại là mất đường liên hệ theo số — đúng lỗi đã mắc ở bopcamping-yki5.
+     *
+     * @test
+     */
+    public function oa_and_per_phone_zalo_are_two_separate_links(): void
+    {
+        SiteSetting::current()->update([
+            'zalo1_phone' => '0976544370', 'zalo1_url' => null,
+            'zalo2_phone' => '0373655008', 'zalo2_url' => null,
+        ]);
+
+        $this->get('/')->assertInertia(fn ($page) => $page
+            ->where('site.zalo_oa', SiteSetting::ZALO_OA_URL)
+            ->where('site.zalo_1.phone', '0976544370')
+            ->where('site.zalo_1.url', 'https://zalo.me/0976544370')
+            ->where('site.zalo_2.phone', '0373655008')
+            ->where('site.zalo_2.url', 'https://zalo.me/0373655008'));
     }
 
     /** @test */

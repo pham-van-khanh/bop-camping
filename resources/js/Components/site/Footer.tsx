@@ -2,13 +2,37 @@ import Logo from '@/Components/Logo';
 import type { PageProps } from '@/types';
 import { Link, usePage } from '@inertiajs/react';
 
-/** Icon mạng xã hội (chỉ render khi có URL). */
+/**
+ * Icon mạng xã hội — dùng logo gốc (PNG) thay vì vẽ lại bằng SVG một màu, để đúng
+ * nhận diện thương hiệu. Ba logo khác hình nhau (Facebook tròn, TikTok là glyph rời,
+ * Zalo bo góc có đuôi) nên bọc chung một ô trắng bo góc cho đều hàng.
+ *
+ * Khối này từng bị xoá nhầm ở commit e2c14f2 khiến điền Facebook/TikTok trong admin
+ * không hiện gì — dựng lại ở bopcamping-h0hh.
+ */
+const SOCIAL_ICON = {
+    facebook: '/images/communication.png',
+    tiktok: '/images/tik-tok.png',
+    zalo: '/images/zalo-icon.png',
+} as const;
 
 export default function Footer() {
     const { site } = usePage<PageProps>().props;
     const hotlines = [site?.hotline_primary, site?.hotline_secondary].filter(
         Boolean,
     ) as string[];
+
+    // Chỉ hiện icon đã cấu hình. Zalo ở đây là OA (kênh chính thức) — còn liên hệ
+    // theo SỐ nằm ở cột "Liên hệ Zalo" bên dưới, hai thứ khác nhau.
+    const socials = [
+        {
+            kind: 'facebook' as const,
+            url: site?.facebook_url,
+            label: 'Facebook',
+        },
+        { kind: 'tiktok' as const, url: site?.tiktok_url, label: 'TikTok' },
+        { kind: 'zalo' as const, url: site?.zalo_oa, label: 'Zalo OA' },
+    ].filter((s) => !!s.url);
 
     return (
         <footer
@@ -32,6 +56,29 @@ export default function Footer() {
                         Cho thuê thiết bị cắm trại theo ngày. Giao nhận tận nơi,
                         cọc linh hoạt, trả tiền khi nhận.
                     </p>
+                    {socials.length > 0 && (
+                        <div className="flex gap-2.5">
+                            {socials.map((s) => (
+                                <a
+                                    key={s.kind}
+                                    href={s.url as string}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    aria-label={s.label}
+                                    title={s.label}
+                                    className="grid h-9 w-9 place-items-center rounded-[10px] border border-[#cdd6b6] bg-white transition hover:border-grass"
+                                >
+                                    <img
+                                        src={SOCIAL_ICON[s.kind]}
+                                        alt=""
+                                        width={20}
+                                        height={20}
+                                        className="h-5 w-5 object-contain"
+                                    />
+                                </a>
+                            ))}
+                        </div>
+                    )}
                 </div>
 
                 <div>
