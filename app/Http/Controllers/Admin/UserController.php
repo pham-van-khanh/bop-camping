@@ -199,6 +199,51 @@ class UserController extends Controller
         return back()->with('success', $isShipper ? 'Đã thêm shipper.' : 'Đã thêm quản trị viên.');
     }
 
+    /**
+     * Tạo nhanh 1 KHÁCH HÀNG từ admin (bopcamping-kw6q): chỉ tên + SĐT + email, KHÔNG mật khẩu
+     * (khách vốn đăng nhập passwordless). Email do admin nhập được đánh dấu ĐÃ XÁC MINH luôn —
+     * admin nhập hộ nghĩa là đã xác nhận ngoài đời, khách vào bằng SĐT là thẳng, không cần OTP.
+     * Bỏ trống email → model điền email tạm, KHÔNG đánh dấu verified (chưa có email thật để tin).
+     */
+    public function storeCustomer(Request $request): RedirectResponse
+    {
+        $data = $request->validate([
+            'name' => 'required|string|min:2|max:100',
+            'phone' => ['required', 'string', 'regex:/^0[0-9]{8,10}$/', 'unique:users,phone'],
+            'email' => ['nullable', 'email', 'max:255', Rule::unique('users', 'email')],
+        ], [
+            'name.required' => 'Vui lòng nhập tên khách.',
+            'phone.required' => 'Vui lòng nhập số điện thoại.',
+            'phone.regex' => 'Số điện thoại không hợp lệ (VD: 0912345678).',
+            'phone.unique' => 'Số điện thoại đã có tài khoản.',
+            'email.email' => 'Email không hợp lệ.',
+            'email.unique' => 'Email đã được dùng.',
+        ]);
+
+        $email = trim((string) ($data['email'] ?? ''));
+
+        $user = new User([
+            'name' => $data['name'],
+            'phone' => $data['phone'],
+            'email' => $email !== '' ? $email : null,   // trống → model tự điền email tạm
+            'is_admin' => false,
+            'is_shipper' => false,
+        ]);
+        // Set trực tiếp: email_verified_at không nằm trong $fillable (tránh mass-assign).
+        if ($email !== '') {
+            $user->email_verified_at = now();
+        }
+        $user->save();
+
+        Log::info('admin.customer.created', [
+            'actor_id' => $request->user()->id,
+            'target_id' => $user->id,
+            'email_verified' => $email !== '',
+        ]);
+
+        return back()->with('success', 'Đã thêm khách hàng.');
+    }
+
     public function update(Request $request, User $user): RedirectResponse
     {
         // Form sửa chỉ áp dụng tài khoản NHÂN SỰ: admin hoặc shipper (khách chỉ xem —

@@ -115,6 +115,95 @@ class AdminUserTest extends TestCase
     }
 
     /** @test */
+    public function admin_creates_customer_with_only_name_phone_email(): void
+    {
+        $admin = $this->makeUser(true, '0900000001');
+
+        $this->actingAs($admin)->post(route('admin.users.customers.store'), [
+            'name' => 'Khách Mới',
+            'phone' => '0912345678',
+            'email' => 'khach@gmail.com',
+        ])->assertRedirect()->assertSessionHas('success');
+
+        $created = User::where('phone', '0912345678')->first();
+        $this->assertNotNull($created);
+        $this->assertSame('Khách Mới', $created->name);
+        $this->assertSame('khach@gmail.com', $created->email);
+        $this->assertFalse($created->is_admin);
+        $this->assertFalse($created->is_shipper);
+        // Khách không dùng mật khẩu (đăng nhập bằng SĐT/OTP).
+        $this->assertNull($created->password);
+        // Admin tạo hộ = đã xác minh → khách không phải nhập OTP.
+        $this->assertNotNull($created->email_verified_at);
+    }
+
+    /** @test */
+    public function customer_created_by_admin_logs_in_without_otp(): void
+    {
+        $admin = $this->makeUser(true, '0900000001');
+
+        $this->actingAs($admin)->post(route('admin.users.customers.store'), [
+            'name' => 'Khách Mới', 'phone' => '0912345678', 'email' => 'khach@gmail.com',
+        ])->assertRedirect();
+
+        $created = User::where('phone', '0912345678')->first();
+
+        // Khách vào bằng SĐT: KHÔNG có OTP chờ, đăng nhập thẳng.
+        $this->post(route('guest.login'), ['phone' => '0912345678'])
+            ->assertSessionMissing('otp_pending')
+            ->assertSessionHasNoErrors();
+        $this->assertAuthenticatedAs($created);
+    }
+
+    /** @test */
+    public function admin_can_create_customer_without_email(): void
+    {
+        $admin = $this->makeUser(true, '0900000001');
+
+        $this->actingAs($admin)->post(route('admin.users.customers.store'), [
+            'name' => 'Khách Không Mail', 'phone' => '0912345678',
+        ])->assertRedirect()->assertSessionHas('success');
+
+        $created = User::where('phone', '0912345678')->first();
+        $this->assertNotNull($created);
+        // Email tạm do model tự điền → KHÔNG đánh dấu đã xác minh.
+        $this->assertTrue($created->hasPlaceholderEmail());
+        $this->assertNull($created->email_verified_at);
+    }
+
+    /** @test */
+    public function create_customer_validates_unique_phone_and_email(): void
+    {
+        $admin = $this->makeUser(true, '0900000001');
+        $existing = $this->makeUser(false, '0911111111');
+        $existing->forceFill(['email' => 'da_dung@gmail.com'])->save();
+
+        $this->actingAs($admin)->post(route('admin.users.customers.store'), [
+            'name' => 'X', 'phone' => '0911111111',
+        ])->assertSessionHasErrors('phone');
+
+        $this->actingAs($admin)->post(route('admin.users.customers.store'), [
+            'name' => 'X', 'phone' => '0912345678', 'email' => 'da_dung@gmail.com',
+        ])->assertSessionHasErrors('email');
+
+        $this->actingAs($admin)->post(route('admin.users.customers.store'), [
+            'name' => 'X', 'phone' => '091', 'email' => 'sai-email',
+        ])->assertSessionHasErrors(['phone', 'email']);
+    }
+
+    /** @test */
+    public function non_admin_cannot_create_customer(): void
+    {
+        $customer = $this->makeUser(false, '0911111111');
+
+        $this->actingAs($customer)->post(route('admin.users.customers.store'), [
+            'name' => 'X', 'phone' => '0912345678',
+        ])->assertRedirect(route('admin.login'));
+
+        $this->assertDatabaseMissing('users', ['phone' => '0912345678']);
+    }
+
+    /** @test */
     public function cannot_update_a_customer_through_admin_update(): void
     {
         $admin = $this->makeUser(true, '0900000001');
