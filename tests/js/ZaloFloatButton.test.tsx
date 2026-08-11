@@ -129,6 +129,48 @@ describe('chỉ một tài khoản Zalo', () => {
     });
 });
 
+describe('hai dòng cấu hình nhưng cùng một đích (Zalo OA)', () => {
+    /**
+     * bopcamping-yki5: zaloUrl() giờ trả OA chính thức cho mọi tài khoản chỉ có
+     * SĐT, nên hai dòng cấu hình khác nhau vẫn ra CÙNG một url. Panel chọn số lúc
+     * này là vô nghĩa — bắt khách chọn giữa hai mục mở y hệt một chỗ.
+     */
+    const OA = 'https://zalo.me/791036380751013489';
+
+    it('gộp lại thành một link mở thẳng, không bày panel chọn', () => {
+        setSite(
+            zalo({ url: OA }),
+            zalo({ label: 'Hỗ trợ thêm', phone: '0373655008', url: OA }),
+        );
+        render(<ZaloFloatButton />);
+
+        expect(
+            screen.queryByRole('button', { name: 'Liên hệ Zalo' }),
+        ).not.toBeInTheDocument();
+        expect(
+            screen.getByRole('link', { name: /Liên hệ Zalo/ }),
+        ).toHaveAttribute('href', OA);
+    });
+
+    it('vẫn tách hai mục khi chủ shop đặt url override khác nhau', () => {
+        // Cơ chế override của admin phải còn dùng được: hai đích thật sự khác nhau
+        // thì vẫn cho khách chọn.
+        setSite(
+            zalo({ url: OA }),
+            zalo({
+                label: 'Hỗ trợ thêm',
+                phone: '0373655008',
+                url: 'https://zalo.me/g/khac',
+            }),
+        );
+        render(<ZaloFloatButton />);
+
+        expect(
+            screen.getByRole('button', { name: 'Liên hệ Zalo' }),
+        ).toBeInTheDocument();
+    });
+});
+
 describe('hai tài khoản Zalo', () => {
     const bothAccounts = () =>
         setSite(
