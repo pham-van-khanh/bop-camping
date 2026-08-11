@@ -38,7 +38,7 @@ class ZaloContactTest extends TestCase
                 ->where('site.zalo_1.url', null)
                 ->where('site.zalo_2.label', 'Hỗ trợ thêm')
                 ->where('site.zalo_2.phone', '0373655008')
-                ->where('site.zalo_2.url', 'https://zalo.me/0373655008'));
+                ->where('site.zalo_2.url', SiteSetting::ZALO_OA_URL));
     }
 
     /**
@@ -56,7 +56,7 @@ class ZaloContactTest extends TestCase
         $this->get('/')
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
-                ->where('site.zalo_1.url', 'https://zalo.me/0976544370')
+                ->where('site.zalo_1.url', SiteSetting::ZALO_OA_URL)
                 ->where('site.zalo_2.url', null));
     }
 
@@ -97,8 +97,8 @@ class ZaloContactTest extends TestCase
             $this->get($path)
                 ->assertOk()
                 ->assertInertia(fn (Assert $page) => $page
-                    ->where('site.zalo_1.url', 'https://zalo.me/0976544370')
-                    ->where('site.zalo_2.url', 'https://zalo.me/0373655008'));
+                    ->where('site.zalo_1.url', SiteSetting::ZALO_OA_URL)
+                    ->where('site.zalo_2.url', SiteSetting::ZALO_OA_URL));
         }
     }
 
