@@ -1,8 +1,8 @@
+import MediaGallery from '@/Components/admin/MediaGallery';
+import MediaPickerModal from '@/Components/admin/MediaPickerModal';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
-import MediaGallery from '@/Components/admin/MediaGallery';
-import MediaPickerModal from '@/Components/admin/MediaPickerModal';
 
 /**
  * bopcamping-7czf — gallery ảnh nằm BÊN TRONG <form> của ProductForm, nên mọi nút
@@ -35,8 +35,9 @@ vi.mock('framer-motion', () => ({
 }));
 
 // route() là global do Ziggy cung cấp ở runtime.
-(globalThis as unknown as { route: (n: string) => string }).route = (n: string) =>
-    `/${n}`;
+(globalThis as unknown as { route: (n: string) => string }).route = (
+    n: string,
+) => `/${n}`;
 
 const LIBRARY = [
     {
