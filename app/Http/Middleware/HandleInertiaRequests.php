@@ -133,7 +133,8 @@ class HandleInertiaRequests extends Middleware
 
     /**
      * Thông tin liên hệ dùng chung cho footer + dải Zalo. Zalo url đã resolve sẵn
-     * (áp zalo.me/<sđt> khi trống); địa chỉ lấy từ ServiceLocation đang mở.
+     * (trống thì về OA chính thức — xem SiteSetting::zaloUrl); địa chỉ lấy từ
+     * ServiceLocation đang mở.
      *
      * @return array<string, mixed>
      */

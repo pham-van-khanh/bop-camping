@@ -39,8 +39,13 @@ export default function ZaloFloatButton() {
     const [open, setOpen] = useState(false);
     const wrapRef = useRef<HTMLDivElement>(null);
 
-    const accounts: SiteZalo[] = [site?.zalo_1, site?.zalo_2].filter(
-        (z): z is SiteZalo => Boolean(z?.url),
+    // Gộp theo url: từ khi mọi tài khoản trỏ chung một Zalo OA (bopcamping-yki5),
+    // hai dòng cấu hình khác nhau vẫn ra cùng một đích. Không gộp thì panel bày ra
+    // hai lựa chọn mở y hệt một chỗ — bắt khách chọn giữa hai thứ không khác gì nhau.
+    const accounts = [site?.zalo_1, site?.zalo_2].reduce<SiteZalo[]>(
+        (acc, z) =>
+            z?.url && !acc.some((a) => a.url === z.url) ? [...acc, z] : acc,
+        [],
     );
 
     // Đóng panel khi bấm ra ngoài hoặc nhấn Esc.
