@@ -6,6 +6,7 @@ use App\Models\Category;
 use App\Models\Combo;
 use App\Models\Faq;
 use App\Models\Product;
+use App\Models\ServiceLocation;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -191,6 +192,53 @@ class SeoMetaTest extends TestCase
         $detail->assertSee('PeopleAudience', false);
         // Review chỉ gắn vào product — combo không có, đừng bịa điểm.
         $detail->assertDontSee('aggregateRating', false);
+    }
+
+    /**
+     * Description lấy danh mục từ DB, KHÔNG gõ tay và KHÔNG nhắc địa điểm (bopcamping-gyg8).
+     *
+     * Trước đây câu này ghi cứng "lều, bếp, túi ngủ, đèn trại... tại Vinh & Hà Nội".
+     * Đã đo được lỗi: mở thêm cơ sở Đà Nẵng thì DB có 3 khu vực nhưng description vẫn
+     * ghi "Vinh & Hà Nội". Địa điểm là dữ liệu admin quản lý nên bỏ hẳn khỏi câu.
+     *
+     * @test
+     */
+    public function listing_descriptions_come_from_real_categories_and_never_name_locations(): void
+    {
+        Category::create(['name' => 'Xuồng hơi', 'slug' => 'xuong-hoi-seo']);
+        ServiceLocation::create([
+            'name' => 'Đà Nẵng', 'area' => 'Hải Châu', 'status' => 'open', 'sort_order' => 9,
+        ]);
+
+        foreach (['/', '/thiet-bi', '/combos'] as $path) {
+            $res = $this->get($path);
+
+            // Danh mục thật phải có mặt.
+            $res->assertSee('xuồng hơi', false);
+            // Không được nhắc tên cơ sở — đó là dữ liệu thay đổi được.
+            $res->assertDontSee('Vinh &amp; Hà Nội', false);
+            $res->assertDontSee('Hải Châu', false);
+        }
+    }
+
+    /**
+     * categoryPhrase phải đủ ngắn để đuôi description không bị Str::limit cắt mất.
+     *
+     * @test
+     */
+    public function listing_description_is_not_truncated_mid_sentence(): void
+    {
+        foreach (['Lều A', 'Bếp B', 'Túi C', 'Đèn D', 'Bàn E', 'Ghế F', 'Ba lô G'] as $i => $n) {
+            Category::create(['name' => $n, 'slug' => 'cat-trunc-'.$i]);
+        }
+
+        foreach (['/thiet-bi', '/combos'] as $path) {
+            $res = $this->get($path);
+            // Đuôi mới là thứ đáng đọc — còn nguyên thì tức là chưa bị cắt.
+            $res->assertSee('trả tiền khi nhận (COD).', false);
+            // Nối "..." với "." thành "...." là lỗi trình bày.
+            $res->assertDontSee('....', false);
+        }
     }
 
     /** @test */

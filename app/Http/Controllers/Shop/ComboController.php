@@ -83,7 +83,11 @@ class ComboController extends Controller
             // này trùng hệt trang chủ (bopcamping-u3u3).
             'seo' => $this->seo->page(
                 'Combo thuê đồ cắm trại trọn bộ — tiết kiệm hơn thuê lẻ',
-                'Combo lều, bếp, túi ngủ, bàn ghế... gói sẵn theo nhu cầu. Thuê trọn bộ rẻ hơn thuê lẻ, giao nhận tận nơi tại Vinh & Hà Nội, trả tiền khi nhận (COD).',
+                // Danh mục lấy từ DB, KHÔNG gõ tay: thêm/đổi tên danh mục trong admin thì
+                // câu này tự theo. Đã bỏ đoạn "giao nhận tận nơi tại Vinh & Hà Nội" — địa
+                // điểm là dữ liệu admin quản lý, hardcode vào đây là sai ngay khi mở cơ sở
+                // mới (đã đo: mở Đà Nẵng thì description vẫn ghi Vinh & Hà Nội).
+                'Combo '.$this->seo->categoryPhrase().' gói sẵn theo nhu cầu. Thuê trọn bộ rẻ hơn thuê lẻ, cọc linh hoạt, trả tiền khi nhận (COD).',
                 jsonld: [
                     $this->seo->breadcrumb([
                         ['Trang chủ', url('/')],
