@@ -175,6 +175,8 @@ Route::middleware(['admin'])->prefix('admin')->name('admin.')->group(function ()
 
     Route::get('/users', [AdminUserController::class, 'index'])->name('users');
     Route::post('/users', [AdminUserController::class, 'store'])->name('users.store')->middleware('throttle:30,1');
+    // Tạo nhanh KHÁCH HÀNG (chỉ tên + SĐT + email, không mật khẩu) — bopcamping-kw6q.
+    Route::post('/users/customers', [AdminUserController::class, 'storeCustomer'])->name('users.customers.store')->middleware('throttle:30,1');
     Route::put('/users/{user}', [AdminUserController::class, 'update'])->name('users.update')->middleware('throttle:30,1');
     Route::patch('/users/{user}/role', [AdminUserController::class, 'updateRole'])->name('users.role')->middleware('throttle:30,1');
     Route::delete('/users/{user}', [AdminUserController::class, 'destroy'])->name('users.destroy')->middleware('throttle:30,1');
