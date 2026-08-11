@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\GenerateMediaVariants;
 use App\Models\Combo;
 use App\Models\ComboImage;
 use App\Models\ComboItem;
@@ -163,13 +164,24 @@ class ComboController extends Controller
         ]);
 
         $maxSort = $combo->images()->max('sort_order') ?? 0;
+        $newImagePaths = [];
 
         foreach ($request->file('images') as $file) {
+            $path = $file->store('admin/combos', 'media');
+            $type = MediaType::detect($file);
             $combo->images()->create([
-                'path' => $file->store('admin/combos', 'media'),
+                'path' => $path,
                 'sort_order' => ++$maxSort,
-                'type' => MediaType::detect($file),
+                'type' => $type,
             ]);
+            // Video không resize được bằng GD — chỉ ảnh mới cần biến thể.
+            if ($type === 'image') {
+                $newImagePaths[] = $path;
+            }
+        }
+
+        if ($newImagePaths !== []) {
+            GenerateMediaVariants::dispatch($newImagePaths);
         }
 
         return back()->with('success', 'Đã tải lên ảnh.');

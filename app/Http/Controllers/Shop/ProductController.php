@@ -13,6 +13,7 @@ use App\Models\Product;
 use App\Models\Review;
 use App\Models\ServiceLocation;
 use App\Services\AvailabilityService;
+use App\Services\MediaVariantService;
 use App\Services\SeoService;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Http\JsonResponse;
@@ -79,11 +80,12 @@ class ProductController extends Controller
     /** GET / — trang chủ với 4 sản phẩm nổi bật */
     public function home(): Response
     {
-        $featured = Product::active()
+        $featuredModels = Product::active()
             ->with('category', 'images', 'serviceLocations')
             ->limit(4)
-            ->get()
-            ->map(fn ($p) => $this->shape($p));
+            ->get();
+        $this->warmMedia($featuredModels);
+        $featured = $featuredModels->map(fn ($p) => $this->shape($p));
 
         $systemQuery = Review::where('status', 'approved')->where('category', 'system');
 
@@ -245,6 +247,8 @@ class ProductController extends Controller
             ? $this->bestLocationNames($productModels, $start, $end)
             : [];
 
+        $this->warmMedia($productModels);
+
         $products = $productModels->map(function (Product $p) use ($hasRange, $availability, $bestAt) {
             $shaped = $this->shape($p);
             // null khi khách chưa chọn ngày — FE phân biệt "chưa lọc" với "hết hàng".
@@ -309,6 +313,8 @@ class ProductController extends Controller
     public function show(Request $request, string $product): Response
     {
         $p = Product::active()->with('category', 'images', 'serviceLocations')->where('slug', $product)->firstOrFail();
+
+        $this->warmMedia([$p]);
 
         $from = Carbon::today();
         $to = Carbon::today()->addDays(90);
@@ -548,8 +554,28 @@ class ProductController extends Controller
     }
 
     /** Biến đổi Product Eloquent -> array trả về Inertia */
+    /**
+     * Nạp sẵn biến thể ảnh cho cả danh sách TRƯỚC khi shape() (bopcamping-ix4n).
+     * Không gọi thì mỗi ảnh tự đi một query lẻ — đúng cái N+1 cần tránh.
+     *
+     * @param  iterable<Product>  $products
+     */
+    private function warmMedia(iterable $products): void
+    {
+        $paths = [];
+        foreach ($products as $p) {
+            $paths[] = $p->thumbnail;
+            foreach ($p->images as $img) {
+                $paths[] = $img->path;
+            }
+        }
+        MediaVariantService::warm($paths);
+    }
+
     private function shape(Product $p): array
     {
+        $thumb = $p->thumbnail ? MediaVariantService::payload($p->thumbnail) : null;
+
         return [
             'id' => $p->id,
             'name' => $p->name,
@@ -559,18 +585,35 @@ class ProductController extends Controller
             'quantity' => $p->quantity,
             'deposit' => $p->deposit ?? 0,
             'early_return_discount_pct' => (int) $p->early_return_discount_pct,
-            'thumbnail' => $p->thumbnail ? Storage::disk('media')->url($p->thumbnail) : null,
+            // `thumbnail` giữ nguyên là string (nhiều component đang dùng trực tiếp);
+            // srcset đi kèm ở khoá riêng để browser tự chọn cỡ (bopcamping-ix4n).
+            'thumbnail' => $thumb['url'] ?? null,
+            'thumbnail_srcset' => $thumb['srcset'] ?? null,
             'status' => $p->status,
             'category' => [
                 'id' => $p->category->id,
                 'name' => $p->category->name,
                 'slug' => $p->category->slug,
             ],
-            'images' => $p->images->map(fn ($i) => [
-                'url' => Storage::disk('media')->url($i->path),
-                'sort_order' => $i->sort_order,
-                'type' => $i->type,
-            ])->values()->all(),
+            'images' => $p->images->map(function ($i) {
+                // Video không có biến thể — serve nguyên file.
+                if ($i->type !== 'image') {
+                    return [
+                        'url' => Storage::disk('media')->url($i->path),
+                        'srcset' => null,
+                        'sort_order' => $i->sort_order,
+                        'type' => $i->type,
+                    ];
+                }
+                $media = MediaVariantService::payload($i->path);
+
+                return [
+                    'url' => $media['url'],
+                    'srcset' => $media['srcset'],
+                    'sort_order' => $i->sort_order,
+                    'type' => $i->type,
+                ];
+            })->values()->all(),
             'featured' => false,
             // Badge vị trí: chỉ tính vị trí đang mở. all_locations = phục vụ toàn bộ
             // vị trí đang mở -> hiện gộp "Toàn hệ thống"; ngược lại liệt kê từng nơi.

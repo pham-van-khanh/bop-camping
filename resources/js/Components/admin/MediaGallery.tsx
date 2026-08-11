@@ -158,6 +158,7 @@ export default function MediaGallery({
                 </span>
                 <div className="flex gap-2">
                     <button
+                        type="button"
                         onClick={openPicker}
                         className="flex items-center gap-1.5 rounded-[8px] border border-cardBorder bg-white px-3 py-1.5 text-[12px] font-semibold text-pine transition hover:border-grass hover:text-grass"
                     >
@@ -186,6 +187,7 @@ export default function MediaGallery({
                         Chọn ảnh có sẵn
                     </button>
                     <button
+                        type="button"
                         onClick={() => uploadRef.current?.click()}
                         disabled={uploading}
                         className="flex items-center gap-1.5 rounded-[8px] border border-cardBorder bg-white px-3 py-1.5 text-[12px] font-semibold text-pine transition hover:border-grass hover:text-grass disabled:opacity-50"
@@ -246,6 +248,7 @@ export default function MediaGallery({
                                 </span>
                             )}
                             <button
+                                type="button"
                                 onClick={() => deleteImage(img.id)}
                                 className="absolute -right-1.5 -top-1.5 hidden h-5 w-5 items-center justify-center rounded-full bg-[#b3493a] text-[10px] font-bold text-white shadow group-hover:flex"
                                 title="Xoá ảnh"
