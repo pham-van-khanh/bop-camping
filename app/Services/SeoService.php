@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Category;
+use App\Models\ServiceLocation;
 use Illuminate\Support\Str;
 
 /**
@@ -73,6 +74,54 @@ class SeoService
 
         return Str::lower($names->take($limit)->implode(', '))
             .($names->count() > $limit ? '...' : '');
+    }
+
+    /**
+     * Organization + WebSite JSON-LD (site-wide).
+     *
+     * PHẢI dựng ở PHP, KHÔNG được viết thẳng trong .blade.php: Laravel 11+ có directive
+     * `@context`, nên chuỗi '@context' nằm trong file blade bị compiler biến thành mã
+     * PHP và key JSON-LD ra thành "<?php $__contextArgs = []; ...". Đo trên production
+     * 11/08: Organization, WebSite, FAQPage đều mất @context => Google không đọc được.
+     * LocalBusiness thoát vì nó vốn đã dựng ở PHP.
+     *
+     * areaServed suy từ ServiceLocation đang mở thay vì ghi cứng ['Vinh','Hà Nội'] —
+     * cùng lỗi cũ: mở cơ sở mới thì schema nói sai khu vực phục vụ.
+     *
+     * `description` tả TỔ CHỨC, không lấy description của trang đang xem: Organization
+     * là một thực thể cố định, mô tả nó phải giống nhau ở mọi trang. Bản cũ nhét
+     * $seoDesc vào nên trang sản phẩm nào thì Organization mang mô tả sản phẩm đó.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function siteJsonLd(): array
+    {
+        $areas = ServiceLocation::open()
+            ->pluck('name')->filter()->unique()->values()->all();
+
+        return [
+            array_filter([
+                '@context' => 'https://schema.org',
+                '@type' => 'Organization',
+                'name' => self::BRAND,
+                'url' => url('/'),
+                'logo' => url('/images/logo.png'),
+                'image' => url('/images/album/forest-camp-aerial.jpg'),
+                'description' => 'Cho thuê '.$this->categoryPhrase().' theo ngày. Cọc linh hoạt, trả tiền khi nhận (COD).',
+                'areaServed' => $areas ?: null,
+            ], fn ($v) => $v !== null),
+            [
+                '@context' => 'https://schema.org',
+                '@type' => 'WebSite',
+                'name' => self::BRAND,
+                'url' => url('/'),
+                'potentialAction' => [
+                    '@type' => 'SearchAction',
+                    'target' => url('/thiet-bi').'?q={search_term_string}',
+                    'query-input' => 'required name=search_term_string',
+                ],
+            ],
+        ];
     }
 
     /**

@@ -241,6 +241,55 @@ class SeoMetaTest extends TestCase
         }
     }
 
+    /**
+     * MỌI khối JSON-LD phải parse được và có @context hợp lệ (bopcamping-gyg8).
+     *
+     * Lỗi thật đã xảy ra trên production: Laravel 11+ có directive `@context`, nên mảng
+     * viết thẳng trong .blade.php bị compiler biến '@context' thành mã PHP — key JSON-LD
+     * ra thành "<?php $__contextArgs = []; ...". Organization, WebSite và FAQPage đều
+     * hỏng suốt một thời gian dài mà không ai biết, vì audit chỉ soi @type.
+     *
+     * Test này quét TẤT CẢ khối trên nhiều loại trang nên khối mới thêm cũng được bảo vệ.
+     *
+     * @test
+     */
+    public function every_json_ld_block_parses_and_declares_a_valid_context(): void
+    {
+        $cat = Category::create(['name' => 'Lều', 'slug' => 'leu-ctx']);
+        $product = Product::create([
+            'category_id' => $cat->id, 'name' => 'Lều ctx', 'slug' => 'leu-ctx-sp',
+            'price_per_day' => 100000, 'quantity' => 2, 'status' => 'active',
+        ]);
+        Faq::create(['question' => 'Hỏi?', 'answer' => 'Đáp.', 'sort_order' => 1, 'is_active' => true]);
+
+        foreach (['/', '/thiet-bi', '/combos', '/thiet-bi/'.$product->slug, '/chinh-sach-bao-mat'] as $path) {
+            $html = $this->get($path)->getContent();
+
+            preg_match_all(
+                '#<script type="application/ld\+json">(.*?)</script>#s',
+                $html,
+                $matches
+            );
+            $this->assertNotEmpty($matches[1], "$path không có khối JSON-LD nào");
+
+            foreach ($matches[1] as $raw) {
+                // Bắt đúng triệu chứng của lỗi: mã PHP rò vào markup.
+                $this->assertStringNotContainsString('<?php', $raw, "$path: JSON-LD lẫn mã PHP");
+
+                $decoded = json_decode($raw, true);
+                $this->assertNotNull($decoded, "$path: JSON-LD không parse được");
+
+                foreach (is_array($decoded) && array_is_list($decoded) ? $decoded : [$decoded] as $block) {
+                    $this->assertSame(
+                        'https://schema.org',
+                        $block['@context'] ?? null,
+                        "$path: khối ".($block['@type'] ?? '?').' thiếu @context hợp lệ'
+                    );
+                }
+            }
+        }
+    }
+
     /** @test */
     public function gtm_not_rendered_without_id(): void
     {

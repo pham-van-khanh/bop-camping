@@ -56,30 +56,16 @@
         <meta name="twitter:description" content="{{ $seoDesc }}">
         <meta name="twitter:image" content="{{ $seoImage }}">
 
-        {{-- Dữ liệu có cấu trúc (Google rich results) --}}
-        <script type="application/ld+json">{!! json_encode([
-            '@context' => 'https://schema.org',
-            '@type' => 'Organization',
-            'name' => $brand,
-            'url' => url('/'),
-            'logo' => url('/images/logo.png'),
-            'image' => $seoImage,
-            'description' => $seoDesc,
-            'areaServed' => ['Vinh', 'Hà Nội'],
-        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) !!}</script>
+        {{-- Organization + WebSite (ô tìm kiếm sitelinks).
 
-        {{-- WebSite + ô tìm kiếm (sitelinks searchbox của Google) --}}
-        <script type="application/ld+json">{!! json_encode([
-            '@context' => 'https://schema.org',
-            '@type' => 'WebSite',
-            'name' => $brand,
-            'url' => url('/'),
-            'potentialAction' => [
-                '@type' => 'SearchAction',
-                'target' => url('/thiet-bi').'?q={search_term_string}',
-                'query-input' => 'required name=search_term_string',
-            ],
-        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) !!}</script>
+             TUYỆT ĐỐI không viết mảng có khoá '@context' thẳng trong file blade: Laravel
+             11+ có directive @context nên compiler biến chuỗi đó thành mã PHP, key JSON-LD
+             ra thành "<?php $__contextArgs = [] ...". Đo trên production 11/08: Organization,
+             WebSite, FAQPage đều mất @context nên Google không đọc được khối nào.
+             Dựng sẵn ở SeoService::siteJsonLd() rồi chỉ in ra ở đây. --}}
+        @foreach ($seoSite['site_jsonld'] ?? [] as $block)
+            <script type="application/ld+json">{!! json_encode($block, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) !!}</script>
+        @endforeach
 
         {{-- FAQPage KHÔNG khai ở đây (bopcamping-s5ct): markup phải ứng với FAQ nhìn
              thấy được trên từng trang, mà FAQ chỉ có ở trang chủ. Để ở layout chung thì
