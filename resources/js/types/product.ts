@@ -14,7 +14,12 @@ export interface ProductResource {
     thumbnail_srcset?: string | null;
     status: string;
     category: { id: number; name: string; slug: string };
-    images: { url: string; srcset?: string | null; sort_order: number; type: 'image' | 'video' }[];
+    images: {
+        url: string;
+        srcset?: string | null;
+        sort_order: number;
+        type: 'image' | 'video';
+    }[];
     featured: boolean;
     // Vị trí phục vụ đang mở (badge thẻ). all_locations = phục vụ toàn hệ thống.
     locations?: { name: string; slug: string }[];
