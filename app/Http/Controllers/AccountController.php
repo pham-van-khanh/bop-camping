@@ -138,6 +138,8 @@ class AccountController extends Controller
             // Giờ shop đã chốt (spec 2026-07-28) — ưu tiên hiện thay cho giờ khách xin.
             'confirmed_pickup_time' => $order->confirmed_pickup_time,
             'confirmed_return_time' => $order->confirmed_return_time,
+            'delivery_method' => $order->delivery_method,
+            'delivery_method_label' => $order->deliveryMethodLabel(),
             'address' => $order->customer_address,
             'phone' => $order->customer_phone,
             'note' => $order->note,

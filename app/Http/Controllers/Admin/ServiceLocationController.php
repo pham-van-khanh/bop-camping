@@ -40,11 +40,20 @@ class ServiceLocationController extends Controller
         $data = $request->validate([
             'name' => ['required', 'string', 'min:1', 'max:100'],
             'area' => ['nullable', 'string', 'max:100'],
+            'address' => ['nullable', 'string', 'max:255'],
+            // map_url được render thành <a href> trên trang checkout của khách.
+            // Rule 'url' của Laravel đã chặn javascript: và data: (đã đo), nhưng vẫn cho
+            // lọt ftp: và scheme lạ khác. Link bản đồ thì chỉ có thể là http/https, nên
+            // siết thêm regex: vừa loại link vô nghĩa, vừa là lớp phòng thủ thứ hai cho
+            // chỗ render href (CWE-79).
+            'map_url' => ['nullable', 'string', 'max:500', 'url', 'regex:/^https?:\/\//i'],
             'status' => ['required', 'in:open,coming'],
             'sort_order' => ['nullable', 'integer', 'min:0'],
         ], [
             'name.required' => 'Tên vị trí không được bỏ trống.',
             'status.required' => 'Vui lòng chọn trạng thái.',
+            'map_url.url' => 'Link bản đồ không hợp lệ.',
+            'map_url.regex' => 'Link bản đồ phải bắt đầu bằng http:// hoặc https://',
         ]);
 
         $data['sort_order'] = $data['sort_order'] ?? 0;

@@ -58,6 +58,19 @@ class CartController extends Controller
         $emailBonusOn = (bool) $settings->email_bonus_enabled;
 
         return Inertia::render('Cart', [
+            // Hình thức GIAO cho khách chọn (bopcamping-z3ug) — nhãn/gợi ý lấy từ Order
+            // để checkout, email và admin luôn nói cùng một thứ tiếng.
+            'delivery_methods' => Order::deliveryMethodOptions(),
+            // Địa chỉ + link bản đồ để khách chọn "Tự đến xem đồ" biết đi đâu (bopcamping-n0db).
+            // Chỉ cơ sở ĐANG MỞ — cơ sở 'coming' chưa phục vụ, lộ địa chỉ ra là mời khách tới nhầm.
+            'pickup_locations' => ServiceLocation::open()->ordered()->get()
+                ->map(fn (ServiceLocation $l) => [
+                    'slug' => $l->slug,
+                    'name' => $l->name,
+                    'area' => $l->area,
+                    'address' => $l->address,
+                    'map_url' => $l->map_url,
+                ])->values(),
             'availableVouchers' => $vouchers,
             'referralRef' => $request->session()->get('referral_ref', ''),
             'firstOrderEligible' => $firstOrderEligible,

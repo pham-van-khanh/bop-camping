@@ -7,6 +7,7 @@ import { emit, EVENTS, on } from '@/lib/bus';
 import {
     addLine,
     cartChosenStoreId,
+    cartCommonLocations,
     cartHasLocationConflict,
     cartTotals,
     locationConflict as checkLocationConflict,
@@ -106,12 +107,23 @@ type FreshCombo = {
     all_locations: boolean;
 };
 
+type DeliveryMethodOption = { value: string; label: string; hint: string };
+type PickupLocation = {
+    slug: string;
+    name: string;
+    area: string | null;
+    address: string | null;
+    map_url: string | null;
+};
+
 type Props = PageProps<{
     availableVouchers: AvailableVoucher[];
     referralRef: string;
     firstOrderEligible: boolean;
     promo: PromoInfo;
     emailBonus: EmailBonusInfo;
+    delivery_methods: DeliveryMethodOption[];
+    pickup_locations: PickupLocation[];
 }>;
 
 export default function Cart() {
@@ -124,6 +136,8 @@ export default function Cart() {
         promo,
         emailBonus,
         durationTiers,
+        delivery_methods,
+        pickup_locations,
     } = usePage<Props>().props;
     const hours = shopHours(
         (usePage().props as { site?: Parameters<typeof shopHours>[0] }).site,
@@ -160,6 +174,9 @@ export default function Cart() {
         province_code: number | null;
         ward_code: number | null;
         note: string;
+        // Hình thức GIAO (bopcamping-z3ug). Chỉ hỏi lượt giao — lượt trả và phí ship
+        // shop thoả thuận với khách khi gọi xác nhận rồi note vào đơn.
+        delivery_method: string;
         referral_code: string;
         voucher_codes: string[];
         items: CheckoutItem[];
@@ -173,6 +190,8 @@ export default function Cart() {
         province_code: null,
         ward_code: null,
         note: '',
+        // Mặc định rẻ nhất — không im lặng đẩy khách vào phương án có phí.
+        delivery_method: 'self_pickup',
         referral_code: firstOrderEligible ? (referralRef ?? '') : '',
         voucher_codes: [],
         items: [],
@@ -498,6 +517,18 @@ export default function Cart() {
         () => cartHasLocationConflict(lines),
         [lines],
     );
+
+    /**
+     * Cơ sở phục vụ được TOÀN BỘ giỏ hiện tại — dùng để hiện địa chỉ khi khách chọn
+     * "Tự đến xem đồ" (bopcamping-n0db). Giỏ không ràng buộc cơ sở nào (mọi món bán ở
+     * tất cả cơ sở) thì hiện hết để khách tự chọn nơi gần mình.
+     */
+    const pickupHere = useMemo(() => {
+        const common = cartCommonLocations(lines);
+        if (common.length === 0) return pickup_locations;
+        const slugs = new Set(common.map((c) => c.slug));
+        return pickup_locations.filter((l) => slugs.has(l.slug));
+    }, [lines, pickup_locations]);
 
     const canSubmit =
         data.name.trim().length >= 2 &&
@@ -1101,6 +1132,109 @@ export default function Cart() {
                                     error={errors.address}
                                 />
                             </div>
+
+                            {/* Hình thức nhận đồ (bopcamping-z3ug) */}
+                            <fieldset>
+                                <legend className="mb-1.5 text-[13px] font-semibold text-pine">
+                                    Bạn muốn nhận đồ thế nào?
+                                </legend>
+                                <div className="grid gap-2 sm:grid-cols-2">
+                                    {delivery_methods.map((m) => {
+                                        const active =
+                                            data.delivery_method === m.value;
+                                        return (
+                                            <label
+                                                key={m.value}
+                                                className={`flex cursor-pointer gap-2.5 rounded-[11px] border p-3 transition ${
+                                                    active
+                                                        ? 'border-grass bg-[#f4f7ec]'
+                                                        : 'border-cardBorder bg-white hover:border-grass'
+                                                }`}
+                                            >
+                                                <input
+                                                    type="radio"
+                                                    name="delivery_method"
+                                                    value={m.value}
+                                                    checked={active}
+                                                    onChange={() =>
+                                                        setData(
+                                                            'delivery_method',
+                                                            m.value,
+                                                        )
+                                                    }
+                                                    className="mt-0.5 h-4 w-4 shrink-0 accent-grass"
+                                                />
+                                                <span className="min-w-0">
+                                                    <span className="block text-[14px] font-semibold text-ink">
+                                                        {m.label}
+                                                    </span>
+                                                    <span className="mt-0.5 block text-[12px] leading-snug text-moss">
+                                                        {m.hint}
+                                                    </span>
+                                                </span>
+                                            </label>
+                                        );
+                                    })}
+                                </div>
+                                {errors.delivery_method && (
+                                    <p className="mt-1 text-[12px] text-red-500">
+                                        {errors.delivery_method}
+                                    </p>
+                                )}
+
+                                {/* Chọn tự đến thì phải biết đi đâu (bopcamping-n0db).
+                                    Chỉ hiện cơ sở phục vụ được giỏ hiện tại. */}
+                                {data.delivery_method === 'self_pickup' &&
+                                    pickupHere.length > 0 && (
+                                        <div className="mt-2 rounded-[11px] border border-cardBorder bg-[#faf9f4] p-3">
+                                            <p className="mb-1.5 text-[12px] font-semibold uppercase tracking-[0.04em] text-moss">
+                                                Địa chỉ nhận đồ
+                                            </p>
+                                            <ul className="flex flex-col gap-2">
+                                                {pickupHere.map((l) => (
+                                                    <li key={l.slug}>
+                                                        <div className="text-[13.5px] font-semibold text-ink">
+                                                            {l.name}
+                                                            {l.area && (
+                                                                <span className="font-normal text-moss">
+                                                                    {' '}
+                                                                    · {l.area}
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                        {l.address ? (
+                                                            <div className="text-[13px] text-moss">
+                                                                {l.address}
+                                                            </div>
+                                                        ) : (
+                                                            <div className="text-[13px] text-[#a3ad92]">
+                                                                Tụi mình gửi địa
+                                                                chỉ khi gọi xác
+                                                                nhận đơn.
+                                                            </div>
+                                                        )}
+                                                        {l.map_url && (
+                                                            <a
+                                                                href={l.map_url}
+                                                                target="_blank"
+                                                                rel="noopener noreferrer nofollow"
+                                                                className="mt-1 inline-flex items-center gap-1.5 rounded-pill border border-cardBorder bg-white px-2.5 py-1 text-[12.5px] font-semibold text-pine transition hover:border-grass"
+                                                            >
+                                                                <img
+                                                                    src="/images/google-maps.png"
+                                                                    alt=""
+                                                                    aria-hidden
+                                                                    className="h-4 w-4 object-contain"
+                                                                />
+                                                                Xem đường đi
+                                                            </a>
+                                                        )}
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        </div>
+                                    )}
+                            </fieldset>
 
                             <textarea
                                 value={data.note}

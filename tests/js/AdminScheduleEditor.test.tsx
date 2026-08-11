@@ -65,6 +65,8 @@ function makeOrder(overrides: Partial<Order> = {}): Order {
         vouchers: [],
         referral: null,
         service_location: null,
+        delivery_method: 'self_pickup',
+        delivery_method_label: 'Tự đến xem đồ',
         location_auto_assigned: false,
         is_parent: false,
         ...overrides,

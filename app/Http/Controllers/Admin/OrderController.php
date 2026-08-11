@@ -179,6 +179,9 @@ class OrderController extends Controller
             'created_at' => $o->created_at->format('d/m/Y H:i'),
             // Per-store: cửa hàng thuê + đơn hệ thống tự gán (admin review theo địa chỉ)
             'service_location' => $o->serviceLocation ? ['id' => $o->serviceLocation->id, 'name' => $o->serviceLocation->name] : null,
+            // Hình thức GIAO khách chọn (bopcamping-z3ug) — 'ship' thì nhớ báo phí và nhập vào Phí phát sinh.
+            'delivery_method' => $o->delivery_method,
+            'delivery_method_label' => $o->deliveryMethodLabel(),
             'location_auto_assigned' => (bool) $o->location_auto_assigned,
             'items' => $o->items->map(fn ($i) => [
                 'name' => $i->product?->name ?? '(đã xoá)',
