@@ -801,10 +801,11 @@ export default function Cart() {
                     </div>
                 )}
 
-                {/* Danh sách món co giãn + panel checkout cố định 440px — cùng quy ước
-                    với trang chi tiết SP/combo trong khung 1400px (bopcamping-7wp6).
-                    Chia đôi đều thì ở 1400px panel checkout bị kéo rộng ra trông loãng. */}
-                <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_440px]">
+                {/* Danh sách món co giãn + panel checkout cố định 500px (bopcamping-7wp6).
+                    Rộng hơn 440px của trang chi tiết SP/combo vì đây là FORM nhập: có ô
+                    Tỉnh/Xã nằm cạnh nhau và 2 thẻ chọn hình thức nhận đồ, hẹp là bó chữ.
+                    Chia đôi đều thì ở 1400px panel bị kéo rộng ra trông loãng. */}
+                <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_500px]">
                     {/* Danh sách món */}
                     <div>
                         {lines.map((it, i) => (
@@ -836,7 +837,11 @@ export default function Cart() {
                                             {it.name}
                                         </div>
                                     </div>
-                                    <div className="my-1 font-mono text-[12px] text-[#8a967a]">
+                                    {/* Khoảng ngày thuê là thông tin khách cần đọc để đối
+                                        chiếu, không phải chú thích mờ. Màu cũ #8a967a chỉ
+                                        đạt 3.03:1 trên nền card — dưới ngưỡng WCAG AA 4.5:1
+                                        cho chữ 12px; moss đạt 5.39:1 (bopcamping-7wp6). */}
+                                    <div className="my-1 font-mono text-[12.5px] font-medium text-moss">
                                         {rangeText(it.start, it.end)} ·{' '}
                                         {lineDays(it)} ngày
                                     </div>
