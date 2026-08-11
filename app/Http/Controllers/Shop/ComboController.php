@@ -9,6 +9,7 @@ use App\Models\ComboItem;
 use App\Models\Product;
 use App\Models\ServiceLocation;
 use App\Services\AvailabilityService;
+use App\Services\SeoService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -21,7 +22,7 @@ class ComboController extends Controller
 {
     use ParsesRentalRange;
 
-    public function __construct(private AvailabilityService $availability) {}
+    public function __construct(private AvailabilityService $availability, private SeoService $seo) {}
 
     /** Combo bán được: đang active và có ít nhất 1 món. */
     private function sellable()
@@ -77,6 +78,16 @@ class ComboController extends Controller
         }
 
         return Inertia::render('Combos', [
+            // Không khai seo riêng thì rơi vào mặc định site-wide, tức là với Google trang
+            // này trùng hệt trang chủ (bopcamping-u3u3).
+            'seo' => $this->seo->page(
+                'Combo thuê đồ cắm trại trọn bộ — tiết kiệm hơn thuê lẻ',
+                'Combo lều, bếp, túi ngủ, bàn ghế... gói sẵn theo nhu cầu. Thuê trọn bộ rẻ hơn thuê lẻ, giao nhận tận nơi tại Vinh & Hà Nội, trả tiền khi nhận (COD).',
+                jsonld: $this->seo->breadcrumb([
+                    ['Trang chủ', url('/')],
+                    ['Combo', url('/combos')],
+                ]),
+            ),
             'combos' => $combos,
             'service_locations' => $openLocations->map(fn (ServiceLocation $l) => [
                 'name' => $l->name,
@@ -105,15 +116,26 @@ class ComboController extends Controller
         $seoDesc = Str::limit(trim(strip_tags((string) $combo->description)), 155)
             ?: 'Thuê trọn bộ '.$combo->name.' — tiết kiệm '.$combo->savingsPercent().'% so với thuê lẻ tại BỐP CAMPING.';
 
+        $seoImage = $shaped['images'][0]['url'] ?? url('/images/album/forest-camp-aerial.jpg');
+
         return Inertia::render('ComboDetail', [
             'combo' => $shaped,
             'stores' => $this->storesFor($combo),
-            'seo' => [
-                'title' => $combo->name.' — Thuê trọn bộ tại BỐP CAMPING',
-                'description' => $seoDesc,
-                'image' => $shaped['images'][0]['url'] ?? url('/images/album/forest-camp-aerial.jpg'),
-                'url' => url()->current(),
-            ],
+            'seo' => $this->seo->page(
+                $combo->name.' — Thuê trọn bộ tại BỐP CAMPING',
+                $seoDesc,
+                $seoImage,
+                // Trước đây chi tiết combo chỉ có title/desc, thiếu hẳn Product + Breadcrumb
+                // mà chi tiết sản phẩm đã có (bopcamping-u3u3).
+                jsonld: [
+                    $this->comboJsonLd($combo, $shaped, $seoImage, $seoDesc),
+                    $this->seo->breadcrumb([
+                        ['Trang chủ', url('/')],
+                        ['Combo', url('/combos')],
+                        [$combo->name, url()->current()],
+                    ]),
+                ],
+            ),
         ]);
     }
 
@@ -203,6 +225,49 @@ class ComboController extends Controller
      *
      * @return array<int, array{id: int, name: string, slug: string, served: bool}>
      */
+    /**
+     * Product JSON-LD cho combo (bopcamping-u3u3) — soi theo productJsonLd() của
+     * ProductController để Google thấy combo và sản phẩm lẻ cùng một kiểu.
+     *
+     * Dùng `Product` + `isSimilarTo` chứ không phải `ProductCollection`: combo ở đây bán
+     * như MỘT món (một giá, một mức cọc), không phải nhóm sản phẩm cho khách chọn lẻ.
+     * `price` là giá thuê/ngày trọn bộ — cùng đơn vị với sản phẩm lẻ, không phải tổng.
+     *
+     * @param  array<string, mixed>  $shaped
+     * @return array<string, mixed>
+     */
+    private function comboJsonLd(Combo $combo, array $shaped, string $image, string $desc): array
+    {
+        return [
+            '@context' => 'https://schema.org',
+            '@type' => 'Product',
+            'name' => $combo->name,
+            'description' => $desc,
+            'image' => $image,
+            'category' => 'Combo thuê đồ cắm trại',
+            'brand' => ['@type' => 'Brand', 'name' => 'BỐP CAMPING'],
+            'offers' => [
+                '@type' => 'Offer',
+                'price' => (int) $combo->combo_price,
+                'priceCurrency' => 'VND',
+                // Chi tiết combo không tra tồn theo ngày (khách chưa chọn ngày ở đây), nên
+                // khai InStock khi combo còn bán — đừng bịa OutOfStock lúc chưa biết.
+                'availability' => 'https://schema.org/InStock',
+                'url' => url()->current(),
+                'description' => 'Giá thuê trọn bộ theo ngày',
+            ],
+            // Liệt kê món trong combo — giúp Google hiểu combo gồm gì.
+            'isSimilarTo' => collect($shaped['items'] ?? [])
+                ->map(fn (array $it) => array_filter([
+                    '@type' => 'Product',
+                    'name' => $it['name'] ?? null,
+                ]))
+                ->filter(fn (array $p) => ! empty($p['name']))
+                ->values()
+                ->all(),
+        ];
+    }
+
     private function storesFor(Combo $combo): array
     {
         $servedIds = $combo->openLocationIds();

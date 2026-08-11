@@ -81,21 +81,11 @@
             ],
         ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) !!}</script>
 
-        {{-- FAQ (rich result Hỏi-Đáp trên Google) --}}
-        <script type="application/ld+json">{!! json_encode([
-            '@context' => 'https://schema.org',
-            '@type' => 'FAQPage',
-            'mainEntity' => collect([
-                ['Thuê đồ cắm trại ở BỐP CAMPING như thế nào?', 'Bạn chọn thiết bị và ngày nhận – ngày trả trên web, để lại tên và số điện thoại. Tụi mình kiểm tra còn hàng rồi giao tận nơi, không cần trả trước.'],
-                ['Có cần đặt cọc không?', 'Có. Mỗi món có mức cọc riêng, thu khi nhận đồ và hoàn lại đầy đủ khi bạn trả đồ đúng hẹn và nguyên vẹn.'],
-                ['Thanh toán bằng hình thức nào?', 'Thanh toán COD — trả tiền thuê và cọc khi nhận đồ. Không cần chuyển khoản trước.'],
-                ['Giao nhận ở những khu vực nào?', 'Hiện tụi mình giao nhận đồ thuê tại Vinh và Hà Nội (nội thành). Các khu vực khác sẽ mở thêm sớm.'],
-            ])->map(fn ($qa) => [
-                '@type' => 'Question',
-                'name' => $qa[0],
-                'acceptedAnswer' => ['@type' => 'Answer', 'text' => $qa[1]],
-            ])->all(),
-        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) !!}</script>
+        {{-- FAQPage KHÔNG khai ở đây (bopcamping-s5ct): markup phải ứng với FAQ nhìn
+             thấy được trên từng trang, mà FAQ chỉ có ở trang chủ. Để ở layout chung thì
+             trang sản phẩm/chính sách cũng khai FAQ dù không có câu nào — Google coi là
+             structured data không khớp nội dung. Giờ trang chủ tự đưa vào seo.jsonld
+             qua SeoService::faqPage(), sinh từ chính dữ liệu đang render. --}}
 
         {{-- JSON-LD riêng theo trang (vd Product/Breadcrumb ở trang chi tiết) --}}
         @if (! empty($seo['jsonld']))

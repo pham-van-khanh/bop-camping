@@ -124,15 +124,20 @@ class ProductController extends Controller
                 ];
             })->values();
 
+        // FAQ hiển thị ở trang chủ (ADR home_faq_contact) — chỉ câu đang bật, theo thứ tự.
+        // Lấy MỘT LẦN rồi dùng cho cả React lẫn JSON-LD: hai bên phải là cùng một dữ liệu,
+        // query riêng cho schema là mở đường cho markup lệch nội dung (bopcamping-s5ct).
+        $faqs = Faq::active()->ordered()->get(['id', 'question', 'answer']);
+
         return Inertia::render('Welcome', [
             'seo' => $this->seo->page(
                 self::BRAND_TITLE,
                 'Cho thuê lều, bếp, túi ngủ, đèn trại... theo ngày. Giao nhận tận nơi tại Vinh & Hà Nội, cọc linh hoạt, trả tiền khi nhận (COD).',
+                jsonld: $this->seo->faqPage($faqs),
             ),
             'featured' => $featured,
             'featured_combos' => $featuredCombos,
-            // FAQ hiển thị ở trang chủ (ADR home_faq_contact) — chỉ câu đang bật, theo thứ tự
-            'faqs' => Faq::active()->ordered()->get(['id', 'question', 'answer']),
+            'faqs' => $faqs,
             // Banner quản lý ở admin: hero (slideshow) + promo (dải khuyến mãi)
             'hero_banners' => Banner::active()->placement('hero')->ordered()->get()->map(fn (Banner $b) => [
                 'src' => $b->imageUrl(),
