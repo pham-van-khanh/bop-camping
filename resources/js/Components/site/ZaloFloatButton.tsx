@@ -1,13 +1,9 @@
-import type { PageProps, SiteZalo } from '@/types';
+import type { PageProps } from '@/types';
 import { usePage } from '@inertiajs/react';
-import { AnimatePresence, motion } from 'framer-motion';
-import { useEffect, useRef, useState } from 'react';
-
-const EASE: [number, number, number, number] = [0.2, 0.7, 0.2, 1];
 
 /**
  * Icon Zalo (public/images/zalo-icon.png — nền trong suốt, đã sẵn khối bo góc + đuôi bong bóng).
- * alt rỗng vì nút/link bọc ngoài đã có aria-label mô tả rồi.
+ * alt rỗng vì link bọc ngoài đã có aria-label mô tả rồi.
  */
 function ZaloMark({ size = 48 }: { size?: number }) {
     return (
@@ -22,123 +18,28 @@ function ZaloMark({ size = 48 }: { size?: number }) {
 }
 
 /**
- * Class dùng chung cho nút — cùng chiều cao (h-12) với nút Góp ý bên dưới.
- * Dùng drop-shadow (không phải box-shadow) để bóng ôm theo hình bo góc + đuôi của icon,
- * thay vì đổ bóng thành khối vuông quanh vùng trong suốt.
- */
-const BTN_CLS =
-    'grid h-12 w-12 place-items-center rounded-[14px] outline-none transition [filter:drop-shadow(0_4px_10px_rgba(0,0,0,.3))] hover:-translate-y-0.5 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#0068FF]';
-
-/**
  * Nút Zalo nổi, nằm ngay TRÊN nút Góp ý (FeedbackWidget: bottom-5 + h-12 = chiếm 20→68px,
- * nút này ở 80→128px nên hở 12px). Đọc site.zalo_1/zalo_2 từ shared prop.
- * 1 tài khoản → bấm mở thẳng Zalo; 2 tài khoản → mở panel cho khách chọn số.
+ * nút này ở 80→128px nên hở 12px).
+ *
+ * Chỉ mở Zalo OA (bopcamping-h0hh) — một đích duy nhất nên không còn panel chọn tài
+ * khoản như trước. Muốn nhắn theo SỐ nhân viên thì xuống footer, ở đó liệt kê từng số.
  */
 export default function ZaloFloatButton() {
     const { site } = usePage<PageProps>().props;
-    const [open, setOpen] = useState(false);
-    const wrapRef = useRef<HTMLDivElement>(null);
+    const url = site?.zalo_oa;
 
-    // Gộp theo url: từ khi mọi tài khoản trỏ chung một Zalo OA (bopcamping-yki5),
-    // hai dòng cấu hình khác nhau vẫn ra cùng một đích. Không gộp thì panel bày ra
-    // hai lựa chọn mở y hệt một chỗ — bắt khách chọn giữa hai thứ không khác gì nhau.
-    const accounts = [site?.zalo_1, site?.zalo_2].reduce<SiteZalo[]>(
-        (acc, z) =>
-            z?.url && !acc.some((a) => a.url === z.url) ? [...acc, z] : acc,
-        [],
-    );
-
-    // Đóng panel khi bấm ra ngoài hoặc nhấn Esc.
-    useEffect(() => {
-        if (!open) return;
-        const onDown = (e: MouseEvent) => {
-            if (!wrapRef.current?.contains(e.target as Node)) setOpen(false);
-        };
-        const onKey = (e: KeyboardEvent) => {
-            if (e.key === 'Escape') setOpen(false);
-        };
-        document.addEventListener('mousedown', onDown);
-        document.addEventListener('keydown', onKey);
-        return () => {
-            document.removeEventListener('mousedown', onDown);
-            document.removeEventListener('keydown', onKey);
-        };
-    }, [open]);
-
-    if (accounts.length === 0) return null;
-
-    // Chỉ 1 tài khoản → liên hệ thẳng, không cần panel.
-    if (accounts.length === 1) {
-        const only = accounts[0];
-        return (
-            <a
-                href={only.url as string}
-                target="_blank"
-                rel="noreferrer"
-                aria-label={
-                    only.label ? `Liên hệ Zalo — ${only.label}` : 'Liên hệ Zalo'
-                }
-                title={only.phone ? `Nhắn Zalo ${only.phone}` : 'Nhắn Zalo'}
-                className={`fixed bottom-[80px] right-5 z-[80] ${BTN_CLS}`}
-            >
-                <ZaloMark />
-            </a>
-        );
-    }
+    if (!url) return null;
 
     return (
-        <div ref={wrapRef} className="fixed bottom-[80px] right-5 z-[80]">
-            <AnimatePresence>
-                {open && (
-                    <motion.div
-                        role="menu"
-                        aria-label="Chọn tài khoản Zalo"
-                        initial={{ opacity: 0, y: 6 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: 6 }}
-                        transition={{ duration: 0.18, ease: EASE }}
-                        className="absolute bottom-[calc(100%+10px)] right-0 w-[248px] rounded-[14px] border border-cardBorder bg-white p-2 shadow-xl"
-                    >
-                        <div className="px-2 pb-1.5 pt-1 font-mono text-[11px] tracking-[0.1em] text-campfire">
-                            NHẮN ZALO CHO TỤI MÌNH
-                        </div>
-                        {accounts.map((z, i) => (
-                            <a
-                                key={i}
-                                role="menuitem"
-                                href={z.url as string}
-                                target="_blank"
-                                rel="noreferrer"
-                                onClick={() => setOpen(false)}
-                                className="flex items-center gap-2.5 rounded-[10px] px-2 py-2 transition hover:bg-[#f1f4ea]"
-                            >
-                                <ZaloMark size={32} />
-                                <span className="min-w-0 flex-1">
-                                    <span className="block truncate text-[13.5px] font-bold text-ink">
-                                        {z.label || 'Liên hệ Zalo'}
-                                    </span>
-                                    {z.phone && (
-                                        <span className="block font-mono text-[12.5px] text-moss">
-                                            {z.phone}
-                                        </span>
-                                    )}
-                                </span>
-                            </a>
-                        ))}
-                    </motion.div>
-                )}
-            </AnimatePresence>
-
-            <button
-                onClick={() => setOpen((v) => !v)}
-                aria-label="Liên hệ Zalo"
-                aria-haspopup="menu"
-                aria-expanded={open}
-                title="Nhắn Zalo cho BỐP CAMPING"
-                className={BTN_CLS}
-            >
-                <ZaloMark />
-            </button>
-        </div>
+        <a
+            href={url}
+            target="_blank"
+            rel="noreferrer"
+            aria-label="Liên hệ Zalo"
+            title="Nhắn Zalo cho BỐP CAMPING"
+            className="fixed bottom-[80px] right-5 z-[80] grid h-12 w-12 place-items-center rounded-[14px] outline-none transition [filter:drop-shadow(0_4px_10px_rgba(0,0,0,.3))] hover:-translate-y-0.5 focus-visible:ring-2 focus-visible:ring-[#0068FF] focus-visible:ring-offset-2"
+        >
+            <ZaloMark />
+        </a>
     );
 }
