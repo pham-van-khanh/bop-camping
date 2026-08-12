@@ -30,11 +30,25 @@
         <x-mail.item-list :order="$order" />
     </div>
 
+    {{-- Mail này gửi sát ngày nhận nên phải nói ĐỦ số tiền mặt cần cầm, tách rõ khoản
+         nào mất khoản nào được hoàn (bopcamping-944h). Trước đây chỉ nhắc mỗi tiền cọc
+         nên khách chuẩn bị thiếu tiền thuê.
+
+         Dùng rental_due chứ không phải total_price: tới lúc này admin đã gọi xác nhận và
+         có thể đã nhập phí giao vào extra_fee — in total_price là báo thiếu. --}}
     <div style="margin:14px 0 4px;border-top:1px solid #efe7d5;padding-top:14px;">
         <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;font-size:14px;">
             <tr>
-                <td style="color:#5a5445;font-weight:700;">Chuẩn bị sẵn tiền cọc</td>
-                <td style="text-align:right;font-family:{{ $mono }};font-weight:800;color:#c06a2a;white-space:nowrap;">{{ number_format($order->deposit_total, 0, ',', '.') }}đ (COD)</td>
+                <td style="padding:2px 0;color:#5a5445;">Tiền thuê</td>
+                <td style="padding:2px 0;text-align:right;font-family:{{ $mono }};font-weight:700;color:#2e2a20;white-space:nowrap;">{{ number_format($order->rental_due, 0, ',', '.') }}đ</td>
+            </tr>
+            <tr>
+                <td style="padding:2px 0;color:#5a5445;">Tiền cọc <span style="color:#8a8170;">(hoàn khi trả đồ)</span></td>
+                <td style="padding:2px 0;text-align:right;font-family:{{ $mono }};font-weight:700;color:#c06a2a;white-space:nowrap;">{{ number_format($order->deposit_total, 0, ',', '.') }}đ</td>
+            </tr>
+            <tr>
+                <td style="padding:8px 0 0;font-weight:800;color:#2e2a20;border-top:1px solid #efe7d5;">Chuẩn bị sẵn</td>
+                <td style="padding:8px 0 0;text-align:right;font-family:{{ $mono }};font-weight:800;font-size:15px;color:#2e2a20;white-space:nowrap;border-top:1px solid #efe7d5;">{{ number_format($order->amount_due, 0, ',', '.') }}đ (COD)</td>
             </tr>
         </table>
     </div>
