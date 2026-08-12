@@ -151,4 +151,30 @@ class SeoTest extends TestCase
         // areaServed của LocalBusiness đọc ServiceLocation — tạo 1 vị trí mở cho ổn định.
         ServiceLocation::firstOrCreate(['name' => 'Vinh'], ['area' => 'Nghệ An', 'status' => 'open', 'sort_order' => 1]);
     }
+
+    /**
+     * Brand chỉ được xuất hiện MỘT lần trong title (bopcamping-12n9).
+     *
+     * Tiêu đề trang tĩnh do admin nhập và người nhập hay tự gõ luôn brand; nối thêm
+     * lần nữa là thành "… — BỐP CAMPING | BỐP CAMPING", ăn chỗ trong ~60 ký tự SERP.
+     *
+     * @test
+     */
+    public function with_brand_does_not_repeat_the_brand_already_in_the_title(): void
+    {
+        $seo = app(SeoService::class);
+
+        // Chưa có brand -> nối vào.
+        $this->assertSame('Chính sách bảo mật | BỐP CAMPING', $seo->withBrand('Chính sách bảo mật'));
+
+        // Đã có brand (đúng dạng) -> giữ nguyên.
+        $this->assertSame('Chính sách bảo mật — BỐP CAMPING', $seo->withBrand('Chính sách bảo mật — BỐP CAMPING'));
+
+        // Khác hoa/thường và dấu vẫn tính là đã có.
+        $this->assertSame('Về Bốp Camping', $seo->withBrand('Về Bốp Camping'));
+
+        // Rỗng -> chỉ còn brand, không ra ' | BỐP CAMPING' cụt đầu.
+        $this->assertSame('BỐP CAMPING', $seo->withBrand(''));
+        $this->assertSame('BỐP CAMPING', $seo->withBrand(null));
+    }
 }

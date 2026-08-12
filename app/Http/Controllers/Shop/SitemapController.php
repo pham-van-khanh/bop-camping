@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Category;
 use App\Models\Combo;
 use App\Models\Product;
+use App\Models\StaticPage;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Cache;
 
@@ -30,6 +31,14 @@ class SitemapController extends Controller
             ['loc' => url('/combos'), 'changefreq' => 'weekly', 'priority' => '0.8'],
             ['loc' => url('/gioi-thieu'), 'changefreq' => 'monthly', 'priority' => '0.6'],
         ];
+
+        // Trang chính sách (bopcamping-12n9) — đều trả 200 và có canonical, tức là CÓ Ý
+        // cho index, nhưng trước đây không khai nên Google không biết. Đây cũng là nhóm
+        // trang dùng để đánh giá độ tin cậy (E-E-A-T) của một site thương mại.
+        // Duyệt từ StaticPage::POLICIES để thêm chính sách mới là sitemap tự có.
+        foreach (array_keys(StaticPage::POLICIES) as $slug) {
+            $urls[] = ['loc' => url('/'.$slug), 'changefreq' => 'yearly', 'priority' => '0.3'];
+        }
 
         foreach (Category::orderBy('name')->get(['slug']) as $c) {
             $urls[] = ['loc' => url('/thiet-bi').'?cat='.$c->slug, 'changefreq' => 'weekly', 'priority' => '0.7'];

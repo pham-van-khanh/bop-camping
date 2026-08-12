@@ -27,7 +27,7 @@ class StaticPageController extends Controller
             ],
             // SEO: title trang + description tự sinh từ nội dung (strip HTML).
             'seo' => $this->seo->page(
-                $page->title.' | BỐP CAMPING',
+                $this->seo->withBrand($page->title),
                 $page->content,
                 $cover,
                 jsonld: $this->seo->breadcrumb([
@@ -53,7 +53,7 @@ class StaticPageController extends Controller
                 'content' => $page->content,
             ],
             'seo' => $this->seo->page(
-                $page->title.' | BỐP CAMPING',
+                $this->seo->withBrand($page->title),
                 $page->content,
                 $cover,
                 jsonld: $this->seo->breadcrumb([

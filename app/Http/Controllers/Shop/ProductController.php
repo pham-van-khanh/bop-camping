@@ -124,15 +124,22 @@ class ProductController extends Controller
                 ];
             })->values();
 
+        // FAQ hiển thị ở trang chủ (ADR home_faq_contact) — chỉ câu đang bật, theo thứ tự.
+        // Lấy MỘT LẦN rồi dùng cho cả React lẫn JSON-LD: hai bên phải là cùng một dữ liệu,
+        // query riêng cho schema là mở đường cho markup lệch nội dung (bopcamping-s5ct).
+        $faqs = Faq::active()->ordered()->get(['id', 'question', 'answer']);
+
         return Inertia::render('Welcome', [
             'seo' => $this->seo->page(
                 self::BRAND_TITLE,
-                'Cho thuê lều, bếp, túi ngủ, đèn trại... theo ngày. Giao nhận tận nơi tại Vinh & Hà Nội, cọc linh hoạt, trả tiền khi nhận (COD).',
+                // Danh mục lấy từ DB thay vì gõ tay; bỏ đoạn địa điểm vì cơ sở là dữ
+                // liệu admin quản lý, hardcode là sai ngay khi mở cơ sở mới (bopcamping-gyg8).
+                'Cho thuê '.$this->seo->categoryPhrase().' theo ngày. Cọc linh hoạt, trả tiền khi nhận (COD).',
+                jsonld: $this->seo->faqPage($faqs),
             ),
             'featured' => $featured,
             'featured_combos' => $featuredCombos,
-            // FAQ hiển thị ở trang chủ (ADR home_faq_contact) — chỉ câu đang bật, theo thứ tự
-            'faqs' => Faq::active()->ordered()->get(['id', 'question', 'answer']),
+            'faqs' => $faqs,
             // Banner quản lý ở admin: hero (slideshow) + promo (dải khuyến mãi)
             'hero_banners' => Banner::active()->placement('hero')->ordered()->get()->map(fn (Banner $b) => [
                 'src' => $b->imageUrl(),
@@ -280,8 +287,10 @@ class ProductController extends Controller
                 ? 'Thuê '.$activeCategory->name.' tại BỐP CAMPING'
                 : 'Thuê thiết bị cắm trại — Danh sách đồ cho thuê | BỐP CAMPING',
             $activeCategory
-                ? 'Cho thuê '.$activeCategory->name.' theo ngày tại BỐP CAMPING — giao nhận tận nơi, cọc linh hoạt, COD.'
-                : 'Danh sách thiết bị cắm trại cho thuê: lều, bếp, túi ngủ, đèn trại... Thuê theo ngày, giao tận nơi tại Vinh & Hà Nội.',
+                ? 'Cho thuê '.$activeCategory->name.' theo ngày tại BỐP CAMPING — cọc linh hoạt, trả tiền khi nhận (COD).'
+                // Gạch ngang chứ không phải dấu chấm: categoryPhrase() có thể kết thúc
+                // bằng "..." khi còn danh mục chưa liệt kê, nối thêm '.' thành "....".
+                : 'Danh sách thiết bị cắm trại cho thuê: '.$this->seo->categoryPhrase().' — thuê theo ngày, cọc linh hoạt, trả tiền khi nhận (COD).',
             jsonld: $this->seo->breadcrumb($crumbs),
         );
 
