@@ -55,6 +55,8 @@ type AdminFormData = {
     password: string;
     role: 'admin' | 'shipper';
 };
+// Tạo nhanh khách hàng (bopcamping-kw6q): chỉ 3 trường, không mật khẩu.
+type CustomerFormData = { name: string; phone: string; email: string };
 
 export default function AdminUsers({
     tab,
@@ -103,6 +105,13 @@ export default function AdminUsers({
         email: '',
         password: '',
         role: 'admin',
+    });
+
+    const [customerModal, setCustomerModal] = useState(false);
+    const customerForm = useForm<CustomerFormData>({
+        name: '',
+        phone: '',
+        email: '',
     });
 
     useEffect(() => {
@@ -191,6 +200,24 @@ export default function AdminUsers({
                 onSuccess: closeModal,
             });
         }
+    };
+
+    /* --- customer modal (tạo nhanh khách, không mật khẩu) --- */
+    const openCustomerModal = () => {
+        customerForm.reset();
+        customerForm.clearErrors();
+        setCustomerModal(true);
+    };
+    const closeCustomerModal = () => {
+        setCustomerModal(false);
+        customerForm.reset();
+    };
+    const submitCustomer = (e: React.FormEvent) => {
+        e.preventDefault();
+        customerForm.post(route('admin.users.customers.store'), {
+            preserveScroll: true,
+            onSuccess: closeCustomerModal,
+        });
     };
 
     /* --- guarded mutations --- */
@@ -303,39 +330,61 @@ export default function AdminUsers({
                 {/* ============ CUSTOMERS ============ */}
                 {tab === 'customers' && (
                     <>
-                        <form
-                            onSubmit={submitSearch}
-                            className="mb-4 flex gap-2"
-                        >
-                            <input
-                                value={search}
-                                onChange={(e) => setSearch(e.target.value)}
-                                placeholder="Tìm theo tên hoặc số điện thoại…"
-                                className="w-full max-w-xs rounded-[10px] border border-cardBorder px-3.5 py-2 text-[13.5px] outline-none transition focus:border-grass"
-                            />
-                            <button
-                                type="submit"
-                                className="rounded-[10px] bg-grass px-4 py-2 text-[13px] font-bold text-white transition hover:bg-pine"
+                        <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+                            <form
+                                onSubmit={submitSearch}
+                                className="flex gap-2"
                             >
-                                Tìm
-                            </button>
-                            {filters.q && (
+                                <input
+                                    value={search}
+                                    onChange={(e) => setSearch(e.target.value)}
+                                    placeholder="Tìm theo tên hoặc số điện thoại…"
+                                    className="w-full max-w-xs rounded-[10px] border border-cardBorder px-3.5 py-2 text-[13.5px] outline-none transition focus:border-grass"
+                                />
                                 <button
-                                    type="button"
-                                    onClick={() => {
-                                        setSearch('');
-                                        router.get(
-                                            route('admin.users'),
-                                            { tab: 'customers' },
-                                            { preserveScroll: true },
-                                        );
-                                    }}
-                                    className="rounded-[10px] border border-cardBorder px-4 py-2 text-[13px] font-semibold text-pine transition hover:bg-[#f1f4ea]"
+                                    type="submit"
+                                    className="rounded-[10px] bg-grass px-4 py-2 text-[13px] font-bold text-white transition hover:bg-pine"
                                 >
-                                    Xoá lọc
+                                    Tìm
                                 </button>
-                            )}
-                        </form>
+                                {filters.q && (
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setSearch('');
+                                            router.get(
+                                                route('admin.users'),
+                                                { tab: 'customers' },
+                                                { preserveScroll: true },
+                                            );
+                                        }}
+                                        className="rounded-[10px] border border-cardBorder px-4 py-2 text-[13px] font-semibold text-pine transition hover:bg-[#f1f4ea]"
+                                    >
+                                        Xoá lọc
+                                    </button>
+                                )}
+                            </form>
+
+                            <button
+                                onClick={openCustomerModal}
+                                className="flex items-center gap-2 rounded-[11px] bg-grass px-4 py-2.5 text-[13.5px] font-bold text-white transition hover:bg-pine"
+                            >
+                                <svg
+                                    width="15"
+                                    height="15"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                >
+                                    <path
+                                        d="M12 5v14M5 12h14"
+                                        stroke="currentColor"
+                                        strokeWidth="2.5"
+                                        strokeLinecap="round"
+                                    />
+                                </svg>
+                                Thêm khách hàng
+                            </button>
+                        </div>
 
                         <div className="overflow-hidden rounded-[16px] border border-cardBorder bg-white">
                             {customers.data.length === 0 ? (
@@ -1032,6 +1081,121 @@ export default function AdminUsers({
                                 Tắt vai
                             </button>
                         </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Thêm khách hàng — chỉ tên + SĐT + email, không mật khẩu, không cần OTP */}
+            {customerModal && (
+                <div
+                    className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 px-4 py-8"
+                    onClick={closeCustomerModal}
+                >
+                    <div
+                        className="w-full max-w-md rounded-[18px] bg-white p-6 shadow-xl"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <h2 className="mb-1.5 text-[18px] font-extrabold text-pine">
+                            Thêm khách hàng
+                        </h2>
+                        <p className="mb-5 text-[12.5px] text-moss">
+                            Khách đăng nhập bằng số điện thoại — không cần mật
+                            khẩu. Email do bạn nhập được ghi nhận là đã xác
+                            minh, khách vào thẳng, không phải nhập mã OTP.
+                        </p>
+                        <form onSubmit={submitCustomer} className="space-y-4">
+                            <div>
+                                <label className="mb-1.5 block text-[13px] font-semibold text-pine">
+                                    Tên khách{' '}
+                                    <span className="text-[#b3493a]">*</span>
+                                </label>
+                                <input
+                                    type="text"
+                                    value={customerForm.data.name}
+                                    onChange={(e) =>
+                                        customerForm.setData(
+                                            'name',
+                                            e.target.value,
+                                        )
+                                    }
+                                    className="w-full rounded-[10px] border border-cardBorder px-3.5 py-2.5 text-[13.5px] outline-none transition focus:border-grass"
+                                    autoFocus
+                                />
+                                {customerForm.errors.name && (
+                                    <p className="mt-1 text-[12px] text-[#b3493a]">
+                                        {customerForm.errors.name}
+                                    </p>
+                                )}
+                            </div>
+                            <div>
+                                <label className="mb-1.5 block text-[13px] font-semibold text-pine">
+                                    Số điện thoại{' '}
+                                    <span className="text-[#b3493a]">*</span>
+                                </label>
+                                <input
+                                    type="tel"
+                                    inputMode="tel"
+                                    value={customerForm.data.phone}
+                                    onChange={(e) =>
+                                        customerForm.setData(
+                                            'phone',
+                                            e.target.value,
+                                        )
+                                    }
+                                    placeholder="0912345678"
+                                    className="w-full rounded-[10px] border border-cardBorder px-3.5 py-2.5 text-[13.5px] outline-none transition focus:border-grass"
+                                />
+                                {customerForm.errors.phone && (
+                                    <p className="mt-1 text-[12px] text-[#b3493a]">
+                                        {customerForm.errors.phone}
+                                    </p>
+                                )}
+                            </div>
+                            <div>
+                                <label className="mb-1.5 block text-[13px] font-semibold text-pine">
+                                    Email{' '}
+                                    <span className="font-normal text-moss">
+                                        (tuỳ chọn)
+                                    </span>
+                                </label>
+                                <input
+                                    type="email"
+                                    inputMode="email"
+                                    value={customerForm.data.email}
+                                    onChange={(e) =>
+                                        customerForm.setData(
+                                            'email',
+                                            e.target.value,
+                                        )
+                                    }
+                                    placeholder="khach@gmail.com"
+                                    className="w-full rounded-[10px] border border-cardBorder px-3.5 py-2.5 text-[13.5px] outline-none transition focus:border-grass"
+                                />
+                                {customerForm.errors.email && (
+                                    <p className="mt-1 text-[12px] text-[#b3493a]">
+                                        {customerForm.errors.email}
+                                    </p>
+                                )}
+                            </div>
+                            <div className="flex justify-end gap-3 pt-2">
+                                <button
+                                    type="button"
+                                    onClick={closeCustomerModal}
+                                    className="rounded-[10px] border border-cardBorder px-5 py-2 text-[13px] font-semibold text-pine transition hover:bg-[#f1f4ea]"
+                                >
+                                    Huỷ
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={customerForm.processing}
+                                    className="rounded-[10px] bg-grass px-5 py-2 text-[13px] font-bold text-white transition hover:bg-pine disabled:opacity-60"
+                                >
+                                    {customerForm.processing
+                                        ? 'Đang lưu…'
+                                        : 'Thêm khách'}
+                                </button>
+                            </div>
+                        </form>
                     </div>
                 </div>
             )}
