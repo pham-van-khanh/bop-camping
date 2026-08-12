@@ -458,8 +458,18 @@ function RefundControl({ order }: { order: Order }) {
 }
 
 /**
- * Nhập phụ phí giao/trả ngoài khung giờ (Phase 2 turnaround, bopcamping-h4to) — admin
- * nhập tay sau khi liên hệ khách; cộng vào "Trả khi nhận". Chỉ đơn thường/đơn con.
+ * Nhập phụ phí — admin nhập tay sau khi liên hệ khách; cộng vào tiền thuê phải trả.
+ * Chỉ đơn thường/đơn con.
+ *
+ * Ô này gánh HAI loại phí, không chỉ ngoài khung giờ như tên gốc (bopcamping-h4to):
+ *   1. Giao/trả ngoài khung giờ (nhận sớm 6h, trả muộn 22h...) — mục đích ban đầu.
+ *   2. Phí giao tận nơi, từ khi có delivery_method (bopcamping-z3ug): chủ shop chốt
+ *      không tính phí ship ở checkout mà thoả thuận rồi nhập vào đây.
+ * Checkout hứa với khách "Phí giao tụi mình báo khi gọi xác nhận đơn" nhưng nhãn cũ chỉ
+ * ghi "ngoài khung giờ" nên người nhập dễ tưởng sai ô mà bỏ sót (bopcamping-marf).
+ *
+ * Hai loại dồn chung một con số nên KHÔNG tách ra đối soát được — muốn tách phải thêm
+ * cột riêng. Trước mắt bắt buộc ghi chú để biết khoản đó là phí gì.
  */
 function ExtraFeeEditor({ order }: { order: Order }) {
     const [fee, setFee] = useState<string>(
@@ -482,9 +492,13 @@ function ExtraFeeEditor({ order }: { order: Order }) {
 
     return (
         <div className="mt-3">
-            <div className="mb-2 text-[12px] font-bold uppercase tracking-[0.04em] text-grass">
-                Phụ phí ngoài khung giờ
+            <div className="mb-1 text-[12px] font-bold uppercase tracking-[0.04em] text-grass">
+                Phụ phí (giao tận nơi / ngoài khung giờ)
             </div>
+            <p className="mb-2 text-[11.5px] leading-snug text-moss">
+                Cộng vào tiền thuê khách trả khi nhận đồ. Ghi rõ lý do vào ô ghi
+                chú — khách nhìn thấy dòng này trong email xác nhận.
+            </p>
             <div className="flex flex-wrap items-end gap-2 rounded-[10px] border border-[#eef2e3] bg-white p-3">
                 <label className="min-w-[110px] flex-1">
                     <span className="mb-1 block text-[11.5px] text-moss">
@@ -501,13 +515,13 @@ function ExtraFeeEditor({ order }: { order: Order }) {
                 </label>
                 <label className="min-w-[150px] flex-[2]">
                     <span className="mb-1 block text-[11.5px] text-moss">
-                        Ghi chú
+                        Ghi chú (khách sẽ thấy)
                     </span>
                     <input
                         type="text"
                         value={note}
                         onChange={(e) => setNote(e.target.value)}
-                        placeholder="VD: giao sớm 6h"
+                        placeholder="VD: phí giao tận nơi / giao sớm 6h"
                         className="w-full rounded-[9px] border border-cardBorder px-2.5 py-1.5 text-[13px] outline-none focus:border-grass"
                     />
                 </label>
@@ -1278,7 +1292,7 @@ export function OrderDetailPanel({
                     </div>
                 </div>
 
-                {/* Phụ phí giao/trả ngoài khung giờ — admin nhập tay (Phase 2 turnaround) */}
+                {/* Phụ phí: giao tận nơi HOẶC ngoài khung giờ — admin nhập tay (bopcamping-marf) */}
                 {!order.is_parent && <ExtraFeeEditor order={order} />}
 
                 <div className="mb-2 mt-3 text-[12px] font-bold uppercase tracking-[0.04em] text-grass">

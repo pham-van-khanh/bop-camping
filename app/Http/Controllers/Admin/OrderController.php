@@ -559,8 +559,15 @@ class OrderController extends Controller
     }
 
     /**
-     * Phụ phí giao/trả NGOÀI KHUNG GIỜ (bopcamping-h4to, Phase 2) — admin nhập tay sau khi
-     * liên hệ khách (giao sớm/trả muộn). Cộng vào amount_due; không dùng biểu phí tự động.
+     * Phụ phí — admin nhập tay sau khi liên hệ khách. Cộng vào amount_due; không có
+     * biểu phí tự động.
+     *
+     * Ô này gánh HAI loại (bopcamping-marf):
+     *   1. Giao/trả ngoài khung giờ — mục đích ban đầu (bopcamping-h4to, Phase 2).
+     *   2. Phí giao tận nơi — từ khi có delivery_method (bopcamping-z3ug), chủ shop chốt
+     *      không tính ship ở checkout mà thoả thuận rồi nhập vào đây.
+     * Dồn chung một cột nên không tách ra đối soát được; `extra_fee_note` là thứ duy nhất
+     * phân biệt, và nó hiện ra cho KHÁCH trong mail xác nhận.
      */
     public function updateExtraFee(Request $request, Order $order): RedirectResponse
     {
