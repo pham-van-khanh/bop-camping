@@ -12,16 +12,7 @@
       "path": ".claude/skills/product/writing-pr-faqs/SKILL.md",
       "description": "Write PR-FAQ documents using Amazon's Working Backwards methodology",
       "triggers": {
-        "keywords": [
-          "pr-faq",
-          "prfaq",
-          "press release",
-          "working backwards",
-          "vision",
-          "new product",
-          "new feature",
-          "customer announcement"
-        ]
+        "keywords": ["pr-faq", "prfaq", "press release", "working backwards", "vision", "new product", "new feature", "customer announcement"]
       },
       "priority": "high"
     },
@@ -30,16 +21,7 @@
       "path": ".claude/skills/operations/beads-workflow/SKILL.md",
       "description": "AI-native issue tracking with Beads for work management and coordination",
       "triggers": {
-        "keywords": [
-          "beads",
-          "bd",
-          "issue",
-          "task",
-          "ticket",
-          "backlog",
-          "ready",
-          "work item"
-        ]
+        "keywords": ["beads", "bd", "issue", "task", "ticket", "backlog", "ready", "work item"]
       },
       "priority": "high"
     },
@@ -48,15 +30,7 @@
       "path": ".claude/skills/operations/swarm-coordination/SKILL.md",
       "description": "Coordinate multi-agent swarm workflows, prevent conflicts, manage handoffs",
       "triggers": {
-        "keywords": [
-          "swarm",
-          "coordinate",
-          "parallel",
-          "multi-agent",
-          "agents",
-          "handoff",
-          "conflict"
-        ]
+        "keywords": ["swarm", "coordinate", "parallel", "multi-agent", "agents", "handoff", "conflict"]
       },
       "priority": "critical"
     },
@@ -65,15 +39,7 @@
       "path": ".claude/skills/core-engineering/implementing-code/SKILL.md",
       "description": "Write clean, efficient, maintainable code following SOLID principles",
       "triggers": {
-        "keywords": [
-          "implement",
-          "code",
-          "function",
-          "class",
-          "module",
-          "feature",
-          "write code"
-        ]
+        "keywords": ["implement", "code", "function", "class", "module", "feature", "write code"]
       },
       "priority": "high"
     },
@@ -82,16 +48,7 @@
       "path": ".claude/skills/core-engineering/debugging/SKILL.md",
       "description": "Systematic debugging and root cause analysis",
       "triggers": {
-        "keywords": [
-          "debug",
-          "bug",
-          "error",
-          "fix",
-          "broken",
-          "not working",
-          "issue",
-          "failing"
-        ]
+        "keywords": ["debug", "bug", "error", "fix", "broken", "not working", "issue", "failing"]
       },
       "priority": "high"
     },
@@ -100,14 +57,7 @@
       "path": ".claude/skills/core-engineering/refactoring-code/SKILL.md",
       "description": "Improve code structure without changing behavior",
       "triggers": {
-        "keywords": [
-          "refactor",
-          "cleanup",
-          "improve",
-          "restructure",
-          "simplify",
-          "technical debt"
-        ]
+        "keywords": ["refactor", "cleanup", "improve", "restructure", "simplify", "technical debt"]
       },
       "priority": "medium"
     },
@@ -116,16 +66,7 @@
       "path": ".claude/skills/core-engineering/testing/SKILL.md",
       "description": "Write comprehensive tests for code quality",
       "triggers": {
-        "keywords": [
-          "test",
-          "tests",
-          "testing",
-          "unit test",
-          "integration test",
-          "coverage",
-          "vitest",
-          "jest"
-        ]
+        "keywords": ["test", "tests", "testing", "unit test", "integration test", "coverage", "vitest", "jest"]
       },
       "priority": "high"
     },
@@ -134,12 +75,7 @@
       "path": ".claude/skills/core-engineering/test-driven-development/SKILL.md",
       "description": "TDD approach - write tests first, then implementation",
       "triggers": {
-        "keywords": [
-          "tdd",
-          "test first",
-          "test-driven",
-          "red green refactor"
-        ]
+        "keywords": ["tdd", "test first", "test-driven", "red green refactor"]
       },
       "priority": "medium"
     },
@@ -148,16 +84,7 @@
       "path": ".claude/skills/core-engineering/optimizing-code/SKILL.md",
       "description": "Performance optimization and efficiency improvements",
       "triggers": {
-        "keywords": [
-          "optimize",
-          "performance",
-          "slow",
-          "fast",
-          "efficient",
-          "speed",
-          "latency",
-          "throughput"
-        ]
+        "keywords": ["optimize", "performance", "slow", "fast", "efficient", "speed", "latency", "throughput"]
       },
       "priority": "medium"
     },
@@ -166,16 +93,7 @@
       "path": ".claude/skills/core-engineering/dependency-management/SKILL.md",
       "description": "Manage project dependencies and versions",
       "triggers": {
-        "keywords": [
-          "dependency",
-          "dependencies",
-          "package",
-          "npm",
-          "pip",
-          "cargo",
-          "pnpm",
-          "yarn"
-        ]
+        "keywords": ["dependency", "dependencies", "package", "npm", "pip", "cargo", "pnpm", "yarn"]
       },
       "priority": "low"
     },
@@ -184,16 +102,7 @@
       "path": ".claude/skills/core-engineering/data-management/SKILL.md",
       "description": "Database design and data handling patterns",
       "triggers": {
-        "keywords": [
-          "database",
-          "data",
-          "schema",
-          "migration",
-          "query",
-          "sql",
-          "postgres",
-          "prisma"
-        ]
+        "keywords": ["database", "data", "schema", "migration", "query", "sql", "postgres", "prisma"]
       },
       "priority": "medium"
     },
@@ -202,14 +111,7 @@
       "path": ".claude/skills/architecture/designing-systems/SKILL.md",
       "description": "Design scalable, reliable software systems",
       "triggers": {
-        "keywords": [
-          "architecture",
-          "system design",
-          "design",
-          "diagram",
-          "c4",
-          "adr"
-        ]
+        "keywords": ["architecture", "system design", "design", "diagram", "c4", "adr"]
       },
       "priority": "high"
     },
@@ -218,14 +120,7 @@
       "path": ".claude/skills/architecture/designing-apis/SKILL.md",
       "description": "Design RESTful APIs and GraphQL schemas",
       "triggers": {
-        "keywords": [
-          "api",
-          "endpoint",
-          "rest",
-          "graphql",
-          "openapi",
-          "swagger"
-        ]
+        "keywords": ["api", "endpoint", "rest", "graphql", "openapi", "swagger"]
       },
       "priority": "high"
     },
@@ -234,14 +129,7 @@
       "path": ".claude/skills/architecture/domain-driven-design/SKILL.md",
       "description": "Apply DDD patterns and bounded contexts",
       "triggers": {
-        "keywords": [
-          "ddd",
-          "domain",
-          "aggregate",
-          "bounded context",
-          "entity",
-          "value object"
-        ]
+        "keywords": ["ddd", "domain", "aggregate", "bounded context", "entity", "value object"]
       },
       "priority": "medium"
     },
@@ -250,14 +138,7 @@
       "path": ".claude/skills/architecture/cloud-native-patterns/SKILL.md",
       "description": "Cloud-native architecture and microservices",
       "triggers": {
-        "keywords": [
-          "cloud",
-          "microservice",
-          "kubernetes",
-          "docker",
-          "container",
-          "k8s"
-        ]
+        "keywords": ["cloud", "microservice", "kubernetes", "docker", "container", "k8s"]
       },
       "priority": "medium"
     },
@@ -266,12 +147,7 @@
       "path": ".claude/skills/architecture/defense-in-depth/SKILL.md",
       "description": "Layered security architecture patterns",
       "triggers": {
-        "keywords": [
-          "security layer",
-          "defense",
-          "layered security",
-          "zero trust"
-        ]
+        "keywords": ["security layer", "defense", "layered security", "zero trust"]
       },
       "priority": "medium"
     },
@@ -280,11 +156,7 @@
       "path": ".claude/skills/architecture/writing-adrs/SKILL.md",
       "description": "Document architecture decisions with ADRs",
       "triggers": {
-        "keywords": [
-          "adr",
-          "decision record",
-          "architecture decision"
-        ]
+        "keywords": ["adr", "decision record", "architecture decision"]
       },
       "priority": "medium"
     },
@@ -293,13 +165,7 @@
       "path": ".claude/skills/architecture/capacity-planning/SKILL.md",
       "description": "Plan for system capacity and scaling",
       "triggers": {
-        "keywords": [
-          "capacity",
-          "scaling",
-          "load",
-          "throughput",
-          "autoscale"
-        ]
+        "keywords": ["capacity", "scaling", "load", "throughput", "autoscale"]
       },
       "priority": "low"
     },
@@ -308,13 +174,7 @@
       "path": ".claude/skills/product/writing-prds/SKILL.md",
       "description": "Create Product Requirements Documents",
       "triggers": {
-        "keywords": [
-          "prd",
-          "requirements",
-          "product requirements",
-          "user story",
-          "acceptance criteria"
-        ]
+        "keywords": ["prd", "requirements", "product requirements", "user story", "acceptance criteria"]
       },
       "priority": "high"
     },
@@ -323,13 +183,7 @@
       "path": ".claude/skills/product/decomposing-tasks/SKILL.md",
       "description": "Break down complex tasks into actionable items",
       "triggers": {
-        "keywords": [
-          "break down",
-          "decompose",
-          "split",
-          "subtask",
-          "breakdown"
-        ]
+        "keywords": ["break down", "decompose", "split", "subtask", "breakdown"]
       },
       "priority": "medium"
     },
@@ -338,12 +192,7 @@
       "path": ".claude/skills/product/requirements-analysis/SKILL.md",
       "description": "Analyze and clarify requirements",
       "triggers": {
-        "keywords": [
-          "analyze requirements",
-          "clarify",
-          "scope",
-          "gather requirements"
-        ]
+        "keywords": ["analyze requirements", "clarify", "scope", "gather requirements"]
       },
       "priority": "medium"
     },
@@ -352,12 +201,7 @@
       "path": ".claude/skills/product/documentation/SKILL.md",
       "description": "Write clear technical documentation",
       "triggers": {
-        "keywords": [
-          "document",
-          "documentation",
-          "readme",
-          "docs"
-        ]
+        "keywords": ["document", "documentation", "readme", "docs"]
       },
       "priority": "low"
     },
@@ -366,12 +210,7 @@
       "path": ".claude/skills/product/execution-roadmaps/SKILL.md",
       "description": "Create project roadmaps and execution plans",
       "triggers": {
-        "keywords": [
-          "roadmap",
-          "plan",
-          "milestone",
-          "execution plan"
-        ]
+        "keywords": ["roadmap", "plan", "milestone", "execution plan"]
       },
       "priority": "medium"
     },
@@ -380,14 +219,7 @@
       "path": ".claude/skills/operations/infrastructure/SKILL.md",
       "description": "Infrastructure as Code and cloud setup",
       "triggers": {
-        "keywords": [
-          "infrastructure",
-          "terraform",
-          "iac",
-          "aws",
-          "gcp",
-          "azure"
-        ]
+        "keywords": ["infrastructure", "terraform", "iac", "aws", "gcp", "azure"]
       },
       "priority": "high"
     },
@@ -396,15 +228,7 @@
       "path": ".claude/skills/operations/observability/SKILL.md",
       "description": "Logging, metrics, and tracing setup",
       "triggers": {
-        "keywords": [
-          "observability",
-          "logging",
-          "metrics",
-          "tracing",
-          "monitoring",
-          "otel",
-          "prometheus"
-        ]
+        "keywords": ["observability", "logging", "metrics", "tracing", "monitoring", "otel", "prometheus"]
       },
       "priority": "medium"
     },
@@ -413,14 +237,7 @@
       "path": ".claude/skills/operations/incident-management/SKILL.md",
       "description": "Handle and respond to production incidents",
       "triggers": {
-        "keywords": [
-          "incident",
-          "outage",
-          "alert",
-          "on-call",
-          "postmortem",
-          "post-mortem"
-        ]
+        "keywords": ["incident", "outage", "alert", "on-call", "postmortem", "post-mortem"]
       },
       "priority": "critical"
     },
@@ -429,10 +246,7 @@
       "path": ".claude/skills/operations/deploy-railway/SKILL.md",
       "description": "Deploy applications to Railway platform",
       "triggers": {
-        "keywords": [
-          "railway",
-          "deploy railway"
-        ]
+        "keywords": ["railway", "deploy railway"]
       },
       "priority": "medium"
     },
@@ -441,12 +255,7 @@
       "path": ".claude/skills/operations/deploy-aws-ecs/SKILL.md",
       "description": "Deploy containerized apps to AWS ECS/Fargate with task definitions and ECR",
       "triggers": {
-        "keywords": [
-          "ecs",
-          "ecr",
-          "task definition",
-          "fargate"
-        ]
+        "keywords": ["ecs", "ecr", "task definition", "fargate"]
       },
       "priority": "medium"
     },
@@ -455,12 +264,7 @@
       "path": ".claude/skills/operations/deploy-cloudflare/SKILL.md",
       "description": "Deploy to Cloudflare Pages/Workers with Wrangler CLI",
       "triggers": {
-        "keywords": [
-          "cloudflare",
-          "wrangler",
-          "workers",
-          "pages"
-        ]
+        "keywords": ["cloudflare", "wrangler", "workers", "pages"]
       },
       "priority": "medium"
     },
@@ -469,13 +273,7 @@
       "path": ".claude/skills/security/application-security/SKILL.md",
       "description": "Secure application development practices",
       "triggers": {
-        "keywords": [
-          "security",
-          "secure",
-          "vulnerability",
-          "owasp",
-          "cve"
-        ]
+        "keywords": ["security", "secure", "vulnerability", "owasp", "cve"]
       },
       "priority": "critical"
     },
@@ -484,13 +282,7 @@
       "path": ".claude/skills/security/threat-modeling/SKILL.md",
       "description": "Identify and analyze security threats",
       "triggers": {
-        "keywords": [
-          "threat",
-          "attack",
-          "risk",
-          "stride",
-          "threat model"
-        ]
+        "keywords": ["threat", "attack", "risk", "stride", "threat model"]
       },
       "priority": "high"
     },
@@ -499,12 +291,7 @@
       "path": ".claude/skills/security/security-review/SKILL.md",
       "description": "Conduct security code reviews",
       "triggers": {
-        "keywords": [
-          "security review",
-          "audit",
-          "pentest",
-          "security audit"
-        ]
+        "keywords": ["security review", "audit", "pentest", "security audit"]
       },
       "priority": "high"
     },
@@ -513,14 +300,7 @@
       "path": ".claude/skills/security/compliance/SKILL.md",
       "description": "Ensure regulatory compliance",
       "triggers": {
-        "keywords": [
-          "compliance",
-          "gdpr",
-          "hipaa",
-          "soc2",
-          "pci",
-          "regulation"
-        ]
+        "keywords": ["compliance", "gdpr", "hipaa", "soc2", "pci", "regulation"]
       },
       "priority": "high"
     },
@@ -529,15 +309,7 @@
       "path": ".claude/skills/security/identity-access/SKILL.md",
       "description": "Authentication and authorization patterns",
       "triggers": {
-        "keywords": [
-          "auth",
-          "authentication",
-          "authorization",
-          "oauth",
-          "jwt",
-          "oidc",
-          "rbac"
-        ]
+        "keywords": ["auth", "authentication", "authorization", "oauth", "jwt", "oidc", "rbac"]
       },
       "priority": "high"
     },
@@ -546,14 +318,7 @@
       "path": ".claude/skills/design/interface-design/SKILL.md",
       "description": "Design user interfaces and interactions",
       "triggers": {
-        "keywords": [
-          "ui",
-          "interface",
-          "ux",
-          "design",
-          "wireframe",
-          "mockup"
-        ]
+        "keywords": ["ui", "interface", "ux", "design", "wireframe", "mockup"]
       },
       "priority": "medium"
     },
@@ -562,13 +327,7 @@
       "path": ".claude/skills/design/accessibility/SKILL.md",
       "description": "Ensure accessible design and WCAG compliance",
       "triggers": {
-        "keywords": [
-          "accessibility",
-          "a11y",
-          "wcag",
-          "screen reader",
-          "aria"
-        ]
+        "keywords": ["accessibility", "a11y", "wcag", "screen reader", "aria"]
       },
       "priority": "medium"
     },
@@ -577,12 +336,7 @@
       "path": ".claude/skills/design/design-systems/SKILL.md",
       "description": "Build and maintain design systems",
       "triggers": {
-        "keywords": [
-          "design system",
-          "component library",
-          "style guide",
-          "storybook"
-        ]
+        "keywords": ["design system", "component library", "style guide", "storybook"]
       },
       "priority": "medium"
     },
@@ -591,11 +345,7 @@
       "path": ".claude/skills/languages/typescript/SKILL.md",
       "description": "TypeScript best practices and patterns",
       "triggers": {
-        "keywords": [
-          "typescript",
-          "ts",
-          "type"
-        ]
+        "keywords": ["typescript", "ts", "type"]
       },
       "priority": "high"
     },
@@ -604,12 +354,7 @@
       "path": ".claude/skills/languages/python/SKILL.md",
       "description": "Python best practices and patterns",
       "triggers": {
-        "keywords": [
-          "python",
-          "py",
-          "pip",
-          "uv"
-        ]
+        "keywords": ["python", "py", "pip", "uv"]
       },
       "priority": "high"
     },
@@ -618,10 +363,7 @@
       "path": ".claude/skills/languages/go/SKILL.md",
       "description": "Go best practices and patterns",
       "triggers": {
-        "keywords": [
-          "golang",
-          "go"
-        ]
+        "keywords": ["golang", "go"]
       },
       "priority": "high"
     },
@@ -630,10 +372,7 @@
       "path": ".claude/skills/languages/rust/SKILL.md",
       "description": "Rust best practices and patterns",
       "triggers": {
-        "keywords": [
-          "rust",
-          "cargo"
-        ]
+        "keywords": ["rust", "cargo"]
       },
       "priority": "high"
     },
@@ -642,11 +381,7 @@
       "path": ".claude/skills/languages/bash/SKILL.md",
       "description": "Bash scripting best practices",
       "triggers": {
-        "keywords": [
-          "bash",
-          "shell",
-          "script"
-        ]
+        "keywords": ["bash", "shell", "script"]
       },
       "priority": "medium"
     },
@@ -655,11 +390,7 @@
       "path": ".claude/skills/languages/terraform/SKILL.md",
       "description": "Terraform infrastructure patterns",
       "triggers": {
-        "keywords": [
-          "terraform",
-          "tf",
-          "hcl"
-        ]
+        "keywords": ["terraform", "tf", "hcl"]
       },
       "priority": "high"
     },
@@ -668,16 +399,7 @@
       "path": ".claude/skills/languages/swift/SKILL.md",
       "description": "Swift and iOS development patterns. Use when working with .swift files, Xcode projects, or iOS apps.",
       "triggers": {
-        "keywords": [
-          "swift",
-          "ios",
-          "xcode",
-          "swiftui",
-          "uikit",
-          "cocoa",
-          "iphone",
-          "ipad"
-        ]
+        "keywords": ["swift", "ios", "xcode", "swiftui", "uikit", "cocoa", "iphone", "ipad"]
       },
       "priority": "low"
     },
@@ -686,14 +408,7 @@
       "path": ".claude/skills/languages/kotlin/SKILL.md",
       "description": "Kotlin and Android development patterns. Use when working with .kt files, Gradle, or Android apps.",
       "triggers": {
-        "keywords": [
-          "kotlin",
-          "android",
-          "compose",
-          "jetpack",
-          "gradle",
-          "play store"
-        ]
+        "keywords": ["kotlin", "android", "compose", "jetpack", "gradle", "play store"]
       },
       "priority": "low"
     },
@@ -702,13 +417,7 @@
       "path": ".claude/skills/operations/chaos-engineering/SKILL.md",
       "description": "Test system resilience through controlled failures and chaos experiments",
       "triggers": {
-        "keywords": [
-          "chaos",
-          "resilience",
-          "fault tolerance",
-          "failure injection",
-          "disaster recovery"
-        ]
+        "keywords": ["chaos", "resilience", "fault tolerance", "failure injection", "disaster recovery"]
       },
       "priority": "medium"
     },
@@ -717,14 +426,7 @@
       "path": ".claude/skills/product/estimating-work/SKILL.md",
       "description": "Estimate effort for development tasks using story points and relative sizing",
       "triggers": {
-        "keywords": [
-          "estimate",
-          "story points",
-          "effort",
-          "sizing",
-          "velocity",
-          "sprint planning"
-        ]
+        "keywords": ["estimate", "story points", "effort", "sizing", "velocity", "sprint planning"]
       },
       "priority": "low"
     },
@@ -733,13 +435,7 @@
       "path": ".claude/skills/product/brainstorming/SKILL.md",
       "description": "Generate and explore ideas using ideation techniques",
       "triggers": {
-        "keywords": [
-          "brainstorm",
-          "ideate",
-          "ideas",
-          "creative",
-          "explore options"
-        ]
+        "keywords": ["brainstorm", "ideate", "ideas", "creative", "explore options"]
       },
       "priority": "low"
     },
@@ -748,15 +444,7 @@
       "path": ".claude/skills/product/agile-methodology/SKILL.md",
       "description": "Apply agile practices including Scrum, Kanban, and ceremonies",
       "triggers": {
-        "keywords": [
-          "agile",
-          "scrum",
-          "kanban",
-          "sprint",
-          "standup",
-          "retrospective",
-          "backlog"
-        ]
+        "keywords": ["agile", "scrum", "kanban", "sprint", "standup", "retrospective", "backlog"]
       },
       "priority": "low"
     },
@@ -765,15 +453,7 @@
       "path": ".claude/skills/design/visual-assets/SKILL.md",
       "description": "Create and optimize visual assets including icons, images, and graphics",
       "triggers": {
-        "keywords": [
-          "icon",
-          "image",
-          "graphic",
-          "svg",
-          "png",
-          "webp",
-          "asset"
-        ]
+        "keywords": ["icon", "image", "graphic", "svg", "png", "webp", "asset"]
       },
       "priority": "low"
     },
@@ -782,13 +462,7 @@
       "path": ".claude/skills/product/context-management/SKILL.md",
       "description": "Manage project context for onboarding, handoffs, and knowledge sharing",
       "triggers": {
-        "keywords": [
-          "onboarding",
-          "context",
-          "handoff",
-          "knowledge transfer",
-          "ramp up"
-        ]
+        "keywords": ["onboarding", "context", "handoff", "knowledge transfer", "ramp up"]
       },
       "priority": "low"
     },
@@ -797,14 +471,7 @@
       "path": ".claude/skills/product/reaching-consensus/SKILL.md",
       "description": "Facilitate group decision-making and consensus building",
       "triggers": {
-        "keywords": [
-          "consensus",
-          "decision",
-          "align",
-          "agree",
-          "vote",
-          "disagree"
-        ]
+        "keywords": ["consensus", "decision", "align", "agree", "vote", "disagree"]
       },
       "priority": "low"
     },
@@ -813,15 +480,7 @@
       "path": ".claude/skills/languages/react-patterns/SKILL.md",
       "description": "React hooks, context, composition, and component patterns for web and mobile",
       "triggers": {
-        "keywords": [
-          "react",
-          "hooks",
-          "context",
-          "component",
-          "useState",
-          "useEffect",
-          "composition"
-        ]
+        "keywords": ["react", "hooks", "context", "component", "useState", "useEffect", "composition"]
       },
       "priority": "high"
     },
@@ -830,13 +489,7 @@
       "path": ".claude/skills/languages/biome/SKILL.md",
       "description": "Biome 2.x linting and formatting configuration and usage",
       "triggers": {
-        "keywords": [
-          "biome",
-          "lint",
-          "format",
-          "linter",
-          "formatter"
-        ]
+        "keywords": ["biome", "lint", "format", "linter", "formatter"]
       },
       "priority": "high"
     },
@@ -845,11 +498,7 @@
       "path": ".claude/skills/languages/hono/SKILL.md",
       "description": "Hono 4.x API framework patterns and middleware",
       "triggers": {
-        "keywords": [
-          "hono",
-          "api framework",
-          "edge api"
-        ]
+        "keywords": ["hono", "api framework", "edge api"]
       },
       "priority": "medium"
     },
@@ -858,12 +507,7 @@
       "path": ".claude/skills/languages/tailwind-css/SKILL.md",
       "description": "Tailwind CSS 4.x web styling patterns and configuration",
       "triggers": {
-        "keywords": [
-          "tailwind",
-          "tailwindcss",
-          "utility css",
-          "css utility"
-        ]
+        "keywords": ["tailwind", "tailwindcss", "utility css", "css utility"]
       },
       "priority": "medium"
     },
@@ -872,13 +516,7 @@
       "path": ".claude/skills/languages/framer-motion/SKILL.md",
       "description": "Framer Motion 12.x web animation patterns",
       "triggers": {
-        "keywords": [
-          "framer",
-          "motion",
-          "animation",
-          "animate",
-          "transition"
-        ]
+        "keywords": ["framer", "motion", "animation", "animate", "transition"]
       },
       "priority": "medium"
     },
@@ -887,13 +525,7 @@
       "path": ".claude/skills/languages/radix-ui/SKILL.md",
       "description": "Radix UI accessible component primitives for web",
       "triggers": {
-        "keywords": [
-          "radix",
-          "radix-ui",
-          "dialog",
-          "popover",
-          "dropdown"
-        ]
+        "keywords": ["radix", "radix-ui", "dialog", "popover", "dropdown"]
       },
       "priority": "medium"
     },
@@ -902,12 +534,7 @@
       "path": ".claude/skills/languages/vite/SKILL.md",
       "description": "Vite 7.x build tool configuration and optimization",
       "triggers": {
-        "keywords": [
-          "vite",
-          "build tool",
-          "hmr",
-          "dev server"
-        ]
+        "keywords": ["vite", "build tool", "hmr", "dev server"]
       },
       "priority": "medium"
     },
@@ -916,12 +543,7 @@
       "path": ".claude/skills/languages/expo-router/SKILL.md",
       "description": "Expo Router file-based routing for React Native",
       "triggers": {
-        "keywords": [
-          "expo router",
-          "expo routing",
-          "file-based routing",
-          "react native navigation"
-        ]
+        "keywords": ["expo router", "expo routing", "file-based routing", "react native navigation"]
       },
       "priority": "low"
     },
@@ -930,12 +552,7 @@
       "path": ".claude/skills/languages/expo-sdk/SKILL.md",
       "description": "Expo SDK platform APIs and configuration",
       "triggers": {
-        "keywords": [
-          "expo",
-          "expo-image",
-          "expo-haptics",
-          "expo sdk"
-        ]
+        "keywords": ["expo", "expo-image", "expo-haptics", "expo sdk"]
       },
       "priority": "low"
     },
@@ -944,13 +561,7 @@
       "path": ".claude/skills/languages/react-native-patterns/SKILL.md",
       "description": "React Native component patterns, Pressable, ScrollView, accessibility",
       "triggers": {
-        "keywords": [
-          "react native",
-          "pressable",
-          "scrollview",
-          "flatlist",
-          "flashlist"
-        ]
+        "keywords": ["react native", "pressable", "scrollview", "flatlist", "flashlist"]
       },
       "priority": "low"
     },
@@ -959,11 +570,7 @@
       "path": ".claude/skills/languages/nativewind/SKILL.md",
       "description": "NativeWind (Tailwind for React Native) styling patterns",
       "triggers": {
-        "keywords": [
-          "nativewind",
-          "tailwind native",
-          "react native tailwind"
-        ]
+        "keywords": ["nativewind", "tailwind native", "react native tailwind"]
       },
       "priority": "low"
     },
@@ -972,12 +579,7 @@
       "path": ".claude/skills/languages/reanimated/SKILL.md",
       "description": "React Native Reanimated UI-thread animations",
       "triggers": {
-        "keywords": [
-          "reanimated",
-          "react native animation",
-          "shared value",
-          "worklet"
-        ]
+        "keywords": ["reanimated", "react native animation", "shared value", "worklet"]
       },
       "priority": "low"
     },
@@ -986,11 +588,7 @@
       "path": ".claude/skills/design/component-recipes/SKILL.md",
       "description": "Tailwind component patterns and recipes for web UI",
       "triggers": {
-        "keywords": [
-          "component recipe",
-          "tailwind component",
-          "ui recipe"
-        ]
+        "keywords": ["component recipe", "tailwind component", "ui recipe"]
       },
       "priority": "low"
     },
@@ -999,12 +597,7 @@
       "path": ".claude/skills/design/demo-design-tokens/SKILL.md",
       "description": "Default design tokens for demo applications without a formal design system",
       "triggers": {
-        "keywords": [
-          "design tokens",
-          "color system",
-          "typography scale",
-          "demo design"
-        ]
+        "keywords": ["design tokens", "color system", "typography scale", "demo design"]
       },
       "priority": "low"
     },
@@ -1013,12 +606,7 @@
       "path": ".claude/skills/core-engineering/data-to-ui/SKILL.md",
       "description": "Data-to-UI pipeline patterns for transforming JSON into React components",
       "triggers": {
-        "keywords": [
-          "data pipeline",
-          "json to react",
-          "color map",
-          "data transform"
-        ]
+        "keywords": ["data pipeline", "json to react", "color map", "data transform"]
       },
       "priority": "high"
     },
@@ -1027,23 +615,7 @@
       "path": ".claude/skills/seo/SKILL.md",
       "description": "SEO cho BopCamping — meta, JSON-LD, sitemap, canonical trên Laravel+Inertia",
       "triggers": {
-        "keywords": [
-          "seo",
-          "meta",
-          "structured data",
-          "json-ld",
-          "jsonld",
-          "schema.org",
-          "sitemap",
-          "canonical",
-          "open graph",
-          "og:image",
-          "robots.txt",
-          "serp",
-          "google index",
-          "từ khoá",
-          "thẻ meta"
-        ]
+        "keywords": ["seo", "meta", "structured data", "json-ld", "jsonld", "schema.org", "sitemap", "canonical", "open graph", "og:image", "robots.txt", "serp", "google index", "từ khoá", "thẻ meta"]
       },
       "priority": "high"
     }
