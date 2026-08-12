@@ -11,27 +11,30 @@ type Slide = { src: string; title: string };
 
 const DEFAULT_SLIDES: Slide[] = [
     {
-        src: '/images/album/beach-night-tent.jpg',
+        src: '/images/album/beach-night-tent.webp',
         title: 'Lều sáng đèn bên biển đêm',
     },
     {
-        src: '/images/album/forest-camp-aerial.jpg',
+        src: '/images/album/forest-camp-aerial.webp',
         title: 'Trại giữa rừng thông',
     },
     {
-        src: '/images/album/cliff-turquoise.jpg',
+        src: '/images/album/cliff-turquoise.webp',
         title: 'Vách đá bên biển xanh',
     },
     {
-        src: '/images/album/cloud-sea-sunrise.jpg',
+        src: '/images/album/cloud-sea-sunrise.webp',
         title: 'Biển mây đón bình minh',
     },
     {
-        src: '/images/album/beach-sunset-relax.jpg',
+        src: '/images/album/beach-sunset-relax.webp',
         title: 'Hoàng hôn trên bãi biển',
     },
-    { src: '/images/album/bay-overview.jpg', title: 'Toàn cảnh vịnh' },
-    { src: '/images/album/tent-interior-night.jpg', title: 'Đêm ấm trong lều' },
+    { src: '/images/album/bay-overview.webp', title: 'Toàn cảnh vịnh' },
+    {
+        src: '/images/album/tent-interior-night.webp',
+        title: 'Đêm ấm trong lều',
+    },
 ];
 
 const AUTOPLAY_MS = 4800;

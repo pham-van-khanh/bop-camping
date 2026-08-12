@@ -32,8 +32,16 @@
         <meta name="thumbnail" content="{{ $seoImage }}">
         <link rel="canonical" href="{{ $seoUrl }}">
 
-        {{-- Preload ảnh hero (LCP) — tải sớm để trang hiện nhanh hơn (tốt cho SEO tốc độ) --}}
-        <link rel="preload" as="image" href="/images/album/beach-night-tent.jpg" fetchpriority="high">
+        {{-- Preload ảnh hero (LCP) — CHỈ ở trang chủ (bopcamping-xxk8).
+
+             Ảnh này chỉ dùng trong HeroSlideshow, mà component đó chỉ có ở Welcome.tsx.
+             Để ở layout chung thì MỌI trang (sản phẩm, combo, chính sách...) đều tải thừa
+             717 KB — đo được là 50% trọng lượng trang chi tiết SP — lại còn ở
+             fetchpriority=high nên giành băng thông với ảnh LCP thật của trang đó.
+             Preload sai chỗ thì hại LCP chứ không giúp. --}}
+        @if (($page['component'] ?? '') === 'Welcome')
+            <link rel="preload" as="image" href="/images/album/beach-night-tent.webp" fetchpriority="high">
+        @endif
 
         {{-- Favicon --}}
         <link rel="icon" href="/favicon.ico" sizes="any">
