@@ -10,6 +10,7 @@ use App\Models\ReferralCode;
 use App\Models\Review;
 use App\Models\ServiceLocation;
 use App\Models\SiteSetting;
+use App\Services\SeoService;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -115,6 +116,10 @@ class HandleInertiaRequests extends Middleware
         return [
             'ga_id' => $s->ga_measurement_id,
             'google_verification' => $s->google_site_verification,
+            // Organization + WebSite dựng ở PHP rồi mới đưa sang blade. Viết thẳng trong
+            // .blade.php thì Laravel 11+ nuốt mất '@context' (có directive cùng tên) —
+            // đo trên production 11/08: cả hai khối này đều hỏng @context.
+            'site_jsonld' => app(SeoService::class)->siteJsonLd(),
             // LocalBusiness chỉ render khi có hotline (đủ dữ liệu tối thiểu cho rich result).
             'local_business' => $hotlines === [] ? null : [
                 '@context' => 'https://schema.org',

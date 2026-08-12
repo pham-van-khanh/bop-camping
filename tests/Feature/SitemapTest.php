@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Category;
 use App\Models\Combo;
 use App\Models\Product;
+use App\Models\StaticPage;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Tests\TestCase;
@@ -66,5 +67,22 @@ class SitemapTest extends TestCase
 
         // Trong TTL cache: sản phẩm mới chưa xuất hiện
         $this->assertStringNotContainsString('leu-moi-sau-cache', $this->get('/sitemap.xml')->getContent());
+    }
+
+    /**
+     * Trang chính sách phải có trong sitemap (bopcamping-12n9).
+     *
+     * Chúng trả 200 và có canonical nên rõ ràng là muốn index, nhưng trước đây
+     * SitemapController liệt kê thủ công và bỏ sót cả 5 trang.
+     *
+     * @test
+     */
+    public function sitemap_includes_every_policy_page(): void
+    {
+        $xml = $this->get('/sitemap.xml')->getContent();
+
+        foreach (array_keys(StaticPage::POLICIES) as $slug) {
+            $this->assertStringContainsString(url('/'.$slug), $xml, "sitemap thiếu /$slug");
+        }
     }
 }
