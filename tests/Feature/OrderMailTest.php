@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Mail\NewOrderAdminMail;
+use App\Mail\OrderPickupReminderMail;
 use App\Mail\OrderPlacedMail;
 use App\Models\Category;
 use App\Models\Order;
@@ -156,5 +157,84 @@ class OrderMailTest extends TestCase
             'email' => $email,
             'items' => [['product_id' => $product->id, 'quantity' => 1, 'start' => $day, 'end' => $day]],
         ];
+    }
+
+    /**
+     * Mail phải TÁCH tiền thuê và tiền cọc thành 2 dòng, kèm tổng (bopcamping-944h).
+     *
+     * Cọc được hoàn lại khi trả đồ nguyên vẹn, tiền thuê thì không — gộp một con số
+     * khiến khách tưởng mất hết ngần ấy. Đơn là COD nên còn phải nói rõ tổng cầm theo.
+     *
+     * @test
+     */
+    public function customer_mail_separates_rental_from_deposit_and_shows_the_total(): void
+    {
+        $this->post(route('order.store'), $this->payload('0911112222'))->assertSessionHas('order_code');
+        $order = Order::first();
+
+        $html = (new OrderPlacedMail($order))->render();
+
+        $this->assertStringContainsString('Tiền thuê', $html);
+        $this->assertStringContainsString('Tiền cọc', $html);
+        $this->assertStringContainsString('Tổng cầm khi nhận đồ', $html);
+
+        $vnd = fn (int $n) => number_format($n, 0, ',', '.').'đ';
+        $this->assertStringContainsString($vnd($order->deposit_total), $html);
+        $this->assertStringContainsString($vnd($order->amount_due), $html);
+        // Tổng phải đúng bằng thuê + cọc, không phải một trong hai.
+        $this->assertSame($order->rental_due + $order->deposit_total, $order->amount_due);
+    }
+
+    /**
+     * Admin cũng cần tách: một bên là doanh thu, một bên là tiền giữ hộ phải hoàn lại.
+     * Trước đây mail admin chỉ in mỗi amount_due gộp.
+     *
+     * @test
+     */
+    public function admin_mail_breaks_down_rental_and_deposit(): void
+    {
+        $this->post(route('order.store'), $this->payload('0911112222'))->assertSessionHas('order_code');
+        $order = Order::first();
+        // Thêm phí phát sinh để rental_due KHÁC total_price. Không có bước này thì hai số
+        // bằng nhau, mà total_price vốn đã in ở bảng món — assertion sẽ đậu kể cả khi
+        // khối tổng bị gộp lại như bản cũ (đã đo: kiểm ngược không đỏ).
+        $order->update(['extra_fee' => 50000, 'extra_fee_note' => 'Phí giao']);
+        $order->refresh();
+
+        $html = (new NewOrderAdminMail($order))->render();
+        $vnd = fn (int $n) => number_format($n, 0, ',', '.').'đ';
+
+        $this->assertStringContainsString('Tiền thuê', $html);
+        $this->assertStringContainsString('Tiền cọc', $html);
+        $this->assertNotSame($order->total_price, $order->rental_due);
+        $this->assertStringContainsString($vnd($order->rental_due), $html);
+        $this->assertStringContainsString($vnd($order->deposit_total), $html);
+        $this->assertStringContainsString($vnd($order->amount_due), $html);
+    }
+
+    /**
+     * Phí phát sinh (admin nhập sau khi gọi xác nhận) phải vào tiền thuê, nếu không
+     * mail nhắc lịch báo thiếu so với số thu thật lúc giao (bopcamping-944h).
+     *
+     * @test
+     */
+    public function extra_fee_is_included_in_the_rental_amount_shown(): void
+    {
+        $this->post(route('order.store'), $this->payload('0911112222'))->assertSessionHas('order_code');
+        $order = Order::first();
+        $order->update(['extra_fee' => 50000, 'extra_fee_note' => 'Phí giao Vinh']);
+        $order->refresh();
+
+        $vnd = fn (int $n) => number_format($n, 0, ',', '.').'đ';
+
+        $reminder = (new OrderPickupReminderMail($order))->render();
+        $this->assertStringContainsString($vnd($order->rental_due), $reminder);
+        $this->assertStringContainsString($vnd($order->amount_due), $reminder);
+        // rental_due đã gồm phí -> KHÔNG được in total_price thô.
+        $this->assertNotSame($order->total_price, $order->rental_due);
+
+        // Mail khách nêu rõ khoản phí đó tên gì, không giấu vào một con số.
+        $placed = (new OrderPlacedMail($order))->render();
+        $this->assertStringContainsString('Phí giao Vinh', $placed);
     }
 }

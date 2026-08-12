@@ -155,6 +155,8 @@ class OrderController extends Controller
             'schedule_confirmed_at' => $o->schedule_confirmed_at?->format('d/m H:i'),
             'extra_fee' => (int) $o->extra_fee,
             'extra_fee_note' => $o->extra_fee_note,
+            // Danh sách phụ phí đã chuẩn hoá (đơn cũ tự dựng từ cặp cột cũ) — bopcamping-f1yj
+            'extra_fees' => $o->extraFeeLines(),
             'total_price' => $o->total_price,
             'deposit_total' => $o->deposit_total,
             'discount_total' => $o->discount_total,
@@ -559,25 +561,47 @@ class OrderController extends Controller
     }
 
     /**
-     * Phụ phí giao/trả NGOÀI KHUNG GIỜ (bopcamping-h4to, Phase 2) — admin nhập tay sau khi
-     * liên hệ khách (giao sớm/trả muộn). Cộng vào amount_due; không dùng biểu phí tự động.
+     * Phụ phí — admin nhập tay sau khi liên hệ khách. Cộng vào amount_due; không có
+     * biểu phí tự động.
+     *
+     * Ô này gánh HAI loại (bopcamping-marf):
+     *   1. Giao/trả ngoài khung giờ — mục đích ban đầu (bopcamping-h4to, Phase 2).
+     *   2. Phí giao tận nơi — từ khi có delivery_method (bopcamping-z3ug), chủ shop chốt
+     *      không tính ship ở checkout mà thoả thuận rồi nhập vào đây.
+     * Từ bopcamping-f1yj nhận NHIỀU khoản: `fees` là danh sách [{name, value}] và là
+     * nguồn chân lý; cột `extra_fee` chỉ là TỔNG ghi lại để rental_due/thống kê đọc
+     * nhanh. Đây là LỐI VÀO DUY NHẤT được ghi hai thứ đó, nếu không tổng sẽ lệch danh
+     * sách. Tên khoản hiện ra cho KHÁCH trong mail xác nhận.
      */
     public function updateExtraFee(Request $request, Order $order): RedirectResponse
     {
         if ($order->is_parent) {
-            return back()->withErrors(['extra_fee' => 'Đơn gộp: nhập phụ phí trên từng đợt (đơn con).']);
+            return back()->withErrors(['fees' => 'Đơn gộp: nhập phụ phí trên từng đợt (đơn con).']);
         }
 
         $validated = $request->validate([
-            'extra_fee' => ['required', 'integer', 'min:0', 'max:100000000'],
-            'extra_fee_note' => ['nullable', 'string', 'max:255'],
+            // max:20 — chặn payload khổng lồ, chứ thực tế 1 đơn hiếm khi quá 2-3 khoản.
+            'fees' => ['present', 'array', 'max:20'],
+            'fees.*.name' => ['required', 'string', 'max:120'],
+            'fees.*.value' => ['required', 'integer', 'min:0', 'max:100000000'],
         ], [
-            'extra_fee.integer' => 'Phụ phí phải là số.',
+            'fees.*.name.required' => 'Khoản phụ phí nào cũng phải có tên (khách sẽ đọc tên này).',
+            'fees.*.value.integer' => 'Số tiền phụ phí phải là số.',
         ]);
 
+        // Bỏ dòng 0đ: admin hay bấm thêm dòng rồi để trống, lưu vào chỉ tổ rác dữ liệu
+        // và in ra mail một dòng vô nghĩa.
+        $lines = collect($validated['fees'])
+            ->map(fn (array $f) => ['name' => trim($f['name']), 'value' => (int) $f['value']])
+            ->filter(fn (array $f) => $f['value'] > 0 && $f['name'] !== '')
+            ->values()
+            ->all();
+
         $order->update([
-            'extra_fee' => $validated['extra_fee'],
-            'extra_fee_note' => $validated['extra_fee_note'] ?? null,
+            'extra_fees' => $lines ?: null,
+            'extra_fee' => Order::sumExtraFees($lines),
+            // Cột cũ 1-khoản: giữ đồng bộ cho code/đơn cũ còn đọc, sẽ bỏ ở bopcamping-was4.
+            'extra_fee_note' => count($lines) === 1 ? $lines[0]['name'] : null,
         ]);
 
         return back()->with('success', "Đơn {$order->code}: đã cập nhật phụ phí");

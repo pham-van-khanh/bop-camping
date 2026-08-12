@@ -86,4 +86,38 @@ class OrderLookupTest extends TestCase
                 ->where('order.confirmed_pickup_time', null)
                 ->where('order.confirmed_return_time', null));
     }
+
+    /**
+     * Màn tra cứu phải nêu từng khoản phụ phí (bopcamping-j6hc).
+     *
+     * amount_due ĐÃ cộng phụ phí, nên không trả danh sách ra thì các dòng khách thấy
+     * cộng lại không bằng dòng tổng — đo được lệch đúng bằng phụ phí, khách không hiểu
+     * số đó ở đâu ra.
+     *
+     * @test
+     */
+    public function lookup_exposes_each_extra_fee_so_the_total_adds_up(): void
+    {
+        $order = $this->makeOrder();
+        $order->update([
+            'extra_fees' => [
+                ['name' => 'Phí giao tận nơi', 'value' => 50000],
+                ['name' => 'Trả muộn 22h', 'value' => 30000],
+            ],
+            'extra_fee' => 80000,
+        ]);
+
+        $res = $this->get(route('lookup', ['code' => $order->code, 'phone' => $order->customer_phone]));
+
+        $res->assertInertia(fn ($p) => $p
+            ->has('order.extra_fees', 2)
+            ->where('order.extra_fees.0.name', 'Phí giao tận nơi')
+            ->where('order.extra_fees.1.value', 30000));
+
+        // Các dòng hiện ra phải cộng đúng bằng tổng.
+        $fresh = $order->fresh();
+        $sum = $fresh->total_price - $fresh->discount_total + $fresh->deposit_total
+            + collect($fresh->extraFeeLines())->sum('value');
+        $this->assertSame($fresh->amount_due, $sum);
+    }
 }

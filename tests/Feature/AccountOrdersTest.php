@@ -240,4 +240,36 @@ class AccountOrdersTest extends TestCase
                 ->where('lookup.order.confirmed_pickup_time', '14:30')
                 ->where('lookup.order.confirmed_return_time', '09:00'));
     }
+
+    /**
+     * Trang tài khoản phải nêu từng khoản phụ phí (bopcamping-j6hc).
+     *
+     * "Trả khi nhận" lấy amount_due vốn đã cộng phụ phí; thiếu dòng giải thích thì các
+     * dòng khách thấy cộng lại không ra tổng.
+     *
+     * @test
+     */
+    public function account_orders_expose_each_extra_fee(): void
+    {
+        $user = User::factory()->create(['phone' => '0912000111']);
+        $order = $this->order($user, '0912000111');
+        $order->update([
+            'extra_fees' => [
+                ['name' => 'Phí giao tận nơi', 'value' => 50000],
+                ['name' => 'Trả muộn 22h', 'value' => 30000],
+            ],
+            'extra_fee' => 80000,
+        ]);
+
+        $this->actingAs($user)->get(route('account'))->assertInertia(fn (Assert $p) => $p
+            ->has('orders.0.extra_fees', 2)
+            ->where('orders.0.extra_fees.0.name', 'Phí giao tận nơi')
+            ->where('orders.0.extra_fees.1.value', 30000)
+            ->etc());
+
+        $fresh = $order->fresh();
+        $sum = $fresh->total_price - $fresh->discount_total + $fresh->deposit_total
+            + collect($fresh->extraFeeLines())->sum('value');
+        $this->assertSame($fresh->amount_due, $sum);
+    }
 }
