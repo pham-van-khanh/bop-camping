@@ -41,12 +41,14 @@
         <td style="padding:3px 0;color:#5a5445;">Tiền thuê ({{ $order->days }} ngày)</td>
         <td style="padding:3px 0;text-align:right;font-family:{{ $mono }};font-weight:700;color:#2e2a20;">{{ number_format($order->total_price, 0, ',', '.') }}đ</td>
     </tr>
-    @if ($order->extra_fee > 0)
+    {{-- Mỗi phụ phí một dòng riêng, đúng tên admin nhập (bopcamping-f1yj). Gộp lại thành
+         một số thì khách không biết mình bị tính những khoản gì. --}}
+    @foreach ($order->extraFeeLines() as $fee)
         <tr>
-            <td style="padding:3px 0;color:#5a5445;">{{ $order->extra_fee_note ?: 'Phí phát sinh' }}</td>
-            <td style="padding:3px 0;text-align:right;font-family:{{ $mono }};color:#2e2a20;">+{{ number_format($order->extra_fee, 0, ',', '.') }}đ</td>
+            <td style="padding:3px 0;color:#5a5445;">{{ $fee['name'] }}</td>
+            <td style="padding:3px 0;text-align:right;font-family:{{ $mono }};color:#2e2a20;">+{{ number_format($fee['value'], 0, ',', '.') }}đ</td>
         </tr>
-    @endif
+    @endforeach
     @if ($order->discount_total > 0)
         <tr>
             <td style="padding:3px 0;color:#5a5445;">Giảm giá</td>
