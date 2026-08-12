@@ -71,6 +71,7 @@ class Order extends Model
         'deposit_total',
         'extra_fee',
         'extra_fee_note',
+        'extra_fees',
         'discount_total',
         'discount_breakdown',
         'status',
@@ -91,6 +92,7 @@ class Order extends Model
         'total_price' => 'integer',
         'deposit_total' => 'integer',
         'extra_fee' => 'integer',
+        'extra_fees' => 'array',
         'discount_total' => 'integer',
         'discount_breakdown' => 'array',
         'is_parent' => 'boolean',
@@ -292,10 +294,50 @@ class Order extends Model
         return $this->rental_due + (int) $this->deposit_total;
     }
 
-    /** Riêng phần TIỀN THUÊ phải thu (đã gồm phụ phí ngoài giờ, đã trừ giảm giá) — không gồm cọc. */
+    /** Riêng phần TIỀN THUÊ phải thu (đã gồm phụ phí, đã trừ giảm giá) — không gồm cọc. */
     public function getRentalDueAttribute(): int
     {
         return (int) $this->total_price + (int) $this->extra_fee - (int) $this->discount_total;
+    }
+
+    /**
+     * Danh sách phụ phí đã chuẩn hoá để hiển thị (bopcamping-f1yj).
+     *
+     * Đọc `extra_fees`; đơn CŨ chưa có JSON thì dựng lại một khoản từ cặp
+     * (extra_fee, extra_fee_note) — nhờ vậy mail và admin không phải if/else theo đời
+     * dữ liệu. Bỏ khoản value <= 0 và khoản không tên để không in dòng rỗng.
+     *
+     * @return list<array{name: string, value: int}>
+     */
+    public function extraFeeLines(): array
+    {
+        $rows = is_array($this->extra_fees) && $this->extra_fees !== []
+            ? $this->extra_fees
+            : ((int) $this->extra_fee > 0
+                ? [['name' => $this->extra_fee_note ?: 'Phụ phí', 'value' => (int) $this->extra_fee]]
+                : []);
+
+        return collect($rows)
+            ->map(fn ($r) => [
+                'name' => trim((string) ($r['name'] ?? '')) ?: 'Phụ phí',
+                'value' => (int) ($r['value'] ?? 0),
+            ])
+            ->filter(fn (array $r) => $r['value'] > 0)
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Tổng phụ phí suy TỪ DANH SÁCH — nguồn duy nhất để ghi vào cột `extra_fee`.
+     *
+     * Cột đó là bản tổng đã lưu sẵn (rental_due đọc nó), nên nếu tính tổng ở nhiều nơi
+     * thì sớm muộn cũng lệch với danh sách. Mọi chỗ ghi phải đi qua đây.
+     *
+     * @param  array<int, array{name?: string, value?: mixed}>  $lines
+     */
+    public static function sumExtraFees(array $lines): int
+    {
+        return collect($lines)->sum(fn ($r) => max(0, (int) ($r['value'] ?? 0)));
     }
 
     /**

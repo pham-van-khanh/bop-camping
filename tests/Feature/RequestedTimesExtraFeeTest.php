@@ -85,7 +85,7 @@ class RequestedTimesExtraFeeTest extends TestCase
     {
         $order = $this->order();
         $this->actingAs($this->admin())->patch(route('admin.orders.fee', $order), [
-            'extra_fee' => 40000, 'extra_fee_note' => 'Giao sớm 6h',
+            'fees' => [['name' => 'Giao sớm 6h', 'value' => 40000]],
         ])->assertRedirect()->assertSessionHas('success');
 
         $order->refresh();
@@ -94,20 +94,107 @@ class RequestedTimesExtraFeeTest extends TestCase
         $this->assertSame(290000, $order->amount_due); // 200k + 50k + 40k
     }
 
+    /**
+     * Nhiều khoản phụ phí trên một đơn (bopcamping-f1yj) — đúng thứ trước đây không làm
+     * được: đơn vừa giao tận nơi vừa trả muộn phải cộng gộp thành một số.
+     *
+     * @test
+     */
+    public function admin_can_save_several_extra_fees_and_the_total_follows(): void
+    {
+        $order = $this->order();
+        $this->actingAs($this->admin())->patch(route('admin.orders.fee', $order), [
+            'fees' => [
+                ['name' => 'Phí giao tận nơi', 'value' => 50000],
+                ['name' => 'Trả muộn 22h', 'value' => 30000],
+            ],
+        ])->assertRedirect()->assertSessionHas('success');
+
+        $order->refresh();
+        $this->assertCount(2, $order->extraFeeLines());
+        // Cột tổng phải bám danh sách, nếu lệch thì rental_due/amount_due sai theo.
+        $this->assertSame(80000, (int) $order->extra_fee);
+        $this->assertSame(330000, $order->amount_due); // 200k + 50k cọc + 80k phụ phí
+        $this->assertSame('Phí giao tận nơi', $order->extraFeeLines()[0]['name']);
+        $this->assertSame('Trả muộn 22h', $order->extraFeeLines()[1]['name']);
+    }
+
+    /**
+     * Dòng 0đ / dòng trống bị loại — admin hay bấm "+" rồi bỏ đó.
+     *
+     * @test
+     */
+    public function blank_and_zero_fee_rows_are_dropped(): void
+    {
+        $order = $this->order();
+        $this->actingAs($this->admin())->patch(route('admin.orders.fee', $order), [
+            'fees' => [
+                ['name' => 'Phí giao', 'value' => 20000],
+                ['name' => 'Chưa dùng', 'value' => 0],
+            ],
+        ])->assertRedirect();
+
+        $order->refresh();
+        $this->assertCount(1, $order->extraFeeLines());
+        $this->assertSame(20000, (int) $order->extra_fee);
+    }
+
+    /**
+     * Gửi danh sách rỗng = gỡ sạch phụ phí.
+     *
+     * @test
+     */
+    public function empty_list_clears_every_fee(): void
+    {
+        $order = $this->order(extraFee: 40000);
+        $this->actingAs($this->admin())->patch(route('admin.orders.fee', $order), ['fees' => []])
+            ->assertRedirect();
+
+        $order->refresh();
+        $this->assertSame([], $order->extraFeeLines());
+        $this->assertSame(0, (int) $order->extra_fee);
+    }
+
+    /**
+     * Đơn CŨ chỉ có cặp cột (extra_fee, extra_fee_note) vẫn phải đọc ra được — mail và
+     * admin không được if/else theo đời dữ liệu.
+     *
+     * @test
+     */
+    public function legacy_single_fee_rows_still_read_as_a_list(): void
+    {
+        $order = $this->order(extraFee: 25000);
+        $order->forceFill(['extra_fee_note' => 'Giao sớm', 'extra_fees' => null])->save();
+
+        $lines = $order->fresh()->extraFeeLines();
+        $this->assertSame([['name' => 'Giao sớm', 'value' => 25000]], $lines);
+    }
+
     /** @test */
     public function admin_extra_fee_rejects_negative(): void
     {
         $order = $this->order();
-        $this->actingAs($this->admin())->patch(route('admin.orders.fee', $order), ['extra_fee' => -5])
-            ->assertSessionHasErrors('extra_fee');
+        $this->actingAs($this->admin())->patch(route('admin.orders.fee', $order), [
+            'fees' => [['name' => 'Âm', 'value' => -5]],
+        ])->assertSessionHasErrors('fees.0.value');
+    }
+
+    /** @test */
+    public function fee_row_without_a_name_is_rejected(): void
+    {
+        $order = $this->order();
+        $this->actingAs($this->admin())->patch(route('admin.orders.fee', $order), [
+            'fees' => [['name' => '', 'value' => 10000]],
+        ])->assertSessionHasErrors('fees.0.name');
     }
 
     /** @test */
     public function extra_fee_blocked_on_parent_order(): void
     {
         $parent = $this->order(parent: true);
-        $this->actingAs($this->admin())->patch(route('admin.orders.fee', $parent), ['extra_fee' => 10000])
-            ->assertSessionHasErrors('extra_fee');
+        $this->actingAs($this->admin())->patch(route('admin.orders.fee', $parent), [
+            'fees' => [['name' => 'X', 'value' => 10000]],
+        ])->assertSessionHasErrors('fees');
         $this->assertSame(0, (int) $parent->fresh()->extra_fee);
     }
 

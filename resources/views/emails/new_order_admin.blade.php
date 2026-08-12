@@ -35,11 +35,22 @@
         </div>
     @endif
 
+    {{-- Tách THUÊ và CỌC (bopcamping-944h). Trước đây chỉ in mỗi amount_due nên nhìn
+         mail admin không biết bao nhiêu là doanh thu, bao nhiêu là tiền giữ hộ phải
+         hoàn lại — hai khoản có bản chất khác hẳn nhau. --}}
     <div style="margin:14px 0 0;background:#eef2e3;border-radius:12px;padding:12px 16px;">
-        <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;">
+        <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;font-size:14px;">
             <tr>
-                <td style="font-weight:800;color:#2e2a20;">{{ $order->is_parent ? 'Tổng thu (cả '.$order->children->count().' đợt)' : 'Trả khi nhận' }}</td>
-                <td style="text-align:right;font-family:{{ $mono }};font-weight:800;color:#2e2a20;">{{ number_format($order->amount_due, 0, ',', '.') }}đ</td>
+                <td style="padding:2px 0;color:#5a5445;">Tiền thuê{{ $order->is_parent ? ' (cả '.$order->children->count().' đợt)' : '' }}</td>
+                <td style="padding:2px 0;text-align:right;font-family:{{ $mono }};font-weight:700;color:#2e2a20;">{{ number_format($order->rental_due, 0, ',', '.') }}đ</td>
+            </tr>
+            <tr>
+                <td style="padding:2px 0;color:#5a5445;">Tiền cọc <span style="color:#8a8170;">(hoàn khi trả đồ)</span></td>
+                <td style="padding:2px 0;text-align:right;font-family:{{ $mono }};font-weight:700;color:#c06a2a;">{{ number_format($order->deposit_total, 0, ',', '.') }}đ</td>
+            </tr>
+            <tr>
+                <td style="padding:8px 0 0;font-weight:800;color:#2e2a20;border-top:1px solid #dbe3c9;">{{ $order->is_parent ? 'Tổng thu' : 'Tổng thu khi giao' }}</td>
+                <td style="padding:8px 0 0;text-align:right;font-family:{{ $mono }};font-weight:800;font-size:15px;color:#2e2a20;border-top:1px solid #dbe3c9;">{{ number_format($order->amount_due, 0, ',', '.') }}đ</td>
             </tr>
         </table>
     </div>

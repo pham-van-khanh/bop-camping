@@ -82,6 +82,10 @@ export type Order = {
     schedule_confirmed_at: string | null;
     extra_fee: number;
     extra_fee_note: string | null;
+    // Danh sách phụ phí [{name,value}] — nguồn hiển thị; extra_fee chỉ là tổng (bopcamping-f1yj).
+    // Optional CÓ CHỦ Ý: nếu server bị rollback về bản cũ mà client đã tải JS mới thì
+    // trường này vắng — mọi chỗ đọc đều phải ?. để không trắng trang.
+    extra_fees?: { name: string; value: number }[];
     // ISO (Y-m-d) cho form đổi lịch (bopcamping-5hjm)
     start_date_iso: string;
     end_date_iso: string;
@@ -458,66 +462,144 @@ function RefundControl({ order }: { order: Order }) {
 }
 
 /**
- * Nhập phụ phí giao/trả ngoài khung giờ (Phase 2 turnaround, bopcamping-h4to) — admin
- * nhập tay sau khi liên hệ khách; cộng vào "Trả khi nhận". Chỉ đơn thường/đơn con.
+ * Nhập phụ phí — admin nhập tay sau khi liên hệ khách; cộng vào tiền thuê phải trả.
+ * Chỉ đơn thường/đơn con.
+ *
+ * Ô này gánh HAI loại phí, không chỉ ngoài khung giờ như tên gốc (bopcamping-h4to):
+ *   1. Giao/trả ngoài khung giờ (nhận sớm 6h, trả muộn 22h...) — mục đích ban đầu.
+ *   2. Phí giao tận nơi, từ khi có delivery_method (bopcamping-z3ug): chủ shop chốt
+ *      không tính phí ship ở checkout mà thoả thuận rồi nhập vào đây.
+ * Checkout hứa với khách "Phí giao tụi mình báo khi gọi xác nhận đơn" nhưng nhãn cũ chỉ
+ * ghi "ngoài khung giờ" nên người nhập dễ tưởng sai ô mà bỏ sót (bopcamping-marf).
+ *
+ * Hai loại dồn chung một con số nên KHÔNG tách ra đối soát được — muốn tách phải thêm
+ * cột riêng. Trước mắt bắt buộc ghi chú để biết khoản đó là phí gì.
  */
 function ExtraFeeEditor({ order }: { order: Order }) {
-    const [fee, setFee] = useState<string>(
-        order.extra_fee ? String(order.extra_fee) : '',
+    // Danh sách sửa được tại chỗ. Luôn để sẵn MỘT dòng trống khi đơn chưa có phụ phí,
+    // để admin gõ được ngay chứ không phải bấm "+" rồi mới thấy ô nhập.
+    const [rows, setRows] = useState<{ name: string; value: string }[]>(() =>
+        order.extra_fees?.length
+            ? order.extra_fees.map((f) => ({
+                  name: f.name,
+                  value: String(f.value),
+              }))
+            : [{ name: '', value: '' }],
     );
-    const [note, setNote] = useState<string>(order.extra_fee_note ?? '');
     const [saving, setSaving] = useState(false);
+
+    const setRow = (
+        i: number,
+        patch: Partial<{ name: string; value: string }>,
+    ) => setRows((rs) => rs.map((r, j) => (j === i ? { ...r, ...patch } : r)));
+
+    const addRow = () => setRows((rs) => [...rs, { name: '', value: '' }]);
+
+    // Xoá hết thì để lại một dòng trống — lưu lúc đó = gỡ sạch phụ phí (server lọc dòng 0đ).
+    const removeRow = (i: number) =>
+        setRows((rs) => {
+            const next = rs.filter((_, j) => j !== i);
+            return next.length ? next : [{ name: '', value: '' }];
+        });
+
+    const total = rows.reduce((sum, r) => sum + (Number(r.value) || 0), 0);
 
     const save = () => {
         setSaving(true);
         router.patch(
             route('admin.orders.fee', order.id),
-            { extra_fee: Number(fee || 0), extra_fee_note: note || null },
             {
-                preserveScroll: true,
-                onFinish: () => setSaving(false),
+                fees: rows
+                    .filter((r) => Number(r.value) > 0 && r.name.trim() !== '')
+                    .map((r) => ({
+                        name: r.name.trim(),
+                        value: Number(r.value),
+                    })),
             },
+            { preserveScroll: true, onFinish: () => setSaving(false) },
         );
     };
 
     return (
         <div className="mt-3">
-            <div className="mb-2 text-[12px] font-bold uppercase tracking-[0.04em] text-grass">
-                Phụ phí ngoài khung giờ
+            <div className="mb-1 text-[12px] font-bold uppercase tracking-[0.04em] text-grass">
+                Phụ phí (giao tận nơi / ngoài khung giờ)
             </div>
-            <div className="flex flex-wrap items-end gap-2 rounded-[10px] border border-[#eef2e3] bg-white p-3">
-                <label className="min-w-[110px] flex-1">
-                    <span className="mb-1 block text-[11.5px] text-moss">
-                        Số tiền (₫)
-                    </span>
-                    <input
-                        type="number"
-                        min="0"
-                        value={fee}
-                        onChange={(e) => setFee(e.target.value)}
-                        placeholder="0"
-                        className="w-full rounded-[9px] border border-cardBorder px-2.5 py-1.5 text-[13px] outline-none focus:border-grass"
-                    />
-                </label>
-                <label className="min-w-[150px] flex-[2]">
-                    <span className="mb-1 block text-[11.5px] text-moss">
-                        Ghi chú
-                    </span>
-                    <input
-                        type="text"
-                        value={note}
-                        onChange={(e) => setNote(e.target.value)}
-                        placeholder="VD: giao sớm 6h"
-                        className="w-full rounded-[9px] border border-cardBorder px-2.5 py-1.5 text-[13px] outline-none focus:border-grass"
-                    />
-                </label>
-                <button
-                    onClick={save}
-                    disabled={saving}
-                    className="rounded-[9px] bg-grass px-4 py-1.5 text-[13px] font-bold text-white transition hover:bg-pine disabled:opacity-60"
-                >
-                    {saving ? 'Đang lưu…' : 'Lưu phụ phí'}
-                </button>
+            <p className="mb-2 text-[11.5px] leading-snug text-moss">
+                Cộng vào tiền thuê khách trả khi nhận đồ. Mỗi khoản một dòng —
+                tên khoản hiện cho khách trong email xác nhận.
+            </p>
+            <div className="rounded-[10px] border border-[#eef2e3] bg-white p-3">
+                <div className="flex flex-col gap-2">
+                    {rows.map((r, i) => (
+                        <div key={i} className="flex flex-wrap items-end gap-2">
+                            <label className="min-w-[150px] flex-[2]">
+                                {i === 0 && (
+                                    <span className="mb-1 block text-[11.5px] text-moss">
+                                        Tên khoản (khách sẽ thấy)
+                                    </span>
+                                )}
+                                <input
+                                    type="text"
+                                    value={r.name}
+                                    onChange={(e) =>
+                                        setRow(i, { name: e.target.value })
+                                    }
+                                    placeholder="VD: phí giao tận nơi"
+                                    className="w-full rounded-[9px] border border-cardBorder px-2.5 py-1.5 text-[13px] outline-none focus:border-grass"
+                                />
+                            </label>
+                            <label className="min-w-[110px] flex-1">
+                                {i === 0 && (
+                                    <span className="mb-1 block text-[11.5px] text-moss">
+                                        Số tiền (₫)
+                                    </span>
+                                )}
+                                <input
+                                    type="number"
+                                    min="0"
+                                    value={r.value}
+                                    onChange={(e) =>
+                                        setRow(i, { value: e.target.value })
+                                    }
+                                    placeholder="0"
+                                    className="w-full rounded-[9px] border border-cardBorder px-2.5 py-1.5 text-[13px] outline-none focus:border-grass"
+                                />
+                            </label>
+                            <button
+                                type="button"
+                                onClick={() => removeRow(i)}
+                                aria-label={`Xoá khoản ${i + 1}`}
+                                title="Xoá khoản này"
+                                className="grid h-[34px] w-[34px] place-items-center rounded-[9px] border border-cardBorder text-[16px] leading-none text-moss transition hover:border-[#d8a3a3] hover:text-[#b3493a]"
+                            >
+                                ×
+                            </button>
+                        </div>
+                    ))}
+                </div>
+
+                <div className="mt-2.5 flex flex-wrap items-center gap-2">
+                    <button
+                        type="button"
+                        onClick={addRow}
+                        className="rounded-[9px] border border-dashed border-[#cdd6b6] px-3 py-1.5 text-[12.5px] font-semibold text-grass transition hover:border-grass hover:bg-[#f4f7ec]"
+                    >
+                        + Thêm phụ phí
+                    </button>
+                    {total > 0 && (
+                        <span className="font-mono text-[12.5px] text-moss">
+                            Tổng {money(total)}
+                        </span>
+                    )}
+                    <button
+                        onClick={save}
+                        disabled={saving}
+                        className="ml-auto rounded-[9px] bg-grass px-4 py-1.5 text-[13px] font-bold text-white transition hover:bg-pine disabled:opacity-60"
+                    >
+                        {saving ? 'Đang lưu…' : 'Lưu phụ phí'}
+                    </button>
+                </div>
             </div>
         </div>
     );
@@ -1262,14 +1344,16 @@ export function OrderDetailPanel({
                         value={money(order.deposit_total)}
                         mono
                     />
-                    {order.extra_fee > 0 && (
+                    {/* Mỗi phụ phí một dòng, khớp đúng thứ khách thấy trong mail (bopcamping-f1yj) */}
+                    {order.extra_fees?.map((f, i) => (
                         <DetailRow
-                            label={`Phụ phí${order.extra_fee_note ? ` (${order.extra_fee_note})` : ''}`}
-                            value={`+${money(order.extra_fee)}`}
+                            key={i}
+                            label={`Phụ phí (${f.name})`}
+                            value={`+${money(f.value)}`}
                             mono
                             accent="#8a5a1f"
                         />
-                    )}
+                    ))}
                     <div className="mt-1 flex items-center justify-between border-t border-[#eef2e3] pt-2">
                         <span className="font-bold text-ink">Trả khi nhận</span>
                         <span className="font-mono text-[14px] font-extrabold text-pine">
@@ -1278,7 +1362,7 @@ export function OrderDetailPanel({
                     </div>
                 </div>
 
-                {/* Phụ phí giao/trả ngoài khung giờ — admin nhập tay (Phase 2 turnaround) */}
+                {/* Phụ phí: giao tận nơi HOẶC ngoài khung giờ — admin nhập tay (bopcamping-marf) */}
                 {!order.is_parent && <ExtraFeeEditor order={order} />}
 
                 <div className="mb-2 mt-3 text-[12px] font-bold uppercase tracking-[0.04em] text-grass">
