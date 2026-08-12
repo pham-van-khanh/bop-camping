@@ -29,6 +29,8 @@ export type LookupOrder = {
     confirmed_pickup_time: string | null;
     confirmed_return_time: string | null;
     total_price: number;
+    // Phụ phí từng khoản — optional phòng server cũ (xem orderShared.tsx).
+    extra_fees?: { name: string; value: number }[];
     deposit_total: number;
     discount_total: number;
     amount_due: number;
@@ -192,6 +194,9 @@ export default function OrderLookupPanel({
                                 v={`−${money(order.discount_total)}`}
                             />
                         )}
+                        {order.extra_fees?.map((f, i) => (
+                            <Box key={i} k={f.name} v={`+${money(f.value)}`} />
+                        ))}
                         {order.deposit_total > 0 && (
                             <Box
                                 k="Tiền cọc (hoàn lại)"
@@ -209,79 +214,97 @@ export default function OrderLookupPanel({
                     {/* Đơn gộp: liệt kê TỪNG ĐỢT giao (mỗi đợt = đơn con) — bopcamping-wtuv T8. */}
                     {order.installments && order.installments.length > 0 ? (
                         <div className="mb-4 flex flex-col gap-3">
-                            {order.installments.map((inst, idx) => (
-                                <div
-                                    key={inst.code}
-                                    className="overflow-hidden rounded-[10px] border border-[#e3ecd2]"
-                                >
+                            {order.installments.map((inst, idx) => {
+                                // Gộp giảm giá + phụ phí thành một chú thích: amount_due đã
+                                // gồm cả hai, nêu thiếu vế nào thì con số trông vô lý.
+                                const notes = [
+                                    inst.discount_total > 0
+                                        ? `đã giảm −${money(inst.discount_total)}`
+                                        : null,
+                                    ...(inst.extra_fees ?? []).map(
+                                        (f) => `${f.name} +${money(f.value)}`,
+                                    ),
+                                ].filter(Boolean);
+
+                                return (
                                     <div
-                                        className="flex flex-wrap items-center justify-between gap-2 px-3 py-2"
-                                        style={{ background: '#eef5e0' }}
+                                        key={inst.code}
+                                        className="overflow-hidden rounded-[10px] border border-[#e3ecd2]"
                                     >
-                                        <div className="text-[13px] font-bold text-pine">
-                                            Đợt {idx + 1} ·{' '}
-                                            <span className="font-mono text-grass">
-                                                {inst.code}
-                                            </span>
-                                            <span className="ml-2 font-mono font-normal text-moss">
-                                                {inst.start_date} →{' '}
-                                                {inst.end_date}
+                                        <div
+                                            className="flex flex-wrap items-center justify-between gap-2 px-3 py-2"
+                                            style={{ background: '#eef5e0' }}
+                                        >
+                                            <div className="text-[13px] font-bold text-pine">
+                                                Đợt {idx + 1} ·{' '}
+                                                <span className="font-mono text-grass">
+                                                    {inst.code}
+                                                </span>
+                                                <span className="ml-2 font-mono font-normal text-moss">
+                                                    {inst.start_date} →{' '}
+                                                    {inst.end_date}
+                                                </span>
+                                            </div>
+                                            <span
+                                                className="rounded-pill px-2.5 py-1 text-[11px] font-bold"
+                                                style={
+                                                    STATUS_STYLE[inst.status] ??
+                                                    STATUS_STYLE.pending
+                                                }
+                                            >
+                                                {inst.status_label}
                                             </span>
                                         </div>
-                                        <span
-                                            className="rounded-pill px-2.5 py-1 text-[11px] font-bold"
-                                            style={
-                                                STATUS_STYLE[inst.status] ??
-                                                STATUS_STYLE.pending
-                                            }
-                                        >
-                                            {inst.status_label}
-                                        </span>
-                                    </div>
-                                    <table className="w-full text-[13px]">
-                                        <tbody>
-                                            {inst.items.map((item, i) => (
+                                        <table className="w-full text-[13px]">
+                                            <tbody>
+                                                {inst.items.map((item, i) => (
+                                                    <tr
+                                                        key={i}
+                                                        className="border-t border-[#eef2e3]"
+                                                    >
+                                                        <td className="px-3 py-2 text-ink">
+                                                            {item.name}
+                                                        </td>
+                                                        <td className="px-3 py-2 text-center text-moss">
+                                                            ×{item.quantity}
+                                                        </td>
+                                                        <td className="px-3 py-2 text-center text-moss">
+                                                            {item.days} ngày
+                                                        </td>
+                                                        <td className="px-3 py-2 text-right font-mono font-bold text-ink">
+                                                            {money(
+                                                                item.subtotal,
+                                                            )}
+                                                        </td>
+                                                    </tr>
+                                                ))}
                                                 <tr
-                                                    key={i}
                                                     className="border-t border-[#eef2e3]"
+                                                    style={{
+                                                        background: '#fbfdf6',
+                                                    }}
                                                 >
-                                                    <td className="px-3 py-2 text-ink">
-                                                        {item.name}
+                                                    <td
+                                                        colSpan={3}
+                                                        className="px-3 py-1.5 text-right text-[12px] text-moss"
+                                                    >
+                                                        {/* Nêu cả giảm giá lẫn phụ phí, vì amount_due
+                                                        đã gồm cả hai — chỉ ghi mỗi giảm giá thì
+                                                        con số trông không lý giải được. */}
+                                                        COD đợt này{' '}
+                                                        {notes.length > 0
+                                                            ? `(${notes.join(' · ')})`
+                                                            : ''}
                                                     </td>
-                                                    <td className="px-3 py-2 text-center text-moss">
-                                                        ×{item.quantity}
-                                                    </td>
-                                                    <td className="px-3 py-2 text-center text-moss">
-                                                        {item.days} ngày
-                                                    </td>
-                                                    <td className="px-3 py-2 text-right font-mono font-bold text-ink">
-                                                        {money(item.subtotal)}
+                                                    <td className="px-3 py-1.5 text-right font-mono font-bold text-pine">
+                                                        {money(inst.amount_due)}
                                                     </td>
                                                 </tr>
-                                            ))}
-                                            <tr
-                                                className="border-t border-[#eef2e3]"
-                                                style={{
-                                                    background: '#fbfdf6',
-                                                }}
-                                            >
-                                                <td
-                                                    colSpan={3}
-                                                    className="px-3 py-1.5 text-right text-[12px] text-moss"
-                                                >
-                                                    COD đợt này{' '}
-                                                    {inst.discount_total > 0
-                                                        ? `(đã giảm −${money(inst.discount_total)})`
-                                                        : ''}
-                                                </td>
-                                                <td className="px-3 py-1.5 text-right font-mono font-bold text-pine">
-                                                    {money(inst.amount_due)}
-                                                </td>
-                                            </tr>
-                                        </tbody>
-                                    </table>
-                                </div>
-                            ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                );
+                            })}
                         </div>
                     ) : (
                         <div className="mb-4 overflow-hidden rounded-[10px] border border-[#eef2e3]">

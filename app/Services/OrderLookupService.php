@@ -53,6 +53,9 @@ class OrderLookupService
             'delivery_method' => $o->delivery_method,
             'delivery_method_label' => $o->deliveryMethodLabel(),
             'total_price' => $o->total_price,
+            // Phụ phí từng khoản (bopcamping-j6hc): amount_due ĐÃ cộng khoản này, không
+            // trả ra thì các dòng khách thấy cộng lại không bằng tổng — đo được lệch 50k.
+            'extra_fees' => $o->extraFeeLines(),
             'deposit_total' => $o->deposit_total,
             'discount_total' => $o->discount_total,
             'amount_due' => $o->amount_due,

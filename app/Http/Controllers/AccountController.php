@@ -144,6 +144,8 @@ class AccountController extends Controller
             'phone' => $order->customer_phone,
             'note' => $order->note,
             'total_price' => (int) $order->total_price,
+            // Xem chú thích ở OrderLookupService: thiếu dòng này thì tổng không khớp.
+            'extra_fees' => $order->extraFeeLines(),
             'deposit_total' => (int) $order->deposit_total,
             'discount_total' => (int) $order->discount_total,
             'amount_due' => (int) $order->amount_due,

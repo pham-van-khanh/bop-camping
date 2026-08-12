@@ -77,6 +77,8 @@ type AccountOrder = {
     phone: string;
     note: string | null;
     total_price: number;
+    // Phụ phí từng khoản — optional phòng server cũ (xem orderShared.tsx).
+    extra_fees?: { name: string; value: number }[];
     deposit_total: number;
     discount_total: number;
     amount_due: number;
@@ -801,6 +803,14 @@ function OrderDetail({
                                 {d.amount >= 0
                                     ? `−${money(d.amount)}`
                                     : `+${money(-d.amount)}`}
+                            </span>
+                        </div>
+                    ))}
+                    {order.extra_fees?.map((f, i) => (
+                        <div key={i} className="flex justify-between py-[3px]">
+                            <span className="text-moss">{f.name}</span>
+                            <span className="font-mono font-semibold text-ink">
+                                +{money(f.value)}
                             </span>
                         </div>
                     ))}
