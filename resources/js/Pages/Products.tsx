@@ -3,7 +3,7 @@ import RentalRangeBar from '@/Components/site/RentalRangeBar';
 import SiteLayout from '@/Layouts/SiteLayout';
 import type { ProductResource } from '@/types/product';
 import { Head, router } from '@inertiajs/react';
-import { ReactNode, useState } from 'react';
+import { MouseEvent, ReactNode, useState } from 'react';
 
 type Sort = 'pop' | 'low' | 'high';
 
@@ -29,6 +29,14 @@ const chipBtn = (active: boolean) =>
             ? 'border-grass bg-grass text-white'
             : 'border-[#d6ddc4] bg-card text-pine hover:border-grass'
     }`;
+
+/**
+ * Địa chỉ CANONICAL của một danh mục — sạch query, khớp đúng thứ sitemap khai và đúng
+ * thứ server tự trỏ canonical về (xem ProductController::canonicalFor). Chip phải trỏ
+ * vào bản này, không phải bản đầy đủ bộ lọc, để liên kết nội bộ dồn về URL được index.
+ */
+const chipHref = (slug: string) =>
+    slug ? `/thiet-bi?cat=${slug}` : '/thiet-bi';
 
 export default function Products({
     products,
@@ -61,6 +69,21 @@ export default function Products({
             },
             { preserveState: true, replace: true },
         );
+    };
+
+    /**
+     * Chip danh mục là <a href> chứ không phải <button> (bopcamping-10x2): Googlebot có
+     * chạy JS nhưng KHÔNG bấm nút, nên trước đây /thiet-bi?cat=... không nhận được một
+     * internal link nào trên cả site — chỉ tồn tại trong sitemap.
+     * Click trái thường vẫn đi đường Inertia để giữ khoảng ngày khách đang chọn; ctrl /
+     * cmd / shift / chuột giữa thì thả cho trình duyệt mở tab mới như một link bình thường.
+     */
+    const chipClick = (slug: string) => (e: MouseEvent<HTMLAnchorElement>) => {
+        if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) {
+            return;
+        }
+        e.preventDefault();
+        applyFilters({ cat: slug });
     };
 
     const clearFilters = () => {
@@ -199,20 +222,22 @@ export default function Products({
 
                 {/* category chips */}
                 <div className="mb-[22px] flex flex-wrap gap-2">
-                    <button
-                        onClick={() => applyFilters({ cat: '' })}
+                    <a
+                        href={chipHref('')}
+                        onClick={chipClick('')}
                         className={chipBtn(cat === '')}
                     >
                         Tất cả
-                    </button>
+                    </a>
                     {categories.map((c) => (
-                        <button
+                        <a
                             key={c.id}
-                            onClick={() => applyFilters({ cat: c.slug })}
+                            href={chipHref(c.slug)}
+                            onClick={chipClick(c.slug)}
                             className={chipBtn(cat === c.slug)}
                         >
                             {c.name}
-                        </button>
+                        </a>
                     ))}
                 </div>
 

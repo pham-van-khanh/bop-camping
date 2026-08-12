@@ -206,6 +206,37 @@ class ProductController extends Controller
         ];
     }
 
+    /**
+     * Canonical cho /thiet-bi: CHỈ bộ lọc danh mục mới được tự trỏ về mình (bopcamping-10x2).
+     *
+     * Mặc định SeoService::page() lấy url()->current(), thứ này cắt sạch query string.
+     * Với ?q=/?sort=/?vi-tri=/ngày thì đúng — vô số tổ hợp trả về gần như cùng tập sản
+     * phẩm, để mỗi cái tự canonical là tự đẻ ra hàng trăm trang trùng nội dung. Nhưng nó
+     * gom nhầm cả ?cat=, thứ DUY NHẤT tạo ra trang thật sự khác (khác cả title lẫn
+     * description). Đo trên production 12/08/2026: 7 URL danh mục nằm trong sitemap, có
+     * title riêng "Thuê Lều cắm trại...", mà canonical lại trỏ /thiet-bi — canonical
+     * thắng, Google loại sạch, không index nổi một từ khoá danh mục nào.
+     *
+     * Bỏ qua param rỗng và sort mặc định trước khi so: FE gửi nguyên bộ filter kể cả khi
+     * trống (?cat=x&q=&sort=pop&vi-tri=&start=&end=), so thô thì link trong UI không bao
+     * giờ khớp và người dùng lại đáp xuống bản canonical về /thiet-bi.
+     */
+    private function canonicalFor(Request $request, ?Category $activeCategory): string
+    {
+        $base = url('/thiet-bi');
+        if (! $activeCategory) {
+            return $base;
+        }
+
+        $meaningful = array_keys(array_filter(
+            $request->query(),
+            fn ($v, $k) => $v !== '' && $v !== null && $v !== [] && ! ($k === 'sort' && $v === 'pop'),
+            ARRAY_FILTER_USE_BOTH
+        ));
+
+        return $meaningful === ['cat'] ? $base.'?cat='.$activeCategory->slug : $base;
+    }
+
     /** GET /thiet-bi — danh sách sản phẩm, hỗ trợ filter ?cat=, ?q=, ?sort= */
     public function index(Request $request): Response
     {
@@ -291,6 +322,7 @@ class ProductController extends Controller
                 // Gạch ngang chứ không phải dấu chấm: categoryPhrase() có thể kết thúc
                 // bằng "..." khi còn danh mục chưa liệt kê, nối thêm '.' thành "....".
                 : 'Danh sách thiết bị cắm trại cho thuê: '.$this->seo->categoryPhrase().' — thuê theo ngày, cọc linh hoạt, trả tiền khi nhận (COD).',
+            url: $this->canonicalFor($request, $activeCategory),
             jsonld: $this->seo->breadcrumb($crumbs),
         );
 
