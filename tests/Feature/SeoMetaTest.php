@@ -319,4 +319,83 @@ class SeoMetaTest extends TestCase
         $res->assertSee('"price":120000', false);
         $res->assertSee('schema.org/InStock', false);
     }
+
+    /**
+     * Trang danh mục phải TỰ trỏ canonical về mình (bopcamping-10x2).
+     *
+     * Đo trên production 12/08/2026: 7 URL /thiet-bi?cat=... nằm trong sitemap, có title
+     * và description riêng, nhưng canonical lại trỏ /thiet-bi. Canonical thắng mọi tín
+     * hiệu khác nên Google loại sạch — nguyên nhóm từ khoá "thuê lều cắm trại" không
+     * index nổi một dòng. Kiểm luôn cả title để hai tín hiệu không lệch nhau lần nữa.
+     *
+     * @test
+     */
+    public function category_filter_page_canonicalises_to_itself(): void
+    {
+        $this->seedCategoryWithProduct();
+
+        $res = $this->get('/thiet-bi?cat=leu');
+
+        $res->assertSee('<link rel="canonical" href="'.url('/thiet-bi').'?cat=leu">', false);
+        $res->assertSee('Thuê Lều tại BỐP CAMPING', false);
+    }
+
+    /**
+     * Ngược lại: mọi bộ lọc KHÁC vẫn phải gom về /thiet-bi. ?q=/?sort=/?vi-tri=/ngày sinh
+     * ra vô số tổ hợp trên gần như cùng một tập sản phẩm — để chúng tự canonical là tự
+     * đẻ hàng trăm trang trùng nội dung, đúng thứ url()->current() đang bảo vệ.
+     *
+     * @test
+     */
+    public function other_filters_still_collapse_onto_the_plain_listing(): void
+    {
+        $this->seedCategoryWithProduct();
+        $canonicalToSelf = '<link rel="canonical" href="'.url('/thiet-bi').'?cat=leu">';
+
+        foreach (['?q=leu', '?sort=low', '?cat=leu&q=leu', '?cat=leu&sort=low'] as $qs) {
+            $res = $this->get('/thiet-bi'.$qs);
+            $res->assertSee('<link rel="canonical" href="'.url('/thiet-bi').'">', false);
+            $res->assertDontSee($canonicalToSelf, false);
+        }
+    }
+
+    /**
+     * FE gửi nguyên bộ lọc kể cả khi trống (?cat=x&q=&sort=pop&vi-tri=&start=&end=). So
+     * thô danh sách tham số thì chính link người dùng bấm trong UI lại không bao giờ
+     * khớp bản canonical — coi như vá chỗ này hỏng chỗ kia.
+     *
+     * @test
+     */
+    public function empty_params_and_default_sort_do_not_break_the_category_canonical(): void
+    {
+        $this->seedCategoryWithProduct();
+
+        $res = $this->get('/thiet-bi?cat=leu&q=&sort=pop&vi-tri=&start=&end=');
+
+        $res->assertSee('<link rel="canonical" href="'.url('/thiet-bi').'?cat=leu">', false);
+    }
+
+    /**
+     * ?cat=slug-khong-co-that không được tự canonical — nếu không thì bất kỳ ai cũng
+     * nhồi được URL rác vào chỉ mục bằng cách gắn tham số bừa.
+     *
+     * @test
+     */
+    public function unknown_category_slug_falls_back_to_the_plain_listing(): void
+    {
+        $this->seedCategoryWithProduct();
+
+        $res = $this->get('/thiet-bi?cat=khong-ton-tai');
+
+        $res->assertSee('<link rel="canonical" href="'.url('/thiet-bi').'">', false);
+    }
+
+    private function seedCategoryWithProduct(): void
+    {
+        $cat = Category::create(['name' => 'Lều', 'slug' => 'leu']);
+        Product::create([
+            'category_id' => $cat->id, 'name' => 'Lều Cloud-Up 2', 'slug' => 'leu-cloud-up-2',
+            'price_per_day' => 120000, 'quantity' => 3, 'status' => 'active',
+        ]);
+    }
 }
