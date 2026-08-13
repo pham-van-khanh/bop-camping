@@ -61,6 +61,8 @@ type SharingRow = {
     shares: Record<string, number>;
 };
 
+type BreakEven = { month: string; label: string } | null;
+
 type Sharing = {
     partners: Partner[];
     reserve_percent: number;
@@ -80,6 +82,7 @@ type Props = PageProps<{
         returned_count: number;
     };
     monthly: MonthRow[];
+    break_even: BreakEven;
     sharing: Sharing;
     by_category: CategoryStat[];
     expenses: { rows: ExpenseRow[]; total_count: number };
@@ -106,6 +109,7 @@ export default function AdminFinance() {
         overview,
         period_summary,
         monthly,
+        break_even,
         sharing,
         by_category,
         expenses,
@@ -286,7 +290,7 @@ export default function AdminFinance() {
                 {/* ── Biểu đồ ── */}
                 <div className="mb-4 grid grid-cols-1 gap-4 xl:grid-cols-2">
                     <MonthlyBars data={monthly} />
-                    <CumulativeChart data={monthly} />
+                    <CumulativeChart data={monthly} breakEven={break_even} />
                 </div>
 
                 <div className="mb-4 grid grid-cols-1 gap-4 xl:grid-cols-2">
@@ -636,7 +640,13 @@ function MonthlyBars({ data }: { data: MonthRow[] }) {
  * Vẽ SVG thuần (không thêm thư viện chart, xem .claude/rules/tech-strategy.md).
  * viewBox 0..100 để đường tự co giãn theo bề rộng thẻ.
  */
-function CumulativeChart({ data }: { data: MonthRow[] }) {
+function CumulativeChart({
+    data,
+    breakEven,
+}: {
+    data: MonthRow[];
+    breakEven: BreakEven;
+}) {
     const max = useMemo(
         () =>
             Math.max(
@@ -656,9 +666,13 @@ function CumulativeChart({ data }: { data: MonthRow[] }) {
             })
             .join(' ');
 
-    // Tháng đầu tiên thu luỹ kế vượt chi luỹ kế = hoà vốn.
-    const breakEven = data.find((d) => d.cum_revenue >= d.cum_expense);
+    // Tháng hoà vốn do SERVER tính trên toàn bộ lịch sử — KHÔNG dò trong `data`.
+    // `data` chỉ có 24 tháng gần nhất; hoà vốn trước khoảng đó thì dòng đầu tiên đã thoả
+    // cum_revenue >= cum_expense và find() sẽ báo nhầm chính tháng đang hiển thị.
     const last = data[data.length - 1];
+    // Hoà vốn xảy ra trước khoảng đang xem thì nói rõ, đừng để người đọc tưởng vừa mới.
+    const beforeWindow =
+        !!breakEven && !!data.length && breakEven.month < data[0].month;
 
     return (
         <ChartCard
@@ -704,9 +718,10 @@ function CumulativeChart({ data }: { data: MonthRow[] }) {
             <div className="mt-3 rounded-[10px] bg-[#f7f9f2] px-3 py-2 text-[12px] text-pine">
                 {breakEven ? (
                     <>
-                        Hoà vốn từ <b>{breakEven.label}</b> — thu luỹ kế{' '}
-                        <b>{money(last?.cum_revenue ?? 0)}</b> so với chi luỹ kế{' '}
-                        <b>{money(last?.cum_expense ?? 0)}</b>.
+                        Hoà vốn từ <b>{breakEven.label}</b>
+                        {beforeWindow && ' (trước khoảng đang xem)'} — thu luỹ
+                        kế <b>{money(last?.cum_revenue ?? 0)}</b> so với chi luỹ
+                        kế <b>{money(last?.cum_expense ?? 0)}</b>.
                     </>
                 ) : (
                     <>

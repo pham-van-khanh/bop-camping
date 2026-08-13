@@ -149,6 +149,26 @@ class AdminFinanceTest extends TestCase
     }
 
     /**
+     * Cọc đã TRẢ LẠI khách thì không còn "đang giữ", kể cả khi đơn chưa kịp chuyển sang
+     * 'returned'.
+     *
+     * Shipper\ScheduleController::refundDeposit() cho phép hoàn cọc ngay lúc đang thu đồ
+     * (status vẫn 'renting'). Bản cũ cộng MỌI đơn 'renting' bất kể deposit_refund_status
+     * nên ô "Cọc đang giữ" vẫn đếm số tiền đã đưa lại khách.
+     *
+     * @test
+     */
+    public function deposit_refunded_before_the_status_flips_is_no_longer_held(): void
+    {
+        // Shipper đã trả cọc tại chỗ, đơn chưa kịp đóng.
+        $this->order('renting', 100_000, ['deposit_total' => 500_000, 'deposit_refund_status' => 'refunded']);
+        // Đơn đang thuê bình thường, cọc vẫn cầm.
+        $this->order('renting', 100_000, ['deposit_total' => 300_000]);
+
+        $this->assertSame(300_000, $this->finance()->heldDeposit());
+    }
+
+    /**
      * Đơn CHA của đơn gộp là vỏ chứa (tổng = Σ đơn con) — cộng cả cha lẫn con là nhân
      * đôi doanh thu.
      *
@@ -243,6 +263,40 @@ class AdminFinanceTest extends TestCase
 
         $this->assertCount(1, $series);
         $this->assertSame(15_000_000, $series[0]['cum_expense']);
+    }
+
+    /**
+     * Điểm hoà vốn phải lấy từ TOÀN BỘ lịch sử, không phải từ 24 tháng đang hiển thị.
+     *
+     * Bảng chart chỉ gửi 24 tháng gần nhất. Shop hoà vốn trước khoảng đó thì dòng ĐẦU
+     * TIÊN của bảng đã thoả cum_revenue >= cum_expense — FE dò trong mảng nhận được sẽ
+     * báo nhầm tháng đó là tháng hoà vốn, trong khi thực tế hoà vốn từ lâu rồi.
+     *
+     * @test
+     */
+    public function break_even_month_comes_from_full_history_not_the_visible_window(): void
+    {
+        // Hoà vốn từ 2024-02, cách hôm nay hơn 24 tháng.
+        $this->spend(1_000_000, 'equipment', '2024-01-10');
+        $this->revenueIn('2024-02', 3_000_000);
+        // Hoạt động gần đây để chuỗi kéo tới hôm nay.
+        $this->revenueIn('2026-08', 500_000);
+
+        $visible = $this->finance()->monthlySeries();      // 24 tháng gần nhất
+        $this->assertLessThanOrEqual(24, count($visible));
+        $this->assertNotSame('2024-02', $visible[0]['month'], 'tháng hoà vốn thật phải nằm NGOÀI khoảng hiển thị');
+
+        $this->assertSame('2024-02', $this->finance()->breakEvenMonth()['month']);
+    }
+
+    /** Chưa bao giờ thu bù nổi chi thì không có tháng hoà vốn nào. */
+    /** @test */
+    public function break_even_is_null_while_revenue_never_catches_up(): void
+    {
+        $this->spend(30_000_000, 'equipment', '2026-06-10');
+        $this->revenueIn('2026-07', 5_000_000);
+
+        $this->assertNull($this->finance()->breakEvenMonth());
     }
 
     /** @test */

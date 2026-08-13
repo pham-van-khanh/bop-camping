@@ -52,6 +52,9 @@ class FinanceController extends Controller
                 'returned_count' => $this->finance->returnedCount($from),
             ],
             'monthly' => $this->finance->monthlySeries(),
+            // Tính trên TOÀN BỘ lịch sử, không dò trong 24 tháng gửi cho chart: hoà vốn
+            // trước khoảng hiển thị thì dòng đầu bảng đã thoả điều kiện và FE báo nhầm.
+            'break_even' => $this->finance->breakEvenMonth(),
             // Chia lợi nhuận luôn tính trên TOÀN BỘ lịch sử, không theo bộ lọc kỳ: luật
             // bù lỗ luỹ kế chỉ đúng khi chạy từ tháng đầu tiên (bopcamping-n4qy).
             'sharing' => $this->finance->profitSharing(),

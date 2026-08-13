@@ -108,15 +108,20 @@ class FinanceService
      * Tách riêng vì đây là cái bẫy dễ nhất của mô hình cho thuê: tài khoản đang có
      * nhiều tiền không có nghĩa là đang lãi, phần lớn có thể là cọc sắp phải trả lại.
      *
-     * Đang cầm = đơn khách đang thuê (đã giao, đã thu cọc) + đơn đã trả đồ nhưng chưa
-     * hoàn cọc. Đơn 'confirmed' chưa giao nên chưa thu đồng nào.
+     * Đang cầm = đơn đang thuê hoặc đã trả đồ, VÀ cọc chưa hoàn.
+     *
+     * Điều kiện "chưa hoàn" áp cho CẢ HAI trạng thái, không riêng 'returned':
+     * Shipper\ScheduleController::refundDeposit() cho phép trả cọc ngay lúc đang thu đồ,
+     * lúc đó đơn vẫn là 'renting' nhưng tiền đã đưa lại khách. Bản cũ cộng mọi đơn
+     * 'renting' bất kể trạng thái hoàn nên ô này đếm cả tiền không còn cầm.
+     *
+     * Đơn 'confirmed' chưa giao đồ nên chưa thu đồng cọc nào.
      */
     public function heldDeposit(): int
     {
         return (int) Order::where('is_parent', false)
-            ->where(fn ($q) => $q->where('status', 'renting')
-                ->orWhere(fn ($q2) => $q2->where('status', 'returned')
-                    ->where('deposit_refund_status', 'pending')))
+            ->whereIn('status', ['renting', 'returned'])
+            ->where('deposit_refund_status', 'pending')
             ->sum('deposit_total');
     }
 
@@ -224,6 +229,26 @@ class FinanceService
         // đường luỹ kế bắt đầu lại từ 0 và điểm hoà vốn hiện sai.
         // null = lấy trọn lịch sử, dùng cho profitSharing() (phải bù lỗ từ tháng đầu tiên).
         return $maxMonths === null ? $all : array_slice($all, -$maxMonths);
+    }
+
+    /**
+     * Tháng ĐẦU TIÊN thu luỹ kế đuổi kịp chi luỹ kế — điểm hoà vốn thật.
+     *
+     * Phải tính trên TOÀN BỘ lịch sử, không phải trên 24 tháng gửi cho chart. Shop hoà
+     * vốn trước khoảng hiển thị thì dòng đầu tiên của bảng đã thoả điều kiện, dò trong
+     * mảng đó sẽ báo nhầm tháng đó là tháng hoà vốn (bopcamping-n4qy).
+     *
+     * @return array{month: string, label: string}|null null = chưa bao giờ hoà vốn
+     */
+    public function breakEvenMonth(): ?array
+    {
+        foreach ($this->monthlySeries(null) as $m) {
+            if ($m['cum_revenue'] >= $m['cum_expense']) {
+                return ['month' => $m['month'], 'label' => $m['label']];
+            }
+        }
+
+        return null;
     }
 
     /**

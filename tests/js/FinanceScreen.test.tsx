@@ -125,6 +125,7 @@ const setProps = (over: Record<string, unknown> = {}) => {
             returned_count: 3,
         },
         monthly,
+        break_even: null,
         by_category: [
             {
                 category: 'equipment',
@@ -254,6 +255,7 @@ describe('màn Tài chính', () => {
 
     it('báo đã hoà vốn khi thu luỹ kế đuổi kịp chi luỹ kế', () => {
         setProps({
+            break_even: { month: '2026-08', label: 'T8/2026' },
             monthly: [
                 { ...monthly[0] },
                 {
@@ -265,7 +267,44 @@ describe('màn Tài chính', () => {
         });
         render(<AdminFinance />);
 
-        expect(screen.getByText(/Hoà vốn từ/i)).toBeInTheDocument();
+        // "T8/2026" có ở nhiều chỗ (nhãn trục, bảng tháng) — chỉ soi trong ô kết luận.
+        const box = screen.getByText(/Hoà vốn từ/i).closest('div')!;
+        expect(box.textContent).toMatch(/Hoà vốn từ\s*T8\/2026/);
+        expect(
+            screen.queryByText(/trước khoảng đang xem/i),
+        ).not.toBeInTheDocument();
+    });
+
+    /**
+     * Chart chỉ nhận 24 tháng gần nhất. Hoà vốn TRƯỚC khoảng đó thì dòng đầu tiên của
+     * bảng đã thoả cum_revenue >= cum_expense — bản cũ dò trong mảng nhận được nên báo
+     * nhầm chính tháng đang hiển thị là tháng hoà vốn.
+     */
+    it('lấy tháng hoà vốn từ server, không dò trong 24 tháng đang hiển thị', () => {
+        setProps({
+            // Server nói hoà vốn từ T2/2024 — nằm ngoài mảng monthly (T7, T8/2026).
+            break_even: { month: '2024-02', label: 'T2/2024' },
+            monthly: [
+                {
+                    ...monthly[0],
+                    cum_revenue: 50_000_000,
+                    cum_expense: 30_000_000,
+                },
+                {
+                    ...monthly[1],
+                    cum_revenue: 60_000_000,
+                    cum_expense: 30_000_000,
+                },
+            ],
+        });
+        render(<AdminFinance />);
+
+        expect(screen.getByText('T2/2024')).toBeInTheDocument();
+        // KHÔNG được báo T7/2026 (dòng đầu bảng) là tháng hoà vốn.
+        const box = screen.getByText(/Hoà vốn từ/i).closest('div')!;
+        expect(box.textContent).not.toMatch(/Hoà vốn từ\s*T7\/2026/);
+        // Và phải nói rõ mốc đó nằm ngoài khoảng đang xem.
+        expect(screen.getByText(/trước khoảng đang xem/i)).toBeInTheDocument();
     });
 
     it('báo chưa hoà vốn kèm số còn thiếu', () => {
