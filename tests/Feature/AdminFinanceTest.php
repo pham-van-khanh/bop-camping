@@ -9,6 +9,8 @@ use App\Models\User;
 use App\Services\FinanceService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
@@ -567,6 +569,88 @@ class AdminFinanceTest extends TestCase
             $sum = $row['reserve'] + $row['shares'][(string) $a->id] + $row['shares'][(string) $b->id];
             $this->assertSame($profit, $sum, "lệch ở mức lãi $profit");
         }
+    }
+
+    /**
+     * KHÔNG ai được nhận số ÂM, dù có bao nhiêu thành viên và số đem chia lẻ thế nào.
+     *
+     * Cách chia cũ (làm tròn từng người rồi để người CUỐI nhận phần dư) cho ra số âm:
+     * 4 người góp đều nhau, chia 2đ → [1, 1, 1, −1]; 5 người đều nhau, chia 3đ →
+     * [1, 1, 1, 1, −1]. Quét mọi mức tiền nhỏ với 2–6 thành viên để khoá lại.
+     *
+     * @test
+     */
+    public function no_partner_ever_gets_a_negative_share(): void
+    {
+        foreach ([2, 3, 4, 5, 6] as $n) {
+            $members = collect(range(1, $n))->map(fn (int $i) => (object) [
+                'user_id' => $i, 'name' => "P$i", 'total' => 25_000_000,
+            ]);
+            $capital = 25_000_000 * $n;
+
+            foreach (range(0, 60) as $amount) {
+                $shares = $this->invokeSplit($amount, $members, $capital);
+
+                $this->assertSame($amount, array_sum($shares), "$n người, chia $amount: tổng lệch");
+                $this->assertGreaterThanOrEqual(0, min($shares), "$n người, chia $amount: có phần ÂM");
+            }
+        }
+    }
+
+    /**
+     * Phần dư phải đi tới người có phần thập phân lớn nhất, KHÔNG dồn hết cho người góp
+     * ít nhất. capitalRows() sắp vốn giảm dần nên cách cũ luôn bắt đúng một người gánh.
+     *
+     * @test
+     */
+    public function the_rounding_remainder_goes_to_the_largest_fraction_not_always_the_last(): void
+    {
+        // 3 người 50 / 30 / 20 trên tổng 100, chia 10đ → đúng 5 / 3 / 2, không lẻ.
+        $members = collect([
+            (object) ['user_id' => 1, 'name' => 'A', 'total' => 50],
+            (object) ['user_id' => 2, 'name' => 'B', 'total' => 30],
+            (object) ['user_id' => 3, 'name' => 'C', 'total' => 20],
+        ]);
+
+        $this->assertSame(['1' => 5, '2' => 3, '3' => 2], $this->invokeSplit(10, $members, 100));
+
+        // Chia 7đ: chính xác là 3,5 / 2,1 / 1,4. Phần nguyên 3/2/1 = 6, còn 1đ phải về
+        // người có phần thập phân lớn nhất (A: 0,5) — không phải người cuối.
+        $this->assertSame(['1' => 4, '2' => 2, '3' => 1], $this->invokeSplit(7, $members, 100));
+    }
+
+    /** Gọi splitByCapital() (private) — thuật toán chia là chỗ tiền dễ sai nhất. */
+    private function invokeSplit(int $amount, Collection $members, int $capital): array
+    {
+        $m = new \ReflectionMethod(FinanceService::class, 'splitByCapital');
+
+        return $m->invoke($this->finance(), $amount, $members, $capital);
+    }
+
+    /**
+     * Chuỗi tháng chỉ nạp DB một lần cho mỗi request, dù được dùng 3 chỗ (chart,
+     * điểm hoà vốn, chia lợi nhuận). Không memoize thì mỗi lần lại select cả bảng đơn.
+     *
+     * @test
+     */
+    public function the_monthly_series_hits_the_database_only_once_per_request(): void
+    {
+        $this->revenueIn('2026-02', 1_000_000);
+        $this->spend(500_000, 'other', '2026-02-01');
+
+        $finance = $this->finance();
+        DB::enableQueryLog();
+
+        $finance->monthlySeries();
+        $finance->monthlySeries(null);
+        $finance->breakEvenMonth();
+
+        $loaded = collect(DB::getQueryLog())
+            ->filter(fn ($q) => str_contains($q['query'], 'from `expenses`'))
+            ->count();
+        DB::disableQueryLog();
+
+        $this->assertSame(1, $loaded, 'chuỗi tháng phải nạp DB đúng 1 lần');
     }
 
     /**

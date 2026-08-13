@@ -30,6 +30,18 @@ class FinanceService
     private ?Collection $capitalRows = null;
 
     /**
+     * @var list<array<string, mixed>>|null Chuỗi tháng TRỌN lịch sử, memoize trong 1 request.
+     *
+     * Một lần mở màn Tài chính cần chuỗi này 3 lần (chart, breakEvenMonth, profitSharing).
+     * Không memoize thì mỗi lần lại nạp TOÀN BỘ đơn đã trả + toàn bộ khoản chi vào PHP —
+     * đo được 3 lần select cả bảng cho một request, và càng nhiều đơn càng nặng.
+     *
+     * An toàn vì service không bind singleton: mỗi request một instance mới, còn mọi
+     * hành động ghi (thêm/sửa/xoá) đều redirect nên request sau tính lại từ đầu.
+     */
+    private ?array $fullMonthlySeries = null;
+
+    /**
      * Vốn góp gom theo từng người, nhiều nhất trước (bopcamping-n4qy).
      *
      * Đọc từ bảng capital_contributions — trước đây ghi cứng trong hằng số PARTNERS,
@@ -178,6 +190,17 @@ class FinanceService
      */
     public function monthlySeries(?int $maxMonths = 24): array
     {
+        $all = $this->fullMonthlySeries ??= $this->buildMonthlySeries();
+
+        // Cắt phần đuôi NHƯNG giữ nguyên luỹ kế đã cộng từ đầu — cắt trước khi cộng thì
+        // đường luỹ kế bắt đầu lại từ 0 và điểm hoà vốn hiện sai.
+        // null = lấy trọn lịch sử, dùng cho profitSharing() (phải bù lỗ từ tháng đầu tiên).
+        return $maxMonths === null ? $all : array_slice($all, -$maxMonths);
+    }
+
+    /** @return list<array{month: string, label: string, revenue: int, expense: int, profit: int, cum_revenue: int, cum_expense: int}> */
+    private function buildMonthlySeries(): array
+    {
         $revenueByMonth = $this->revenueQuery()
             ->get(['updated_at', 'total_price', 'extra_fee', 'discount_total'])
             ->groupBy(fn (Order $o) => $o->updated_at->format('Y-m'))
@@ -225,10 +248,7 @@ class FinanceService
             $cursor->addMonth();
         }
 
-        // Cắt phần đuôi NHƯNG giữ nguyên luỹ kế đã cộng từ đầu — cắt trước khi cộng thì
-        // đường luỹ kế bắt đầu lại từ 0 và điểm hoà vốn hiện sai.
-        // null = lấy trọn lịch sử, dùng cho profitSharing() (phải bù lỗ từ tháng đầu tiên).
-        return $maxMonths === null ? $all : array_slice($all, -$maxMonths);
+        return $all;
     }
 
     /**
@@ -289,6 +309,52 @@ class FinanceService
     }
 
     /**
+     * Chia $amount cho các thành viên theo tỉ lệ góp vốn — không lẻ đồng, không âm.
+     *
+     * Dùng phương pháp PHẦN DƯ LỚN NHẤT: mỗi người nhận phần nguyên trước, số đồng còn
+     * lại phát từng đồng cho người có phần thập phân lớn nhất.
+     *
+     * Cách cũ (làm tròn từng người rồi để người CUỐI nhận phần dư) có hai khuyết điểm
+     * thật, đã đo được:
+     *   - Người cuối có thể nhận SỐ ÂM: 4 người góp đều nhau, chia 2đ → [1, 1, 1, −1];
+     *     5 người đều nhau, chia 3đ → [1, 1, 1, 1, −1].
+     *   - capitalRows() sắp vốn giảm dần nên người cuối luôn là người góp ÍT NHẤT —
+     *     mọi phần dư đều dồn về đúng một người, quý nào cũng vậy.
+     *
+     * arsort ổn định từ PHP 8 nên khi phần thập phân bằng nhau, người góp NHIỀU hơn được
+     * cộng trước (thứ tự $members là vốn giảm dần) — kết quả tái lập được, không đổi giữa
+     * hai lần chạy.
+     *
+     * @param  Collection<int, object>  $members
+     * @return array<string, int>
+     */
+    private function splitByCapital(int $amount, Collection $members, int $capital): array
+    {
+        $shares = [];
+        $remainders = [];
+        $allocated = 0;
+
+        foreach ($members as $member) {
+            $k = (string) $member->user_id;
+            $exact = $amount * $member->total / $capital;
+            $shares[$k] = (int) floor($exact);
+            $remainders[$k] = $exact - $shares[$k];
+            $allocated += $shares[$k];
+        }
+
+        arsort($remainders);
+        foreach (array_keys($remainders) as $k) {
+            if ($allocated >= $amount) {
+                break;
+            }
+            $shares[$k]++;
+            $allocated++;
+        }
+
+        return $shares;
+    }
+
+    /**
      * Chia lợi nhuận giữa các thành viên góp vốn — 3 THÁNG MỘT LẦN (bopcamping-xlmy).
      *
      * LUẬT (chủ shop chốt 13/08/2026, đổi kỳ sang quý ngày 13/08/2026):
@@ -318,7 +384,6 @@ class FinanceService
         $members = $this->capitalRows();
         // Khoá dùng ở FE là user_id dạng chuỗi — tên có thể trùng nhau, id thì không.
         $keys = $members->pluck('user_id')->map(fn (int $id) => (string) $id)->all();
-        $lastKey = end($keys);
 
         $deficit = 0;              // lỗ luỹ kế còn phải bù
         $reserveTotal = 0;
@@ -354,19 +419,7 @@ class FinanceService
 
             $reserve = (int) round($distributable * self::RESERVE_RATE);
             $toPartners = $distributable - $reserve;
-
-            $shares = [];
-            $allocated = 0;
-            foreach ($members as $member) {
-                $k = (string) $member->user_id;
-                if ($k === $lastKey) {
-                    // Người cuối nhận phần dư → Σ shares == $toPartners tuyệt đối.
-                    $shares[$k] = $toPartners - $allocated;
-                } else {
-                    $shares[$k] = (int) round($toPartners * $member->total / $capital);
-                    $allocated += $shares[$k];
-                }
-            }
+            $shares = $this->splitByCapital($toPartners, $members, $capital);
 
             // Quý CHƯA khép sổ chỉ để xem trước: không cộng vào tổng, và cũng không đụng
             // vào $deficit — số của nó còn đổi tới hết quý, ghi nhận sớm là sai sổ.
