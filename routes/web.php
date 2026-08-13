@@ -11,6 +11,7 @@ use App\Http\Controllers\Admin\DeliveryScheduleController as AdminDeliverySchedu
 use App\Http\Controllers\Admin\EditorImageController as AdminEditorImageController;
 use App\Http\Controllers\Admin\FaqController as AdminFaqController;
 use App\Http\Controllers\Admin\FeedbackController as AdminFeedbackController;
+use App\Http\Controllers\Admin\FinanceController as AdminFinanceController;
 use App\Http\Controllers\Admin\OrderController as AdminOrderController;
 use App\Http\Controllers\Admin\ProductContentController as AdminProductContentController;
 use App\Http\Controllers\Admin\ProductController as AdminProductController;
@@ -112,11 +113,22 @@ Route::middleware(['admin'])->prefix('admin')->name('admin.')->group(function ()
     Route::get('/', fn () => redirect()->route('admin.dashboard'));
     Route::get('/dashboard', [AdminDashboardController::class, 'index'])->name('dashboard');
 
-    // Thống kê + thu chi + chi phí phát sinh (bopcamping-h1s)
+    // Thống kê đơn + doanh thu theo ngày (bopcamping-h1s)
     Route::get('/stats', [AdminStatsController::class, 'index'])->name('stats');
-    Route::post('/expenses', [AdminStatsController::class, 'storeExpense'])->name('expenses.store')->middleware('throttle:60,1');
-    Route::put('/expenses/{expense}', [AdminStatsController::class, 'updateExpense'])->name('expenses.update')->middleware('throttle:60,1');
-    Route::delete('/expenses/{expense}', [AdminStatsController::class, 'destroyExpense'])->name('expenses.destroy');
+
+    // Tài chính: vốn, thu-chi, lợi nhuận, hoàn vốn + quản lý khoản chi (bopcamping-n4qy).
+    // Route chi phí chuyển từ StatsController sang đây cùng với form nhập — giữ nguyên
+    // tên route admin.expenses.* nên FE và test cũ không phải sửa đường dẫn.
+    // Mọi admin đều xem VÀ sửa được số liệu thu chi (bopcamping-xlmy) — phân quyền
+    // super admin đã bỏ theo yêu cầu chủ shop.
+    Route::get('/tai-chinh', [AdminFinanceController::class, 'index'])->name('finance');
+    Route::post('/expenses', [AdminFinanceController::class, 'storeExpense'])->name('expenses.store')->middleware('throttle:60,1');
+    Route::put('/expenses/{expense}', [AdminFinanceController::class, 'updateExpense'])->name('expenses.update')->middleware('throttle:60,1');
+    Route::delete('/expenses/{expense}', [AdminFinanceController::class, 'destroyExpense'])->name('expenses.destroy');
+
+    Route::post('/von-gop', [AdminFinanceController::class, 'storeCapital'])->name('capital.store')->middleware('throttle:60,1');
+    Route::put('/von-gop/{capital}', [AdminFinanceController::class, 'updateCapital'])->name('capital.update')->middleware('throttle:60,1');
+    Route::delete('/von-gop/{capital}', [AdminFinanceController::class, 'destroyCapital'])->name('capital.destroy');
 
     Route::get('/orders', [AdminOrderController::class, 'index'])->name('orders');
     Route::get('/orders/{order}', [AdminOrderController::class, 'show'])->name('orders.show');

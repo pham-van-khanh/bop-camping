@@ -2,6 +2,24 @@
 
 export const money = (n: number) => Number(n).toLocaleString('vi-VN') + 'đ';
 
+/**
+ * Tiền dạng ngắn cho nhãn chart/ô nhỏ: 12.500.000đ -> "12,5tr".
+ *
+ * Chart tài chính có trục hàng chục triệu; in đủ chữ số thì nhãn chồng lên nhau và
+ * không đọc được. Chỉ dùng cho nhãn — số liệu chính vẫn phải hiện đầy đủ bằng money().
+ */
+export const moneyShort = (n: number) => {
+    const v = Number(n);
+    const sign = v < 0 ? '-' : '';
+    const a = Math.abs(v);
+    if (a >= 1_000_000_000)
+        return `${sign}${(a / 1_000_000_000).toFixed(1).replace('.', ',').replace(',0', '')} tỷ`;
+    if (a >= 1_000_000)
+        return `${sign}${(a / 1_000_000).toFixed(1).replace('.', ',').replace(',0', '')}tr`;
+    if (a >= 1_000) return `${sign}${Math.round(a / 1_000)}k`;
+    return `${sign}${a}`;
+};
+
 const pad = (n: number) => String(n).padStart(2, '0');
 
 /** ISO yyyy-mm-dd (local, không lệch timezone) */
