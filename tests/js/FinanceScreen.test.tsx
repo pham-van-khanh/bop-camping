@@ -94,22 +94,24 @@ const sharing = {
     deficit: 0,
     rows: [
         {
-            month: '2026-08',
-            label: 'T8/2026',
+            quarter: '2026-Q2',
+            label: 'Quý 2/2026',
             profit: 5_000_000,
             offset: 3_000_000,
             distributable: 2_000_000,
             reserve: 1_100_000,
             shares: { a: 514_286, b: 385_714 },
+            is_open: false,
         },
         {
-            month: '2026-07',
-            label: 'T7/2026',
+            quarter: '2026-Q1',
+            label: 'Quý 1/2026',
             profit: 5_000_000,
             offset: 5_000_000,
             distributable: 0,
             reserve: 0,
             shares: { a: 0, b: 0 },
+            is_open: false,
         },
     ],
 };
@@ -163,7 +165,6 @@ const setProps = (over: Record<string, unknown> = {}) => {
             { id: 11, name: 'Admin A' },
             { id: 12, name: 'Admin B' },
         ],
-        can_manage: true,
         ...over,
     };
 };
@@ -376,7 +377,7 @@ describe('khối chia lợi nhuận', () => {
         expect(screen.getByText(/42,86%/)).toBeInTheDocument();
     });
 
-    it('chỉ liệt kê tháng THỰC SỰ chia được, không liệt kê tháng bù lỗ hết', () => {
+    it('chỉ liệt kê quý THỰC SỰ chia được, không liệt kê quý bù lỗ hết', () => {
         setProps();
         render(<AdminFinance />);
 
@@ -384,9 +385,63 @@ describe('khối chia lợi nhuận', () => {
             .getAllByRole('row')
             .map((r) => r.textContent ?? '');
 
-        // T8 chia được 2tr nên phải có; T7 lãi 5tr nhưng bù lỗ sạch nên không lên bảng.
-        expect(rows.some((t) => t.startsWith('T8/2026'))).toBe(true);
-        expect(rows.some((t) => t.startsWith('T7/2026'))).toBe(false);
+        // Q2 chia được 2tr nên phải có; Q1 lãi 5tr nhưng bù lỗ sạch nên không lên bảng.
+        expect(rows.some((t) => t.startsWith('Quý 2/2026'))).toBe(true);
+        expect(rows.some((t) => t.startsWith('Quý 1/2026'))).toBe(false);
+    });
+
+    it('bảng chia ghi theo QUÝ, không theo tháng', () => {
+        setProps();
+        render(<AdminFinance />);
+
+        const card = sharingCard();
+        expect(within(card).getByText('Quý')).toBeInTheDocument();
+        expect(within(card).getByText('Lãi quý')).toBeInTheDocument();
+        expect(within(card).queryByText('Lãi tháng')).not.toBeInTheDocument();
+        expect(card.textContent).toMatch(/3 tháng\/lần/);
+    });
+
+    /**
+     * Quý đang chạy chưa khép sổ: hiện để xem trước nhưng phải nói rõ là tạm tính, và
+     * KHÔNG được cộng vào dòng "Cộng" — nếu không hai con số trên cùng một thẻ đá nhau.
+     */
+    it('quý đang chạy hiện dạng tạm tính và không vào dòng Cộng', () => {
+        setProps({
+            sharing: {
+                ...sharing,
+                reserve_total: 1_100_000,
+                rows: [
+                    {
+                        quarter: '2026-Q3',
+                        label: 'Quý 3/2026',
+                        profit: 9_000_000,
+                        offset: 0,
+                        distributable: 9_000_000,
+                        reserve: 4_950_000,
+                        shares: { a: 2_314_286, b: 1_735_714 },
+                        is_open: true,
+                    },
+                    ...sharing.rows,
+                ],
+            },
+        });
+        render(<AdminFinance />);
+
+        const card = sharingCard();
+        // "tạm tính" có ở cả nhãn dòng lẫn câu cảnh báo — lấy nhãn trong bảng.
+        expect(
+            within(card)
+                .getAllByText('tạm tính')
+                .some((e) => e.tagName === 'SPAN'),
+        ).toBe(true);
+        expect(card.textContent).toMatch(/Quý 3\/2026 chưa khép sổ/);
+
+        // Dòng "Cộng" chỉ gộp quý đã chốt (2.000.000đ), KHÔNG cộng 9tr của quý đang chạy.
+        const footer = within(card)
+            .getAllByRole('row')
+            .find((r) => (r.textContent ?? '').startsWith('Cộng'))!;
+        expect(footer.textContent).toContain('2.000.000đ');
+        expect(footer.textContent).not.toContain('11.000.000đ');
     });
 
     it('nói rõ số tiền đã bù lỗ, không lặng lẽ hiện lãi 5tr mà chia 2tr', () => {
@@ -416,7 +471,7 @@ describe('khối chia lợi nhuận', () => {
         ).toBeInTheDocument();
         expect(screen.getByText('25.000.000đ')).toBeInTheDocument();
         expect(
-            screen.getByText(/Chưa có tháng nào đủ lãi để chia/i),
+            screen.getByText(/Chưa có quý nào đủ lãi để chia/i),
         ).toBeInTheDocument();
     });
 
@@ -446,8 +501,8 @@ describe('khối chia lợi nhuận', () => {
     });
 });
 
-describe('phân quyền super admin', () => {
-    it('super admin thấy form nhập khoản chi và vốn góp', () => {
+describe('quản lý vốn góp & khoản chi', () => {
+    it('mọi admin đều thấy form nhập — không còn phân quyền super admin', () => {
         setProps();
         render(<AdminFinance />);
 
@@ -455,50 +510,7 @@ describe('phân quyền super admin', () => {
         expect(screen.getByLabelText('Người góp vốn')).toBeInTheDocument();
         expect(screen.getByText('Quản lý khoản chi')).toBeInTheDocument();
         expect(screen.getByText('Quản lý vốn góp')).toBeInTheDocument();
-    });
-
-    it('admin thường KHÔNG thấy form nhập, chỉ thấy số liệu', () => {
-        setProps({
-            can_manage: false,
-            expenses: {
-                rows: [
-                    {
-                        id: 1,
-                        spent_on: '2026-08-01',
-                        spent_on_label: '01/08/2026',
-                        amount: 2_000_000,
-                        category: 'equipment',
-                        category_label: 'Mua thiết bị',
-                        note: null,
-                    },
-                ],
-                total_count: 1,
-            },
-        });
-        render(<AdminFinance />);
-
-        // Form biến mất hoàn toàn — không render chứ không phải ẩn bằng CSS, vì class
-        // `grid` sẽ đè mất thuộc tính hidden.
-        expect(screen.queryByLabelText('Số tiền')).not.toBeInTheDocument();
-        expect(
-            screen.queryByLabelText('Người góp vốn'),
-        ).not.toBeInTheDocument();
-        expect(screen.queryByText('Thêm khoản chi')).not.toBeInTheDocument();
-        expect(screen.queryByText('Thêm vốn góp')).not.toBeInTheDocument();
-
-        // Nút Sửa/Xoá trên từng dòng cũng phải biến mất.
-        expect(screen.queryByText('Sửa')).not.toBeInTheDocument();
-        expect(screen.queryByText('Xoá')).not.toBeInTheDocument();
-
-        // Nhưng SỐ LIỆU vẫn xem được đầy đủ — hai người góp vốn đều là chủ.
-        expect(tileValue('Vốn ban đầu')).toBe('70.000.000đ');
-        const expenseCard = screen
-            .getByRole('heading', { name: 'Khoản chi' })
-            .closest('div')!.parentElement!;
-        expect(within(expenseCard).getByText('2.000.000đ')).toBeInTheDocument();
-        expect(
-            screen.getAllByText(/Chỉ super admin/i).length,
-        ).toBeGreaterThanOrEqual(2);
+        expect(screen.queryByText(/Chỉ super admin/i)).not.toBeInTheDocument();
     });
 
     it('sổ vốn góp hiện đủ ai góp bao nhiêu, ngày nào', () => {

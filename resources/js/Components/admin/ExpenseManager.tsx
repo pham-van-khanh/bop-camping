@@ -34,19 +34,11 @@ export default function ExpenseManager({
     expenses,
     categories,
     totalCount,
-    canManage = true,
 }: {
     expenses: ExpenseRow[];
     categories: CategoryOption[];
     /** Tổng số khoản trong kỳ — dùng để nói rõ khi danh sách bị cắt bớt. */
     totalCount?: number;
-    /**
-     * Có quyền sửa không (chỉ super admin — bopcamping-n4qy).
-     *
-     * Ẩn form/nút ở đây CHỈ là giao diện; chặn thật nằm ở middleware 'super-admin' trên
-     * route ghi. Không có lớp server thì ai biết URL vẫn POST thẳng được.
-     */
-    canManage?: boolean;
 }) {
     const [editId, setEditId] = useState<number | null>(null);
     const [confirmDelete, setConfirmDelete] = useState<number | null>(null);
@@ -105,9 +97,9 @@ export default function ExpenseManager({
         <div className="rounded-[16px] border border-cardBorder bg-white p-5">
             <div className="mb-3 flex items-center justify-between">
                 <h2 className="text-[15px] font-bold text-ink">
-                    {canManage ? 'Quản lý khoản chi' : 'Khoản chi'}
+                    Quản lý khoản chi
                 </h2>
-                {canManage && editId && (
+                {editId && (
                     <button
                         onClick={resetForm}
                         className="text-[12px] font-semibold text-moss underline"
@@ -117,83 +109,67 @@ export default function ExpenseManager({
                 )}
             </div>
 
-            {!canManage && (
-                <p className="mb-4 rounded-[10px] bg-[#f7f9f2] px-3 py-2 text-[12px] text-[#8a967a]">
-                    Chỉ super admin được thêm/sửa/xoá khoản chi. Bạn vẫn xem
-                    được đầy đủ số liệu.
-                </p>
-            )}
-
-            {/* KHÔNG dùng thuộc tính hidden ở đây: class `grid` đặt display:grid sau
-                quy tắc [hidden]{display:none} của preflight nên form vẫn hiện. Không
-                render hẳn thì chắc chắn, lại không gửi markup form cho người không có quyền. */}
-            {canManage && (
-                <div className="mb-4 grid grid-cols-2 gap-2">
-                    <input
-                        type="date"
-                        aria-label="Ngày chi"
-                        value={form.data.spent_on}
-                        onChange={(e) =>
-                            form.setData('spent_on', e.target.value)
-                        }
-                        className={inputCls}
-                    />
-                    <input
-                        type="number"
-                        min={1}
-                        aria-label="Số tiền"
-                        value={form.data.amount}
-                        onChange={(e) => form.setData('amount', e.target.value)}
-                        placeholder="Số tiền (đ)"
-                        className={inputCls}
-                    />
-                    <select
-                        aria-label="Loại chi phí"
-                        value={form.data.category}
-                        onChange={(e) =>
-                            form.setData('category', e.target.value)
-                        }
-                        className={inputCls}
-                    >
-                        {categories.map((c) => (
-                            <option key={c.value} value={c.value}>
-                                {c.label}
-                            </option>
-                        ))}
-                    </select>
-                    <input
-                        aria-label="Ghi chú"
-                        value={form.data.note}
-                        onChange={(e) => form.setData('note', e.target.value)}
-                        placeholder="Ghi chú"
-                        maxLength={255}
-                        className={inputCls}
-                    />
-                    <button
-                        onClick={submit}
-                        disabled={!canSubmit}
-                        className="col-span-2 h-10 rounded-[10px] text-[13px] font-bold text-white transition disabled:cursor-not-allowed"
-                        style={{
-                            background: canSubmit ? '#557A2B' : '#c4cfae',
-                        }}
-                    >
-                        {form.processing
-                            ? 'Đang lưu…'
-                            : editId
-                              ? 'Cập nhật khoản chi'
-                              : 'Thêm khoản chi'}
-                    </button>
-                    {(form.errors.amount ||
-                        form.errors.spent_on ||
-                        form.errors.category) && (
-                        <p className="col-span-2 text-[12px] text-red-500">
-                            {form.errors.amount ||
-                                form.errors.spent_on ||
-                                form.errors.category}
-                        </p>
-                    )}
-                </div>
-            )}
+            <div className="mb-4 grid grid-cols-2 gap-2">
+                <input
+                    type="date"
+                    aria-label="Ngày chi"
+                    value={form.data.spent_on}
+                    onChange={(e) => form.setData('spent_on', e.target.value)}
+                    className={inputCls}
+                />
+                <input
+                    type="number"
+                    min={1}
+                    aria-label="Số tiền"
+                    value={form.data.amount}
+                    onChange={(e) => form.setData('amount', e.target.value)}
+                    placeholder="Số tiền (đ)"
+                    className={inputCls}
+                />
+                <select
+                    aria-label="Loại chi phí"
+                    value={form.data.category}
+                    onChange={(e) => form.setData('category', e.target.value)}
+                    className={inputCls}
+                >
+                    {categories.map((c) => (
+                        <option key={c.value} value={c.value}>
+                            {c.label}
+                        </option>
+                    ))}
+                </select>
+                <input
+                    aria-label="Ghi chú"
+                    value={form.data.note}
+                    onChange={(e) => form.setData('note', e.target.value)}
+                    placeholder="Ghi chú"
+                    maxLength={255}
+                    className={inputCls}
+                />
+                <button
+                    onClick={submit}
+                    disabled={!canSubmit}
+                    className="col-span-2 h-10 rounded-[10px] text-[13px] font-bold text-white transition disabled:cursor-not-allowed"
+                    style={{
+                        background: canSubmit ? '#557A2B' : '#c4cfae',
+                    }}
+                >
+                    {form.processing
+                        ? 'Đang lưu…'
+                        : editId
+                          ? 'Cập nhật khoản chi'
+                          : 'Thêm khoản chi'}
+                </button>
+                {(form.errors.amount ||
+                    form.errors.spent_on ||
+                    form.errors.category) && (
+                    <p className="col-span-2 text-[12px] text-red-500">
+                        {form.errors.amount ||
+                            form.errors.spent_on ||
+                            form.errors.category}
+                    </p>
+                )}
+            </div>
 
             {expenses.length === 0 ? (
                 <p className="py-4 text-center text-[13px] text-[#a3ad92]">
@@ -233,8 +209,7 @@ export default function ExpenseManager({
                                             {money(e.amount)}
                                         </td>
                                         <td className="py-2 text-right">
-                                            {!canManage ? null : confirmDelete ===
-                                              e.id ? (
+                                            {confirmDelete === e.id ? (
                                                 <span className="inline-flex gap-1">
                                                     <button
                                                         onClick={() =>

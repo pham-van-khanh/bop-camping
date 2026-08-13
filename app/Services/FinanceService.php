@@ -252,13 +252,55 @@ class FinanceService
     }
 
     /**
-     * Chia lợi nhuận giữa các thành viên góp vốn (bopcamping-n4qy).
+     * Gộp chuỗi tháng thành chuỗi QUÝ (bopcamping-xlmy).
      *
-     * LUẬT (chủ shop chốt 13/08/2026):
-     *   1. Lãi tháng phải BÙ HẾT LỖ LUỸ KẾ còn treo trước đã. Chỉ phần vượt ra mới đem chia.
-     *      Không có bước này thì tháng nào lãi là rút tiền ngay, kể cả khi tính chung
-     *      shop vẫn đang âm — rút vào chính tiền vốn.
-     *   2. Phần đem chia: 55% giữ lại làm quỹ dự phòng, 45% chia theo tỉ lệ góp vốn.
+     * Lãi/lỗ của quý = tổng lãi/lỗ 3 tháng trong quý, nên tháng lỗ tự triệt tiêu với
+     * tháng lãi cùng quý — sát thực tế hơn là bắt từng tháng gánh riêng.
+     *
+     * @return list<array{quarter: string, label: string, profit: int, is_open: bool}>
+     */
+    private function quarterlySeries(): array
+    {
+        $now = Carbon::now();
+        $currentQuarter = $now->year.'-Q'.(int) ceil($now->month / 3);
+
+        $byQuarter = [];
+        foreach ($this->monthlySeries(null) as $m) {
+            [$year, $month] = array_map('intval', explode('-', $m['month']));
+            $key = $year.'-Q'.(int) ceil($month / 3);
+            $byQuarter[$key] = ($byQuarter[$key] ?? 0) + $m['profit'];
+        }
+
+        ksort($byQuarter);
+
+        $out = [];
+        foreach ($byQuarter as $key => $profit) {
+            [$year, $q] = explode('-Q', $key);
+            $out[] = [
+                'quarter' => $key,
+                'label' => 'Quý '.$q.'/'.$year,
+                'profit' => $profit,
+                // Quý hiện tại (và bất kỳ quý tương lai do nhập nhầm ngày) CHƯA khép sổ.
+                'is_open' => $key >= $currentQuarter,
+            ];
+        }
+
+        return $out;
+    }
+
+    /**
+     * Chia lợi nhuận giữa các thành viên góp vốn — 3 THÁNG MỘT LẦN (bopcamping-xlmy).
+     *
+     * LUẬT (chủ shop chốt 13/08/2026, đổi kỳ sang quý ngày 13/08/2026):
+     *   1. Chia theo QUÝ, không theo tháng.
+     *   2. Lãi quý phải BÙ HẾT LỖ LUỸ KẾ còn treo trước đã. Chỉ phần vượt ra mới đem chia.
+     *      Không có bước này thì quý nào lãi là rút tiền ngay, kể cả khi tính chung shop
+     *      vẫn đang âm — rút vào chính tiền vốn.
+     *   3. Phần đem chia: 55% giữ lại làm quỹ dự phòng, 45% chia theo tỉ lệ góp vốn.
+     *
+     * QUÝ ĐANG CHẠY CHƯA KHÉP SỔ: con số của nó còn đổi cho tới hết quý, nên chỉ tính
+     * TẠM (is_open = true) và KHÔNG cộng vào tổng đã chia của từng người. Gộp luôn vào
+     * tổng là mời người ta rút tiền dựa trên số chưa chốt.
      *
      * TIỀN KHÔNG ĐƯỢC BỐC HƠI: quỹ + các phần chia phải cộng đúng bằng số đem chia. Nên
      * chỉ làm tròn ở các khoản đầu, khoản CUỐI lấy phần dư — làm tròn từng khoản độc lập
@@ -267,7 +309,7 @@ class FinanceService
      * @return array{
      *     partners: list<array{key: string, name: string, capital: int, capital_percent: float, profit_percent: float, total: int}>,
      *     reserve_percent: float, reserve_total: int, distributed_total: int, deficit: int,
-     *     rows: list<array{month: string, label: string, profit: int, offset: int, distributable: int, reserve: int, shares: array<string, int>}>
+     *     rows: list<array{quarter: string, label: string, profit: int, offset: int, distributable: int, reserve: int, shares: array<string, int>, is_open: bool}>
      * }
      */
     public function profitSharing(): array
@@ -297,16 +339,16 @@ class FinanceService
             ];
         }
 
-        foreach ($this->monthlySeries(null) as $m) {
-            $profit = $m['profit'];
-            $offset = 0;           // phần lãi tháng này dùng để bù lỗ cũ
+        foreach ($this->quarterlySeries() as $q) {
+            $profit = $q['profit'];
+            $offset = 0;           // phần lãi quý này dùng để bù lỗ cũ
 
             if ($profit <= 0) {
-                $deficit += -$profit;
+                $carriedLoss = -$profit;
                 $distributable = 0;
             } else {
+                $carriedLoss = 0;
                 $offset = min($deficit, $profit);
-                $deficit -= $offset;
                 $distributable = $profit - $offset;
             }
 
@@ -324,18 +366,27 @@ class FinanceService
                     $shares[$k] = (int) round($toPartners * $member->total / $capital);
                     $allocated += $shares[$k];
                 }
-                $totals[$k] += $shares[$k];
             }
 
-            $reserveTotal += $reserve;
+            // Quý CHƯA khép sổ chỉ để xem trước: không cộng vào tổng, và cũng không đụng
+            // vào $deficit — số của nó còn đổi tới hết quý, ghi nhận sớm là sai sổ.
+            if (! $q['is_open']) {
+                $deficit = $deficit - $offset + $carriedLoss;
+                $reserveTotal += $reserve;
+                foreach ($shares as $k => $v) {
+                    $totals[$k] += $v;
+                }
+            }
+
             $rows[] = [
-                'month' => $m['month'],
-                'label' => $m['label'],
+                'quarter' => $q['quarter'],
+                'label' => $q['label'],
                 'profit' => $profit,
                 'offset' => $offset,
                 'distributable' => $distributable,
                 'reserve' => $reserve,
                 'shares' => $shares,
+                'is_open' => $q['is_open'],
             ];
         }
 
@@ -358,7 +409,7 @@ class FinanceService
             'reserve_percent' => round(self::RESERVE_RATE * 100, 2),
             'reserve_total' => $reserveTotal,
             'distributed_total' => array_sum($totals),
-            // Lỗ còn treo — phải bù hết chỗ này rồi mới chia tiếp được đồng nào.
+            // Lỗ còn treo sau các quý ĐÃ khép sổ — phải bù hết chỗ này rồi mới chia tiếp.
             'deficit' => $deficit,
             // Mới nhất lên đầu cho bảng; thuật toán bù lỗ đã chạy theo đúng thứ tự thời gian.
             'rows' => array_reverse($rows),
