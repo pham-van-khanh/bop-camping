@@ -52,13 +52,15 @@ type Partner = {
 };
 
 type SharingRow = {
-    month: string;
+    quarter: string;
     label: string;
     profit: number;
     offset: number;
     distributable: number;
     reserve: number;
     shares: Record<string, number>;
+    /** Quý đang chạy — số còn đổi tới hết quý, chỉ để xem trước. */
+    is_open: boolean;
 };
 
 type BreakEven = { month: string; label: string } | null;
@@ -89,7 +91,6 @@ type Props = PageProps<{
     categories: CategoryOption[];
     capital: CapitalRow[];
     admins: AdminOption[];
-    can_manage: boolean;
 }>;
 
 const PERIODS: { key: Props['period']; label: string }[] = [
@@ -116,7 +117,6 @@ export default function AdminFinance() {
         categories,
         capital,
         admins,
-        can_manage,
     } = usePage<Props>().props;
 
     const go = (p: Props['period']) =>
@@ -304,16 +304,11 @@ export default function AdminFinance() {
                 <ProfitSharing sharing={sharing} />
 
                 <div className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-2">
-                    <CapitalManager
-                        rows={capital}
-                        admins={admins}
-                        canManage={can_manage}
-                    />
+                    <CapitalManager rows={capital} admins={admins} />
                     <ExpenseManager
                         expenses={expenses.rows}
                         categories={categories}
                         totalCount={expenses.total_count}
-                        canManage={can_manage}
                     />
                 </div>
             </div>
@@ -895,6 +890,12 @@ const RESERVE_COLOR = '#C9A227';
 function ProfitSharing({ sharing }: { sharing: Sharing }) {
     const { partners, rows, reserve_percent, reserve_total, deficit } = sharing;
     const shared = rows.filter((r) => r.distributable > 0);
+    const openRow = rows.find((r) => r.is_open);
+    // Dòng "Cộng" chỉ gộp quý ĐÃ KHÉP SỔ, khớp đúng với ô tổng của từng người phía trên.
+    // Cộng cả quý tạm tính vào đây thì hai con số trên cùng một thẻ lại đá nhau.
+    const closed = shared.filter((r) => !r.is_open);
+    const sumOf = (pick: (r: SharingRow) => number) =>
+        closed.reduce((sum, r) => sum + pick(r), 0);
     const colorOf = (i: number) =>
         PARTNER_COLORS[i % PARTNER_COLORS.length] ?? GREEN;
 
@@ -905,13 +906,13 @@ function ProfitSharing({ sharing }: { sharing: Sharing }) {
                     Chia lợi nhuận
                 </h2>
                 <span className="text-right text-[11.5px] text-moss">
-                    {fmtPercent(reserve_percent)}% vào quỹ ·{' '}
+                    3 tháng/lần · {fmtPercent(reserve_percent)}% vào quỹ ·{' '}
                     {fmtPercent(100 - reserve_percent)}% chia theo vốn góp
                 </span>
             </div>
             <p className="mb-4 text-[12px] leading-snug text-[#a3ad92]">
-                Lãi mỗi tháng phải bù hết lỗ luỹ kế còn treo trước, phần vượt ra
-                mới đem chia.
+                Chia mỗi quý một lần. Lãi quý phải bù hết lỗ luỹ kế còn treo
+                trước, phần vượt ra mới đem chia.
             </p>
 
             {partners.length === 0 && (
@@ -925,8 +926,16 @@ function ProfitSharing({ sharing }: { sharing: Sharing }) {
             {partners.length > 0 && deficit > 0 && (
                 <div className="mb-4 rounded-[12px] border border-[#f0dcc9] bg-[#fdf6ee] px-4 py-3 text-[12.5px] text-[#8a5a22]">
                     <b>Chưa chia được đồng nào.</b> Shop đang lỗ luỹ kế{' '}
-                    <b>{money(deficit)}</b> — lãi các tháng tới sẽ dùng để bù
-                    hết chỗ này trước.
+                    <b>{money(deficit)}</b> — lãi các quý tới sẽ dùng để bù hết
+                    chỗ này trước.
+                </div>
+            )}
+
+            {openRow && (
+                <div className="mb-4 rounded-[12px] border border-[#cfe0ea] bg-[#f2f8fb] px-4 py-3 text-[12.5px] text-[#31607a]">
+                    <b>{openRow.label} chưa khép sổ.</b> Số của quý này còn đổi
+                    tới hết quý nên chỉ là <b>tạm tính</b> — chưa cộng vào tổng
+                    đã chia của từng người bên dưới.
                 </div>
             )}
 
@@ -950,7 +959,7 @@ function ProfitSharing({ sharing }: { sharing: Sharing }) {
 
             {shared.length === 0 ? (
                 <p className="py-6 text-center text-[13px] text-[#a3ad92]">
-                    Chưa có tháng nào đủ lãi để chia.
+                    Chưa có quý nào đủ lãi để chia.
                 </p>
             ) : (
                 <div className="max-h-[320px] overflow-x-auto">
@@ -958,10 +967,10 @@ function ProfitSharing({ sharing }: { sharing: Sharing }) {
                         <thead>
                             <tr className="text-[11px] uppercase tracking-[0.04em] text-[#a3ad92]">
                                 <th className="pb-2 text-left font-semibold">
-                                    Tháng
+                                    Quý
                                 </th>
                                 <th className="pb-2 text-right font-semibold">
-                                    Lãi tháng
+                                    Lãi quý
                                 </th>
                                 <th className="pb-2 text-right font-semibold">
                                     Bù lỗ
@@ -985,11 +994,19 @@ function ProfitSharing({ sharing }: { sharing: Sharing }) {
                         <tbody>
                             {shared.map((r) => (
                                 <tr
-                                    key={r.month}
+                                    key={r.quarter}
                                     className="border-t border-[#f1f4ea]"
+                                    // Quý chưa khép sổ làm mờ đi để không bị đọc
+                                    // nhầm thành số đã chốt.
+                                    style={{ opacity: r.is_open ? 0.6 : 1 }}
                                 >
                                     <td className="py-2 font-semibold text-pine">
                                         {r.label}
+                                        {r.is_open && (
+                                            <span className="ml-1.5 rounded-pill bg-[#eaf1f6] px-1.5 py-0.5 text-[10px] font-bold text-[#31607a]">
+                                                tạm tính
+                                            </span>
+                                        )}
                                     </td>
                                     <td className="py-2 text-right font-mono">
                                         {money(r.profit)}
@@ -1020,30 +1037,22 @@ function ProfitSharing({ sharing }: { sharing: Sharing }) {
                         </tbody>
                         <tfoot>
                             <tr className="border-t-2 border-[#e6ebdb] font-bold">
-                                <td className="py-2 text-pine">Cộng</td>
-                                <td className="py-2 text-right font-mono">
-                                    {money(
-                                        shared.reduce(
-                                            (s, r) => s + r.profit,
-                                            0,
-                                        ),
+                                <td className="py-2 text-pine">
+                                    Cộng
+                                    {openRow && (
+                                        <span className="ml-1 text-[10.5px] font-normal text-[#a3ad92]">
+                                            (quý đã chốt)
+                                        </span>
                                     )}
+                                </td>
+                                <td className="py-2 text-right font-mono">
+                                    {money(sumOf((r) => r.profit))}
                                 </td>
                                 <td className="py-2 text-right font-mono text-[#a3ad92]">
-                                    {money(
-                                        shared.reduce(
-                                            (s, r) => s + r.offset,
-                                            0,
-                                        ),
-                                    )}
+                                    {money(sumOf((r) => r.offset))}
                                 </td>
                                 <td className="py-2 text-right font-mono">
-                                    {money(
-                                        shared.reduce(
-                                            (s, r) => s + r.distributable,
-                                            0,
-                                        ),
-                                    )}
+                                    {money(sumOf((r) => r.distributable))}
                                 </td>
                                 <td
                                     className="py-2 text-right font-mono"

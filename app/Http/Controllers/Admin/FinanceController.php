@@ -62,10 +62,6 @@ class FinanceController extends Controller
             'expenses' => $this->expenseRows($from),
             'categories' => Expense::categoryOptions(),
             'capital' => $this->capitalRows(),
-            // Admin thường VẪN xem được toàn bộ số liệu (hai người góp vốn đều là chủ),
-            // chỉ super admin mới sửa. FE ẩn form/nút theo cờ này; chặn thật nằm ở
-            // middleware 'super-admin' trên route ghi — cờ này chỉ để đỡ mời gọi bấm.
-            'can_manage' => (bool) $request->user()?->is_super_admin,
             'admins' => User::where('is_admin', true)
                 ->orderBy('name')
                 ->get(['id', 'name'])

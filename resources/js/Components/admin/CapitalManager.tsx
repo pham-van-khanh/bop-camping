@@ -7,9 +7,6 @@ import { useState } from 'react';
  *
  * Nhờ vậy góp thêm về sau vẫn giữ dấu vết ai bỏ bao nhiêu lúc nào, và thêm thành viên
  * thứ ba chỉ là thêm dòng — mọi tỉ lệ chia lợi nhuận tự tính lại từ tổng.
- *
- * Chỉ super admin sửa được. Ẩn form ở đây chỉ là giao diện; chặn thật ở middleware
- * 'super-admin' trên route ghi.
  */
 
 export type CapitalRow = {
@@ -35,11 +32,9 @@ const inputCls =
 export default function CapitalManager({
     rows,
     admins,
-    canManage,
 }: {
     rows: CapitalRow[];
     admins: AdminOption[];
-    canManage: boolean;
 }) {
     const [editId, setEditId] = useState<number | null>(null);
     const [confirmDelete, setConfirmDelete] = useState<number | null>(null);
@@ -99,7 +94,7 @@ export default function CapitalManager({
         <div className="rounded-[16px] border border-cardBorder bg-white p-5">
             <div className="mb-1 flex items-baseline justify-between gap-3">
                 <h2 className="text-[15px] font-bold text-ink">
-                    {canManage ? 'Quản lý vốn góp' : 'Vốn góp'}
+                    Quản lý vốn góp
                 </h2>
                 <span className="text-[11.5px] text-moss">
                     Tổng{' '}
@@ -113,83 +108,73 @@ export default function CapitalManager({
                 lệ chia lợi nhuận tự tính lại.
             </p>
 
-            {!canManage && (
-                <p className="mb-4 rounded-[10px] bg-[#f7f9f2] px-3 py-2 text-[12px] text-[#8a967a]">
-                    Chỉ super admin được thêm/sửa/xoá vốn góp.
-                </p>
-            )}
-
-            {canManage && (
-                <div className="mb-4 grid grid-cols-2 gap-2">
-                    <select
-                        aria-label="Người góp vốn"
-                        value={form.data.user_id}
-                        onChange={(e) =>
-                            form.setData('user_id', e.target.value)
-                        }
-                        className={inputCls}
-                    >
-                        {admins.map((a) => (
-                            <option key={a.id} value={a.id}>
-                                {a.name}
-                            </option>
-                        ))}
-                    </select>
-                    <input
-                        type="number"
-                        min={1}
-                        aria-label="Số tiền góp"
-                        value={form.data.amount}
-                        onChange={(e) => form.setData('amount', e.target.value)}
-                        placeholder="Số tiền góp (đ)"
-                        className={inputCls}
-                    />
-                    <input
-                        type="date"
-                        aria-label="Ngày góp"
-                        value={form.data.contributed_on}
-                        onChange={(e) =>
-                            form.setData('contributed_on', e.target.value)
-                        }
-                        className={inputCls}
-                    />
-                    <input
-                        aria-label="Ghi chú vốn góp"
-                        value={form.data.note}
-                        onChange={(e) => form.setData('note', e.target.value)}
-                        placeholder="Ghi chú (vd: vốn ban đầu)"
-                        maxLength={255}
-                        className={inputCls}
-                    />
+            <div className="mb-4 grid grid-cols-2 gap-2">
+                <select
+                    aria-label="Người góp vốn"
+                    value={form.data.user_id}
+                    onChange={(e) => form.setData('user_id', e.target.value)}
+                    className={inputCls}
+                >
+                    {admins.map((a) => (
+                        <option key={a.id} value={a.id}>
+                            {a.name}
+                        </option>
+                    ))}
+                </select>
+                <input
+                    type="number"
+                    min={1}
+                    aria-label="Số tiền góp"
+                    value={form.data.amount}
+                    onChange={(e) => form.setData('amount', e.target.value)}
+                    placeholder="Số tiền góp (đ)"
+                    className={inputCls}
+                />
+                <input
+                    type="date"
+                    aria-label="Ngày góp"
+                    value={form.data.contributed_on}
+                    onChange={(e) =>
+                        form.setData('contributed_on', e.target.value)
+                    }
+                    className={inputCls}
+                />
+                <input
+                    aria-label="Ghi chú vốn góp"
+                    value={form.data.note}
+                    onChange={(e) => form.setData('note', e.target.value)}
+                    placeholder="Ghi chú (vd: vốn ban đầu)"
+                    maxLength={255}
+                    className={inputCls}
+                />
+                <button
+                    onClick={submit}
+                    disabled={!canSubmit}
+                    className="col-span-2 h-10 rounded-[10px] text-[13px] font-bold text-white transition disabled:cursor-not-allowed"
+                    style={{
+                        background: canSubmit ? '#557A2B' : '#c4cfae',
+                    }}
+                >
+                    {form.processing
+                        ? 'Đang lưu…'
+                        : editId
+                          ? 'Cập nhật vốn góp'
+                          : 'Thêm vốn góp'}
+                </button>
+                {firstError && (
+                    <p className="col-span-2 text-[12px] text-red-500">
+                        {firstError}
+                    </p>
+                )}
+                {editId && (
                     <button
-                        onClick={submit}
-                        disabled={!canSubmit}
-                        className="col-span-2 h-10 rounded-[10px] text-[13px] font-bold text-white transition disabled:cursor-not-allowed"
-                        style={{
-                            background: canSubmit ? '#557A2B' : '#c4cfae',
-                        }}
+                        onClick={resetForm}
+                        className="col-span-2 text-[12px] font-semibold text-moss underline"
                     >
-                        {form.processing
-                            ? 'Đang lưu…'
-                            : editId
-                              ? 'Cập nhật vốn góp'
-                              : 'Thêm vốn góp'}
+                        Huỷ sửa
                     </button>
-                    {firstError && (
-                        <p className="col-span-2 text-[12px] text-red-500">
-                            {firstError}
-                        </p>
-                    )}
-                    {editId && (
-                        <button
-                            onClick={resetForm}
-                            className="col-span-2 text-[12px] font-semibold text-moss underline"
-                        >
-                            Huỷ sửa
-                        </button>
-                    )}
-                </div>
-            )}
+                )}
+            </div>
 
             {rows.length === 0 ? (
                 <p className="py-4 text-center text-[13px] text-[#a3ad92]">
@@ -220,8 +205,7 @@ export default function CapitalManager({
                                         {money(r.amount)}
                                     </td>
                                     <td className="py-2 text-right">
-                                        {!canManage ? null : confirmDelete ===
-                                          r.id ? (
+                                        {confirmDelete === r.id ? (
                                             <span className="inline-flex gap-1">
                                                 <button
                                                     onClick={() => remove(r.id)}
