@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\CanonicalHost;
 use App\Http\Middleware\CaptureReferralCode;
 use App\Http\Middleware\EnsureAdmin;
 use App\Http\Middleware\EnsureShipper;
@@ -16,6 +17,12 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        $middleware->web(prepend: [
+            // Chuẩn hoá tên miền TRƯỚC mọi thứ khác: chạy sau thì đã tốn công dựng
+            // response cho một host sắp bị chuyển hướng (bopcamping-1xja).
+            CanonicalHost::class,
+        ]);
+
         $middleware->web(append: [
             HandleInertiaRequests::class,
             AddLinkHeadersForPreloadedAssets::class,

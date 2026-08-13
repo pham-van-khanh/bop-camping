@@ -20,7 +20,6 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -384,7 +383,9 @@ class ProductController extends Controller
         // Sản phẩm chưa có ảnh thì rơi về bìa thương hiệu 1200x630 — đúng tỉ lệ bóc link,
         // hơn là một tấm ảnh album bị mạng xã hội tự cắt (bopcamping-marf).
         $seoImage = $p->thumbnail ? url(Storage::disk('media')->url($p->thumbnail)) : url('/images/og-cover.jpg');
-        $seoDesc = Str::limit(trim(strip_tags((string) $p->description)), 155)
+        // Qua SeoService::plainText, KHÔNG tự strip_tags: gỡ thẻ trần làm hai khối dính
+        // chữ và để lọt \r\n vào content="…" (bopcamping-1xja).
+        $seoDesc = $this->seo->plainText($p->description, 155)
             ?: 'Cho thuê '.$p->name.' theo ngày tại BỐP CAMPING.';
 
         $bannerCombo = $this->bannerCombo($p);
