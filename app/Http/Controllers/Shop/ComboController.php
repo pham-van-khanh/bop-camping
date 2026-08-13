@@ -127,7 +127,8 @@ class ComboController extends Controller
         $seoDesc = Str::limit(trim(strip_tags((string) $combo->description)), 155)
             ?: 'Thuê trọn bộ '.$combo->name.' — tiết kiệm '.$combo->savingsPercent().'% so với thuê lẻ tại BỐP CAMPING.';
 
-        $seoImage = $shaped['images'][0]['url'] ?? url('/images/album/forest-camp-aerial.jpg');
+        // Combo chưa có ảnh thì rơi về bìa thương hiệu 1200x630 (bopcamping-marf).
+        $seoImage = $shaped['images'][0]['url'] ?? url('/images/og-cover.jpg');
 
         return Inertia::render('ComboDetail', [
             'combo' => $shaped,

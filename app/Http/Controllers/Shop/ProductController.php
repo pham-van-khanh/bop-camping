@@ -381,7 +381,9 @@ class ProductController extends Controller
 
         $reviewCount = $p->reviews()->where('status', 'approved')->count();
         $reviewAvg = $p->averageRating();
-        $seoImage = $p->thumbnail ? url(Storage::disk('media')->url($p->thumbnail)) : url('/images/album/forest-camp-aerial.jpg');
+        // Sản phẩm chưa có ảnh thì rơi về bìa thương hiệu 1200x630 — đúng tỉ lệ bóc link,
+        // hơn là một tấm ảnh album bị mạng xã hội tự cắt (bopcamping-marf).
+        $seoImage = $p->thumbnail ? url(Storage::disk('media')->url($p->thumbnail)) : url('/images/og-cover.jpg');
         $seoDesc = Str::limit(trim(strip_tags((string) $p->description)), 155)
             ?: 'Cho thuê '.$p->name.' theo ngày tại BỐP CAMPING.';
 

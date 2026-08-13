@@ -390,6 +390,66 @@ class SeoMetaTest extends TestCase
         $res->assertSee('<link rel="canonical" href="'.url('/thiet-bi').'">', false);
     }
 
+    /**
+     * Ảnh bóc link mặc định là bìa thương hiệu 1200×630 (bopcamping-marf).
+     *
+     * Trước dùng ảnh album 1.048 KB, không đúng tỉ lệ 1,91:1 nên Facebook/Zalo tự cắt
+     * và hay cắt mất chữ. Khoá luôn cả kích thước khai kèm: thiếu chúng thì lần bóc link
+     * đầu tiên hay hiện thiếu ảnh.
+     *
+     * @test
+     */
+    public function share_image_defaults_to_the_1200x630_brand_cover(): void
+    {
+        $res = $this->get('/');
+
+        $res->assertSee('property="og:image" content="'.url('/images/og-cover.jpg').'"', false);
+        $res->assertSee('name="twitter:image" content="'.url('/images/og-cover.jpg').'"', false);
+        $res->assertSee('name="thumbnail" content="'.url('/images/og-cover.jpg').'"', false);
+        $res->assertSee('property="og:image:width" content="1200"', false);
+        $res->assertSee('property="og:image:height" content="630"', false);
+        // Ảnh album cũ không còn là ảnh CHIA SẺ. Nó vẫn nằm trong JSON-LD
+        // (Organization.image, LocalBusiness.image) — chỗ đó Google muốn ảnh chụp thật
+        // của cơ sở, không phải banner có chữ, nên giữ nguyên là đúng.
+        $res->assertDontSee('property="og:image" content="'.url('/images/album/forest-camp-aerial.jpg').'"', false);
+    }
+
+    /**
+     * Khai og:image mà file không có thật thì mọi link chia sẻ đều mất ảnh — kiểm cả sự
+     * tồn tại lẫn kích thước thật, không chỉ kiểm chuỗi trong HTML.
+     *
+     * @test
+     */
+    public function the_share_image_file_exists_with_the_declared_size(): void
+    {
+        $path = public_path('images/og-cover.jpg');
+
+        $this->assertFileExists($path);
+        [$w, $h] = getimagesize($path);
+        $this->assertSame(1200, $w);
+        $this->assertSame(630, $h);
+        // Ảnh này được tải mỗi lần bóc link; giữ dưới 300 KB.
+        $this->assertLessThan(300 * 1024, filesize($path));
+    }
+
+    /**
+     * Trang có ảnh riêng (sản phẩm) KHÔNG được khai kèm 1200×630 — kích thước đó là của
+     * ảnh bìa, gắn nhầm vào ảnh sản phẩm là báo sai khung cho mạng xã hội.
+     *
+     * @test
+     */
+    public function pages_with_their_own_image_do_not_claim_the_cover_size(): void
+    {
+        $cat = Category::create(['name' => 'Lều', 'slug' => 'leu-og']);
+        $product = Product::create([
+            'category_id' => $cat->id, 'name' => 'Lều OG', 'slug' => 'leu-og-test',
+            'price_per_day' => 100000, 'quantity' => 3, 'status' => 'active',
+        ]);
+
+        $this->get(route('products.show', $product))
+            ->assertDontSee('property="og:image:width"', false);
+    }
+
     private function seedCategoryWithProduct(): void
     {
         $cat = Category::create(['name' => 'Lều', 'slug' => 'leu']);

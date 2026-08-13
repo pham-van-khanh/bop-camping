@@ -15,7 +15,10 @@
             $brand = 'BỐP CAMPING';
             $seoTitle = $seo['title'] ?? $brand.' — Cho thuê thiết bị cắm trại';
             $seoDesc = $seo['description'] ?? 'Cho thuê lều, bếp, túi ngủ, đèn trại... theo ngày. Giao nhận tận nơi tại Vinh & Hà Nội, cọc linh hoạt, trả tiền khi nhận (COD).';
-            $seoImage = $seo['image'] ?? url('/images/album/forest-camp-aerial.jpg');
+            // Ảnh mặc định khi bóc link (Facebook/Zalo/Messenger): bìa thương hiệu cắt
+            // sẵn 1200x630 — đúng tỉ lệ 1,91:1 các mạng dùng, nên không bị họ tự cắt
+            // mất chữ. Trước đây dùng ảnh album 1.048 KB không đúng tỉ lệ (bopcamping-marf).
+            $seoImage = $seo['image'] ?? url('/images/og-cover.jpg');
             $seoUrl = $seo['url'] ?? url()->current();
         @endphp
 
@@ -56,6 +59,14 @@
         <meta property="og:title" content="{{ $seoTitle }}">
         <meta property="og:description" content="{{ $seoDesc }}">
         <meta property="og:image" content="{{ $seoImage }}">
+        {{-- Khai sẵn kích thước để mạng xã hội dựng khung ảnh ngay, không phải tải ảnh
+             về đo — thiếu hai thẻ này thì lần bóc link đầu tiên hay hiện thiếu ảnh.
+             Chỉ đúng cho ảnh mặc định; trang có ảnh riêng (sản phẩm, combo) thì bỏ qua. --}}
+        @if (empty($seo['image']))
+            <meta property="og:image:width" content="1200">
+            <meta property="og:image:height" content="630">
+            <meta property="og:image:type" content="image/jpeg">
+        @endif
         <meta property="og:url" content="{{ $seoUrl }}">
 
         {{-- Twitter Card --}}
