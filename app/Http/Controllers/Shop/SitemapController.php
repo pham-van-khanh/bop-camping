@@ -7,6 +7,7 @@ use App\Models\Category;
 use App\Models\Combo;
 use App\Models\Product;
 use App\Models\StaticPage;
+use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
@@ -17,9 +18,14 @@ use Illuminate\Support\Facades\Cache;
  */
 class SitemapController extends Controller
 {
-    public function index(): Response
+    public function index(Request $request): Response
     {
-        $xml = Cache::remember('sitemap.xml', 3600, fn () => $this->build());
+        // Khoá cache TÁCH THEO HOST: nội dung chứa URL tuyệt đối dựng từ host của
+        // request. Dùng chung một khoá thì bot vào bằng host phụ (vd www) sẽ nạp cache
+        // toàn URL host đó, và mọi người nhận bản sai suốt 1 giờ (bopcamping-1xja).
+        // CanonicalHost đã chuyển hướng www rồi, nhưng khoá cache vẫn phải đúng để lỗi
+        // không quay lại nếu sau này thêm tên miền.
+        $xml = Cache::remember('sitemap.xml:'.$request->getHost(), 3600, fn () => $this->build());
 
         return response($xml, 200, ['Content-Type' => 'application/xml; charset=UTF-8']);
     }

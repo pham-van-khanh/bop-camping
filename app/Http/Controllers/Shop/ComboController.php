@@ -15,7 +15,6 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -124,7 +123,8 @@ class ComboController extends Controller
 
         $shaped = $this->shape($combo, ServiceLocation::open()->count());
 
-        $seoDesc = Str::limit(trim(strip_tags((string) $combo->description)), 155)
+        // Qua SeoService::plainText — xem ghi chú ở ProductController (bopcamping-1xja).
+        $seoDesc = $this->seo->plainText($combo->description, 155)
             ?: 'Thuê trọn bộ '.$combo->name.' — tiết kiệm '.$combo->savingsPercent().'% so với thuê lẻ tại BỐP CAMPING.';
 
         // Combo chưa có ảnh thì rơi về bìa thương hiệu 1200x630 (bopcamping-marf).

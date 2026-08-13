@@ -24,7 +24,7 @@ class SeoService
     {
         $seo = [
             'title' => $title,
-            'description' => Str::limit(trim(strip_tags((string) $description)), 160) ?: null,
+            'description' => $this->plainText($description),
             'url' => $url ?? url()->current(),
         ];
 
@@ -36,6 +36,40 @@ class SeoService
         }
 
         return array_filter($seo, fn ($v) => $v !== null);
+    }
+
+    /**
+     * Biến nội dung HTML thành một dòng văn xuôi sạch cho meta description.
+     *
+     * strip_tags() KHÔNG chèn khoảng trắng khi gỡ thẻ, nên hai khối liền nhau dính lại.
+     * Đo trên production 13/08/2026, cả 6 trang tĩnh đều hỏng:
+     *   "Câu chuyện BỐP CAMPING" + "BỐP CAMPING ra đời…"  →  "CAMPINGBỐP CAMPING"
+     *   "…cho khách." + "1. Khu vực phục vụ" + "Chúng tôi…" → "khách.1. Khu vực phục vụChúng tôi"
+     * Đây là chữ hiện thẳng trên kết quả Google.
+     *
+     * Mô tả sản phẩm còn chứa xuống dòng thật (\r\n) lọt vào content="…" — meta phải là
+     * MỘT dòng; xuống dòng trong đó làm hỏng cả bộ phân tích ngây thơ (chính lệnh grep
+     * lúc audit cũng đọc nhầm thành "không có description").
+     *
+     * Thứ tự quan trọng: chèn khoảng trắng THAY cho thẻ trước, rồi mới gộp khoảng trắng,
+     * rồi mới cắt — cắt trước thì đếm nhầm cả khoảng trắng thừa vào 160 ký tự.
+     *
+     * public vì controller chi tiết sản phẩm/combo cần chính hàm này cho cả meta lẫn
+     * JSON-LD. Trước đây mỗi nơi tự viết `Str::limit(strip_tags(...))` một bản — ba bản
+     * cùng một lỗi, sửa một chỗ không hết.
+     */
+    public function plainText(?string $html, int $limit = 160): ?string
+    {
+        if (blank($html)) {
+            return null;
+        }
+
+        // Thẻ -> khoảng trắng (không phải xoá trắng), rồi giải mã thực thể (&amp; …).
+        $text = html_entity_decode(strip_tags(preg_replace('/<[^>]*>/', ' $0', $html)), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        // Mọi loại khoảng trắng (\r \n \t, cả no-break space) gộp thành một dấu cách.
+        $text = trim(preg_replace('/[\s\x{00A0}]+/u', ' ', $text));
+
+        return Str::limit($text, $limit) ?: null;
     }
 
     /**
@@ -167,7 +201,9 @@ class SeoService
         $items = collect($faqs)
             ->map(fn ($f) => [
                 'question' => trim((string) (is_array($f) ? ($f['question'] ?? '') : $f->question)),
-                'answer' => trim(strip_tags((string) (is_array($f) ? ($f['answer'] ?? '') : $f->answer))),
+                // Câu trả lời FAQ cũng là HTML do admin nhập — dính chữ ở đây thì rich result
+                // hiện sai y hệt meta description.
+                'answer' => (string) $this->plainText(is_array($f) ? ($f['answer'] ?? '') : $f->answer, 5000),
             ])
             ->filter(fn (array $qa) => $qa['question'] !== '' && $qa['answer'] !== '')
             ->values();

@@ -7,6 +7,7 @@ use App\Models\Combo;
 use App\Models\Faq;
 use App\Models\Product;
 use App\Models\ServiceLocation;
+use App\Models\StaticPage;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -448,6 +449,56 @@ class SeoMetaTest extends TestCase
 
         $this->get(route('products.show', $product))
             ->assertDontSee('property="og:image:width"', false);
+    }
+
+    /**
+     * Meta description phải là MỘT dòng văn xuôi sạch (bopcamping-1xja).
+     *
+     * strip_tags() không chèn khoảng trắng khi gỡ thẻ nên hai khối liền nhau dính lại.
+     * Đo trên production 13/08/2026, cả 6 trang tĩnh đều hỏng — chữ dính hiện thẳng
+     * trên kết quả Google:
+     *   "Câu chuyện BỐP CAMPING" + "BỐP CAMPING ra đời…" → "CAMPINGBỐP CAMPING"
+     *
+     * @test
+     */
+    public function block_tags_become_spaces_so_words_never_fuse_together(): void
+    {
+        $page = StaticPage::updateOrCreate(['slug' => 'gioi-thieu'], [
+            'title' => 'Về shop',
+            'content' => '<h2>Câu chuyện BỐP CAMPING</h2><p>BỐP CAMPING ra đời từ những chuyến đi.</p>',
+        ]);
+        $this->assertNotNull($page);
+
+        $res = $this->get('/gioi-thieu');
+
+        $res->assertDontSee('CAMPINGBỐP', false);
+        $res->assertSee('Câu chuyện BỐP CAMPING BỐP CAMPING ra đời', false);
+    }
+
+    /**
+     * Xuống dòng thật trong nội dung KHÔNG được lọt vào content="…": meta phải một dòng.
+     * Đo được ở mô tả sản phẩm trên production — \r\n nằm ngay trong thuộc tính, làm
+     * hỏng cả bộ phân tích ngây thơ (grep lúc audit đọc nhầm thành "không có desc").
+     *
+     * @test
+     */
+    public function newlines_and_repeated_spaces_collapse_into_one_space(): void
+    {
+        $cat = Category::create(['name' => 'Lều', 'slug' => 'leu-nl']);
+        $product = Product::create([
+            'category_id' => $cat->id, 'name' => 'Bạt lót', 'slug' => 'bat-lot-nl',
+            'description' => "Dòng một.\r\n\r\nDòng   hai.\tDòng ba.",
+            'price_per_day' => 50000, 'quantity' => 2, 'status' => 'active',
+        ]);
+
+        $html = $this->get(route('products.show', $product))->getContent();
+        preg_match('/<meta name="description" content="([^"]*)"/', $html, $m);
+
+        $this->assertNotEmpty($m[1] ?? '');
+        $this->assertStringNotContainsString("\n", $m[1]);
+        $this->assertStringNotContainsString("\r", $m[1]);
+        $this->assertStringNotContainsString('  ', $m[1]);
+        $this->assertStringContainsString('Dòng một. Dòng hai. Dòng ba.', $m[1]);
     }
 
     private function seedCategoryWithProduct(): void

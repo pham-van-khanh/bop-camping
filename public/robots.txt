@@ -1,4 +1,6 @@
 User-agent: *
+
+# Khu quản trị + trang cá nhân của khách — không có gì để index.
 Disallow: /admin
 Disallow: /tra-cuu
 Disallow: /tai-khoan
@@ -7,5 +9,15 @@ Disallow: /danh-gia
 Disallow: /dang-nhap
 Disallow: /profile
 Disallow: /dashboard
+
+# Trang đăng nhập/đăng ký của Laravel Breeze (bopcamping-1xja). Đo 13/08/2026: cả 5
+# trang này trả 200 và không bị chặn — nội dung mỏng, gần như giống nhau, lọt vào chỉ
+# mục chỉ làm loãng chất lượng trung bình của site.
+Disallow: /login
+Disallow: /register
+Disallow: /forgot-password
+Disallow: /reset-password
+Disallow: /verify-email
+Disallow: /confirm-password
 
 Sitemap: https://bopcamping.com/sitemap.xml
