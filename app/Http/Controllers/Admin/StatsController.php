@@ -3,21 +3,26 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\Expense;
 use App\Models\Order;
-use Illuminate\Http\RedirectResponse;
+use App\Services\FinanceService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Inertia\Inertia;
 use Inertia\Response;
 
 /**
- * bopcamping-h1s — Thống kê admin: số đơn theo thời gian + bảng thu-chi
- * (thu = tiền thuê đơn đã trả, chi = chi phí phát sinh nhập tay) + quản lý chi phí.
+ * bopcamping-h1s — Thống kê admin: số đơn theo thời gian + tóm tắt thu-chi + doanh thu
+ * theo ngày.
+ *
+ * Quản lý khoản chi đã chuyển sang màn Tài chính (bopcamping-n4qy) — một bảng thì chỉ
+ * nên có một form nhập. Con số thu/chi ở đây lấy từ FinanceService, dùng chung công
+ * thức với màn đó để hai màn không bao giờ báo lệch nhau.
  */
 class StatsController extends Controller
 {
     private const PERIODS = ['today', 'week', 'month', 'all'];
+
+    public function __construct(private FinanceService $finance) {}
 
     /** Tháng sớm nhất bảng doanh thu theo ngày nhận — trước mốc này không tổng hợp. */
     private const REVENUE_FROM_MONTH = '2026-08';
@@ -44,45 +49,12 @@ class StatsController extends Controller
             'total' => Order::where('is_parent', false)->count(),
         ];
 
-        // Thu = tiền thuê (đã trừ giảm giá) của đơn ĐÃ TRẢ, tính theo mốc trả (updated_at).
-        // (Cha không bao giờ 'returned' — lọc thêm cho tường minh.)
-        $revenueQuery = Order::where('is_parent', false)->where('status', 'returned')
-            ->when($from, fn ($q) => $q->where('updated_at', '>=', $from))
-            ->selectRaw('COALESCE(SUM(total_price - discount_total), 0) as s');
-        $revenue = (int) $revenueQuery->value('s');
-        $returnedCount = Order::where('is_parent', false)->where('status', 'returned')
-            ->when($from, fn ($q) => $q->where('updated_at', '>=', $from))
-            ->count();
-
-        // Chi = chi phí phát sinh trong kỳ.
-        $expenseBase = fn () => Expense::query()->when($from, fn ($q) => $q->where('spent_on', '>=', $from->toDateString()));
-        $expenseTotal = (int) $expenseBase()->sum('amount');
-
-        $byCategory = $expenseBase()
-            ->selectRaw('category, SUM(amount) as total, COUNT(*) as cnt')
-            ->groupBy('category')
-            ->orderByDesc('total')
-            ->get()
-            ->map(fn ($r) => [
-                'category' => $r->category,
-                'label' => Expense::CATEGORY_LABELS[$r->category] ?? $r->category,
-                'total' => (int) $r->total,
-                'count' => (int) $r->cnt,
-            ])->values();
-
-        $expenses = $expenseBase()
-            ->orderByDesc('spent_on')->orderByDesc('id')
-            ->limit(200)
-            ->get()
-            ->map(fn (Expense $e) => [
-                'id' => $e->id,
-                'spent_on' => $e->spent_on->format('Y-m-d'),
-                'spent_on_label' => $e->spent_on->format('d/m/Y'),
-                'amount' => $e->amount,
-                'category' => $e->category,
-                'category_label' => Expense::CATEGORY_LABELS[$e->category] ?? $e->category,
-                'note' => $e->note,
-            ])->values();
+        // Thu/chi lấy từ FinanceService — KHÔNG tự viết công thức ở đây. Bản cũ tính
+        // total_price - discount_total, bỏ mất extra_fee, nên phụ phí giao hàng/ngoài
+        // khung giờ không vào doanh thu và lợi nhuận báo thiếu (bopcamping-n4qy).
+        $revenue = $this->finance->revenue($from);
+        $returnedCount = $this->finance->returnedCount($from);
+        $expenseTotal = $this->finance->expenseTotal($from);
 
         $revenueMonth = $this->resolveRevenueMonth($request->query('month'));
 
@@ -99,12 +71,6 @@ class StatsController extends Controller
                 'profit' => $revenue - $expenseTotal,
                 'returned_count' => $returnedCount,
             ],
-            'by_category' => $byCategory,
-            'expenses' => $expenses,
-            'categories' => collect(Expense::CATEGORIES)->map(fn ($c) => [
-                'value' => $c,
-                'label' => Expense::CATEGORY_LABELS[$c],
-            ])->values(),
         ]);
     }
 
@@ -158,9 +124,10 @@ class StatsController extends Controller
      *
      * Liệt kê MỌI ngày của tháng (ngày không có đơn vẫn có dòng, total = 0) để đọc như
      * lịch. Tháng hiện tại chỉ chạy đến hôm nay — không hiện ngày tương lai.
-     * Thu = đơn con status=returned, tính theo mốc trả (updated_at), đã trừ giảm giá —
-     * cùng định nghĩa với ô "Tổng thu". Gom ở PHP như ordersPerDay() vì DATE() khác cú
-     * pháp giữa sqlite và MySQL.
+     * Thu = đơn con status=returned, tính theo mốc trả (updated_at), ĐÃ GỒM phụ phí và
+     * đã trừ giảm giá — phải khớp từng đồng với ô "Tổng thu" (FinanceService::revenue),
+     * nếu không admin thấy tổng tháng không bằng tổng các ngày cộng lại.
+     * Gom ở PHP như ordersPerDay() vì DATE() khác cú pháp giữa sqlite và MySQL.
      *
      * @return array<int, array{date: string, label: string, total: int, orders: array<int, array{id: int, code: string, amount: int}>}>
      */
@@ -176,8 +143,11 @@ class StatsController extends Controller
         $grouped = Order::where('is_parent', false)->where('status', 'returned')
             ->whereBetween('updated_at', [$start->copy()->startOfDay(), $end])
             ->orderBy('updated_at')->orderBy('id')
-            ->get(['id', 'code', 'updated_at', 'total_price', 'discount_total'])
+            ->get(['id', 'code', 'updated_at', 'total_price', 'extra_fee', 'discount_total'])
             ->groupBy(fn (Order $o) => $o->updated_at->toDateString());
+
+        // rental_due = total_price + extra_fee − discount_total (Order::getRentalDueAttribute).
+        $due = fn (Order $o) => (int) $o->total_price + (int) $o->extra_fee - (int) $o->discount_total;
 
         $out = [];
         for ($d = $start->copy(); $d->lte($end); $d->addDay()) {
@@ -185,11 +155,11 @@ class StatsController extends Controller
             $out[] = [
                 'date' => $d->toDateString(),
                 'label' => $d->format('d/m/Y'),
-                'total' => (int) $orders->sum(fn (Order $o) => $o->total_price - $o->discount_total),
+                'total' => (int) $orders->sum($due),
                 'orders' => $orders->map(fn (Order $o) => [
                     'id' => $o->id,
                     'code' => $o->code,
-                    'amount' => (int) ($o->total_price - $o->discount_total),
+                    'amount' => $due($o),
                 ])->values()->all(),
             ];
         }
@@ -222,42 +192,5 @@ class StatsController extends Controller
         }
 
         return $out;
-    }
-
-    public function storeExpense(Request $request): RedirectResponse
-    {
-        Expense::create($this->validateExpense($request));
-
-        return back()->with('success', 'Đã thêm khoản chi.');
-    }
-
-    public function updateExpense(Request $request, Expense $expense): RedirectResponse
-    {
-        $expense->update($this->validateExpense($request));
-
-        return back()->with('success', 'Đã cập nhật khoản chi.');
-    }
-
-    public function destroyExpense(Expense $expense): RedirectResponse
-    {
-        $expense->delete();
-
-        return back()->with('success', 'Đã xoá khoản chi.');
-    }
-
-    /** @return array{spent_on: string, amount: int, category: string, note: ?string} */
-    private function validateExpense(Request $request): array
-    {
-        return $request->validate([
-            'spent_on' => ['required', 'date'],
-            'amount' => ['required', 'integer', 'min:1'],
-            'category' => ['required', 'in:'.implode(',', Expense::CATEGORIES)],
-            'note' => ['nullable', 'string', 'max:255'],
-        ], [
-            'spent_on.required' => 'Chọn ngày chi.',
-            'amount.required' => 'Nhập số tiền.',
-            'amount.min' => 'Số tiền phải lớn hơn 0.',
-            'category.in' => 'Loại chi phí không hợp lệ.',
-        ]);
     }
 }

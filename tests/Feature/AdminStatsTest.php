@@ -23,12 +23,13 @@ class AdminStatsTest extends TestCase
         return User::factory()->create(['is_admin' => true]);
     }
 
-    private function order(string $status, int $price, int $discount = 0): Order
+    private function order(string $status, int $price, int $discount = 0, int $extraFee = 0): Order
     {
         return Order::create([
             'customer_name' => 'Khách', 'customer_phone' => '0900000001',
             'start_date' => '2030-07-01', 'end_date' => '2030-07-03',
-            'total_price' => $price, 'discount_total' => $discount, 'deposit_total' => 100000,
+            'total_price' => $price, 'discount_total' => $discount, 'extra_fee' => $extraFee,
+            'deposit_total' => 100000,
             'status' => $status, 'payment_method' => 'cod',
         ]);
     }
@@ -44,21 +45,50 @@ class AdminStatsTest extends TestCase
             ->where('order_counts.total', 2)
             ->where('order_counts.today', 2)
             ->has('chart', 30)
-            ->has('categories', 5));
+            // Danh sách loại chi ĐÃ CHUYỂN sang màn Tài chính cùng form nhập
+            // (bopcamping-n4qy) — màn Thống kê không còn nhập chi phí nữa.
+            ->missing('categories'));
     }
 
-    /** @test */
-    public function revenue_counts_only_returned_orders_minus_discount(): void
+    /**
+     * Doanh thu = total_price + extra_fee − discount_total, chỉ đơn đã trả.
+     *
+     * extra_fee KHÁC 0 là điều kiện bắt buộc của test này: bản cũ tính
+     * total_price − discount_total, bỏ mất phụ phí giao hàng/ngoài khung giờ. Fixture
+     * không có phụ phí thì hai công thức ra cùng một số và test đậu kể cả khi code sai
+     * (đã đo: kiểm ngược không đỏ).
+     *
+     * @test
+     */
+    public function revenue_counts_only_returned_orders_including_extra_fee(): void
     {
-        $this->order('returned', 300000, 50000); // thu 250k
-        $this->order('confirmed', 500000);       // KHÔNG tính (chưa trả)
+        $this->order('returned', 300000, 50000, 40000); // 300k + 40k − 50k = 290k
+        $this->order('confirmed', 500000);              // KHÔNG tính (chưa trả)
         Expense::create(['spent_on' => now()->toDateString(), 'amount' => 80000, 'category' => 'repair']);
 
         $this->actingAs($this->admin())->get(route('admin.stats'))->assertInertia(fn (Assert $p) => $p
-            ->where('finance.revenue', 250000)
+            ->where('finance.revenue', 290000)
             ->where('finance.expense', 80000)
-            ->where('finance.profit', 170000)
+            ->where('finance.profit', 210000)
             ->where('finance.returned_count', 1));
+    }
+
+    /**
+     * Tổng thu của tháng phải BẰNG tổng các ngày cộng lại. Hai chỗ này từng dùng hai
+     * công thức khác nhau nên admin cộng tay bảng ngày lại không khớp ô tổng.
+     *
+     * @test
+     */
+    public function daily_revenue_rows_sum_to_the_headline_revenue(): void
+    {
+        $order = $this->order('returned', 300000, 50000, 40000);
+        $order->forceFill(['updated_at' => Carbon::now()])->saveQuietly();
+
+        $response = $this->actingAs($this->admin())->get(route('admin.stats', ['period' => 'all']));
+        $props = $response->viewData('page')['props'];
+
+        $this->assertSame(290000, $props['finance']['revenue']);
+        $this->assertSame(290000, array_sum(array_column($props['revenue_by_day'], 'total')));
     }
 
     /** @test */
