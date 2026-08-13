@@ -1,3 +1,7 @@
+import CapitalManager, {
+    type AdminOption,
+    type CapitalRow,
+} from '@/Components/admin/CapitalManager';
 import ExpenseManager, {
     type CategoryOption,
     type ExpenseRow,
@@ -80,6 +84,9 @@ type Props = PageProps<{
     by_category: CategoryStat[];
     expenses: { rows: ExpenseRow[]; total_count: number };
     categories: CategoryOption[];
+    capital: CapitalRow[];
+    admins: AdminOption[];
+    can_manage: boolean;
 }>;
 
 const PERIODS: { key: Props['period']; label: string }[] = [
@@ -103,6 +110,9 @@ export default function AdminFinance() {
         by_category,
         expenses,
         categories,
+        capital,
+        admins,
+        can_manage,
     } = usePage<Props>().props;
 
     const go = (p: Props['period']) =>
@@ -113,6 +123,7 @@ export default function AdminFinance() {
         );
 
     const profitPositive = overview.profit >= 0;
+    const hasCapital = overview.capital > 0;
 
     return (
         <>
@@ -130,27 +141,44 @@ export default function AdminFinance() {
                 {/* ── Vốn: bốn con số trả lời "tiền của tôi đang ở đâu" ── */}
                 <SectionTitle>Vốn</SectionTitle>
                 <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
+                    {/* Chưa khai vốn góp thì mọi con số dựa trên vốn đều vô nghĩa:
+                        "vốn còn lại −100.000đ", "vượt vốn"… Nói thẳng là chưa có dữ
+                        liệu thay vì in số đọc như đang lỗ. */}
                     <Tile
                         label="Vốn ban đầu"
-                        value={money(overview.capital)}
-                        hint="Số tiền bỏ ra lúc mở shop"
+                        value={hasCapital ? money(overview.capital) : '—'}
+                        hint={
+                            hasCapital
+                                ? 'Tổng vốn các thành viên đã góp'
+                                : 'Chưa khai vốn góp'
+                        }
                         color="#18230F"
                     />
                     <Tile
                         label="Đã chi"
                         value={money(overview.spent)}
-                        hint={`${pct(overview.spent, overview.capital)} vốn ban đầu`}
+                        hint={
+                            hasCapital
+                                ? `${pct(overview.spent, overview.capital)} vốn ban đầu`
+                                : 'Tổng khoản chi đã nhập'
+                        }
                         color={ORANGE}
                     />
                     <Tile
                         label="Vốn còn lại"
-                        value={money(overview.capital_left)}
+                        value={hasCapital ? money(overview.capital_left) : '—'}
                         hint={
-                            overview.capital_left < 0
-                                ? 'Đã tiêu quá vốn — phần vượt lấy từ tiền thu được'
-                                : 'Chưa tiêu đến'
+                            !hasCapital
+                                ? 'Cần khai vốn góp trước'
+                                : overview.capital_left < 0
+                                  ? 'Đã tiêu quá vốn — phần vượt lấy từ tiền thu được'
+                                  : 'Chưa tiêu đến'
                         }
-                        color={overview.capital_left < 0 ? RED : GREEN}
+                        color={
+                            hasCapital && overview.capital_left < 0
+                                ? RED
+                                : GREEN
+                        }
                     />
                     <Tile
                         label="Đã hoàn vốn"
@@ -271,11 +299,17 @@ export default function AdminFinance() {
 
                 <ProfitSharing sharing={sharing} />
 
-                <div className="mt-4">
+                <div className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-2">
+                    <CapitalManager
+                        rows={capital}
+                        admins={admins}
+                        canManage={can_manage}
+                    />
                     <ExpenseManager
                         expenses={expenses.rows}
                         categories={categories}
                         totalCount={expenses.total_count}
+                        canManage={can_manage}
                     />
                 </div>
             </div>
@@ -346,19 +380,27 @@ function CapitalBar({ overview }: { overview: Overview }) {
         overview.capital > 0 ? (overview.spent / overview.capital) * 100 : 0,
     );
     const paybackPct = Math.min(100, overview.payback_percent);
-    const over = overview.spent > overview.capital;
+    const hasCapital = overview.capital > 0;
+    // Chưa khai vốn thì mọi khoản chi đều "vượt vốn" về mặt số học — đừng báo động giả.
+    const over = hasCapital && overview.spent > overview.capital;
 
     return (
         <div className="rounded-[16px] border border-cardBorder bg-white p-5">
             <Bar
                 title="Vốn đã sử dụng"
-                right={`${money(overview.spent)} / ${money(overview.capital)}`}
-                percent={spentPct}
+                right={
+                    hasCapital
+                        ? `${money(overview.spent)} / ${money(overview.capital)}`
+                        : '—'
+                }
+                percent={hasCapital ? spentPct : 0}
                 color={over ? RED : ORANGE}
                 note={
-                    over
-                        ? `Vượt vốn ${money(overview.spent - overview.capital)} — phần vượt đang lấy từ tiền thu được.`
-                        : undefined
+                    !hasCapital
+                        ? 'Chưa khai vốn góp nên chưa so được đã tiêu bao nhiêu phần vốn.'
+                        : over
+                          ? `Vượt vốn ${money(overview.spent - overview.capital)} — phần vượt đang lấy từ tiền thu được.`
+                          : undefined
                 }
             />
             <div className="mt-4">
@@ -857,7 +899,15 @@ function ProfitSharing({ sharing }: { sharing: Sharing }) {
                 mới đem chia.
             </p>
 
-            {deficit > 0 && (
+            {partners.length === 0 && (
+                <div className="mb-4 rounded-[12px] border border-[#f0dcc9] bg-[#fdf6ee] px-4 py-3 text-[12.5px] text-[#8a5a22]">
+                    <b>Chưa khai vốn góp.</b> Mọi tỉ lệ chia lợi nhuận tính từ
+                    sổ vốn góp — nhập ở khối <b>Quản lý vốn góp</b> bên dưới thì
+                    phần này mới có số.
+                </div>
+            )}
+
+            {partners.length > 0 && deficit > 0 && (
                 <div className="mb-4 rounded-[12px] border border-[#f0dcc9] bg-[#fdf6ee] px-4 py-3 text-[12.5px] text-[#8a5a22]">
                     <b>Chưa chia được đồng nào.</b> Shop đang lỗ luỹ kế{' '}
                     <b>{money(deficit)}</b> — lãi các tháng tới sẽ dùng để bù

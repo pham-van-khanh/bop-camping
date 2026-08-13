@@ -147,6 +147,22 @@ const setProps = (over: Record<string, unknown> = {}) => {
             { value: 'equipment', label: 'Mua thiết bị', color: '#557A2B' },
             { value: 'shipping', label: 'Vận chuyển', color: '#4A7C9B' },
         ],
+        capital: [
+            {
+                id: 1,
+                user_id: 11,
+                user_name: 'Admin A',
+                amount: 40_000_000,
+                contributed_on: '2026-06-01',
+                contributed_on_label: '01/06/2026',
+                note: 'Vốn ban đầu',
+            },
+        ],
+        admins: [
+            { id: 11, name: 'Admin A' },
+            { id: 12, name: 'Admin B' },
+        ],
+        can_manage: true,
         ...over,
     };
 };
@@ -372,5 +388,97 @@ describe('khối chia lợi nhuận', () => {
         expect(
             screen.queryByText(/Chưa chia được đồng nào/i),
         ).not.toBeInTheDocument();
+    });
+
+    it('chưa khai vốn góp thì nói rõ phải nhập trước, không hiện bảng rỗng khó hiểu', () => {
+        setProps({
+            sharing: {
+                ...sharing,
+                partners: [],
+                rows: [],
+                reserve_total: 0,
+                distributed_total: 0,
+            },
+            capital: [],
+        });
+        render(<AdminFinance />);
+
+        expect(screen.getByText(/Chưa khai vốn góp\./i)).toBeInTheDocument();
+    });
+});
+
+describe('phân quyền super admin', () => {
+    it('super admin thấy form nhập khoản chi và vốn góp', () => {
+        setProps();
+        render(<AdminFinance />);
+
+        expect(screen.getByLabelText('Số tiền')).toBeInTheDocument();
+        expect(screen.getByLabelText('Người góp vốn')).toBeInTheDocument();
+        expect(screen.getByText('Quản lý khoản chi')).toBeInTheDocument();
+        expect(screen.getByText('Quản lý vốn góp')).toBeInTheDocument();
+    });
+
+    it('admin thường KHÔNG thấy form nhập, chỉ thấy số liệu', () => {
+        setProps({
+            can_manage: false,
+            expenses: {
+                rows: [
+                    {
+                        id: 1,
+                        spent_on: '2026-08-01',
+                        spent_on_label: '01/08/2026',
+                        amount: 2_000_000,
+                        category: 'equipment',
+                        category_label: 'Mua thiết bị',
+                        note: null,
+                    },
+                ],
+                total_count: 1,
+            },
+        });
+        render(<AdminFinance />);
+
+        // Form biến mất hoàn toàn — không render chứ không phải ẩn bằng CSS, vì class
+        // `grid` sẽ đè mất thuộc tính hidden.
+        expect(screen.queryByLabelText('Số tiền')).not.toBeInTheDocument();
+        expect(
+            screen.queryByLabelText('Người góp vốn'),
+        ).not.toBeInTheDocument();
+        expect(screen.queryByText('Thêm khoản chi')).not.toBeInTheDocument();
+        expect(screen.queryByText('Thêm vốn góp')).not.toBeInTheDocument();
+
+        // Nút Sửa/Xoá trên từng dòng cũng phải biến mất.
+        expect(screen.queryByText('Sửa')).not.toBeInTheDocument();
+        expect(screen.queryByText('Xoá')).not.toBeInTheDocument();
+
+        // Nhưng SỐ LIỆU vẫn xem được đầy đủ — hai người góp vốn đều là chủ.
+        expect(tileValue('Vốn ban đầu')).toBe('70.000.000đ');
+        const expenseCard = screen
+            .getByRole('heading', { name: 'Khoản chi' })
+            .closest('div')!.parentElement!;
+        expect(within(expenseCard).getByText('2.000.000đ')).toBeInTheDocument();
+        expect(
+            screen.getAllByText(/Chỉ super admin/i).length,
+        ).toBeGreaterThanOrEqual(2);
+    });
+
+    it('sổ vốn góp hiện đủ ai góp bao nhiêu, ngày nào', () => {
+        setProps();
+        render(<AdminFinance />);
+
+        const card = screen
+            .getByRole('heading', { name: 'Quản lý vốn góp' })
+            .closest('div')!.parentElement!;
+
+        // Mỗi giá trị xuất hiện ở nhiều chỗ trong thẻ (ô "Tổng" ở đầu, <option> của ô
+        // chọn người góp), nên chỉ soi các ô TD của dòng trong sổ.
+        const cell = (pattern: RegExp) =>
+            within(card)
+                .getAllByText(pattern)
+                .find((e) => e.tagName === 'TD');
+
+        expect(cell(/01\/06\/2026/)).toBeTruthy();
+        expect(cell(/Admin A/)).toBeTruthy();
+        expect(cell(/^40\.000\.000đ$/)).toBeTruthy();
     });
 });

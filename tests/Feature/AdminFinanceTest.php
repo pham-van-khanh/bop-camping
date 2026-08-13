@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\CapitalContribution;
 use App\Models\Expense;
 use App\Models\Order;
 use App\Models\User;
@@ -18,9 +19,44 @@ class AdminFinanceTest extends TestCase
 {
     use RefreshDatabase;
 
+    /** Admin thường: xem được màn Tài chính nhưng KHÔNG sửa được số liệu. */
     private function admin(): User
     {
         return User::factory()->create(['is_admin' => true]);
+    }
+
+    /** Super admin: tài khoản duy nhất được sửa khoản chi và vốn góp. */
+    private function superAdmin(): User
+    {
+        $u = User::factory()->create(['is_admin' => true]);
+        $u->forceFill(['is_super_admin' => true])->save();
+
+        return $u;
+    }
+
+    /** Ghi một lần góp vốn cho $user. */
+    private function contribute(User $user, int $amount, ?string $on = null): CapitalContribution
+    {
+        return CapitalContribution::create([
+            'user_id' => $user->id,
+            'amount' => $amount,
+            'contributed_on' => $on ?? '2026-06-01',
+        ]);
+    }
+
+    /**
+     * Hai thành viên góp 40tr/30tr như thoả thuận thật — dùng cho test chia lợi nhuận.
+     *
+     * @return array{0: User, 1: User}
+     */
+    private function twoPartners(): array
+    {
+        $a = User::factory()->create(['is_admin' => true, 'name' => 'Admin A']);
+        $b = User::factory()->create(['is_admin' => true, 'name' => 'Admin B']);
+        $this->contribute($a, 40_000_000);
+        $this->contribute($b, 30_000_000);
+
+        return [$a, $b];
     }
 
     /** @param  array<string, mixed>  $extra */
@@ -54,7 +90,7 @@ class AdminFinanceTest extends TestCase
         $this->actingAs($this->admin())->get(route('admin.finance'))
             ->assertInertia(fn (Assert $p) => $p
                 ->component('Admin/Finance')
-                ->where('overview.capital', FinanceService::capital())
+                ->where('overview.capital', $this->finance()->capital())
                 ->has('categories', count(Expense::CATEGORIES))
                 ->has('overview')
                 ->has('monthly')
@@ -129,6 +165,7 @@ class AdminFinanceTest extends TestCase
     /** @test */
     public function overview_reports_capital_usage_and_payback(): void
     {
+        $this->twoPartners();   // 40tr + 30tr = 70tr vốn
         $this->spend(20_000_000, 'equipment');
         $this->spend(10_000_000, 'shipping');
         $this->order('returned', 15_000_000);
@@ -151,6 +188,7 @@ class AdminFinanceTest extends TestCase
      */
     public function capital_left_goes_negative_when_overspending(): void
     {
+        $this->twoPartners();
         $this->spend(90_000_000);
 
         $this->assertSame(-20_000_000, $this->finance()->overview()['capital_left']);
@@ -224,7 +262,7 @@ class AdminFinanceTest extends TestCase
     /** @test */
     public function new_categories_contingency_and_operation_are_accepted(): void
     {
-        $admin = $this->admin();
+        $admin = $this->superAdmin();
 
         foreach (['contingency', 'operation'] as $category) {
             $this->actingAs($admin)->post(route('admin.expenses.store'), [
@@ -240,7 +278,7 @@ class AdminFinanceTest extends TestCase
     /** @test */
     public function admin_can_add_update_and_delete_expense_from_finance_screen(): void
     {
-        $admin = $this->admin();
+        $admin = $this->superAdmin();
 
         $this->actingAs($admin)->post(route('admin.expenses.store'), [
             'spent_on' => '2026-08-01', 'amount' => 20_000_000,
@@ -262,9 +300,192 @@ class AdminFinanceTest extends TestCase
     /** @test */
     public function expense_validation_rejects_bad_input(): void
     {
-        $this->actingAs($this->admin())->post(route('admin.expenses.store'), [
+        $this->actingAs($this->superAdmin())->post(route('admin.expenses.store'), [
             'spent_on' => '', 'amount' => 0, 'category' => 'khong-ton-tai',
         ])->assertSessionHasErrors(['spent_on', 'amount', 'category']);
+    }
+
+    /* ──────────────── Phân quyền super admin (bopcamping-n4qy) ──────────────── */
+
+    /**
+     * Admin thường VẪN XEM được toàn bộ số liệu — hai người góp vốn đều là chủ.
+     *
+     * @test
+     */
+    public function a_plain_admin_can_still_view_the_finance_screen(): void
+    {
+        $this->actingAs($this->admin())->get(route('admin.finance'))
+            ->assertOk()
+            ->assertInertia(fn (Assert $p) => $p
+                ->where('can_manage', false)
+                ->has('overview')
+                ->has('sharing'));
+    }
+
+    /** @test */
+    public function super_admin_sees_the_manage_flag(): void
+    {
+        $this->actingAs($this->superAdmin())->get(route('admin.finance'))
+            ->assertInertia(fn (Assert $p) => $p->where('can_manage', true));
+    }
+
+    /**
+     * Chặn phải nằm ở SERVER, không chỉ ẩn nút.
+     *
+     * Ẩn form trên giao diện chỉ ngăn người dùng bấm nhầm — ai biết URL vẫn POST thẳng
+     * được. Test này gọi đúng như một request tay để chắc middleware thật sự chặn.
+     *
+     * @test
+     */
+    public function a_plain_admin_cannot_write_any_finance_data(): void
+    {
+        $admin = $this->admin();
+        $expense = $this->spend(1_000_000);
+        $capital = $this->contribute($admin, 5_000_000);
+
+        $this->actingAs($admin)->post(route('admin.expenses.store'), [
+            'spent_on' => '2026-08-01', 'amount' => 1_000, 'category' => 'other',
+        ])->assertForbidden();
+
+        $this->actingAs($admin)->put(route('admin.expenses.update', $expense), [
+            'spent_on' => '2026-08-01', 'amount' => 9_999, 'category' => 'other',
+        ])->assertForbidden();
+
+        $this->actingAs($admin)->delete(route('admin.expenses.destroy', $expense))
+            ->assertForbidden();
+
+        $this->actingAs($admin)->post(route('admin.capital.store'), [
+            'user_id' => $admin->id, 'amount' => 1_000, 'contributed_on' => '2026-08-01',
+        ])->assertForbidden();
+
+        $this->actingAs($admin)->put(route('admin.capital.update', $capital), [
+            'user_id' => $admin->id, 'amount' => 9_999, 'contributed_on' => '2026-08-01',
+        ])->assertForbidden();
+
+        $this->actingAs($admin)->delete(route('admin.capital.destroy', $capital))
+            ->assertForbidden();
+
+        // Không có gì bị đổi sau 6 lần thử.
+        $this->assertSame(1_000_000, $expense->fresh()->amount);
+        $this->assertSame(5_000_000, $capital->fresh()->amount);
+        $this->assertSame(1, Expense::count());
+        $this->assertSame(1, CapitalContribution::count());
+    }
+
+    /* ──────────────── Sổ vốn góp (bopcamping-n4qy) ──────────────── */
+
+    /** @test */
+    public function super_admin_can_add_update_and_delete_capital(): void
+    {
+        $super = $this->superAdmin();
+
+        $this->actingAs($super)->post(route('admin.capital.store'), [
+            'user_id' => $super->id, 'amount' => 40_000_000,
+            'contributed_on' => '2026-06-01', 'note' => 'Vốn ban đầu',
+        ])->assertRedirect();
+
+        $row = CapitalContribution::firstOrFail();
+        $this->assertSame(40_000_000, $row->amount);
+
+        $this->actingAs($super)->put(route('admin.capital.update', $row), [
+            'user_id' => $super->id, 'amount' => 45_000_000, 'contributed_on' => '2026-06-02',
+        ])->assertRedirect();
+        $this->assertSame(45_000_000, $row->fresh()->amount);
+
+        $this->actingAs($super)->delete(route('admin.capital.destroy', $row))->assertRedirect();
+        $this->assertSame(0, CapitalContribution::count());
+    }
+
+    /**
+     * Vốn góp chỉ gắn được vào tài khoản QUẢN TRỊ — trỏ vào khách hàng là sai mô hình.
+     *
+     * @test
+     */
+    public function capital_can_only_belong_to_an_admin_account(): void
+    {
+        $customer = User::factory()->create(['is_admin' => false]);
+
+        $this->actingAs($this->superAdmin())->post(route('admin.capital.store'), [
+            'user_id' => $customer->id, 'amount' => 1_000_000, 'contributed_on' => '2026-06-01',
+        ])->assertSessionHasErrors('user_id');
+
+        $this->assertSame(0, CapitalContribution::count());
+    }
+
+    /** @test */
+    public function capital_validation_rejects_bad_input(): void
+    {
+        $this->actingAs($this->superAdmin())->post(route('admin.capital.store'), [
+            'user_id' => '', 'amount' => 0, 'contributed_on' => '',
+        ])->assertSessionHasErrors(['user_id', 'amount', 'contributed_on']);
+    }
+
+    /**
+     * GÓP THÊM cộng dồn, không ghi đè — đây là lý do dùng sổ thay vì một con số mỗi người.
+     *
+     * @test
+     */
+    public function extra_contributions_add_up_and_reshuffle_the_percentages(): void
+    {
+        [$a, $b] = $this->twoPartners();          // 40tr / 30tr
+        $this->contribute($a, 10_000_000, '2026-09-01');  // A góp thêm 10tr
+
+        $this->assertSame(80_000_000, $this->finance()->capital());
+
+        $partners = collect($this->finance()->profitSharing()['partners'])->keyBy('name');
+        $this->assertSame(50_000_000, $partners['Admin A']['capital']);
+        $this->assertSame(62.5, $partners['Admin A']['capital_percent']);
+        $this->assertSame(37.5, $partners['Admin B']['capital_percent']);
+    }
+
+    /**
+     * Thêm THÀNH VIÊN THỨ BA là tỉ lệ tự tính lại — không phải sửa code.
+     *
+     * @test
+     */
+    public function a_third_partner_reshapes_the_split_without_touching_code(): void
+    {
+        [$a, $b] = $this->twoPartners();
+        $c = User::factory()->create(['is_admin' => true, 'name' => 'Admin C']);
+        $this->contribute($c, 30_000_000, '2026-10-01');
+
+        $s = $this->finance()->profitSharing();
+        $this->assertCount(3, $s['partners']);
+        $this->assertSame(100_000_000, $this->finance()->capital());
+
+        $byName = collect($s['partners'])->keyBy('name');
+        $this->assertSame(40.0, $byName['Admin A']['capital_percent']);
+        $this->assertSame(30.0, $byName['Admin B']['capital_percent']);
+        $this->assertSame(30.0, $byName['Admin C']['capital_percent']);
+
+        // Tổng chia vẫn khớp tuyệt đối khi có 3 người.
+        $this->revenueIn('2026-11', 10_000_000);
+        $row = collect($this->finance()->profitSharing()['rows'])->firstWhere('month', '2026-11');
+        $this->assertSame(
+            $row['distributable'],
+            $row['reserve'] + array_sum($row['shares']),
+            'quỹ + 3 phần chia phải bằng đúng số đem chia'
+        );
+    }
+
+    /**
+     * Chưa khai vốn góp thì KHÔNG được nổ vì chia cho 0 — màn phải render trạng thái rỗng.
+     *
+     * @test
+     */
+    public function no_capital_yet_does_not_divide_by_zero(): void
+    {
+        $this->spend(5_000_000);
+        $this->revenueIn('2026-08', 1_000_000);
+
+        $s = $this->finance()->profitSharing();
+
+        $this->assertSame(0, $this->finance()->capital());
+        $this->assertSame([], $s['partners']);
+        $this->assertSame([], $s['rows']);
+        $this->assertSame(4_000_000, $s['deficit']);
+
+        $this->actingAs($this->admin())->get(route('admin.finance'))->assertOk();
     }
 
     /* ───────────────── Chia lợi nhuận (bopcamping-n4qy) ───────────────── */
@@ -279,9 +500,11 @@ class AdminFinanceTest extends TestCase
     /** @test */
     public function partner_percentages_derive_from_contributed_capital(): void
     {
+        $this->twoPartners();
+
         $s = $this->finance()->profitSharing();
-        $a = collect($s['partners'])->firstWhere('key', 'a');
-        $b = collect($s['partners'])->firstWhere('key', 'b');
+        $a = collect($s['partners'])->firstWhere('name', 'Admin A');
+        $b = collect($s['partners'])->firstWhere('name', 'Admin B');
 
         // 40/70 và 30/70, KHÔNG phải 57/43 làm tròn.
         $this->assertSame(57.14, $a['capital_percent']);
@@ -290,7 +513,7 @@ class AdminFinanceTest extends TestCase
         $this->assertSame(25.71, $a['profit_percent']);
         $this->assertSame(19.29, $b['profit_percent']);
         $this->assertSame(55.0, $s['reserve_percent']);
-        $this->assertSame(70_000_000, FinanceService::capital());
+        $this->assertSame(70_000_000, $this->finance()->capital());
     }
 
     /**
@@ -300,6 +523,7 @@ class AdminFinanceTest extends TestCase
      */
     public function profit_splits_55_percent_to_reserve_and_the_rest_by_capital(): void
     {
+        [$a, $b] = $this->twoPartners();
         $this->revenueIn('2026-08', 10_000_000); // không có chi phí -> lãi trọn 10tr
 
         $row = collect($this->finance()->profitSharing()['rows'])->firstWhere('month', '2026-08');
@@ -307,8 +531,8 @@ class AdminFinanceTest extends TestCase
         $this->assertSame(10_000_000, $row['profit']);
         $this->assertSame(10_000_000, $row['distributable']);
         $this->assertSame(5_500_000, $row['reserve']);          // 55%
-        $this->assertSame(2_571_429, $row['shares']['a']);      // 4,5tr × 40/70
-        $this->assertSame(1_928_571, $row['shares']['b']);      // 4,5tr × 30/70
+        $this->assertSame(2_571_429, $row['shares'][(string) $a->id]);  // 4,5tr × 40/70
+        $this->assertSame(1_928_571, $row['shares'][(string) $b->id]);  // 4,5tr × 30/70
     }
 
     /**
@@ -320,6 +544,7 @@ class AdminFinanceTest extends TestCase
      */
     public function reserve_plus_shares_always_equals_the_distributable_amount(): void
     {
+        [$a, $b] = $this->twoPartners();
         foreach ([1, 7, 999, 1_000_001, 3_333_333, 12_345_678] as $i => $profit) {
             Expense::query()->delete();
             Order::query()->delete();
@@ -327,7 +552,7 @@ class AdminFinanceTest extends TestCase
 
             $row = collect($this->finance()->profitSharing()['rows'])->firstWhere('profit', $profit);
 
-            $sum = $row['reserve'] + $row['shares']['a'] + $row['shares']['b'];
+            $sum = $row['reserve'] + $row['shares'][(string) $a->id] + $row['shares'][(string) $b->id];
             $this->assertSame($profit, $sum, "lệch ở mức lãi $profit");
         }
     }
@@ -342,6 +567,7 @@ class AdminFinanceTest extends TestCase
      */
     public function profit_must_first_cover_the_accumulated_loss(): void
     {
+        [$a, $b] = $this->twoPartners();
         $this->spend(8_000_000, 'equipment', '2026-06-10'); // T6 lỗ 8tr
         $this->revenueIn('2026-07', 5_000_000);             // T7 lãi 5tr -> bù hết, còn nợ 3tr
         $this->revenueIn('2026-08', 5_000_000);             // T8 lãi 5tr -> bù 3tr, dư 2tr
@@ -354,14 +580,14 @@ class AdminFinanceTest extends TestCase
         // T7: lãi 5tr nhưng đang nợ 8tr -> bù sạch, không chia đồng nào.
         $this->assertSame(5_000_000, $rows['2026-07']['offset']);
         $this->assertSame(0, $rows['2026-07']['distributable']);
-        $this->assertSame(0, $rows['2026-07']['shares']['a']);
+        $this->assertSame(0, $rows['2026-07']['shares'][(string) $a->id]);
 
         // T8: bù nốt 3tr, còn 2tr mới đem chia.
         $this->assertSame(3_000_000, $rows['2026-08']['offset']);
         $this->assertSame(2_000_000, $rows['2026-08']['distributable']);
         $this->assertSame(1_100_000, $rows['2026-08']['reserve']);
-        $this->assertSame(514_286, $rows['2026-08']['shares']['a']);
-        $this->assertSame(385_714, $rows['2026-08']['shares']['b']);
+        $this->assertSame(514_286, $rows['2026-08']['shares'][(string) $a->id]);
+        $this->assertSame(385_714, $rows['2026-08']['shares'][(string) $b->id]);
     }
 
     /**
@@ -372,6 +598,7 @@ class AdminFinanceTest extends TestCase
      */
     public function a_later_loss_becomes_deficit_again(): void
     {
+        $this->twoPartners();
         $this->revenueIn('2026-06', 10_000_000);              // lãi 10tr, chia hết
         $this->spend(4_000_000, 'repair', '2026-07-05');      // lỗ 4tr
 
@@ -385,6 +612,7 @@ class AdminFinanceTest extends TestCase
     /** @test */
     public function nothing_is_distributed_while_still_in_the_red(): void
     {
+        $this->twoPartners();
         $this->spend(30_000_000, 'equipment', '2026-06-10');
         $this->revenueIn('2026-07', 5_000_000);
 
@@ -398,6 +626,7 @@ class AdminFinanceTest extends TestCase
     /** @test */
     public function totals_match_the_sum_of_every_month(): void
     {
+        [$a, $b] = $this->twoPartners();
         $this->revenueIn('2026-06', 10_000_000);
         $this->revenueIn('2026-07', 7_000_000);
 
@@ -406,7 +635,7 @@ class AdminFinanceTest extends TestCase
 
         $this->assertSame((int) $rows->sum('reserve'), $s['reserve_total']);
         $this->assertSame(
-            (int) $rows->sum(fn ($r) => $r['shares']['a'] + $r['shares']['b']),
+            (int) $rows->sum(fn ($r) => $r['shares'][(string) $a->id] + $r['shares'][(string) $b->id]),
             $s['distributed_total']
         );
         // Quỹ + chia = đúng phần lãi đã đem chia, không thừa không thiếu.
@@ -416,6 +645,7 @@ class AdminFinanceTest extends TestCase
     /** @test */
     public function sharing_prop_is_exposed_to_the_screen(): void
     {
+        $this->twoPartners();
         $this->actingAs($this->admin())->get(route('admin.finance'))
             ->assertInertia(fn (Assert $p) => $p
                 ->has('sharing.partners', 2)
@@ -433,6 +663,7 @@ class AdminFinanceTest extends TestCase
      */
     public function period_filter_narrows_the_period_block_but_not_the_capital_block(): void
     {
+        $this->twoPartners();
         $this->spend(8_000_000, 'equipment', now()->subMonths(6)->toDateString());
         $this->spend(2_000_000, 'marketing', now()->toDateString());
 

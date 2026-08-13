@@ -3,11 +3,14 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\CapitalContribution;
 use App\Models\Expense;
+use App\Models\User;
 use App\Services\FinanceService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -55,6 +58,77 @@ class FinanceController extends Controller
             'by_category' => $this->finance->expenseByCategory($from),
             'expenses' => $this->expenseRows($from),
             'categories' => Expense::categoryOptions(),
+            'capital' => $this->capitalRows(),
+            // Admin thường VẪN xem được toàn bộ số liệu (hai người góp vốn đều là chủ),
+            // chỉ super admin mới sửa. FE ẩn form/nút theo cờ này; chặn thật nằm ở
+            // middleware 'super-admin' trên route ghi — cờ này chỉ để đỡ mời gọi bấm.
+            'can_manage' => (bool) $request->user()?->is_super_admin,
+            'admins' => User::where('is_admin', true)
+                ->orderBy('name')
+                ->get(['id', 'name'])
+                ->map(fn (User $u) => ['id' => $u->id, 'name' => $u->name])
+                ->values(),
+        ]);
+    }
+
+    /**
+     * Sổ góp vốn, mới nhất trước — kèm tổng của từng người để đối chiếu với tỉ lệ chia.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function capitalRows(): array
+    {
+        return CapitalContribution::with('user:id,name')
+            ->orderByDesc('contributed_on')->orderByDesc('id')
+            ->get()
+            ->map(fn (CapitalContribution $c) => [
+                'id' => $c->id,
+                'user_id' => $c->user_id,
+                'user_name' => $c->user?->name ?? 'Đã xoá',
+                'amount' => $c->amount,
+                'contributed_on' => $c->contributed_on->format('Y-m-d'),
+                'contributed_on_label' => $c->contributed_on->format('d/m/Y'),
+                'note' => $c->note,
+            ])->values()->all();
+    }
+
+    public function storeCapital(Request $request): RedirectResponse
+    {
+        CapitalContribution::create($this->validateCapital($request));
+
+        return back()->with('success', 'Đã ghi nhận vốn góp.');
+    }
+
+    public function updateCapital(Request $request, CapitalContribution $capital): RedirectResponse
+    {
+        $capital->update($this->validateCapital($request));
+
+        return back()->with('success', 'Đã cập nhật vốn góp.');
+    }
+
+    public function destroyCapital(CapitalContribution $capital): RedirectResponse
+    {
+        $capital->delete();
+
+        return back()->with('success', 'Đã xoá khoản góp vốn.');
+    }
+
+    /** @return array{user_id: int, amount: int, contributed_on: string, note: ?string} */
+    private function validateCapital(Request $request): array
+    {
+        return $request->validate([
+            // Chỉ nhận tài khoản ĐANG là admin: vốn góp gắn với người quản trị shop,
+            // trỏ vào một khách hàng bất kỳ là sai mô hình.
+            'user_id' => ['required', Rule::exists('users', 'id')->where('is_admin', true)],
+            'amount' => ['required', 'integer', 'min:1'],
+            'contributed_on' => ['required', 'date'],
+            'note' => ['nullable', 'string', 'max:255'],
+        ], [
+            'user_id.required' => 'Chọn người góp vốn.',
+            'user_id.exists' => 'Người góp vốn phải là một tài khoản quản trị.',
+            'amount.required' => 'Nhập số tiền góp.',
+            'amount.min' => 'Số tiền phải lớn hơn 0.',
+            'contributed_on.required' => 'Chọn ngày góp.',
         ]);
     }
 

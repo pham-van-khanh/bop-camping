@@ -55,6 +55,9 @@ class User extends Authenticatable
         'is_admin',
         // Vai shipper — người đi giao/thu đồ (bopcamping-xdvx).
         'is_shipper',
+        // 'is_super_admin' CỐ Ý không nằm ở đây (bopcamping-n4qy): đây là cờ quyền cao
+        // nhất, để mass-assign được thì bất kỳ form admin nào lỡ nhận thừa một trường
+        // cũng thành đường tự phong quyền. Đổi super admin bằng tay ở DB.
     ];
 
     /**
@@ -79,6 +82,7 @@ class User extends Authenticatable
             'password' => 'hashed',
             'is_admin' => 'boolean',
             'is_shipper' => 'boolean',
+            'is_super_admin' => 'boolean',
         ];
     }
 

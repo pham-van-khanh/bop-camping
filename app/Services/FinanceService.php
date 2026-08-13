@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\CapitalContribution;
 use App\Models\Expense;
 use App\Models\Order;
 use Illuminate\Support\Carbon;
@@ -18,20 +19,6 @@ use Illuminate\Support\Collection;
 class FinanceService
 {
     /**
-     * Các thành viên góp vốn, VND (bopcamping-n4qy).
-     *
-     * ⚠️ ĐÂY LÀ CHỖ DUY NHẤT khai vốn — góp thêm/đổi tên thì sửa ở đây rồi deploy lại.
-     *
-     * Lưu SỐ TIỀN GÓP chứ không lưu phần trăm: 40/70 = 57,142857…% chứ không phải 57%
-     * chẵn. Ghi 57/43 rồi nhân lên thì mỗi tháng lệch vài nghìn và tổng không bao giờ
-     * khớp với số đem chia. Phần trăm luôn suy ra từ hai con số này.
-     */
-    public const PARTNERS = [
-        'a' => ['name' => 'Admin A', 'capital' => 40_000_000],
-        'b' => ['name' => 'Admin B', 'capital' => 30_000_000],
-    ];
-
-    /**
      * Phần lợi nhuận giữ lại làm QUỸ DỰ PHÒNG, phần còn lại chia theo tỉ lệ góp vốn.
      *
      * Lưu ý phân biệt với loại chi phí 'contingency' (nhãn "Chi dự phòng") — cái đó là
@@ -39,15 +26,39 @@ class FinanceService
      */
     public const RESERVE_RATE = 0.55;
 
+    /** @var Collection<int, object>|null Vốn góp gom theo người, memoize trong 1 request. */
+    private ?Collection $capitalRows = null;
+
     /**
-     * Tổng vốn — SUY RA từ PARTNERS, không khai riêng.
+     * Vốn góp gom theo từng người, nhiều nhất trước (bopcamping-n4qy).
      *
-     * Khai thành hằng số thứ hai là sớm muộn cũng lệch: sửa vốn của một người mà quên
-     * sửa tổng thì mọi tỉ lệ sai âm thầm.
+     * Đọc từ bảng capital_contributions — trước đây ghi cứng trong hằng số PARTNERS,
+     * chuyển sang DB để chủ shop tự nâng vốn / thêm thành viên mà không phải sửa code.
+     * Thêm người thứ ba chỉ là thêm dòng, mọi tỉ lệ tự tính lại.
+     *
+     * @return Collection<int, object>
      */
-    public static function capital(): int
+    public function capitalRows(): Collection
     {
-        return array_sum(array_column(self::PARTNERS, 'capital'));
+        return $this->capitalRows ??= CapitalContribution::query()
+            ->join('users', 'users.id', '=', 'capital_contributions.user_id')
+            ->groupBy('users.id', 'users.name')
+            ->selectRaw('users.id as user_id, users.name as name, SUM(capital_contributions.amount) as total')
+            ->orderByDesc('total')
+            ->orderBy('users.name')
+            ->get()
+            ->map(fn ($r) => (object) ['user_id' => (int) $r->user_id, 'name' => $r->name, 'total' => (int) $r->total]);
+    }
+
+    /**
+     * Tổng vốn — SUY RA từ sổ góp vốn, không lưu riêng.
+     *
+     * Lưu thành cột/hằng số thứ hai là sớm muộn cũng lệch: thêm một dòng góp mà quên
+     * cập nhật tổng thì mọi tỉ lệ sai âm thầm.
+     */
+    public function capital(): int
+    {
+        return (int) $this->capitalRows()->sum('total');
     }
 
     /**
@@ -134,10 +145,10 @@ class FinanceService
         $profit = $revenue - $spent;
 
         return [
-            'capital' => self::capital(),
+            'capital' => $this->capital(),
             'spent' => $spent,
             // Âm = đã tiêu quá vốn ban đầu, tức đang tái đầu tư bằng tiền thu được.
-            'capital_left' => self::capital() - $spent,
+            'capital_left' => $this->capital() - $spent,
             'revenue' => $revenue,
             'profit' => $profit,
             // "Đã thu về bao nhiêu % số tiền đã bỏ ra" — chưa chi đồng nào thì chưa có
@@ -236,14 +247,30 @@ class FinanceService
      */
     public function profitSharing(): array
     {
-        $capital = self::capital();
-        $keys = array_keys(self::PARTNERS);
+        $capital = $this->capital();
+        $members = $this->capitalRows();
+        // Khoá dùng ở FE là user_id dạng chuỗi — tên có thể trùng nhau, id thì không.
+        $keys = $members->pluck('user_id')->map(fn (int $id) => (string) $id)->all();
         $lastKey = end($keys);
 
         $deficit = 0;              // lỗ luỹ kế còn phải bù
         $reserveTotal = 0;
         $totals = array_fill_keys($keys, 0);
         $rows = [];
+
+        // Chưa ai khai vốn góp thì không có gì để chia — và quan trọng hơn, chia cho
+        // $capital = 0 sẽ nổ. Vẫn phải trả về cấu trúc đầy đủ để màn hình render được
+        // trạng thái rỗng thay vì trắng trang.
+        if ($capital <= 0) {
+            return [
+                'partners' => [],
+                'reserve_percent' => round(self::RESERVE_RATE * 100, 2),
+                'reserve_total' => 0,
+                'distributed_total' => 0,
+                'deficit' => max(0, $this->expenseTotal() - $this->revenue()),
+                'rows' => [],
+            ];
+        }
 
         foreach ($this->monthlySeries(null) as $m) {
             $profit = $m['profit'];
@@ -263,12 +290,13 @@ class FinanceService
 
             $shares = [];
             $allocated = 0;
-            foreach ($keys as $k) {
+            foreach ($members as $member) {
+                $k = (string) $member->user_id;
                 if ($k === $lastKey) {
                     // Người cuối nhận phần dư → Σ shares == $toPartners tuyệt đối.
                     $shares[$k] = $toPartners - $allocated;
                 } else {
-                    $shares[$k] = (int) round($toPartners * self::PARTNERS[$k]['capital'] / $capital);
+                    $shares[$k] = (int) round($toPartners * $member->total / $capital);
                     $allocated += $shares[$k];
                 }
                 $totals[$k] += $shares[$k];
@@ -287,15 +315,15 @@ class FinanceService
         }
 
         $partners = [];
-        foreach (self::PARTNERS as $k => $p) {
-            $capitalPercent = round($p['capital'] / $capital * 100, 2);
+        foreach ($members as $member) {
+            $k = (string) $member->user_id;
             $partners[] = [
                 'key' => $k,
-                'name' => $p['name'],
-                'capital' => $p['capital'],
-                'capital_percent' => $capitalPercent,
+                'name' => $member->name,
+                'capital' => $member->total,
+                'capital_percent' => round($member->total / $capital * 100, 2),
                 // Phần thực nhận trên TỔNG lợi nhuận = 45% × tỉ lệ góp vốn.
-                'profit_percent' => round((1 - self::RESERVE_RATE) * $p['capital'] / $capital * 100, 2),
+                'profit_percent' => round((1 - self::RESERVE_RATE) * $member->total / $capital * 100, 2),
                 'total' => $totals[$k],
             ];
         }

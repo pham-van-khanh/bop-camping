@@ -119,10 +119,20 @@ Route::middleware(['admin'])->prefix('admin')->name('admin.')->group(function ()
     // Tài chính: vốn, thu-chi, lợi nhuận, hoàn vốn + quản lý khoản chi (bopcamping-n4qy).
     // Route chi phí chuyển từ StatsController sang đây cùng với form nhập — giữ nguyên
     // tên route admin.expenses.* nên FE và test cũ không phải sửa đường dẫn.
+    // XEM: mọi admin (hai người góp vốn đều là chủ, cùng cần thấy số).
     Route::get('/tai-chinh', [AdminFinanceController::class, 'index'])->name('finance');
-    Route::post('/expenses', [AdminFinanceController::class, 'storeExpense'])->name('expenses.store')->middleware('throttle:60,1');
-    Route::put('/expenses/{expense}', [AdminFinanceController::class, 'updateExpense'])->name('expenses.update')->middleware('throttle:60,1');
-    Route::delete('/expenses/{expense}', [AdminFinanceController::class, 'destroyExpense'])->name('expenses.destroy');
+
+    // SỬA: chỉ super admin (bopcamping-n4qy). Chặn ở đây chứ không chỉ ẩn nút trên FE —
+    // ẩn nút chỉ là giao diện, ai biết URL vẫn POST thẳng được.
+    Route::middleware('super-admin')->group(function () {
+        Route::post('/expenses', [AdminFinanceController::class, 'storeExpense'])->name('expenses.store')->middleware('throttle:60,1');
+        Route::put('/expenses/{expense}', [AdminFinanceController::class, 'updateExpense'])->name('expenses.update')->middleware('throttle:60,1');
+        Route::delete('/expenses/{expense}', [AdminFinanceController::class, 'destroyExpense'])->name('expenses.destroy');
+
+        Route::post('/von-gop', [AdminFinanceController::class, 'storeCapital'])->name('capital.store')->middleware('throttle:60,1');
+        Route::put('/von-gop/{capital}', [AdminFinanceController::class, 'updateCapital'])->name('capital.update')->middleware('throttle:60,1');
+        Route::delete('/von-gop/{capital}', [AdminFinanceController::class, 'destroyCapital'])->name('capital.destroy');
+    });
 
     Route::get('/orders', [AdminOrderController::class, 'index'])->name('orders');
     Route::get('/orders/{order}', [AdminOrderController::class, 'show'])->name('orders.show');

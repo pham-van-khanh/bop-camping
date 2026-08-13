@@ -91,39 +91,14 @@ class AdminStatsTest extends TestCase
         $this->assertSame(290000, array_sum(array_column($props['revenue_by_day'], 'total')));
     }
 
-    /** @test */
-    public function admin_can_add_update_delete_expense(): void
-    {
-        $admin = $this->admin();
-
-        $this->actingAs($admin)->post(route('admin.expenses.store'), [
-            'spent_on' => now()->toDateString(), 'amount' => 120000, 'category' => 'equipment', 'note' => 'Mua lều',
-        ])->assertSessionHasNoErrors();
-        $expense = Expense::firstOrFail();
-        $this->assertSame(120000, $expense->amount);
-        $this->assertSame('equipment', $expense->category);
-
-        $this->actingAs($admin)->put(route('admin.expenses.update', $expense), [
-            'spent_on' => now()->toDateString(), 'amount' => 90000, 'category' => 'shipping',
-        ])->assertSessionHasNoErrors();
-        $this->assertSame(90000, $expense->fresh()->amount);
-        $this->assertSame('shipping', $expense->fresh()->category);
-
-        $this->actingAs($admin)->delete(route('admin.expenses.destroy', $expense))->assertSessionHasNoErrors();
-        $this->assertSame(0, Expense::count());
-    }
-
-    /** @test */
-    public function expense_validation_rejects_bad_input(): void
-    {
-        $admin = $this->admin();
-
-        $this->actingAs($admin)->post(route('admin.expenses.store'), ['spent_on' => now()->toDateString(), 'amount' => 0, 'category' => 'equipment'])
-            ->assertSessionHasErrors('amount');
-        $this->actingAs($admin)->post(route('admin.expenses.store'), ['spent_on' => now()->toDateString(), 'amount' => 1000, 'category' => 'bogus'])
-            ->assertSessionHasErrors('category');
-        $this->assertSame(0, Expense::count());
-    }
+    /*
+     * CRUD chi phí đã CHUYỂN sang màn Tài chính cùng phân quyền super admin
+     * (bopcamping-n4qy) — hai test cũ ở đây dùng admin thường nên nay bị 403.
+     * Bản đầy đủ (gồm cả kiểm quyền) nằm ở AdminFinanceTest:
+     *   - admin_can_add_update_and_delete_expense_from_finance_screen
+     *   - expense_validation_rejects_bad_input
+     *   - a_plain_admin_cannot_write_any_finance_data
+     */
 
     /** @test */
     public function period_filter_narrows_finance_window(): void
