@@ -444,6 +444,80 @@ describe('khối chia lợi nhuận', () => {
         expect(footer.textContent).not.toContain('11.000.000đ');
     });
 
+    /**
+     * Quý đang chạy mà LỖ thì distributable = 0. Bản cũ lọc theo distributable > 0 nên
+     * dòng đó biến mất khỏi bảng, trong khi banner vẫn nói "Quý X chưa khép sổ" — trỏ
+     * vào một quý không có trên bảng.
+     */
+    it('quý đang chạy vẫn lên bảng dù chưa có gì để chia', () => {
+        setProps({
+            sharing: {
+                ...sharing,
+                rows: [
+                    {
+                        quarter: '2026-Q3',
+                        label: 'Quý 3/2026',
+                        profit: -2_000_000,
+                        offset: 0,
+                        distributable: 0,
+                        reserve: 0,
+                        shares: { a: 0, b: 0 },
+                        is_open: true,
+                    },
+                    ...sharing.rows,
+                ],
+            },
+        });
+        render(<AdminFinance />);
+
+        const card = sharingCard();
+        expect(card.textContent).toMatch(/Quý 3\/2026 chưa khép sổ/);
+        const rows = within(card)
+            .getAllByRole('row')
+            .map((r) => r.textContent ?? '');
+        expect(rows.some((t) => t.startsWith('Quý 3/2026'))).toBe(true);
+    });
+
+    /**
+     * Khoản chi nhập nhầm sang ngày tương lai sinh thêm quý mở. `rows` xếp mới nhất
+     * trước nên bản cũ (find) lấy quý TƯƠNG LAI, báo sai quý đang chạy.
+     */
+    it('banner nêu quý sắp khép sổ, không phải quý tương lai do nhập nhầm ngày', () => {
+        setProps({
+            sharing: {
+                ...sharing,
+                rows: [
+                    {
+                        quarter: '2027-Q2',
+                        label: 'Quý 2/2027',
+                        profit: 1_000_000,
+                        offset: 0,
+                        distributable: 1_000_000,
+                        reserve: 550_000,
+                        shares: { a: 257_143, b: 192_857 },
+                        is_open: true,
+                    },
+                    {
+                        quarter: '2026-Q3',
+                        label: 'Quý 3/2026',
+                        profit: 3_000_000,
+                        offset: 0,
+                        distributable: 3_000_000,
+                        reserve: 1_650_000,
+                        shares: { a: 771_429, b: 578_571 },
+                        is_open: true,
+                    },
+                    ...sharing.rows,
+                ],
+            },
+        });
+        render(<AdminFinance />);
+
+        const card = sharingCard();
+        expect(card.textContent).toMatch(/Quý 3\/2026 chưa khép sổ/);
+        expect(card.textContent).not.toMatch(/Quý 2\/2027 chưa khép sổ/);
+    });
+
     it('nói rõ số tiền đã bù lỗ, không lặng lẽ hiện lãi 5tr mà chia 2tr', () => {
         setProps();
         render(<AdminFinance />);

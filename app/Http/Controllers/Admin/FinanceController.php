@@ -40,15 +40,20 @@ class FinanceController extends Controller
             default => null,
         };
 
+        // Tính MỘT lần rồi trừ, đừng gọi lại để lấy 'profit' — hai lần gọi là hai lần
+        // truy vấn cho cùng một con số, và nếu công thức đổi thì dễ lệch nhau.
+        $periodRevenue = $this->finance->revenue($from);
+        $periodExpense = $this->finance->expenseTotal($from);
+
         return Inertia::render('Admin/Finance', [
             'period' => $period,
             // Toàn cảnh LUÔN tính trên toàn bộ lịch sử, không theo bộ lọc kỳ: vốn còn
             // lại và tiến độ hoàn vốn mà tính theo tháng thì vô nghĩa.
             'overview' => $this->finance->overview(),
             'period_summary' => [
-                'revenue' => $this->finance->revenue($from),
-                'expense' => $this->finance->expenseTotal($from),
-                'profit' => $this->finance->revenue($from) - $this->finance->expenseTotal($from),
+                'revenue' => $periodRevenue,
+                'expense' => $periodExpense,
+                'profit' => $periodRevenue - $periodExpense,
                 'returned_count' => $this->finance->returnedCount($from),
             ],
             'monthly' => $this->finance->monthlySeries(),

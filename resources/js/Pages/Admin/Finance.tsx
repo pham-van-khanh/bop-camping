@@ -889,8 +889,14 @@ const RESERVE_COLOR = '#C9A227';
  */
 function ProfitSharing({ sharing }: { sharing: Sharing }) {
     const { partners, rows, reserve_percent, reserve_total, deficit } = sharing;
-    const shared = rows.filter((r) => r.distributable > 0);
-    const openRow = rows.find((r) => r.is_open);
+    // Quý đang chạy LUÔN được liệt kê, kể cả khi chưa có gì để chia: nếu lọc nó ra thì
+    // dòng cảnh báo "Quý X chưa khép sổ" lại trỏ vào một quý không có trên bảng.
+    const shared = rows.filter((r) => r.distributable > 0 || r.is_open);
+    // Lấy quý mở SỚM NHẤT — tức quý sắp khép sổ. `rows` xếp mới nhất trước, nên nếu có
+    // khoản chi bị nhập nhầm sang ngày tương lai thì phần tử đầu là quý tương lai đó,
+    // không phải quý hiện tại.
+    const openRows = rows.filter((r) => r.is_open);
+    const openRow = openRows.at(-1);
     // Dòng "Cộng" chỉ gộp quý ĐÃ KHÉP SỔ, khớp đúng với ô tổng của từng người phía trên.
     // Cộng cả quý tạm tính vào đây thì hai con số trên cùng một thẻ lại đá nhau.
     const closed = shared.filter((r) => !r.is_open);
