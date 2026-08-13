@@ -30,7 +30,10 @@ class Expense extends Model
         'shipping' => 'Vận chuyển',
         'marketing' => 'Marketing',
         'operation' => 'Vận hành',
-        'contingency' => 'Dự phòng',
+        // "CHI dự phòng" chứ không phải "Dự phòng": màn Tài chính còn có QUỸ dự phòng
+        // (55% lợi nhuận giữ lại). Một bên là tiền đã tiêu, một bên là tiền giữ lại —
+        // để trùng tên trên cùng màn là mời người đọc hiểu ngược.
+        'contingency' => 'Chi dự phòng',
         'other' => 'Khác',
     ];
 

@@ -18,12 +18,37 @@ use Illuminate\Support\Collection;
 class FinanceService
 {
     /**
-     * Vốn ban đầu chủ shop bỏ ra, VND.
+     * Các thành viên góp vốn, VND (bopcamping-n4qy).
      *
-     * ⚠️ ĐÂY LÀ CHỖ DUY NHẤT khai con số này — góp thêm vốn thì sửa ở đây rồi deploy
-     * lại. (Cân nhắc chuyển vào Cài đặt shop nếu về sau phải đổi thường xuyên.)
+     * ⚠️ ĐÂY LÀ CHỖ DUY NHẤT khai vốn — góp thêm/đổi tên thì sửa ở đây rồi deploy lại.
+     *
+     * Lưu SỐ TIỀN GÓP chứ không lưu phần trăm: 40/70 = 57,142857…% chứ không phải 57%
+     * chẵn. Ghi 57/43 rồi nhân lên thì mỗi tháng lệch vài nghìn và tổng không bao giờ
+     * khớp với số đem chia. Phần trăm luôn suy ra từ hai con số này.
      */
-    public const INITIAL_CAPITAL = 70_000_000;
+    public const PARTNERS = [
+        'a' => ['name' => 'Admin A', 'capital' => 40_000_000],
+        'b' => ['name' => 'Admin B', 'capital' => 30_000_000],
+    ];
+
+    /**
+     * Phần lợi nhuận giữ lại làm QUỸ DỰ PHÒNG, phần còn lại chia theo tỉ lệ góp vốn.
+     *
+     * Lưu ý phân biệt với loại chi phí 'contingency' (nhãn "Chi dự phòng") — cái đó là
+     * tiền ĐÃ TIÊU, còn quỹ này là tiền GIỮ LẠI. Hai thứ ngược nhau.
+     */
+    public const RESERVE_RATE = 0.55;
+
+    /**
+     * Tổng vốn — SUY RA từ PARTNERS, không khai riêng.
+     *
+     * Khai thành hằng số thứ hai là sớm muộn cũng lệch: sửa vốn của một người mà quên
+     * sửa tổng thì mọi tỉ lệ sai âm thầm.
+     */
+    public static function capital(): int
+    {
+        return array_sum(array_column(self::PARTNERS, 'capital'));
+    }
 
     /**
      * Doanh thu = TIỀN THUÊ đã thu, KHÔNG gồm cọc.
@@ -109,10 +134,10 @@ class FinanceService
         $profit = $revenue - $spent;
 
         return [
-            'capital' => self::INITIAL_CAPITAL,
+            'capital' => self::capital(),
             'spent' => $spent,
             // Âm = đã tiêu quá vốn ban đầu, tức đang tái đầu tư bằng tiền thu được.
-            'capital_left' => self::INITIAL_CAPITAL - $spent,
+            'capital_left' => self::capital() - $spent,
             'revenue' => $revenue,
             'profit' => $profit,
             // "Đã thu về bao nhiêu % số tiền đã bỏ ra" — chưa chi đồng nào thì chưa có
@@ -135,7 +160,7 @@ class FinanceService
      *
      * @return list<array{month: string, label: string, revenue: int, expense: int, profit: int, cum_revenue: int, cum_expense: int}>
      */
-    public function monthlySeries(int $maxMonths = 24): array
+    public function monthlySeries(?int $maxMonths = 24): array
     {
         $revenueByMonth = $this->revenueQuery()
             ->get(['updated_at', 'total_price', 'extra_fee', 'discount_total'])
@@ -186,7 +211,105 @@ class FinanceService
 
         // Cắt phần đuôi NHƯNG giữ nguyên luỹ kế đã cộng từ đầu — cắt trước khi cộng thì
         // đường luỹ kế bắt đầu lại từ 0 và điểm hoà vốn hiện sai.
-        return array_slice($all, -$maxMonths);
+        // null = lấy trọn lịch sử, dùng cho profitSharing() (phải bù lỗ từ tháng đầu tiên).
+        return $maxMonths === null ? $all : array_slice($all, -$maxMonths);
+    }
+
+    /**
+     * Chia lợi nhuận giữa các thành viên góp vốn (bopcamping-n4qy).
+     *
+     * LUẬT (chủ shop chốt 13/08/2026):
+     *   1. Lãi tháng phải BÙ HẾT LỖ LUỸ KẾ còn treo trước đã. Chỉ phần vượt ra mới đem chia.
+     *      Không có bước này thì tháng nào lãi là rút tiền ngay, kể cả khi tính chung
+     *      shop vẫn đang âm — rút vào chính tiền vốn.
+     *   2. Phần đem chia: 55% giữ lại làm quỹ dự phòng, 45% chia theo tỉ lệ góp vốn.
+     *
+     * TIỀN KHÔNG ĐƯỢC BỐC HƠI: quỹ + các phần chia phải cộng đúng bằng số đem chia. Nên
+     * chỉ làm tròn ở các khoản đầu, khoản CUỐI lấy phần dư — làm tròn từng khoản độc lập
+     * thì tổng lệch 1–2 đồng và bảng không bao giờ khớp.
+     *
+     * @return array{
+     *     partners: list<array{key: string, name: string, capital: int, capital_percent: float, profit_percent: float, total: int}>,
+     *     reserve_percent: float, reserve_total: int, distributed_total: int, deficit: int,
+     *     rows: list<array{month: string, label: string, profit: int, offset: int, distributable: int, reserve: int, shares: array<string, int>}>
+     * }
+     */
+    public function profitSharing(): array
+    {
+        $capital = self::capital();
+        $keys = array_keys(self::PARTNERS);
+        $lastKey = end($keys);
+
+        $deficit = 0;              // lỗ luỹ kế còn phải bù
+        $reserveTotal = 0;
+        $totals = array_fill_keys($keys, 0);
+        $rows = [];
+
+        foreach ($this->monthlySeries(null) as $m) {
+            $profit = $m['profit'];
+            $offset = 0;           // phần lãi tháng này dùng để bù lỗ cũ
+
+            if ($profit <= 0) {
+                $deficit += -$profit;
+                $distributable = 0;
+            } else {
+                $offset = min($deficit, $profit);
+                $deficit -= $offset;
+                $distributable = $profit - $offset;
+            }
+
+            $reserve = (int) round($distributable * self::RESERVE_RATE);
+            $toPartners = $distributable - $reserve;
+
+            $shares = [];
+            $allocated = 0;
+            foreach ($keys as $k) {
+                if ($k === $lastKey) {
+                    // Người cuối nhận phần dư → Σ shares == $toPartners tuyệt đối.
+                    $shares[$k] = $toPartners - $allocated;
+                } else {
+                    $shares[$k] = (int) round($toPartners * self::PARTNERS[$k]['capital'] / $capital);
+                    $allocated += $shares[$k];
+                }
+                $totals[$k] += $shares[$k];
+            }
+
+            $reserveTotal += $reserve;
+            $rows[] = [
+                'month' => $m['month'],
+                'label' => $m['label'],
+                'profit' => $profit,
+                'offset' => $offset,
+                'distributable' => $distributable,
+                'reserve' => $reserve,
+                'shares' => $shares,
+            ];
+        }
+
+        $partners = [];
+        foreach (self::PARTNERS as $k => $p) {
+            $capitalPercent = round($p['capital'] / $capital * 100, 2);
+            $partners[] = [
+                'key' => $k,
+                'name' => $p['name'],
+                'capital' => $p['capital'],
+                'capital_percent' => $capitalPercent,
+                // Phần thực nhận trên TỔNG lợi nhuận = 45% × tỉ lệ góp vốn.
+                'profit_percent' => round((1 - self::RESERVE_RATE) * $p['capital'] / $capital * 100, 2),
+                'total' => $totals[$k],
+            ];
+        }
+
+        return [
+            'partners' => $partners,
+            'reserve_percent' => round(self::RESERVE_RATE * 100, 2),
+            'reserve_total' => $reserveTotal,
+            'distributed_total' => array_sum($totals),
+            // Lỗ còn treo — phải bù hết chỗ này rồi mới chia tiếp được đồng nào.
+            'deficit' => $deficit,
+            // Mới nhất lên đầu cho bảng; thuật toán bù lỗ đã chạy theo đúng thứ tự thời gian.
+            'rows' => array_reverse($rows),
+        ];
     }
 
     /**

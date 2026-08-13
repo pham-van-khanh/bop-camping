@@ -67,6 +67,53 @@ const monthly = [
     },
 ];
 
+const partners = [
+    {
+        key: 'a',
+        name: 'Admin A',
+        capital: 40_000_000,
+        capital_percent: 57.14,
+        profit_percent: 25.71,
+        total: 514_286,
+    },
+    {
+        key: 'b',
+        name: 'Admin B',
+        capital: 30_000_000,
+        capital_percent: 42.86,
+        profit_percent: 19.29,
+        total: 385_714,
+    },
+];
+
+const sharing = {
+    partners,
+    reserve_percent: 55,
+    reserve_total: 1_100_000,
+    distributed_total: 900_000,
+    deficit: 0,
+    rows: [
+        {
+            month: '2026-08',
+            label: 'T8/2026',
+            profit: 5_000_000,
+            offset: 3_000_000,
+            distributable: 2_000_000,
+            reserve: 1_100_000,
+            shares: { a: 514_286, b: 385_714 },
+        },
+        {
+            month: '2026-07',
+            label: 'T7/2026',
+            profit: 5_000_000,
+            offset: 5_000_000,
+            distributable: 0,
+            reserve: 0,
+            shares: { a: 0, b: 0 },
+        },
+    ],
+};
+
 const setProps = (over: Record<string, unknown> = {}) => {
     state.props = {
         period: 'all',
@@ -94,6 +141,7 @@ const setProps = (over: Record<string, unknown> = {}) => {
                 percent: 33.3,
             },
         ],
+        sharing,
         expenses: { rows: [], total_count: 0 },
         categories: [
             { value: 'equipment', label: 'Mua thiết bị', color: '#557A2B' },
@@ -110,8 +158,23 @@ const setProps = (over: Record<string, unknown> = {}) => {
  * toàn thời gian vừa là "Chi trong kỳ"), tra theo số thì test đậu kể cả khi hai ô bị
  * gán nhầm giá trị cho nhau.
  */
-const tileValue = (label: string) =>
-    screen.getByText(label).parentElement!.children[1].textContent;
+const tileValue = (label: string) => {
+    // Lọc theo thẻ DIV: cùng một nhãn ("Admin A") vừa là ô KPI vừa là tiêu đề cột <th>
+    // của bảng chia — tra chung chung thì khớp nhầm sang bảng.
+    const el = screen
+        .getAllByText(label)
+        .find(
+            (e) =>
+                e.tagName === 'DIV' && e.parentElement?.children.length === 3,
+        );
+
+    return el?.parentElement?.children[1].textContent;
+};
+
+/** Thẻ "Chia lợi nhuận" — để tra bảng chia mà không đụng các bảng khác trên trang. */
+const sharingCard = () =>
+    screen.getByRole('heading', { name: 'Chia lợi nhuận' }).closest('div')!
+        .parentElement!;
 
 describe('màn Tài chính', () => {
     it('hiện vốn, đã chi, vốn còn lại và tiến độ hoàn vốn đúng từng ô', () => {
@@ -242,5 +305,72 @@ describe('màn Tài chính', () => {
         expect(screen.getAllByText(/Chưa có dữ liệu/i).length).toBeGreaterThan(
             0,
         );
+    });
+});
+
+describe('khối chia lợi nhuận', () => {
+    it('hiện quỹ dự phòng và phần của từng người kèm tỉ lệ góp vốn', () => {
+        setProps();
+        render(<AdminFinance />);
+
+        expect(tileValue('Quỹ dự phòng (55%)')).toBe('1.100.000đ');
+        expect(tileValue('Admin A')).toBe('514.286đ');
+        expect(tileValue('Admin B')).toBe('385.714đ');
+        // Tỉ lệ phải là 57,14 / 42,86 chứ không phải 57 / 43 làm tròn.
+        expect(screen.getByText(/57,14%/)).toBeInTheDocument();
+        expect(screen.getByText(/42,86%/)).toBeInTheDocument();
+    });
+
+    it('chỉ liệt kê tháng THỰC SỰ chia được, không liệt kê tháng bù lỗ hết', () => {
+        setProps();
+        render(<AdminFinance />);
+
+        const rows = within(sharingCard())
+            .getAllByRole('row')
+            .map((r) => r.textContent ?? '');
+
+        // T8 chia được 2tr nên phải có; T7 lãi 5tr nhưng bù lỗ sạch nên không lên bảng.
+        expect(rows.some((t) => t.startsWith('T8/2026'))).toBe(true);
+        expect(rows.some((t) => t.startsWith('T7/2026'))).toBe(false);
+    });
+
+    it('nói rõ số tiền đã bù lỗ, không lặng lẽ hiện lãi 5tr mà chia 2tr', () => {
+        setProps();
+        render(<AdminFinance />);
+
+        // Không có cột "Bù lỗ" thì người xem tưởng phép tính sai.
+        expect(screen.getByText('Bù lỗ')).toBeInTheDocument();
+        expect(screen.getByText('−3.000.000đ')).toBeInTheDocument();
+    });
+
+    it('đang lỗ luỹ kế thì cảnh báo chưa chia được đồng nào', () => {
+        setProps({
+            sharing: {
+                ...sharing,
+                deficit: 25_000_000,
+                reserve_total: 0,
+                distributed_total: 0,
+                partners: partners.map((p) => ({ ...p, total: 0 })),
+                rows: [],
+            },
+        });
+        render(<AdminFinance />);
+
+        expect(
+            screen.getByText(/Chưa chia được đồng nào/i),
+        ).toBeInTheDocument();
+        expect(screen.getByText('25.000.000đ')).toBeInTheDocument();
+        expect(
+            screen.getByText(/Chưa có tháng nào đủ lãi để chia/i),
+        ).toBeInTheDocument();
+    });
+
+    it('không cảnh báo lỗ khi shop đã hết nợ luỹ kế', () => {
+        setProps();
+        render(<AdminFinance />);
+
+        expect(
+            screen.queryByText(/Chưa chia được đồng nào/i),
+        ).not.toBeInTheDocument();
     });
 });

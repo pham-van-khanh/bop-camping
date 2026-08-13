@@ -49,6 +49,9 @@ class FinanceController extends Controller
                 'returned_count' => $this->finance->returnedCount($from),
             ],
             'monthly' => $this->finance->monthlySeries(),
+            // Chia lợi nhuận luôn tính trên TOÀN BỘ lịch sử, không theo bộ lọc kỳ: luật
+            // bù lỗ luỹ kế chỉ đúng khi chạy từ tháng đầu tiên (bopcamping-n4qy).
+            'sharing' => $this->finance->profitSharing(),
             'by_category' => $this->finance->expenseByCategory($from),
             'expenses' => $this->expenseRows($from),
             'categories' => Expense::categoryOptions(),

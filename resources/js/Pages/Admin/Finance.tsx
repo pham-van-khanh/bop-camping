@@ -38,6 +38,34 @@ type CategoryStat = {
     percent: number;
 };
 
+type Partner = {
+    key: string;
+    name: string;
+    capital: number;
+    capital_percent: number;
+    profit_percent: number;
+    total: number;
+};
+
+type SharingRow = {
+    month: string;
+    label: string;
+    profit: number;
+    offset: number;
+    distributable: number;
+    reserve: number;
+    shares: Record<string, number>;
+};
+
+type Sharing = {
+    partners: Partner[];
+    reserve_percent: number;
+    reserve_total: number;
+    distributed_total: number;
+    deficit: number;
+    rows: SharingRow[];
+};
+
 type Props = PageProps<{
     period: 'month' | 'quarter' | 'year' | 'all';
     overview: Overview;
@@ -48,6 +76,7 @@ type Props = PageProps<{
         returned_count: number;
     };
     monthly: MonthRow[];
+    sharing: Sharing;
     by_category: CategoryStat[];
     expenses: { rows: ExpenseRow[]; total_count: number };
     categories: CategoryOption[];
@@ -70,6 +99,7 @@ export default function AdminFinance() {
         overview,
         period_summary,
         monthly,
+        sharing,
         by_category,
         expenses,
         categories,
@@ -239,11 +269,15 @@ export default function AdminFinance() {
                     <MonthlyTable data={monthly} />
                 </div>
 
-                <ExpenseManager
-                    expenses={expenses.rows}
-                    categories={categories}
-                    totalCount={expenses.total_count}
-                />
+                <ProfitSharing sharing={sharing} />
+
+                <div className="mt-4">
+                    <ExpenseManager
+                        expenses={expenses.rows}
+                        categories={categories}
+                        totalCount={expenses.total_count}
+                    />
+                </div>
             </div>
         </>
     );
@@ -787,6 +821,186 @@ function MonthlyTable({ data }: { data: MonthRow[] }) {
                 </table>
             </div>
         </ChartCard>
+    );
+}
+
+const PARTNER_COLORS = ['#557A2B', '#4A7C9B'];
+const RESERVE_COLOR = '#C9A227';
+
+/**
+ * Chia lợi nhuận giữa các thành viên góp vốn (bopcamping-n4qy).
+ *
+ * Hai thứ phải nói thật rõ vì tiền dễ hiểu nhầm:
+ *   1. Lãi chỉ đem chia SAU KHI bù hết lỗ luỹ kế — nên bảng có hẳn cột "Bù lỗ" để thấy
+ *      lãi tháng đó đi đâu, thay vì lặng lẽ hiện 0đ khiến người xem tưởng tính sai.
+ *   2. Còn nợ bao nhiêu mới tới lượt chia — hiện thành dòng cảnh báo riêng.
+ */
+function ProfitSharing({ sharing }: { sharing: Sharing }) {
+    const { partners, rows, reserve_percent, reserve_total, deficit } = sharing;
+    const shared = rows.filter((r) => r.distributable > 0);
+    const colorOf = (i: number) =>
+        PARTNER_COLORS[i % PARTNER_COLORS.length] ?? GREEN;
+
+    return (
+        <div className="rounded-[16px] border border-cardBorder bg-white p-5">
+            <div className="mb-1 flex items-baseline justify-between gap-3">
+                <h2 className="text-[15px] font-bold text-ink">
+                    Chia lợi nhuận
+                </h2>
+                <span className="text-right text-[11.5px] text-moss">
+                    {fmtPercent(reserve_percent)}% vào quỹ ·{' '}
+                    {fmtPercent(100 - reserve_percent)}% chia theo vốn góp
+                </span>
+            </div>
+            <p className="mb-4 text-[12px] leading-snug text-[#a3ad92]">
+                Lãi mỗi tháng phải bù hết lỗ luỹ kế còn treo trước, phần vượt ra
+                mới đem chia.
+            </p>
+
+            {deficit > 0 && (
+                <div className="mb-4 rounded-[12px] border border-[#f0dcc9] bg-[#fdf6ee] px-4 py-3 text-[12.5px] text-[#8a5a22]">
+                    <b>Chưa chia được đồng nào.</b> Shop đang lỗ luỹ kế{' '}
+                    <b>{money(deficit)}</b> — lãi các tháng tới sẽ dùng để bù
+                    hết chỗ này trước.
+                </div>
+            )}
+
+            <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
+                <Tile
+                    label={`Quỹ dự phòng (${fmtPercent(reserve_percent)}%)`}
+                    value={money(reserve_total)}
+                    hint="Lợi nhuận giữ lại, không chia"
+                    color={RESERVE_COLOR}
+                />
+                {partners.map((p, i) => (
+                    <Tile
+                        key={p.key}
+                        label={p.name}
+                        value={money(p.total)}
+                        hint={`Góp ${moneyShort(p.capital)} (${fmtPercent(p.capital_percent)}%) → hưởng ${fmtPercent(p.profit_percent)}% lợi nhuận`}
+                        color={colorOf(i)}
+                    />
+                ))}
+            </div>
+
+            {shared.length === 0 ? (
+                <p className="py-6 text-center text-[13px] text-[#a3ad92]">
+                    Chưa có tháng nào đủ lãi để chia.
+                </p>
+            ) : (
+                <div className="max-h-[320px] overflow-x-auto">
+                    <table className="w-full min-w-[560px] text-[12.5px]">
+                        <thead>
+                            <tr className="text-[11px] uppercase tracking-[0.04em] text-[#a3ad92]">
+                                <th className="pb-2 text-left font-semibold">
+                                    Tháng
+                                </th>
+                                <th className="pb-2 text-right font-semibold">
+                                    Lãi tháng
+                                </th>
+                                <th className="pb-2 text-right font-semibold">
+                                    Bù lỗ
+                                </th>
+                                <th className="pb-2 text-right font-semibold">
+                                    Đem chia
+                                </th>
+                                <th className="pb-2 text-right font-semibold">
+                                    Quỹ
+                                </th>
+                                {partners.map((p) => (
+                                    <th
+                                        key={p.key}
+                                        className="pb-2 text-right font-semibold"
+                                    >
+                                        {p.name}
+                                    </th>
+                                ))}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {shared.map((r) => (
+                                <tr
+                                    key={r.month}
+                                    className="border-t border-[#f1f4ea]"
+                                >
+                                    <td className="py-2 font-semibold text-pine">
+                                        {r.label}
+                                    </td>
+                                    <td className="py-2 text-right font-mono">
+                                        {money(r.profit)}
+                                    </td>
+                                    <td className="py-2 text-right font-mono text-[#a3ad92]">
+                                        {r.offset ? `−${money(r.offset)}` : '—'}
+                                    </td>
+                                    <td className="py-2 text-right font-mono font-semibold text-ink">
+                                        {money(r.distributable)}
+                                    </td>
+                                    <td
+                                        className="py-2 text-right font-mono"
+                                        style={{ color: RESERVE_COLOR }}
+                                    >
+                                        {money(r.reserve)}
+                                    </td>
+                                    {partners.map((p, i) => (
+                                        <td
+                                            key={p.key}
+                                            className="py-2 text-right font-mono font-semibold"
+                                            style={{ color: colorOf(i) }}
+                                        >
+                                            {money(r.shares[p.key] ?? 0)}
+                                        </td>
+                                    ))}
+                                </tr>
+                            ))}
+                        </tbody>
+                        <tfoot>
+                            <tr className="border-t-2 border-[#e6ebdb] font-bold">
+                                <td className="py-2 text-pine">Cộng</td>
+                                <td className="py-2 text-right font-mono">
+                                    {money(
+                                        shared.reduce(
+                                            (s, r) => s + r.profit,
+                                            0,
+                                        ),
+                                    )}
+                                </td>
+                                <td className="py-2 text-right font-mono text-[#a3ad92]">
+                                    {money(
+                                        shared.reduce(
+                                            (s, r) => s + r.offset,
+                                            0,
+                                        ),
+                                    )}
+                                </td>
+                                <td className="py-2 text-right font-mono">
+                                    {money(
+                                        shared.reduce(
+                                            (s, r) => s + r.distributable,
+                                            0,
+                                        ),
+                                    )}
+                                </td>
+                                <td
+                                    className="py-2 text-right font-mono"
+                                    style={{ color: RESERVE_COLOR }}
+                                >
+                                    {money(reserve_total)}
+                                </td>
+                                {partners.map((p, i) => (
+                                    <td
+                                        key={p.key}
+                                        className="py-2 text-right font-mono"
+                                        style={{ color: colorOf(i) }}
+                                    >
+                                        {money(p.total)}
+                                    </td>
+                                ))}
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            )}
+        </div>
     );
 }
 
