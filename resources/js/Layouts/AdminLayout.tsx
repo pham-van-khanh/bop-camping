@@ -66,6 +66,22 @@ const NAV = [
         ),
     },
     {
+        href: '/admin/tai-chinh',
+        name: 'admin.finance',
+        label: 'Tài chính',
+        icon: (
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                <path
+                    d="M12 3v18M16.5 7.5c-.7-1.3-2.3-2-4.5-2-2.5 0-4 1-4 2.8 0 4 8.5 2.2 8.5 6.4 0 1.9-1.7 3-4.5 3-2.4 0-4-.8-4.7-2.2"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                />
+            </svg>
+        ),
+    },
+    {
         href: '/admin/orders',
         name: 'admin.orders',
         label: 'Đơn thuê',

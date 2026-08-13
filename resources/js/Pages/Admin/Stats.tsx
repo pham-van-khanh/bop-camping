@@ -1,26 +1,10 @@
 import AdminLayout from '@/Layouts/AdminLayout';
 import { money } from '@/lib/format';
 import type { PageProps } from '@/types';
-import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 import { Fragment, ReactNode, useMemo, useState } from 'react';
 
 type ChartPoint = { date: string; label: string; count: number };
-type CategoryStat = {
-    category: string;
-    label: string;
-    total: number;
-    count: number;
-};
-type ExpenseRow = {
-    id: number;
-    spent_on: string;
-    spent_on_label: string;
-    amount: number;
-    category: string;
-    category_label: string;
-    note: string | null;
-};
-type CategoryOption = { value: string; label: string };
 type RevenueOrder = { id: number; code: string; amount: number };
 type RevenueDay = {
     date: string;
@@ -40,9 +24,6 @@ type Props = PageProps<{
         profit: number;
         returned_count: number;
     };
-    by_category: CategoryStat[];
-    expenses: ExpenseRow[];
-    categories: CategoryOption[];
     revenue_by_day: RevenueDay[];
     revenue_month: string;
     revenue_months: MonthOption[];
@@ -55,20 +36,12 @@ const PERIODS: { key: Props['period']; label: string }[] = [
     { key: 'all', label: 'Tất cả' },
 ];
 
-const todayISO = () => {
-    const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-};
-
 export default function AdminStats() {
     const {
         period,
         order_counts,
         chart,
         finance,
-        by_category,
-        expenses,
-        categories,
         revenue_by_day,
         revenue_month,
         revenue_months,
@@ -156,18 +129,20 @@ export default function AdminStats() {
                     />
                 </div>
 
-                <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-                    {/* Chi theo loại */}
-                    <ExpenseByCategory
-                        rows={by_category}
-                        total={finance.expense}
-                    />
-                    {/* Quản lý chi phí */}
-                    <ExpenseManager
-                        expenses={expenses}
-                        categories={categories}
-                    />
-                </div>
+                {/* Chi phí + phân bổ + vốn + hoàn vốn nay ở màn Tài chính (bopcamping-n4qy)
+                    — một bảng `expenses` thì chỉ nên có một chỗ nhập. */}
+                <Link
+                    href={route('admin.finance')}
+                    className="mb-6 flex items-center justify-between rounded-[14px] border border-cardBorder bg-white px-4 py-3 transition hover:border-grass"
+                >
+                    <span className="text-[13px] text-pine">
+                        Xem <b>vốn, chi phí theo loại, tiến độ hoàn vốn</b> và
+                        nhập khoản chi ở màn Tài chính
+                    </span>
+                    <span className="text-[13px] font-bold text-grass">
+                        Mở Tài chính →
+                    </span>
+                </Link>
 
                 {/* Doanh thu theo ngày */}
                 <RevenueByDay
@@ -306,54 +281,6 @@ function OrdersChart({ data }: { data: ChartPoint[] }) {
 }
 
 /** Chi theo loại — thanh tỉ lệ 1 màu (magnitude, không phải identity). */
-function ExpenseByCategory({
-    rows,
-    total,
-}: {
-    rows: CategoryStat[];
-    total: number;
-}) {
-    return (
-        <div className="rounded-[16px] border border-cardBorder bg-white p-5">
-            <h2 className="mb-3 text-[15px] font-bold text-ink">
-                Chi theo loại
-            </h2>
-            {rows.length === 0 ? (
-                <p className="py-6 text-center text-[13px] text-[#a3ad92]">
-                    Chưa có khoản chi nào trong kỳ.
-                </p>
-            ) : (
-                <ul className="flex flex-col gap-2.5">
-                    {rows.map((r) => (
-                        <li key={r.category}>
-                            <div className="mb-1 flex items-baseline justify-between text-[13px]">
-                                <span className="text-ink">
-                                    {r.label}{' '}
-                                    <span className="text-[#a3ad92]">
-                                        · {r.count}
-                                    </span>
-                                </span>
-                                <span className="font-mono font-semibold text-campfire">
-                                    {money(r.total)}
-                                </span>
-                            </div>
-                            <div className="h-2 overflow-hidden rounded-full bg-[#f1f2ed]">
-                                <div
-                                    className="h-full rounded-full"
-                                    style={{
-                                        width: `${total > 0 ? (r.total / total) * 100 : 0}%`,
-                                        background: '#C97B36',
-                                    }}
-                                />
-                            </div>
-                        </li>
-                    ))}
-                </ul>
-            )}
-        </div>
-    );
-}
-
 /**
  * Doanh thu theo ngày — bảng 3 cột (ngày · đơn cho thuê · số tiền), một dòng cho mỗi
  * đơn, ngày chỉ in ở dòng đầu của ngày đó. Ngày không có đơn vẫn giữ dòng "---" / "0đ"
@@ -487,216 +414,4 @@ function RevenueByDay({
 }
 
 /** Thêm / sửa / xoá chi phí. */
-function ExpenseManager({
-    expenses,
-    categories,
-}: {
-    expenses: ExpenseRow[];
-    categories: CategoryOption[];
-}) {
-    const [editId, setEditId] = useState<number | null>(null);
-    const [confirmDelete, setConfirmDelete] = useState<number | null>(null);
-
-    const form = useForm<{
-        spent_on: string;
-        amount: string;
-        category: string;
-        note: string;
-    }>({
-        spent_on: todayISO(),
-        amount: '',
-        category: categories[0]?.value ?? 'other',
-        note: '',
-    });
-
-    const resetForm = () => {
-        setEditId(null);
-        form.reset();
-        form.setData('spent_on', todayISO());
-        form.clearErrors();
-    };
-
-    const startEdit = (e: ExpenseRow) => {
-        setEditId(e.id);
-        form.setData({
-            spent_on: e.spent_on,
-            amount: String(e.amount),
-            category: e.category,
-            note: e.note ?? '',
-        });
-    };
-
-    const submit = () => {
-        const opts = { preserveScroll: true, onSuccess: () => resetForm() };
-        if (editId) form.put(route('admin.expenses.update', editId), opts);
-        else form.post(route('admin.expenses.store'), opts);
-    };
-
-    const remove = (id: number) =>
-        router.delete(route('admin.expenses.destroy', id), {
-            preserveScroll: true,
-            onFinish: () => setConfirmDelete(null),
-        });
-
-    const canSubmit =
-        form.data.spent_on !== '' &&
-        Number(form.data.amount) > 0 &&
-        !form.processing;
-
-    return (
-        <div className="rounded-[16px] border border-cardBorder bg-white p-5">
-            <div className="mb-3 flex items-center justify-between">
-                <h2 className="text-[15px] font-bold text-ink">
-                    Chi phí phát sinh
-                </h2>
-                {editId && (
-                    <button
-                        onClick={resetForm}
-                        className="text-[12px] font-semibold text-moss underline"
-                    >
-                        Huỷ sửa
-                    </button>
-                )}
-            </div>
-
-            {/* Form thêm/sửa */}
-            <div className="mb-4 grid grid-cols-2 gap-2">
-                <input
-                    type="date"
-                    value={form.data.spent_on}
-                    onChange={(e) => form.setData('spent_on', e.target.value)}
-                    className="h-10 rounded-[10px] border border-cardBorder bg-white px-2.5 text-[13px] text-ink outline-none focus:border-grass"
-                />
-                <input
-                    type="number"
-                    min={1}
-                    value={form.data.amount}
-                    onChange={(e) => form.setData('amount', e.target.value)}
-                    placeholder="Số tiền (đ)"
-                    className="h-10 rounded-[10px] border border-cardBorder bg-white px-2.5 text-[13px] text-ink outline-none focus:border-grass"
-                />
-                <select
-                    value={form.data.category}
-                    onChange={(e) => form.setData('category', e.target.value)}
-                    className="h-10 rounded-[10px] border border-cardBorder bg-white px-2.5 text-[13px] text-ink outline-none focus:border-grass"
-                >
-                    {categories.map((c) => (
-                        <option key={c.value} value={c.value}>
-                            {c.label}
-                        </option>
-                    ))}
-                </select>
-                <input
-                    value={form.data.note}
-                    onChange={(e) => form.setData('note', e.target.value)}
-                    placeholder="Ghi chú"
-                    maxLength={255}
-                    className="h-10 rounded-[10px] border border-cardBorder bg-white px-2.5 text-[13px] text-ink outline-none focus:border-grass"
-                />
-                <button
-                    onClick={submit}
-                    disabled={!canSubmit}
-                    className="col-span-2 h-10 rounded-[10px] text-[13px] font-bold text-white transition disabled:cursor-not-allowed"
-                    style={{ background: canSubmit ? '#557A2B' : '#c4cfae' }}
-                >
-                    {form.processing
-                        ? 'Đang lưu…'
-                        : editId
-                          ? 'Cập nhật khoản chi'
-                          : 'Thêm khoản chi'}
-                </button>
-                {(form.errors.amount ||
-                    form.errors.spent_on ||
-                    form.errors.category) && (
-                    <p className="col-span-2 text-[12px] text-red-500">
-                        {form.errors.amount ||
-                            form.errors.spent_on ||
-                            form.errors.category}
-                    </p>
-                )}
-            </div>
-
-            {/* Danh sách chi phí */}
-            {expenses.length === 0 ? (
-                <p className="py-4 text-center text-[13px] text-[#a3ad92]">
-                    Chưa có khoản chi nào trong kỳ.
-                </p>
-            ) : (
-                <div className="max-h-[280px] overflow-y-auto">
-                    <table className="w-full text-[12.5px]">
-                        <tbody>
-                            {expenses.map((e) => (
-                                <tr
-                                    key={e.id}
-                                    className="border-t border-[#f1f4ea]"
-                                >
-                                    <td className="py-2 pr-2 font-mono text-[11.5px] text-moss">
-                                        {e.spent_on_label}
-                                    </td>
-                                    <td className="py-2 pr-2">
-                                        <span
-                                            className="rounded-pill px-1.5 py-0.5 text-[10.5px] font-bold"
-                                            style={{
-                                                background: '#efe4d3',
-                                                color: '#7f4f24',
-                                            }}
-                                        >
-                                            {e.category_label}
-                                        </span>
-                                        {e.note && (
-                                            <span className="ml-1.5 text-[#8a967a]">
-                                                {e.note}
-                                            </span>
-                                        )}
-                                    </td>
-                                    <td className="py-2 pr-2 text-right font-mono font-semibold text-campfire">
-                                        {money(e.amount)}
-                                    </td>
-                                    <td className="py-2 text-right">
-                                        {confirmDelete === e.id ? (
-                                            <span className="inline-flex gap-1">
-                                                <button
-                                                    onClick={() => remove(e.id)}
-                                                    className="rounded-[7px] bg-[#f6ddd6] px-2 py-1 text-[11px] font-bold text-[#b3493a]"
-                                                >
-                                                    Xoá
-                                                </button>
-                                                <button
-                                                    onClick={() =>
-                                                        setConfirmDelete(null)
-                                                    }
-                                                    className="rounded-[7px] border border-cardBorder px-2 py-1 text-[11px] font-semibold text-pine"
-                                                >
-                                                    Huỷ
-                                                </button>
-                                            </span>
-                                        ) : (
-                                            <span className="inline-flex gap-2">
-                                                <button
-                                                    onClick={() => startEdit(e)}
-                                                    className="text-[11.5px] font-semibold text-pine hover:text-grass"
-                                                >
-                                                    Sửa
-                                                </button>
-                                                <button
-                                                    onClick={() =>
-                                                        setConfirmDelete(e.id)
-                                                    }
-                                                    className="text-[11.5px] font-semibold text-[#b3493a] hover:underline"
-                                                >
-                                                    Xoá
-                                                </button>
-                                            </span>
-                                        )}
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-            )}
-        </div>
-    );
-}
-
 AdminStats.layout = (page: ReactNode) => <AdminLayout>{page}</AdminLayout>;

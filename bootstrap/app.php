@@ -3,6 +3,7 @@
 use App\Http\Middleware\CaptureReferralCode;
 use App\Http\Middleware\EnsureAdmin;
 use App\Http\Middleware\EnsureShipper;
+use App\Http\Middleware\EnsureSuperAdmin;
 use App\Http\Middleware\HandleInertiaRequests;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -25,6 +26,8 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'admin' => EnsureAdmin::class,
             'shipper' => EnsureShipper::class,
+            // Quyền GHI số liệu thu chi (bopcamping-n4qy) — luôn dùng kèm sau 'admin'.
+            'super-admin' => EnsureSuperAdmin::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
