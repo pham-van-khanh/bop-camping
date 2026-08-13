@@ -496,7 +496,6 @@ class AdminFinanceTest extends TestCase
         $this->assertSame(0, $this->finance()->capital());
         $this->assertSame([], $s['partners']);
         $this->assertSame([], $s['rows']);
-        $this->assertSame(4_000_000, $s['deficit']);
 
         $this->actingAs($this->admin())->get(route('admin.finance'))->assertOk();
     }
@@ -654,36 +653,89 @@ class AdminFinanceTest extends TestCase
     }
 
     /**
-     * Lãi quý phải BÙ HẾT LỖ LUỸ KẾ rồi mới chia (luật chủ shop chốt).
+     * MỖI QUÝ CHIA ĐỘC LẬP — không bù lỗ quý trước (bopcamping-qipx).
      *
-     * Dùng các quý ĐÃ KHÉP SỔ (Q4/2025 → Q2/2026): quý đang chạy chỉ tính tạm nên không
-     * dùng để kiểm luật bù lỗ.
+     * Chủ shop bỏ luật bù lỗ ngày 13/08/2026: quý nào lãi bao nhiêu chia bấy nhiêu, kể
+     * cả số nhỏ. Quý lỗ thì chia 0 và KHÔNG để lại nợ cho quý sau.
      *
      * @test
      */
-    public function profit_must_first_cover_the_accumulated_loss(): void
+    public function each_quarter_shares_its_own_profit_without_covering_past_losses(): void
     {
         [$a, $b] = $this->twoPartners();
         $this->spend(8_000_000, 'equipment', '2025-11-10'); // Q4/2025 lỗ 8tr
-        $this->revenueIn('2026-02', 5_000_000);             // Q1/2026 lãi 5tr -> bù hết, còn nợ 3tr
-        $this->revenueIn('2026-05', 5_000_000);             // Q2/2026 lãi 5tr -> bù 3tr, dư 2tr
+        $this->revenueIn('2026-02', 5_000_000);             // Q1/2026 lãi 5tr
+        $this->revenueIn('2026-05', 500_000);               // Q2/2026 lãi 500k
 
         $rows = collect($this->finance()->profitSharing()['rows'])->keyBy('quarter');
 
+        // Quý lỗ: không chia gì.
         $this->assertSame(-8_000_000, $rows['2025-Q4']['profit']);
         $this->assertSame(0, $rows['2025-Q4']['distributable']);
 
-        // Q1: lãi 5tr nhưng đang nợ 8tr -> bù sạch, không chia đồng nào.
-        $this->assertSame(5_000_000, $rows['2026-Q1']['offset']);
-        $this->assertSame(0, $rows['2026-Q1']['distributable']);
-        $this->assertSame(0, $rows['2026-Q1']['shares'][(string) $a->id]);
+        // Q1 chia TRỌN 5tr dù quý trước lỗ 8tr — đây là điểm khác luật cũ.
+        $this->assertSame(5_000_000, $rows['2026-Q1']['distributable']);
+        $this->assertSame(2_750_000, $rows['2026-Q1']['reserve']);
+        $this->assertSame(1_285_714, $rows['2026-Q1']['shares'][(string) $a->id]);
+        $this->assertSame(964_286, $rows['2026-Q1']['shares'][(string) $b->id]);
 
-        // Q2: bù nốt 3tr, còn 2tr mới đem chia.
-        $this->assertSame(3_000_000, $rows['2026-Q2']['offset']);
-        $this->assertSame(2_000_000, $rows['2026-Q2']['distributable']);
-        $this->assertSame(1_100_000, $rows['2026-Q2']['reserve']);
-        $this->assertSame(514_286, $rows['2026-Q2']['shares'][(string) $a->id]);
-        $this->assertSame(385_714, $rows['2026-Q2']['shares'][(string) $b->id]);
+        // Quý lãi ít cũng chia — ví dụ chủ shop đưa ra: 500k thì cũng chia.
+        $this->assertSame(500_000, $rows['2026-Q2']['distributable']);
+        $this->assertSame(275_000, $rows['2026-Q2']['reserve']);
+        $this->assertSame(
+            225_000,
+            $rows['2026-Q2']['shares'][(string) $a->id] + $rows['2026-Q2']['shares'][(string) $b->id]
+        );
+    }
+
+    /**
+     * Lỗ quý này KHÔNG kéo theo quý sau — quý sau vẫn chia trọn phần lãi của nó.
+     *
+     * @test
+     */
+    public function a_loss_quarter_does_not_reduce_the_next_quarter(): void
+    {
+        $this->twoPartners();
+        $this->revenueIn('2026-02', 10_000_000);          // Q1 lãi 10tr
+        $this->spend(4_000_000, 'repair', '2026-05-05');  // Q2 lỗ 4tr
+
+        $rows = collect($this->finance()->profitSharing()['rows'])->keyBy('quarter');
+
+        $this->assertSame(10_000_000, $rows['2026-Q1']['distributable']);
+        $this->assertSame(0, $rows['2026-Q2']['distributable']);
+    }
+
+    /**
+     * Tiền THỰC TRẢ cho thành viên ghi thành khoản chi 'profit_share' và trừ vào lãi của
+     * quý ghi nhận — như mọi khoản chi khác (bopcamping-qipx).
+     *
+     * @test
+     */
+    public function the_payout_recorded_as_an_expense_reduces_that_quarters_profit(): void
+    {
+        $this->twoPartners();
+        $this->revenueIn('2026-02', 10_000_000);                        // Q1 lãi 10tr
+        $this->revenueIn('2026-05', 4_000_000);                         // Q2 thu 4tr
+        $this->spend(4_500_000, 'profit_share', '2026-04-10');          // trả tiền chia Q1, ghi ở Q2
+
+        $rows = collect($this->finance()->profitSharing()['rows'])->keyBy('quarter');
+
+        $this->assertSame(10_000_000, $rows['2026-Q1']['distributable']);
+        // Q2: 4tr thu − 4,5tr trả = lỗ 500k → không chia.
+        $this->assertSame(-500_000, $rows['2026-Q2']['profit']);
+        $this->assertSame(0, $rows['2026-Q2']['distributable']);
+    }
+
+    /** Loại chi 'Chia lợi nhuận' phải nhập được thật, không chỉ có trong hằng số. */
+    /** @test */
+    public function the_profit_share_expense_category_is_accepted(): void
+    {
+        $this->actingAs($this->admin())->post(route('admin.expenses.store'), [
+            'spent_on' => '2026-04-10', 'amount' => 4_500_000,
+            'category' => 'profit_share', 'note' => 'Chia lãi Q1',
+        ])->assertSessionHasNoErrors();
+
+        $this->assertSame(1, Expense::where('category', 'profit_share')->count());
     }
 
     /**
@@ -700,12 +752,10 @@ class AdminFinanceTest extends TestCase
 
         $q2 = collect($this->finance()->profitSharing()['rows'])->firstWhere('quarter', '2026-Q2');
 
-        // Chia theo tháng thì T4 tạo nợ 3tr rồi T5 phải bù; theo quý thì lãi quý = 5tr,
-        // không sinh nợ nào và đem chia thẳng.
+        // Chia theo tháng thì T4 chia 0 rồi T5 chia trọn 8tr; theo quý thì lãi quý là
+        // 5tr — phần lỗ của T4 đã trừ vào T5 trong cùng quý.
         $this->assertSame(5_000_000, $q2['profit']);
-        $this->assertSame(0, $q2['offset']);
         $this->assertSame(5_000_000, $q2['distributable']);
-        $this->assertSame(0, $this->finance()->profitSharing()['deficit']);
     }
 
     /**
@@ -739,50 +789,23 @@ class AdminFinanceTest extends TestCase
     }
 
     /**
-     * Lỗ của quý đang chạy CŨNG chưa được ghi vào nợ luỹ kế — số còn đổi tới hết quý,
-     * ghi nhận sớm là sai sổ (và làm quý trước trông như chưa chia đủ).
+     * Toàn bộ lịch sử đang lỗ nặng nhưng quý này có lãi thì VẪN chia — luật mới bỏ hẳn
+     * điều kiện "phải hết lỗ luỹ kế".
      *
      * @test
      */
-    public function a_loss_in_the_running_quarter_does_not_touch_the_carried_deficit_yet(): void
+    public function a_profitable_quarter_is_shared_even_while_the_shop_is_down_overall(): void
     {
         $this->twoPartners();
-        $this->spend(4_000_000, 'repair', now()->toDateString());
-
-        $this->assertSame(0, $this->finance()->profitSharing()['deficit']);
-    }
-
-    /**
-     * Lỗ mới phát sinh SAU khi đã chia thì lại thành nợ phải bù cho lần chia kế tiếp —
-     * không được quên, nếu không mỗi đợt lỗ là một lần rút quá tay.
-     *
-     * @test
-     */
-    public function a_later_loss_becomes_deficit_again(): void
-    {
-        $this->twoPartners();
-        $this->revenueIn('2026-02', 10_000_000);          // Q1 lãi 10tr, chia hết
-        $this->spend(4_000_000, 'repair', '2026-05-05');  // Q2 lỗ 4tr
+        $this->spend(30_000_000, 'equipment', '2025-11-10'); // Q4/2025 lỗ 30tr
+        $this->revenueIn('2026-02', 5_000_000);              // Q1/2026 lãi 5tr
 
         $s = $this->finance()->profitSharing();
 
-        $this->assertSame(4_000_000, $s['deficit']);
-        $this->assertSame(0, collect($s['rows'])->firstWhere('quarter', '2026-Q2')['distributable']);
-    }
-
-    /** Đang lỗ luỹ kế thì tổng chia phải bằng 0 — không ai được đồng nào. */
-    /** @test */
-    public function nothing_is_distributed_while_still_in_the_red(): void
-    {
-        $this->twoPartners();
-        $this->spend(30_000_000, 'equipment', '2025-11-10');
-        $this->revenueIn('2026-02', 5_000_000);
-
-        $s = $this->finance()->profitSharing();
-
-        $this->assertSame(0, $s['distributed_total']);
-        $this->assertSame(0, $s['reserve_total']);
-        $this->assertSame(25_000_000, $s['deficit']);
+        $this->assertSame(2_750_000, $s['reserve_total']);
+        $this->assertSame(2_250_000, $s['distributed_total']);
+        // Toàn cảnh vẫn báo lỗ 25tr — hai con số này nói hai chuyện khác nhau.
+        $this->assertSame(-25_000_000, $this->finance()->overview()['profit']);
     }
 
     /** @test */
@@ -813,8 +836,7 @@ class AdminFinanceTest extends TestCase
                 ->has('sharing.partners', 2)
                 // 55.0 qua JSON thành số nguyên 55 — assert theo đúng thứ FE nhận được.
                 ->where('sharing.reserve_percent', 55)
-                ->has('sharing.rows')
-                ->has('sharing.deficit'));
+                ->has('sharing.rows'));
     }
 
     /**

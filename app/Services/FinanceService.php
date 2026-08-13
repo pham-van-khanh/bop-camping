@@ -357,25 +357,29 @@ class FinanceService
     /**
      * Chia lợi nhuận giữa các thành viên góp vốn — 3 THÁNG MỘT LẦN (bopcamping-xlmy).
      *
-     * LUẬT (chủ shop chốt 13/08/2026, đổi kỳ sang quý ngày 13/08/2026):
-     *   1. Chia theo QUÝ, không theo tháng.
-     *   2. Lãi quý phải BÙ HẾT LỖ LUỸ KẾ còn treo trước đã. Chỉ phần vượt ra mới đem chia.
-     *      Không có bước này thì quý nào lãi là rút tiền ngay, kể cả khi tính chung shop
-     *      vẫn đang âm — rút vào chính tiền vốn.
+     * LUẬT (chủ shop chốt 13/08/2026):
+     *   1. Chia theo QUÝ, mỗi quý một lần.
+     *   2. Quý nào có lãi thì chia thẳng phần lãi của quý đó — KHÔNG bù lỗ quý trước.
+     *      Quý lãi 500k cũng chia 500k. (Bản trước bắt bù hết lỗ luỹ kế mới được chia;
+     *      chủ shop bỏ luật đó ngày 13/08/2026 — bopcamping-qipx.)
+     *      Quý lỗ thì không chia gì, và khoản lỗ đó KHÔNG theo sang quý sau.
      *   3. Phần đem chia: 55% giữ lại làm quỹ dự phòng, 45% chia theo tỉ lệ góp vốn.
+     *
+     * Tiền THỰC TRẢ cho thành viên được chủ shop ghi thành một khoản chi loại
+     * 'profit_share' ("Chia lợi nhuận") — nó vào chi phí nên trừ thẳng vào lãi quý ghi
+     * nhận khoản đó, đúng như mọi khoản chi khác.
      *
      * QUÝ ĐANG CHẠY CHƯA KHÉP SỔ: con số của nó còn đổi cho tới hết quý, nên chỉ tính
      * TẠM (is_open = true) và KHÔNG cộng vào tổng đã chia của từng người. Gộp luôn vào
      * tổng là mời người ta rút tiền dựa trên số chưa chốt.
      *
-     * TIỀN KHÔNG ĐƯỢC BỐC HƠI: quỹ + các phần chia phải cộng đúng bằng số đem chia. Nên
-     * chỉ làm tròn ở các khoản đầu, khoản CUỐI lấy phần dư — làm tròn từng khoản độc lập
-     * thì tổng lệch 1–2 đồng và bảng không bao giờ khớp.
+     * TIỀN KHÔNG ĐƯỢC BỐC HƠI: quỹ + các phần chia phải cộng đúng bằng số đem chia —
+     * xem splitByCapital().
      *
      * @return array{
      *     partners: list<array{key: string, name: string, capital: int, capital_percent: float, profit_percent: float, total: int}>,
-     *     reserve_percent: float, reserve_total: int, distributed_total: int, deficit: int,
-     *     rows: list<array{quarter: string, label: string, profit: int, offset: int, distributable: int, reserve: int, shares: array<string, int>, is_open: bool}>
+     *     reserve_percent: float, reserve_total: int, distributed_total: int,
+     *     rows: list<array{quarter: string, label: string, profit: int, distributable: int, reserve: int, shares: array<string, int>, is_open: bool}>
      * }
      */
     public function profitSharing(): array
@@ -385,7 +389,6 @@ class FinanceService
         // Khoá dùng ở FE là user_id dạng chuỗi — tên có thể trùng nhau, id thì không.
         $keys = $members->pluck('user_id')->map(fn (int $id) => (string) $id)->all();
 
-        $deficit = 0;              // lỗ luỹ kế còn phải bù
         $reserveTotal = 0;
         $totals = array_fill_keys($keys, 0);
         $rows = [];
@@ -399,32 +402,23 @@ class FinanceService
                 'reserve_percent' => round(self::RESERVE_RATE * 100, 2),
                 'reserve_total' => 0,
                 'distributed_total' => 0,
-                'deficit' => max(0, $this->expenseTotal() - $this->revenue()),
                 'rows' => [],
             ];
         }
 
         foreach ($this->quarterlySeries() as $q) {
             $profit = $q['profit'];
-            $offset = 0;           // phần lãi quý này dùng để bù lỗ cũ
-
-            if ($profit <= 0) {
-                $carriedLoss = -$profit;
-                $distributable = 0;
-            } else {
-                $carriedLoss = 0;
-                $offset = min($deficit, $profit);
-                $distributable = $profit - $offset;
-            }
+            // Mỗi quý đứng riêng: lãi bao nhiêu chia bấy nhiêu, lỗ thì chia 0 và không
+            // để lại nợ cho quý sau.
+            $distributable = max(0, $profit);
 
             $reserve = (int) round($distributable * self::RESERVE_RATE);
             $toPartners = $distributable - $reserve;
             $shares = $this->splitByCapital($toPartners, $members, $capital);
 
-            // Quý CHƯA khép sổ chỉ để xem trước: không cộng vào tổng, và cũng không đụng
-            // vào $deficit — số của nó còn đổi tới hết quý, ghi nhận sớm là sai sổ.
+            // Quý CHƯA khép sổ chỉ để xem trước: số còn đổi tới hết quý nên không cộng
+            // vào tổng đã chia.
             if (! $q['is_open']) {
-                $deficit = $deficit - $offset + $carriedLoss;
                 $reserveTotal += $reserve;
                 foreach ($shares as $k => $v) {
                     $totals[$k] += $v;
@@ -435,7 +429,6 @@ class FinanceService
                 'quarter' => $q['quarter'],
                 'label' => $q['label'],
                 'profit' => $profit,
-                'offset' => $offset,
                 'distributable' => $distributable,
                 'reserve' => $reserve,
                 'shares' => $shares,
@@ -462,9 +455,7 @@ class FinanceService
             'reserve_percent' => round(self::RESERVE_RATE * 100, 2),
             'reserve_total' => $reserveTotal,
             'distributed_total' => array_sum($totals),
-            // Lỗ còn treo sau các quý ĐÃ khép sổ — phải bù hết chỗ này rồi mới chia tiếp.
-            'deficit' => $deficit,
-            // Mới nhất lên đầu cho bảng; thuật toán bù lỗ đã chạy theo đúng thứ tự thời gian.
+            // Mới nhất lên đầu cho bảng.
             'rows' => array_reverse($rows),
         ];
     }

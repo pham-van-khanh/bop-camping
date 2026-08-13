@@ -91,13 +91,11 @@ const sharing = {
     reserve_percent: 55,
     reserve_total: 1_100_000,
     distributed_total: 900_000,
-    deficit: 0,
     rows: [
         {
             quarter: '2026-Q2',
             label: 'Quý 2/2026',
             profit: 5_000_000,
-            offset: 3_000_000,
             distributable: 2_000_000,
             reserve: 1_100_000,
             shares: { a: 514_286, b: 385_714 },
@@ -107,7 +105,6 @@ const sharing = {
             quarter: '2026-Q1',
             label: 'Quý 1/2026',
             profit: 5_000_000,
-            offset: 5_000_000,
             distributable: 0,
             reserve: 0,
             shares: { a: 0, b: 0 },
@@ -415,7 +412,6 @@ describe('khối chia lợi nhuận', () => {
                         quarter: '2026-Q3',
                         label: 'Quý 3/2026',
                         profit: 9_000_000,
-                        offset: 0,
                         distributable: 9_000_000,
                         reserve: 4_950_000,
                         shares: { a: 2_314_286, b: 1_735_714 },
@@ -458,7 +454,6 @@ describe('khối chia lợi nhuận', () => {
                         quarter: '2026-Q3',
                         label: 'Quý 3/2026',
                         profit: -2_000_000,
-                        offset: 0,
                         distributable: 0,
                         reserve: 0,
                         shares: { a: 0, b: 0 },
@@ -491,7 +486,6 @@ describe('khối chia lợi nhuận', () => {
                         quarter: '2027-Q2',
                         label: 'Quý 2/2027',
                         profit: 1_000_000,
-                        offset: 0,
                         distributable: 1_000_000,
                         reserve: 550_000,
                         shares: { a: 257_143, b: 192_857 },
@@ -501,7 +495,6 @@ describe('khối chia lợi nhuận', () => {
                         quarter: '2026-Q3',
                         label: 'Quý 3/2026',
                         profit: 3_000_000,
-                        offset: 0,
                         distributable: 3_000_000,
                         reserve: 1_650_000,
                         shares: { a: 771_429, b: 578_571 },
@@ -518,44 +511,43 @@ describe('khối chia lợi nhuận', () => {
         expect(card.textContent).not.toMatch(/Quý 2\/2027 chưa khép sổ/);
     });
 
-    it('nói rõ số tiền đã bù lỗ, không lặng lẽ hiện lãi 5tr mà chia 2tr', () => {
+    it('không còn cột Bù lỗ — mỗi quý chia độc lập', () => {
         setProps();
         render(<AdminFinance />);
 
-        // Không có cột "Bù lỗ" thì người xem tưởng phép tính sai.
-        expect(screen.getByText('Bù lỗ')).toBeInTheDocument();
-        expect(screen.getByText('−3.000.000đ')).toBeInTheDocument();
+        const card = sharingCard();
+        expect(within(card).queryByText('Bù lỗ')).not.toBeInTheDocument();
+        expect(card.textContent).toMatch(
+            /quý nào lãi bao nhiêu chia bấy nhiêu/i,
+        );
     });
 
-    it('đang lỗ luỹ kế thì cảnh báo chưa chia được đồng nào', () => {
+    it('quý lãi ít vẫn được chia, không có ngưỡng tối thiểu', () => {
         setProps({
             sharing: {
                 ...sharing,
-                deficit: 25_000_000,
-                reserve_total: 0,
-                distributed_total: 0,
-                partners: partners.map((p) => ({ ...p, total: 0 })),
-                rows: [],
+                reserve_total: 275_000,
+                distributed_total: 225_000,
+                rows: [
+                    {
+                        quarter: '2026-Q2',
+                        label: 'Quý 2/2026',
+                        profit: 500_000,
+                        distributable: 500_000,
+                        reserve: 275_000,
+                        shares: { a: 128_571, b: 96_429 },
+                        is_open: false,
+                    },
+                ],
             },
         });
         render(<AdminFinance />);
 
-        expect(
-            screen.getByText(/Chưa chia được đồng nào/i),
-        ).toBeInTheDocument();
-        expect(screen.getByText('25.000.000đ')).toBeInTheDocument();
-        expect(
-            screen.getByText(/Chưa có quý nào đủ lãi để chia/i),
-        ).toBeInTheDocument();
-    });
-
-    it('không cảnh báo lỗ khi shop đã hết nợ luỹ kế', () => {
-        setProps();
-        render(<AdminFinance />);
-
-        expect(
-            screen.queryByText(/Chưa chia được đồng nào/i),
-        ).not.toBeInTheDocument();
+        const rows = within(sharingCard())
+            .getAllByRole('row')
+            .map((r) => r.textContent ?? '');
+        expect(rows.some((t) => t.startsWith('Quý 2/2026'))).toBe(true);
+        expect(rows.some((t) => t.includes('500.000đ'))).toBe(true);
     });
 
     it('chưa khai vốn góp thì nói rõ phải nhập trước, không hiện bảng rỗng khó hiểu', () => {

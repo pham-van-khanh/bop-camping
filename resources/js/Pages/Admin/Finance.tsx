@@ -55,7 +55,6 @@ type SharingRow = {
     quarter: string;
     label: string;
     profit: number;
-    offset: number;
     distributable: number;
     reserve: number;
     shares: Record<string, number>;
@@ -70,7 +69,6 @@ type Sharing = {
     reserve_percent: number;
     reserve_total: number;
     distributed_total: number;
-    deficit: number;
     rows: SharingRow[];
 };
 
@@ -888,7 +886,7 @@ const RESERVE_COLOR = '#C9A227';
  *   2. Còn nợ bao nhiêu mới tới lượt chia — hiện thành dòng cảnh báo riêng.
  */
 function ProfitSharing({ sharing }: { sharing: Sharing }) {
-    const { partners, rows, reserve_percent, reserve_total, deficit } = sharing;
+    const { partners, rows, reserve_percent, reserve_total } = sharing;
     // Quý đang chạy LUÔN được liệt kê, kể cả khi chưa có gì để chia: nếu lọc nó ra thì
     // dòng cảnh báo "Quý X chưa khép sổ" lại trỏ vào một quý không có trên bảng.
     const shared = rows.filter((r) => r.distributable > 0 || r.is_open);
@@ -917,8 +915,8 @@ function ProfitSharing({ sharing }: { sharing: Sharing }) {
                 </span>
             </div>
             <p className="mb-4 text-[12px] leading-snug text-[#a3ad92]">
-                Chia mỗi quý một lần. Lãi quý phải bù hết lỗ luỹ kế còn treo
-                trước, phần vượt ra mới đem chia.
+                Mỗi quý chia một lần, quý nào lãi bao nhiêu chia bấy nhiêu. Quý
+                lỗ thì không chia, và khoản lỗ đó không chuyển sang quý sau.
             </p>
 
             {partners.length === 0 && (
@@ -926,14 +924,6 @@ function ProfitSharing({ sharing }: { sharing: Sharing }) {
                     <b>Chưa khai vốn góp.</b> Mọi tỉ lệ chia lợi nhuận tính từ
                     sổ vốn góp — nhập ở khối <b>Quản lý vốn góp</b> bên dưới thì
                     phần này mới có số.
-                </div>
-            )}
-
-            {partners.length > 0 && deficit > 0 && (
-                <div className="mb-4 rounded-[12px] border border-[#f0dcc9] bg-[#fdf6ee] px-4 py-3 text-[12.5px] text-[#8a5a22]">
-                    <b>Chưa chia được đồng nào.</b> Shop đang lỗ luỹ kế{' '}
-                    <b>{money(deficit)}</b> — lãi các quý tới sẽ dùng để bù hết
-                    chỗ này trước.
                 </div>
             )}
 
@@ -979,9 +969,6 @@ function ProfitSharing({ sharing }: { sharing: Sharing }) {
                                     Lãi quý
                                 </th>
                                 <th className="pb-2 text-right font-semibold">
-                                    Bù lỗ
-                                </th>
-                                <th className="pb-2 text-right font-semibold">
                                     Đem chia
                                 </th>
                                 <th className="pb-2 text-right font-semibold">
@@ -1017,9 +1004,6 @@ function ProfitSharing({ sharing }: { sharing: Sharing }) {
                                     <td className="py-2 text-right font-mono">
                                         {money(r.profit)}
                                     </td>
-                                    <td className="py-2 text-right font-mono text-[#a3ad92]">
-                                        {r.offset ? `−${money(r.offset)}` : '—'}
-                                    </td>
                                     <td className="py-2 text-right font-mono font-semibold text-ink">
                                         {money(r.distributable)}
                                     </td>
@@ -1053,9 +1037,6 @@ function ProfitSharing({ sharing }: { sharing: Sharing }) {
                                 </td>
                                 <td className="py-2 text-right font-mono">
                                     {money(sumOf((r) => r.profit))}
-                                </td>
-                                <td className="py-2 text-right font-mono text-[#a3ad92]">
-                                    {money(sumOf((r) => r.offset))}
                                 </td>
                                 <td className="py-2 text-right font-mono">
                                     {money(sumOf((r) => r.distributable))}

@@ -22,7 +22,7 @@ class Expense extends Model
      * Thêm loại mới thì nối vào CUỐI và khai nhãn tương ứng — bản ghi cũ lưu chuỗi
      * category nên đổi tên khoá là mất dữ liệu đã nhập.
      */
-    public const CATEGORIES = ['equipment', 'repair', 'shipping', 'marketing', 'operation', 'contingency', 'other'];
+    public const CATEGORIES = ['equipment', 'repair', 'shipping', 'marketing', 'operation', 'contingency', 'profit_share', 'other'];
 
     public const CATEGORY_LABELS = [
         'equipment' => 'Mua thiết bị',
@@ -34,6 +34,9 @@ class Expense extends Model
         // (55% lợi nhuận giữ lại). Một bên là tiền đã tiêu, một bên là tiền giữ lại —
         // để trùng tên trên cùng màn là mời người đọc hiểu ngược.
         'contingency' => 'Chi dự phòng',
+        // Tiền thực trả cho thành viên góp vốn sau mỗi lần chia (bopcamping-qipx).
+        // Ghi thành khoản chi nên nó trừ vào lãi của quý ghi nhận, như mọi khoản chi khác.
+        'profit_share' => 'Chia lợi nhuận',
         'other' => 'Khác',
     ];
 
@@ -45,6 +48,7 @@ class Expense extends Model
         'marketing' => '#9B5A8C',
         'operation' => '#6B8E5A',
         'contingency' => '#C9A227',
+        'profit_share' => '#7A5FA3',
         'other' => '#8A8A7B',
     ];
 
