@@ -18,6 +18,9 @@ export type PaymentQrData = {
     bank?: string | null;
     account?: string | null;
     holder?: string | null;
+    // Phụ phí KHÔNG nằm trong số tiền QR vì sẽ trừ vào cọc lúc hoàn (bopcamping-urqo).
+    // Không nói ra thì con số trên QR lệch với "còn phải trả" mà không ai giải thích.
+    fee_from_deposit?: number;
 };
 
 export default function PaymentQr({
@@ -79,6 +82,13 @@ export default function PaymentQr({
                                 </div>
                             )}
                         </>
+                    )}
+
+                    {(qr.fee_from_deposit ?? 0) > 0 && (
+                        <p className="mt-2 text-[12px] text-[#5f6650]">
+                            Chưa gồm phụ phí {money(qr.fee_from_deposit ?? 0)} —
+                            khoản này trừ vào tiền cọc khi hoàn.
+                        </p>
                     )}
 
                     {qr.download_url && (

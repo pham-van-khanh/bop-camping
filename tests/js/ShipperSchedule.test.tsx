@@ -54,6 +54,10 @@ const ORDER = {
     deposit_total: 50000,
     deposit_paid: false,
     deposit_refund_status: 'pending',
+    fee_due: 0,
+    fee_paid: false,
+    fee_lines: [],
+    refund_due: 0,
     schedule_note: 'Gọi trước 15 phút',
     actions: [] as {
         key: string;

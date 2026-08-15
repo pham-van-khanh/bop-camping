@@ -154,8 +154,137 @@ class PaymentQrTest extends TestCase
 
         $this->assertSame(550_000, $order->rental_due);
         $this->assertSame(500_000, $order->rentalPaidAmount(), 'số đã thu KHÔNG được chạy theo giá mới');
-        $this->assertSame(350_000, $order->outstanding_due, '300k cọc + 50k chênh tiền thuê');
-        $this->assertSame(350_000, $this->qr()->payloadFor($order)['amount']);
+        $this->assertSame(350_000, $order->outstanding_due, '300k cọc + 50k phụ phí');
+
+        // QR chỉ đòi 300k: tiền thuê đã trả rồi thì phụ phí KHÔNG đòi qua chuyển khoản nữa,
+        // nó trừ vào cọc lúc hoàn (bopcamping-urqo).
+        $this->assertSame(300_000, $order->transfer_due);
+        $this->assertSame(300_000, $this->qr()->payloadFor($order)['amount']);
+        $this->assertSame(50_000, $this->qr()->payloadFor($order)['fee_from_deposit']);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Phụ phí là KHOẢN THU RIÊNG (bopcamping-urqo)
+    |--------------------------------------------------------------------------
+    | Trước đây phụ phí gộp vào tiền thuê nên chủ shop không biết khoản nào đã thu.
+    */
+
+    /** Đẳng thức nền: tách khoản không được làm đổi tổng. */
+    /** @test */
+    public function the_base_rental_plus_the_fee_always_equals_the_old_rental_total(): void
+    {
+        $order = $this->order(['total_price' => 500_000, 'extra_fee' => 40_000, 'discount_total' => 50_000]);
+
+        $this->assertSame($order->rental_due, $order->base_rental_due + $order->fee_due);
+        $this->assertSame(450_000, $order->base_rental_due);
+        $this->assertSame(40_000, $order->fee_due);
+    }
+
+    /** Ba khoản thu độc lập — thu khoản này không đụng khoản kia. */
+    /** @test */
+    public function the_three_amounts_are_collected_independently(): void
+    {
+        $order = $this->order(['total_price' => 500_000, 'extra_fee' => 50_000, 'deposit_total' => 300_000]);
+
+        $order->markPaid('fee', true);
+        $order->refresh();
+
+        $this->assertTrue($order->feePaid());
+        $this->assertFalse($order->rentalPaid());
+        $this->assertFalse($order->depositPaid());
+        $this->assertSame(800_000, $order->outstanding_due, 'còn tiền thuê 500k + cọc 300k');
+    }
+
+    /**
+     * ĐƠN CŨ KHÔNG BỊ GHI ĐÈ (bopcamping-urqo). Luật suy từ chính con số đã ghi, không dùng
+     * mốc ngày hardcode — mốc ngày luôn mục nát sau vài lần deploy.
+     *
+     * @test
+     */
+    public function an_old_order_paid_under_the_old_meaning_is_not_falsely_shown_as_owing_the_fee(): void
+    {
+        $order = $this->order(['total_price' => 500_000, 'extra_fee' => 50_000, 'deposit_total' => 300_000]);
+
+        // Nghĩa CŨ: "đã thu tiền thuê" = thu cả phụ phí, số ghi lại là rental_due (550k).
+        $order->forceFill([
+            'rental_paid_at' => now(),
+            'rental_paid_amount' => $order->rental_due,
+        ])->save();
+        $order->refresh();
+
+        $this->assertTrue($order->feePaid(), 'đơn cũ không được báo nợ phụ phí');
+        $this->assertSame(300_000, $order->outstanding_due, 'chỉ còn cọc');
+    }
+
+    /** Chiều ngược lại: đơn MỚI thu tiền thuê gốc rồi thêm phụ phí thì vẫn còn nợ. */
+    /** @test */
+    public function a_new_order_that_gains_a_fee_after_collection_still_owes_it(): void
+    {
+        $order = $this->order(['total_price' => 500_000, 'deposit_total' => 300_000]);
+        $order->markPaid('rental', true);
+        $order->update(['extra_fee' => 50_000]);
+        $order->refresh();
+
+        $this->assertFalse($order->feePaid(), 'phụ phí thêm sau KHÔNG được coi là đã thu');
+        $this->assertSame(50_000, $order->feeOutstanding());
+    }
+
+    /**
+     * Hoàn cọc trừ phụ phí chưa thu, và tự đánh dấu khoản đó đã thu — tiền về tay shop qua
+     * đường giữ lại, không có lý do gì để nó treo "chưa thu" mãi.
+     *
+     * @test
+     */
+    public function refunding_the_deposit_deducts_the_unpaid_fee(): void
+    {
+        $order = $this->order(['total_price' => 500_000, 'extra_fee' => 50_000, 'deposit_total' => 300_000]);
+        $order->markPaid('rental', true);
+        $order->markPaid('deposit', true);
+        $order->refresh();
+
+        $this->assertSame(250_000, $order->refund_due, '300k cọc − 50k phụ phí');
+
+        $order->markRefunded(true, null);
+        $order->refresh();
+
+        $this->assertSame(250_000, $order->deposit_refund_amount, 'ghi sổ đúng số đã trả khách');
+        $this->assertTrue($order->feePaid());
+        $this->assertSame(0, $order->outstanding_due);
+        $this->assertSame('full', $order->payment_status);
+    }
+
+    /** Phụ phí lớn hơn cọc thì hoàn kẹp về 0, phần thiếu tách ra cho admin thu tay. */
+    /** @test */
+    public function a_fee_bigger_than_the_deposit_never_makes_the_refund_negative(): void
+    {
+        $order = $this->order(['total_price' => 500_000, 'extra_fee' => 50_000, 'deposit_total' => 30_000]);
+        $order->markPaid('rental', true);
+        $order->markPaid('deposit', true);
+        $order->refresh();
+
+        $this->assertSame(0, $order->refund_due);
+        $this->assertSame(20_000, $order->refundShortfall());
+    }
+
+    /** Khoản phụ phí phải ra tới cả trang khách lẫn màn admin. */
+    /** @test */
+    public function the_fee_amount_reaches_the_customer_and_the_admin(): void
+    {
+        $order = $this->order(['total_price' => 500_000, 'extra_fee' => 50_000]);
+
+        $this->get(route('lookup', ['code' => $order->code, 'phone' => $order->customer_phone]))
+            ->assertInertia(fn (Assert $p) => $p
+                ->where('order.fee_due', 50_000)
+                ->where('order.fee_received', 0)
+                ->where('order.rental_due', 500_000));
+
+        $this->actingAs(User::factory()->create(['is_admin' => true]))
+            ->get(route('admin.orders.show', $order))
+            ->assertInertia(fn (Assert $p) => $p
+                ->where('order.fee_due', 50_000)
+                ->where('order.fee_paid', false)
+                ->has('order.fee_lines'));
     }
 
     /** Bỏ đánh dấu thu thì xoá luôn số tiền đã ghi — không để lại vết ma. */

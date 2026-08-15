@@ -291,7 +291,12 @@ class DeliveryScheduleService
         }
 
         if (! $o->rentalPaid()) {
-            $todo[] = 'Thu tiền thuê '.$vnd($o->rental_due);
+            $todo[] = 'Thu tiền thuê '.$vnd($o->base_rental_due);
+        }
+        // Phụ phí là khoản thu riêng từ bopcamping-urqo — trước đây nằm lẫn trong tiền thuê
+        // nên shipper không biết phải thu thêm bao nhiêu.
+        if ($o->fee_due > 0 && ! $o->feePaid()) {
+            $todo[] = 'Thu phụ phí '.$vnd($o->fee_due);
         }
         if (! $o->depositPaid()) {
             $todo[] = 'Thu cọc '.$vnd((int) $o->deposit_total);
@@ -342,9 +347,14 @@ class DeliveryScheduleService
             'amount_due' => $o->amount_due,
             'deposit_total' => $o->deposit_total,
             // Thu tiền 2 khoản độc lập (bopcamping-q7i0) — shipper thu hộ khoản nào chưa thu.
-            'rental_due' => $o->rental_due,
+            'rental_due' => $o->base_rental_due,
             'rental_paid' => $o->rentalPaid(),
             'deposit_paid' => $o->depositPaid(),
+            // Khoản phụ phí riêng + số cọc thực hoàn sau khi trừ (bopcamping-urqo).
+            'fee_due' => $o->fee_due,
+            'fee_paid' => $o->feePaid(),
+            'fee_lines' => $o->extraFeeLines(),
+            'refund_due' => $o->refund_due,
             'deposit_refund_status' => $o->deposit_refund_status,
             'deposit_refund_note' => $o->deposit_refund_note,
             'schedule_note' => $o->schedule_note,

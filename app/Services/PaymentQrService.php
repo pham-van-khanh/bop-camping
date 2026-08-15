@@ -41,7 +41,10 @@ class PaymentQrService
             'bank' => $bank,
             // CÒN phải thu, không phải tổng đơn: khách đã trả tiền thuê mà QR vẫn ghi
             // tổng thì họ chuyển thừa đúng bằng khoản đã trả (bopcamping-pew1).
-            'amount' => $order->outstanding_due,
+            //
+            // transfer_due chứ không phải outstanding_due (bopcamping-urqo): đã trả tiền
+            // thuê rồi thì phụ phí không đòi qua chuyển khoản nữa, nó trừ vào cọc lúc hoàn.
+            'amount' => $order->transfer_due,
             'des' => $this->transferContentFor($order),
             'template' => 'compact',
             'showinfo' => 'true',
@@ -83,8 +86,11 @@ class PaymentQrService
 
         $payload = [
             'url' => $url,
-            'amount' => $order->outstanding_due,
+            'amount' => $order->transfer_due,
             'content' => $this->transferContentFor($order),
+            // Phụ phí không nằm trong QR thì phải nói cho khách biết nó đi đâu, không thì
+            // con số trên QR lệch với "còn phải trả" mà không ai giải thích (bopcamping-urqo).
+            'fee_from_deposit' => $order->rentalPaid() ? $order->feeOutstanding() : 0,
             // Thông tin người nhận dạng CHỮ (bopcamping-r3fy): trước đây chúng chỉ nằm
             // trong pixel của ảnh và trong query string, nên SePay sập hoặc mạng lỗi là
             // khách không còn biết chuyển cho ai. Có bản chữ thì vẫn chuyển tay được.
@@ -139,9 +145,9 @@ class PaymentQrService
             return false;
         }
 
-        // Không còn đồng nào để thu — gồm luôn ca đã thu đủ cả hai khoản (khi đó
-        // outstanding_due = 0). Còn chìa QR ra là mời khách trả lần hai.
-        if ($order->outstanding_due <= 0) {
+        // Không còn đồng nào để ĐÒI QUA CHUYỂN KHOẢN. Dùng transfer_due chứ không phải
+        // outstanding_due: đơn chỉ còn nợ mỗi phụ phí (sẽ trừ vào cọc) thì không cần QR.
+        if ($order->transfer_due <= 0) {
             return false;
         }
 
