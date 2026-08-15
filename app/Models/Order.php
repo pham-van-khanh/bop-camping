@@ -294,6 +294,22 @@ class Order extends Model
         return $this->rental_due + (int) $this->deposit_total;
     }
 
+    /**
+     * Số tiền CÒN phải thu — amount_due trừ đi những khoản đã đánh dấu thu (bopcamping-pew1).
+     *
+     * Khác amount_due ở chỗ nó động theo thực tế thu: hai khoản thu ĐỘC LẬP nên khách trả
+     * tiền thuê trước, còn nợ mỗi cọc là chuyện thường. Chỗ nào đòi tiền khách (vd QR
+     * chuyển khoản) phải dùng con số này — dùng amount_due là đòi lại cả khoản đã trả.
+     */
+    public function getOutstandingDueAttribute(): int
+    {
+        $left = ($this->rentalPaid() ? 0 : $this->rental_due)
+            + ($this->depositPaid() ? 0 : (int) $this->deposit_total);
+
+        // Giảm giá vượt tiền thuê thì rental_due âm — đừng để nó ăn lẹm vào cọc.
+        return max(0, $left);
+    }
+
     /** Riêng phần TIỀN THUÊ phải thu (đã gồm phụ phí, đã trừ giảm giá) — không gồm cọc. */
     public function getRentalDueAttribute(): int
     {

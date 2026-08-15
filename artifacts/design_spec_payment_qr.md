@@ -92,9 +92,15 @@ urlFor(Order $order, bool $download = false): ?string
 transferContentFor(Order $order): string
 ```
 
-`urlFor()` ráp `acc`, `bank`, `holder` từ config; `amount` = `$order->amount_due`;
+`urlFor()` ráp `acc`, `bank`, `holder` từ config; `amount` = **`$order->outstanding_due`**;
 `des` = `transferContentFor()`; cộng `template=compact`, `showinfo=true`, `fullacc=true`.
 Cờ `$download` thêm `download=true` để SePay trả về kèm `Content-Disposition`.
+
+> **`outstanding_due`, KHÔNG phải `amount_due`.** Hai khoản thu độc lập nên khách trả tiền
+> thuê trước rồi còn nợ mỗi cọc là chuyện thường. Bản đầu luôn ghi `amount_due`, nên đơn
+> 540k đã thu 240k tiền thuê vẫn hiện QR đòi đủ 540k — khách quét là **chuyển thừa đúng
+> 240k**. Accessor `Order::$outstanding_due` là nguồn duy nhất cho "còn phải thu bao nhiêu";
+> chỗ nào đòi tiền khách phải dùng nó.
 
 ### Điều kiện hiện QR — luật KHÁCH và luật ADMIN tách đôi (bopcamping-pew1)
 
@@ -106,8 +112,7 @@ Chung cho cả hai:
 | Điều kiện | Lý do |
 |---|---|
 | config có đủ `bank` + `account` | thiếu thì URL vô nghĩa |
-| `amount_due > 0` | không có gì để thu |
-| `payment_status !== 'full'` | thu đủ rồi mà còn chìa QR là mời khách trả lần hai |
+| `outstanding_due > 0` | không còn đồng nào để thu — gồm luôn ca đã thu đủ cả hai khoản |
 | `! $order->is_parent` | mỗi đơn con một QR; cha chỉ là vỏ chứa |
 | status `!== 'cancelled'` | đơn huỷ thì không đòi tiền nữa |
 
@@ -174,7 +179,28 @@ Nút tải dựa vào `download=true` của SePay chứ không dùng thuộc tí
 - `PaymentStatus` báo hai khoản độc lập; đơn không cọc không có dòng cọc; câu nhắc chờ
   chỉ hiện khi còn khoản chưa nhận.
 
-## 6. Không đụng tới
+## 6. Bảo mật
+
+**Rò referrer sang bên thứ ba.** Trang tra cứu mang SĐT khách ngay trên URL
+(`/tra-cuu?code=…&phone=…`), mà ảnh QR tải từ miền SePay. Trình duyệt hiện đại mặc định
+`strict-origin-when-cross-origin` nên chỉ gửi origin — nhưng mặc định là thứ đổi được, và
+site chưa đặt `Referrer-Policy` riêng. Thẻ `<img>` khoá cứng `referrerPolicy="no-referrer"`,
+link tải của admin thêm `rel="noreferrer"`. Đã đo: ảnh vẫn tải bình thường khi khoá.
+
+**Chống dò `/tra-cuu`.** Route này trước đây **không có throttle**, trong khi hầu hết
+endpoint công khai khác trong `routes/web.php` đều có. Mã đơn sinh từ `uniqid()` nên đoán
+được kha khá, và từ bopcamping-pew1 trang này trả cả tình trạng thu tiền lẫn QR — tức
+phần thưởng khi dò được đã tăng lên. Đặt `throttle:60,1` (đã đo: đúng 60 lượt/phút/IP rồi
+429). Cặp mã đơn + SĐT vẫn là lớp chặn chính; throttle chỉ chặn máy quét.
+
+**Không có lỗ phân quyền.** Toàn bộ prefix `admin` nằm trong nhóm middleware `admin`, kể
+cả route đánh dấu thu tiền. Khách chỉ tra được đơn khi khớp CẢ mã đơn lẫn SĐT.
+
+**Không có đường tiêm mã.** Mọi tham số URL đều là hằng, cột số, hoặc chuỗi đã lược về
+`[A-Za-z0-9]`, rồi đi qua `http_build_query(..., PHP_QUERY_RFC3986)`. Không có secret nào
+trong config này (số tài khoản + tên chủ vốn hiện công khai ngay trên QR).
+
+## 7. Không đụng tới
 
 `markPaid()`, `payment_status`, `FinanceService`, `payment_method` (vẫn `cod`).
 

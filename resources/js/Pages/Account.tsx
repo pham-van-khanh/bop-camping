@@ -845,15 +845,18 @@ function OrderDetail({
                     </div>
                 </div>
 
-                {/* Shop đã nhận khoản nào (bopcamping-pew1). */}
-                <div className="mt-3">
-                    <PaymentStatus
-                        rentalDue={order.rental_due}
-                        depositTotal={order.deposit_total}
-                        rentalPaid={order.rental_paid}
-                        depositPaid={order.deposit_paid}
-                    />
-                </div>
+                {/* Shop đã nhận khoản nào (bopcamping-pew1). Đơn huỷ thì bỏ hẳn — câu
+                    "shop cập nhật sau khi nhận được tiền" trên đơn đã huỷ là hứa hão. */}
+                {order.status !== 'cancelled' && (
+                    <div className="mt-3">
+                        <PaymentStatus
+                            rentalDue={order.rental_due}
+                            depositTotal={order.deposit_total}
+                            rentalPaid={order.rental_paid}
+                            depositPaid={order.deposit_paid}
+                        />
+                    </div>
+                )}
 
                 {/* Chuyển khoản thay cho COD (bopcamping-55rh). Chỉ render khi khối chi tiết
                     đang mở, nên mỗi lúc chỉ tải một ảnh QR chứ không tải cả danh sách. */}

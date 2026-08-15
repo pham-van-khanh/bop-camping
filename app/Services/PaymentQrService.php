@@ -39,7 +39,9 @@ class PaymentQrService
         $params = [
             'acc' => $account,
             'bank' => $bank,
-            'amount' => $order->amount_due,
+            // CÒN phải thu, không phải tổng đơn: khách đã trả tiền thuê mà QR vẫn ghi
+            // tổng thì họ chuyển thừa đúng bằng khoản đã trả (bopcamping-pew1).
+            'amount' => $order->outstanding_due,
             'des' => $this->transferContentFor($order),
             'template' => 'compact',
             'showinfo' => 'true',
@@ -81,7 +83,7 @@ class PaymentQrService
 
         $payload = [
             'url' => $url,
-            'amount' => (int) $order->amount_due,
+            'amount' => $order->outstanding_due,
             'content' => $this->transferContentFor($order),
         ];
 
@@ -119,8 +121,9 @@ class PaymentQrService
             return false;
         }
 
-        // Không còn gì để thu, hoặc thu đủ rồi mà còn chìa QR là mời khách trả lần hai.
-        if ($order->amount_due <= 0 || $order->payment_status === 'full') {
+        // Không còn đồng nào để thu — gồm luôn ca đã thu đủ cả hai khoản (khi đó
+        // outstanding_due = 0). Còn chìa QR ra là mời khách trả lần hai.
+        if ($order->outstanding_due <= 0) {
             return false;
         }
 

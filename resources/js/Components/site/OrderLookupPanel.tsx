@@ -221,17 +221,19 @@ export default function OrderLookupPanel({
                     </div>
 
                     {/* Đơn gộp: tiền thu theo từng đợt nên khối này để trong từng đợt bên
-                        dưới, không gộp ở cấp cha. */}
-                    {!order.installments?.length && (
-                        <div className="mb-4">
-                            <PaymentStatus
-                                rentalDue={order.rental_due}
-                                depositTotal={order.deposit_total}
-                                rentalPaid={order.rental_paid}
-                                depositPaid={order.deposit_paid}
-                            />
-                        </div>
-                    )}
+                        dưới, không gộp ở cấp cha. Đơn HUỶ thì bỏ hẳn — câu "shop cập nhật
+                        sau khi nhận được tiền" trên đơn đã huỷ là hứa hão. */}
+                    {order.status !== 'cancelled' &&
+                        !order.installments?.length && (
+                            <div className="mb-4">
+                                <PaymentStatus
+                                    rentalDue={order.rental_due}
+                                    depositTotal={order.deposit_total}
+                                    rentalPaid={order.rental_paid}
+                                    depositPaid={order.deposit_paid}
+                                />
+                            </div>
+                        )}
 
                     {/* Chuyển khoản thay cho COD (bopcamping-55rh) — chỉ còn ở đơn 'pending';
                         backend quyết, đây không suy lại (bopcamping-pew1). */}
@@ -333,17 +335,24 @@ export default function OrderLookupPanel({
                                             </tbody>
                                         </table>
                                         {/* Mỗi đợt thu riêng nên tình trạng tiền và QR đều
-                                            theo đợt — đơn cha không có của chính nó. */}
-                                        <div className="border-t border-[#eef2e3] p-3">
-                                            <PaymentStatus
-                                                rentalDue={inst.rental_due}
-                                                depositTotal={
-                                                    inst.deposit_total
-                                                }
-                                                rentalPaid={inst.rental_paid}
-                                                depositPaid={inst.deposit_paid}
-                                            />
-                                        </div>
+                                            theo đợt — đơn cha không có của chính nó. Đợt
+                                            đã huỷ thì bỏ, như đơn thường. */}
+                                        {inst.status !== 'cancelled' && (
+                                            <div className="border-t border-[#eef2e3] p-3">
+                                                <PaymentStatus
+                                                    rentalDue={inst.rental_due}
+                                                    depositTotal={
+                                                        inst.deposit_total
+                                                    }
+                                                    rentalPaid={
+                                                        inst.rental_paid
+                                                    }
+                                                    depositPaid={
+                                                        inst.deposit_paid
+                                                    }
+                                                />
+                                            </div>
+                                        )}
                                         {inst.payment_qr && (
                                             <div className="border-t border-[#eef2e3] p-3">
                                                 <PaymentQr
