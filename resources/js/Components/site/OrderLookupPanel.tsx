@@ -1,4 +1,5 @@
 import PaymentQr, { type PaymentQrData } from '@/Components/PaymentQr';
+import PaymentStatus from '@/Components/PaymentStatus';
 import { money } from '@/lib/format';
 import { STATUS_STYLE } from '@/lib/orderStatus';
 import { router } from '@inertiajs/react';
@@ -35,8 +36,13 @@ export type LookupOrder = {
     deposit_total: number;
     discount_total: number;
     amount_due: number;
-    // QR chuyển khoản (bopcamping-55rh) — null khi đơn chưa xác nhận / đã thu đủ / là đơn cha.
+    // QR chuyển khoản (bopcamping-55rh) — null khi đơn không còn ở 'pending' / đã thu đủ
+    // / là đơn cha (bopcamping-pew1).
     payment_qr: PaymentQrData | null;
+    // Shop đã nhận khoản nào (bopcamping-pew1).
+    rental_due: number;
+    rental_paid: boolean;
+    deposit_paid: boolean;
     status: string;
     status_label: string;
     note: string | null;
@@ -214,8 +220,21 @@ export default function OrderLookupPanel({
                         />
                     </div>
 
-                    {/* Chuyển khoản trước thay cho COD (bopcamping-55rh) — chỉ hiện khi đơn
-                        đã xác nhận và còn phải thu; backend quyết, đây không suy lại. */}
+                    {/* Đơn gộp: tiền thu theo từng đợt nên khối này để trong từng đợt bên
+                        dưới, không gộp ở cấp cha. */}
+                    {!order.installments?.length && (
+                        <div className="mb-4">
+                            <PaymentStatus
+                                rentalDue={order.rental_due}
+                                depositTotal={order.deposit_total}
+                                rentalPaid={order.rental_paid}
+                                depositPaid={order.deposit_paid}
+                            />
+                        </div>
+                    )}
+
+                    {/* Chuyển khoản thay cho COD (bopcamping-55rh) — chỉ còn ở đơn 'pending';
+                        backend quyết, đây không suy lại (bopcamping-pew1). */}
                     {order.payment_qr && (
                         <div className="mb-4">
                             <PaymentQr qr={order.payment_qr} />
@@ -313,8 +332,18 @@ export default function OrderLookupPanel({
                                                 </tr>
                                             </tbody>
                                         </table>
-                                        {/* Mỗi đợt trả riêng nên QR cũng riêng — đơn cha
-                                            không có QR của chính nó (bopcamping-55rh). */}
+                                        {/* Mỗi đợt thu riêng nên tình trạng tiền và QR đều
+                                            theo đợt — đơn cha không có của chính nó. */}
+                                        <div className="border-t border-[#eef2e3] p-3">
+                                            <PaymentStatus
+                                                rentalDue={inst.rental_due}
+                                                depositTotal={
+                                                    inst.deposit_total
+                                                }
+                                                rentalPaid={inst.rental_paid}
+                                                depositPaid={inst.deposit_paid}
+                                            />
+                                        </div>
                                         {inst.payment_qr && (
                                             <div className="border-t border-[#eef2e3] p-3">
                                                 <PaymentQr

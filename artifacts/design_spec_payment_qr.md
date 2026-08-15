@@ -1,6 +1,6 @@
 # Design Spec — QR thanh toán SePay
 
-- **Bead:** bopcamping-55rh
+- **Bead:** bopcamping-55rh, bopcamping-pew1
 - **Ngày:** 15/08/2026
 - **Trạng thái:** đã chốt với chủ shop, đang triển khai
 
@@ -96,29 +96,57 @@ transferContentFor(Order $order): string
 `des` = `transferContentFor()`; cộng `template=compact`, `showinfo=true`, `fullacc=true`.
 Cờ `$download` thêm `download=true` để SePay trả về kèm `Content-Disposition`.
 
-### Điều kiện hiện QR
+### Điều kiện hiện QR — luật KHÁCH và luật ADMIN tách đôi (bopcamping-pew1)
 
 `urlFor()` trả `null` khi bất kỳ điều nào sau đây sai. Giao diện không suy luận lại —
 có prop thì vẽ, `null` thì thôi.
 
+Chung cho cả hai:
+
 | Điều kiện | Lý do |
 |---|---|
 | config có đủ `bank` + `account` | thiếu thì URL vô nghĩa |
-| `$order->isConfirmed()` | đơn còn `pending` thì **giá chưa chắc**; QR in số tiền sai còn tệ hơn không có QR |
 | `amount_due > 0` | không có gì để thu |
 | `payment_status !== 'full'` | thu đủ rồi mà còn chìa QR là mời khách trả lần hai |
 | `! $order->is_parent` | mỗi đơn con một QR; cha chỉ là vỏ chứa |
+| status `!== 'cancelled'` | đơn huỷ thì không đòi tiền nữa |
+
+Rồi tách theo người xem:
+
+| Người xem | Điều kiện thêm | Lý do |
+|---|---|---|
+| **Khách** | `status === 'pending'` | Quy trình shop là khách chuyển tiền **xong** mới xác nhận đơn. Đơn đã xác nhận nghĩa là đã trả — còn chìa QR là mời chuyển lần hai. |
+| **Admin** | không có | Admin là người **gửi** QR đi đòi tiền. Ẩn theo luật khách thì admin chỉ thấy QR đúng lúc khách đã hết cần. Đây cũng là đường thoát cho đơn lỡ xác nhận khi khách chưa trả: admin vẫn tải được ảnh gửi tay. |
+
+> **Đã đảo chiều so với bản đầu.** Bản đầu chỉ hiện QR khi `isConfirmed()`, với lý do đơn
+> `pending` thì giá chưa chắc (shop còn sửa lịch/phụ phí). Chủ shop chốt lại ngày
+> 15/08/2026 theo quy trình thật. Rủi ro còn lại được ghi nhận và chấp nhận: khách trả
+> theo giá lúc đặt, nếu sau đó admin sửa giá thì bù trừ tay.
 
 ### Hiển thị
 
 | Trang | Nội dung |
 |---|---|
 | `Admin/Orders/Show` | QR + số tiền + nội dung CK + nút **Tải ảnh QR** |
-| `OrderLookup` | QR + số tiền + nội dung CK |
-| `Account` | QR + số tiền + nội dung CK |
+| `OrderLookup` | Tình trạng thanh toán + QR (khi đơn còn `pending`) |
+| `Account` | Tình trạng thanh toán + QR (khi đơn còn `pending`) |
 
 Dùng chung `resources/js/Components/PaymentQr.tsx`, nhận `url`, `amount`, `content`, và
 `downloadUrl` tuỳ chọn (có thì hiện nút tải).
+
+### Tình trạng thanh toán cho khách (bopcamping-pew1)
+
+`rental_paid` / `deposit_paid` trước đây **không hề ra tới khách** ở cả hai trang, nên
+khách chuyển khoản xong không có cách nào biết shop đã ghi nhận chưa — chỉ còn nước nhắn
+hỏi. Nay shape khách có thêm `rental_due`, `rental_paid`, `deposit_paid`, render bằng
+`resources/js/Components/PaymentStatus.tsx`.
+
+Hai khoản báo **độc lập** (khớp đúng `markPaid('rental'|'deposit')`), đơn không cọc thì
+không đẻ ra dòng cọc luôn "chưa nhận". Chữ dùng cố ý trung tính với hình thức trả
+("Shop đã nhận", không phải "đã chuyển khoản") vì đơn COD trả tiền mặt lúc nhận đồ cũng
+đi qua đúng hai cột này.
+
+Đơn gộp: khối này nằm trong **từng đợt**, không gộp ở cấp cha — tiền thu theo từng đơn con.
 
 Nút tải dựa vào `download=true` của SePay chứ không dùng thuộc tính `download` của thẻ
 `<a>` — thuộc tính đó bị trình duyệt bỏ qua với link khác origin.
@@ -129,20 +157,22 @@ Nút tải dựa vào `download=true` của SePay chứ không dùng thuộc tí
 
 - URL chứa đủ tham số; `amount` đúng bằng `amount_due`.
 - `des` chuẩn hoá đúng cho cả đơn thường lẫn đơn con.
-- Trả `null` ở từng ca: thiếu config, chưa `isConfirmed()`, `amount_due` = 0, đã thu đủ,
-  đơn cha.
+- Trả `null` ở từng ca: thiếu config, `amount_due` = 0, đã thu đủ, đơn cha, đơn huỷ.
+- Khách chỉ thấy QR ở `pending`; `confirmed`/`renting`/`returned`/`cancelled` đều `null`.
+- Admin vẫn thấy QR ở `pending`/`confirmed`/`renting`.
 - `download=true` chỉ xuất hiện khi được yêu cầu.
 
 **Feature**
 
-- Prop QR có mặt ở `Admin/Orders/Show` và `OrderLookup`.
-- Đơn `pending` không lộ QR.
-- Đơn cha không có QR.
+- Prop QR có mặt ở `Admin/Orders/Show` (kèm `download_url`) và `OrderLookup` (không kèm).
+- Đơn đã xác nhận không còn lộ QR ở trang tra cứu.
+- `rental_due` / `rental_paid` / `deposit_paid` ra tới cả `OrderLookup` lẫn `Account`.
 
 **Component (Vitest)**
 
-- `PaymentQr` vẽ đúng ảnh, số tiền, nội dung CK.
-- Nút tải chỉ hiện khi có `downloadUrl`.
+- `PaymentQr` vẽ đúng ảnh, số tiền, nội dung CK; nút tải chỉ hiện khi có `downloadUrl`.
+- `PaymentStatus` báo hai khoản độc lập; đơn không cọc không có dòng cọc; câu nhắc chờ
+  chỉ hiện khi còn khoản chưa nhận.
 
 ## 6. Không đụng tới
 

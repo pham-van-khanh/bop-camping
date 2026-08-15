@@ -26,13 +26,13 @@ class PaymentQrService
      * Trả null thay vì ném lỗi để giao diện không phải suy luận lại điều kiện: có thì vẽ,
      * null thì thôi.
      */
-    public function urlFor(Order $order, bool $download = false): ?string
+    public function urlFor(Order $order, bool $download = false, bool $forAdmin = false): ?string
     {
         $bank = $this->config('bank');
         $account = $this->config('account');
 
         // Thiếu tài khoản nhận tiền thì URL vô nghĩa — thà không có QR còn hơn có QR chết.
-        if (! $bank || ! $account || ! $this->shouldShowFor($order)) {
+        if (! $bank || ! $account || ! $this->shouldShowFor($order, $forAdmin)) {
             return null;
         }
 
@@ -62,14 +62,18 @@ class PaymentQrService
      * Khối dữ liệu QR cho FE — null nếu đơn không có QR.
      *
      * Ba trang (admin, tra cứu, tài khoản) dùng chung shape này để không trang nào tự
-     * bịa thêm field. Nút tải chỉ dành cho admin, nên $withDownload mặc định tắt: khách
-     * không cần tải ảnh về, đó là công cụ để admin gửi qua Zalo.
+     * bịa thêm field.
+     *
+     * $forAdmin quyết định HAI thứ cùng lúc, và đó là chủ ý: chỉ admin mới thấy QR sau
+     * khi đơn đã xác nhận, và cũng chỉ admin mới cần nút tải ảnh để gửi khách qua Zalo.
+     * Gộp làm một cờ vì hai điều đó luôn đi cùng nhau — tách ra chỉ đẻ thêm tổ hợp vô
+     * nghĩa (khách mà có nút tải, hoặc admin thấy QR nhưng không tải được).
      *
      * @return array{url: string, amount: int, content: string, download_url?: string}|null
      */
-    public function payloadFor(Order $order, bool $withDownload = false): ?array
+    public function payloadFor(Order $order, bool $forAdmin = false): ?array
     {
-        $url = $this->urlFor($order);
+        $url = $this->urlFor($order, forAdmin: $forAdmin);
 
         if ($url === null) {
             return null;
@@ -81,8 +85,8 @@ class PaymentQrService
             'content' => $this->transferContentFor($order),
         ];
 
-        if ($withDownload) {
-            $payload['download_url'] = $this->urlFor($order, download: true);
+        if ($forAdmin) {
+            $payload['download_url'] = $this->urlFor($order, download: true, forAdmin: true);
         }
 
         return $payload;
@@ -101,8 +105,8 @@ class PaymentQrService
         return strtoupper((string) preg_replace('/[^A-Za-z0-9]/', '', (string) $order->code));
     }
 
-    /** Đơn này có đáng hiện QR không — bốn điều kiện, thiếu một là thôi. */
-    private function shouldShowFor(Order $order): bool
+    /** Đơn này có đáng hiện QR không — luật khác nhau tuỳ người xem (bopcamping-pew1). */
+    private function shouldShowFor(Order $order, bool $forAdmin): bool
     {
         // Đơn CHA là vỏ chứa (tổng = Σ đơn con), tiền thu theo từng con. Sinh QR cho cha
         // là đếm đôi chính số tiền của những đơn con đã có QR riêng.
@@ -110,14 +114,27 @@ class PaymentQrService
             return false;
         }
 
-        // Đơn còn 'pending' thì giá chưa chắc — shop vẫn còn sửa lịch/phụ phí. QR in số
-        // tiền sai còn tệ hơn không có QR: khách chuyển xong mới biết thiếu.
-        if (! $order->isConfirmed()) {
+        // Đơn huỷ thì không đòi tiền nữa — kể cả admin.
+        if ($order->status === 'cancelled') {
             return false;
         }
 
-        // Thu đủ rồi mà còn chìa QR là mời khách trả lần hai.
-        return $order->amount_due > 0 && $order->payment_status !== 'full';
+        // Không còn gì để thu, hoặc thu đủ rồi mà còn chìa QR là mời khách trả lần hai.
+        if ($order->amount_due <= 0 || $order->payment_status === 'full') {
+            return false;
+        }
+
+        // Admin thấy QR ở mọi trạng thái còn lại: admin là người GỬI QR đi đòi tiền, mà
+        // ẩn theo luật khách bên dưới thì admin chỉ thấy đúng lúc khách đã hết cần. Đây
+        // cũng là đường thoát cho đơn lỡ xác nhận khi khách chưa trả — admin vẫn tải
+        // được ảnh gửi tay.
+        if ($forAdmin) {
+            return true;
+        }
+
+        // LUẬT KHÁCH: chỉ đơn 'pending'. Shop chỉ xác nhận đơn SAU khi tiền đã về, nên
+        // đơn đã xác nhận nghĩa là khách trả xong — còn chìa QR là mời chuyển lần hai.
+        return $order->status === 'pending';
     }
 
     private function config(string $key): ?string

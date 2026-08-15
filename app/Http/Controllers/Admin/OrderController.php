@@ -133,9 +133,10 @@ class OrderController extends Controller
         return [
             'id' => $o->id,
             'code' => $o->code,
-            // QR chuyển khoản (bopcamping-55rh) — null khi đơn chưa xác nhận / đã thu đủ
-            // / là đơn cha. Riêng admin có thêm download_url để tải ảnh gửi khách.
-            'payment_qr' => $this->paymentQr->payloadFor($o, withDownload: true),
+            // QR chuyển khoản (bopcamping-55rh). Luật admin (bopcamping-pew1): thấy ở mọi
+            // trạng thái miễn còn tiền chưa thu — rộng hơn luật khách, vì admin là người
+            // gửi QR đi đòi tiền. Kèm download_url để tải ảnh gửi qua Zalo.
+            'payment_qr' => $this->paymentQr->payloadFor($o, forAdmin: true),
             'customer_name' => $o->customer_name,
             'customer_phone' => $o->customer_phone,
             'customer_email' => $o->customer_email,
