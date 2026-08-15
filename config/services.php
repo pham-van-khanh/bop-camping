@@ -35,6 +35,16 @@ return [
         ],
     ],
 
+    // Tài khoản nhận chuyển khoản, dùng dựng QR thanh toán (bopcamping-55rh).
+    // Để trong .env chứ KHÔNG để DB: gõ nhầm số tài khoản là tiền sang người lạ, mà đổi
+    // ở đây thì phải deploy — chính bước đó là lớp chặn. Không có secret nào (số tài
+    // khoản + tên chủ vốn hiện công khai ngay trên QR). Thiếu bank/account thì QR tự ẩn.
+    'sepay' => [
+        'bank' => env('SEPAY_BANK'),           // VD: Vietcombank (mã/tên ở vietqr.app/banks.json)
+        'account' => env('SEPAY_ACCOUNT'),     // Số tài khoản (ảo) SePay cấp
+        'holder' => env('SEPAY_HOLDER'),       // Tên chủ TK, không dấu — chỉ để hiện trên QR
+    ],
+
     // Marketing / SEO — chỉ render khi đặt biến môi trường tương ứng (không nhúng ID giả).
     'gtm' => [
         'id' => env('GTM_ID'),                                  // VD: GTM-XXXXXXX

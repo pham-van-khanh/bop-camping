@@ -12,6 +12,8 @@ use App\Models\OrderItem;
  */
 class OrderLookupService
 {
+    public function __construct(private PaymentQrService $paymentQr) {}
+
     /** Tìm đơn khớp cả mã lẫn SĐT — null nếu không khớp. */
     public function find(string $code, string $phone): ?array
     {
@@ -59,6 +61,9 @@ class OrderLookupService
             'deposit_total' => $o->deposit_total,
             'discount_total' => $o->discount_total,
             'amount_due' => $o->amount_due,
+            // QR chuyển khoản (bopcamping-55rh) — KHÔNG kèm download_url: nút tải ảnh là
+            // công cụ của admin để gửi khách qua Zalo, khách đã xem trực tiếp thì cần gì.
+            'payment_qr' => $this->paymentQr->payloadFor($o),
             'status' => $o->status,
             'status_label' => $this->statusLabel($o->status),
             'note' => $o->note,

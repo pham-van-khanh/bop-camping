@@ -10,6 +10,7 @@ use App\Models\Product;
 use App\Models\PromotionSetting;
 use App\Models\ServiceLocation;
 use App\Services\AvailabilityService;
+use App\Services\PaymentQrService;
 use App\Services\RentalPricingService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -26,6 +27,7 @@ class OrderController extends Controller
     public function __construct(
         private AvailabilityService $availability,
         private RentalPricingService $pricing,
+        private PaymentQrService $paymentQr,
     ) {}
 
     public function index(Request $request): Response
@@ -131,6 +133,9 @@ class OrderController extends Controller
         return [
             'id' => $o->id,
             'code' => $o->code,
+            // QR chuyển khoản (bopcamping-55rh) — null khi đơn chưa xác nhận / đã thu đủ
+            // / là đơn cha. Riêng admin có thêm download_url để tải ảnh gửi khách.
+            'payment_qr' => $this->paymentQr->payloadFor($o, withDownload: true),
             'customer_name' => $o->customer_name,
             'customer_phone' => $o->customer_phone,
             'customer_email' => $o->customer_email,

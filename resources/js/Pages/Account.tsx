@@ -1,3 +1,4 @@
+import PaymentQr, { type PaymentQrData } from '@/Components/PaymentQr';
 import { COMBO_GRAD } from '@/Components/site/ComboCard';
 import DateRangeCalendar from '@/Components/site/DateRangeCalendar';
 import OrderLookupPanel, {
@@ -82,6 +83,8 @@ type AccountOrder = {
     deposit_total: number;
     discount_total: number;
     amount_due: number;
+    // QR chuyển khoản (bopcamping-55rh) — null khi đơn chưa xác nhận / đã thu đủ.
+    payment_qr: PaymentQrData | null;
     groups: OrderGroup[];
     discounts: OrderDiscount[];
     reorder: ReorderPayload | null;
@@ -836,6 +839,14 @@ function OrderDetail({
                         </span>
                     </div>
                 </div>
+
+                {/* Chuyển khoản trước thay cho COD (bopcamping-55rh). Chỉ render khi khối
+                    chi tiết đang mở, nên mỗi lúc chỉ tải một ảnh QR chứ không tải cả danh sách. */}
+                {order.payment_qr && (
+                    <div className="mt-3">
+                        <PaymentQr qr={order.payment_qr} />
+                    </div>
+                )}
 
                 <div className="mt-3 flex flex-wrap gap-2">
                     <button
