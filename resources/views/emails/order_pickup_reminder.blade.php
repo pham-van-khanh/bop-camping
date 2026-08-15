@@ -46,10 +46,21 @@
                 <td style="padding:2px 0;color:#5a5445;">Tiền cọc <span style="color:#8a8170;">(hoàn khi trả đồ)</span></td>
                 <td style="padding:2px 0;text-align:right;font-family:{{ $mono }};font-weight:700;color:#c06a2a;white-space:nowrap;">{{ number_format($order->deposit_total, 0, ',', '.') }}đ</td>
             </tr>
+            {{-- Dòng này phải theo số CÒN THIẾU, không phải tổng đơn (bopcamping-r3fy).
+                 Quy trình mới là khách chuyển khoản xong shop mới xác nhận, mà mail này
+                 chỉ gửi cho đơn đã xác nhận — nên phần lớn người nhận đã trả rồi. In tổng
+                 là bảo họ cầm thêm một lần nữa đúng số vừa chuyển, lại cãi thẳng khối
+                 "Tình trạng thanh toán" trên web đang ghi shop đã nhận. --}}
+            @if ($order->outstanding_due > 0)
             <tr>
                 <td style="padding:8px 0 0;font-weight:800;color:#2e2a20;border-top:1px solid #efe7d5;">Chuẩn bị sẵn</td>
-                <td style="padding:8px 0 0;text-align:right;font-family:{{ $mono }};font-weight:800;font-size:15px;color:#2e2a20;white-space:nowrap;border-top:1px solid #efe7d5;">{{ number_format($order->amount_due, 0, ',', '.') }}đ (COD)</td>
+                <td style="padding:8px 0 0;text-align:right;font-family:{{ $mono }};font-weight:800;font-size:15px;color:#2e2a20;white-space:nowrap;border-top:1px solid #efe7d5;">{{ number_format($order->outstanding_due, 0, ',', '.') }}đ (COD)</td>
             </tr>
+            @else
+            <tr>
+                <td style="padding:8px 0 0;font-weight:800;color:#3a5a1f;border-top:1px solid #efe7d5;" colspan="2">✓ Đơn đã thanh toán đủ — bạn không cần cầm thêm tiền.</td>
+            </tr>
+            @endif
         </table>
     </div>
 

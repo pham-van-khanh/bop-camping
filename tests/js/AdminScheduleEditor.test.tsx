@@ -46,6 +46,7 @@ function makeOrder(overrides: Partial<Order> = {}): Order {
         deposit_total: 200000,
         discount_total: 0,
         amount_due: 700000,
+        payment_qr: null,
         discount_breakdown: null,
         status: 'confirmed',
         payment_status: 'unpaid',

@@ -10,6 +10,7 @@ use App\Models\ServiceLocation;
 use App\Models\Voucher;
 use App\Services\AvailabilityService;
 use App\Services\OrderLookupService;
+use App\Services\PaymentQrService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -25,7 +26,11 @@ class AccountController extends Controller
     /** Giới hạn lịch sử đơn trả về trang tài khoản (đơn cũ hơn tra bằng mã). */
     private const ORDER_HISTORY_LIMIT = 20;
 
-    public function __construct(private OrderLookupService $lookup, private AvailabilityService $availability) {}
+    public function __construct(
+        private OrderLookupService $lookup,
+        private AvailabilityService $availability,
+        private PaymentQrService $paymentQr,
+    ) {}
 
     /**
      * Ngày KHÔNG đặt lại được của 1 đơn tại 1 cửa hàng (feedback 2026-07-27) — union ngày hết
@@ -149,6 +154,17 @@ class AccountController extends Controller
             'deposit_total' => (int) $order->deposit_total,
             'discount_total' => (int) $order->discount_total,
             'amount_due' => (int) $order->amount_due,
+            // QR chuyển khoản (bopcamping-55rh) — cùng shape với /tra-cuu, không kèm nút tải.
+            'payment_qr' => $this->paymentQr->payloadFor($order),
+            // Tình trạng thu tiền (bopcamping-pew1) — giống /tra-cuu, xem chú thích ở
+            // OrderLookupService::shape().
+            'rental_due' => (int) $order->rental_due,
+            'rental_paid' => $order->rentalPaid(),
+            'deposit_paid' => $order->depositPaid(),
+            // Xem chú thích ở OrderLookupService::shape() (bopcamping-r3fy).
+            'rental_received' => $order->rentalPaidAmount(),
+            'deposit_received' => $order->depositPaidAmount(),
+            'outstanding_due' => $order->outstanding_due,
             'groups' => $this->itemGroups($order),
             'discounts' => $this->discountLines($order),
             'reorder' => $this->reorderPayload($order),

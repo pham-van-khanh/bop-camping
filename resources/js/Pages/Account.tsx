@@ -1,3 +1,5 @@
+import PaymentQr, { type PaymentQrData } from '@/Components/PaymentQr';
+import PaymentStatus from '@/Components/PaymentStatus';
 import { COMBO_GRAD } from '@/Components/site/ComboCard';
 import DateRangeCalendar from '@/Components/site/DateRangeCalendar';
 import OrderLookupPanel, {
@@ -82,6 +84,15 @@ type AccountOrder = {
     deposit_total: number;
     discount_total: number;
     amount_due: number;
+    // QR chuyển khoản (bopcamping-55rh) — null khi đơn không còn ở 'pending' / đã thu đủ.
+    payment_qr: PaymentQrData | null;
+    // Shop đã nhận khoản nào (bopcamping-pew1) + SỐ TIỀN thật đã nhận (bopcamping-r3fy).
+    rental_due: number;
+    rental_paid: boolean;
+    deposit_paid: boolean;
+    rental_received: number;
+    deposit_received: number;
+    outstanding_due: number;
     groups: OrderGroup[];
     discounts: OrderDiscount[];
     reorder: ReorderPayload | null;
@@ -828,14 +839,38 @@ function OrderDetail({
                         className="mt-1 flex justify-between border-t border-dashed pt-1.5"
                         style={{ borderColor: '#e3e8d6' }}
                     >
+                        {/* Trừ khoản đã thu — xem chú thích ở OrderLookupPanel (bopcamping-r3fy). */}
                         <span className="font-bold text-ink">
-                            Trả khi nhận (COD)
+                            {order.outstanding_due < order.amount_due
+                                ? 'Còn phải trả'
+                                : 'Trả khi nhận (COD)'}
                         </span>
                         <span className="font-mono font-bold text-grass">
-                            {money(order.amount_due)}
+                            {money(order.outstanding_due)}
                         </span>
                     </div>
                 </div>
+
+                {/* Shop đã nhận khoản nào (bopcamping-pew1) — chỉ khi chuyện tiền còn
+                    đang mở; xem SHOW_PAYMENT_STATUS ở OrderLookupPanel (bopcamping-r3fy). */}
+                {['pending', 'confirmed', 'renting'].includes(order.status) && (
+                    <div className="mt-3">
+                        <PaymentStatus
+                            rentalDue={order.rental_due}
+                            depositTotal={order.deposit_total}
+                            rentalReceived={order.rental_received}
+                            depositReceived={order.deposit_received}
+                        />
+                    </div>
+                )}
+
+                {/* Chuyển khoản thay cho COD (bopcamping-55rh). Chỉ render khi khối chi tiết
+                    đang mở, nên mỗi lúc chỉ tải một ảnh QR chứ không tải cả danh sách. */}
+                {order.payment_qr && (
+                    <div className="mt-3">
+                        <PaymentQr qr={order.payment_qr} />
+                    </div>
+                )}
 
                 <div className="mt-3 flex flex-wrap gap-2">
                     <button
