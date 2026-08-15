@@ -28,18 +28,27 @@ return new class extends Migration
         // Đơn CŨ đã đánh dấu thu: chốt số tiền theo giá hiện tại. Đó là giả định đúng nhất
         // có thể — trước migration này hệ thống coi "đã thu" nghĩa là thu đủ phần đó. Không
         // backfill thì mọi đơn cũ bỗng dưng bị tính là còn nợ.
+        //
+        // Kẹp âm phải làm bằng ĐIỀU KIỆN LỌC, không phải sửa sau khi ghi: cột unsigned +
+        // MySQL strict mode (config/database.php) thì ghi số âm là NÉM LỖI, migration chết
+        // giữa chừng ngay trên dữ liệu thật. SQLite không ép unsigned nên dev không lộ ra.
+        $netRental = 'COALESCE(total_price, 0) + COALESCE(extra_fee, 0) - COALESCE(discount_total, 0)';
+
         DB::table('orders')
             ->whereNotNull('rental_paid_at')
-            ->update([
-                'rental_paid_amount' => DB::raw('COALESCE(total_price, 0) + COALESCE(extra_fee, 0) - COALESCE(discount_total, 0)'),
-            ]);
+            ->whereRaw("$netRental >= 0")
+            ->update(['rental_paid_amount' => DB::raw($netRental)]);
 
+        // Giảm giá vượt tiền thuê (đơn cũ, trước khi có trần) → coi như thu 0.
+        DB::table('orders')
+            ->whereNotNull('rental_paid_at')
+            ->whereRaw("$netRental < 0")
+            ->update(['rental_paid_amount' => 0]);
+
+        // deposit_total là tổng cọc, luôn ≥ 0 — không cần kẹp.
         DB::table('orders')
             ->whereNotNull('deposit_paid_at')
             ->update(['deposit_paid_amount' => DB::raw('COALESCE(deposit_total, 0)')]);
-
-        // Giá net âm (giảm giá vượt tiền thuê) thì kẹp về 0 — cột unsigned không nhận số âm.
-        DB::table('orders')->where('rental_paid_amount', '<', 0)->update(['rental_paid_amount' => 0]);
     }
 
     public function down(): void
