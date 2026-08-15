@@ -156,6 +156,11 @@ class AccountController extends Controller
             'amount_due' => (int) $order->amount_due,
             // QR chuyển khoản (bopcamping-55rh) — cùng shape với /tra-cuu, không kèm nút tải.
             'payment_qr' => $this->paymentQr->payloadFor($order),
+            // Tình trạng thu tiền (bopcamping-pew1) — giống /tra-cuu, xem chú thích ở
+            // OrderLookupService::shape().
+            'rental_due' => (int) $order->rental_due,
+            'rental_paid' => $order->rentalPaid(),
+            'deposit_paid' => $order->depositPaid(),
             'groups' => $this->itemGroups($order),
             'discounts' => $this->discountLines($order),
             'reorder' => $this->reorderPayload($order),

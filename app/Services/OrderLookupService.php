@@ -63,7 +63,13 @@ class OrderLookupService
             'amount_due' => $o->amount_due,
             // QR chuyển khoản (bopcamping-55rh) — KHÔNG kèm download_url: nút tải ảnh là
             // công cụ của admin để gửi khách qua Zalo, khách đã xem trực tiếp thì cần gì.
+            // Luật khách (bopcamping-pew1): chỉ hiện ở đơn 'pending'.
             'payment_qr' => $this->paymentQr->payloadFor($o),
+            // Tình trạng thu tiền (bopcamping-pew1) — trước đây khách chuyển khoản xong
+            // không có cách nào biết shop đã ghi nhận chưa, chỉ còn nước nhắn hỏi.
+            'rental_due' => $o->rental_due,
+            'rental_paid' => $o->rentalPaid(),
+            'deposit_paid' => $o->depositPaid(),
             'status' => $o->status,
             'status_label' => $this->statusLabel($o->status),
             'note' => $o->note,

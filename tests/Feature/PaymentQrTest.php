@@ -14,6 +14,12 @@ use Tests\TestCase;
  *
  * Tính năng này CHỈ sinh ảnh QR: không webhook, không tự đối soát, không viết một dòng
  * nào vào trạng thái tiền. Admin vẫn tự kiểm sao kê rồi bấm markPaid().
+ *
+ * bopcamping-pew1 — LUẬT HIỆN QR TÁCH ĐÔI theo người xem:
+ *   - Khách: chỉ đơn 'pending'. Quy trình shop là khách chuyển tiền XONG mới xác nhận
+ *     đơn, nên đơn đã xác nhận tức là đã trả — còn chìa QR là mời trả lần hai.
+ *   - Admin: mọi trạng thái, miễn còn tiền chưa thu. Admin là người GỬI QR đi đòi tiền;
+ *     ẩn theo luật khách thì admin chỉ thấy QR đúng lúc khách đã hết cần.
  */
 class PaymentQrTest extends TestCase
 {
@@ -35,13 +41,17 @@ class PaymentQrTest extends TestCase
         return app(PaymentQrService::class);
     }
 
-    /** @param  array<string, mixed>  $extra */
+    /**
+     * Mặc định 'pending' — đúng lúc khách nhìn thấy QR để chuyển khoản.
+     *
+     * @param  array<string, mixed>  $extra
+     */
     private function order(array $extra = []): Order
     {
         return Order::factory()->create(array_merge([
             'total_price' => 500_000,
             'deposit_total' => 300_000,
-            'status' => 'confirmed',
+            'status' => 'pending',
         ], $extra));
     }
 
@@ -135,18 +145,52 @@ class PaymentQrTest extends TestCase
     }
 
     /**
-     * Đơn còn 'pending' thì GIÁ CHƯA CHẮC (shop còn sửa lịch/phụ phí). QR in ra số tiền
-     * sai còn tệ hơn không có QR: khách chuyển xong mới biết thiếu.
+     * LUẬT KHÁCH (bopcamping-pew1): QR sống đúng ở 'pending'.
+     *
+     * Shop chỉ xác nhận đơn sau khi tiền đã về, nên đơn 'confirmed' nghĩa là khách trả
+     * xong rồi — còn chìa QR ra là mời khách chuyển lần thứ hai.
      *
      * @test
      */
-    public function a_pending_order_has_no_qr_because_the_price_is_not_settled(): void
+    public function the_customer_only_sees_the_qr_while_the_order_is_pending(): void
     {
-        $this->assertNull($this->qr()->urlFor($this->order(['status' => 'pending'])));
+        $this->assertNotNull($this->qr()->urlFor($this->order(['status' => 'pending'])));
 
-        // Đã xác nhận thì có.
-        $this->assertNotNull($this->qr()->urlFor($this->order(['status' => 'confirmed'])));
-        $this->assertNotNull($this->qr()->urlFor($this->order(['status' => 'renting'])));
+        foreach (['confirmed', 'renting', 'returned', 'cancelled'] as $status) {
+            $this->assertNull(
+                $this->qr()->urlFor($this->order(['status' => $status])),
+                "đơn '$status' không được hiện QR cho khách",
+            );
+        }
+    }
+
+    /**
+     * LUẬT ADMIN (bopcamping-pew1): admin vẫn thấy QR sau khi đơn đã xác nhận.
+     *
+     * Admin là người GỬI QR đi đòi tiền. Ẩn theo luật khách thì admin chỉ thấy QR đúng
+     * lúc khách đã hết cần — và đơn nào lỡ xác nhận mà khách chưa trả sẽ không còn
+     * đường nào lấy lại QR.
+     *
+     * @test
+     */
+    public function the_admin_still_gets_the_qr_after_the_order_is_confirmed(): void
+    {
+        foreach (['pending', 'confirmed', 'renting'] as $status) {
+            $this->assertNotNull(
+                $this->qr()->payloadFor($this->order(['status' => $status]), forAdmin: true),
+                "admin phải thấy QR ở đơn '$status'",
+            );
+        }
+    }
+
+    /** Đơn đã huỷ thì không đòi tiền nữa — kể cả admin. */
+    /** @test */
+    public function a_cancelled_order_has_no_qr_for_anyone(): void
+    {
+        $cancelled = $this->order(['status' => 'cancelled']);
+
+        $this->assertNull($this->qr()->payloadFor($cancelled));
+        $this->assertNull($this->qr()->payloadFor($cancelled, forAdmin: true));
     }
 
     /** @test */
@@ -156,10 +200,11 @@ class PaymentQrTest extends TestCase
 
         $this->assertSame(0, $order->amount_due);
         $this->assertNull($this->qr()->urlFor($order));
+        $this->assertNull($this->qr()->payloadFor($order, forAdmin: true));
     }
 
     /**
-     * Thu đủ rồi mà còn chìa QR ra là mời khách trả lần hai.
+     * Thu đủ rồi mà còn chìa QR là mời khách trả lần hai — đúng cho cả admin.
      *
      * @test
      */
@@ -173,6 +218,7 @@ class PaymentQrTest extends TestCase
 
         $order->markPaid('deposit', true);
         $this->assertNull($this->qr()->urlFor($order->fresh()));
+        $this->assertNull($this->qr()->payloadFor($order->fresh(), forAdmin: true));
     }
 
     /**
@@ -185,13 +231,14 @@ class PaymentQrTest extends TestCase
     {
         $parent = $this->order(['is_parent' => true]);
 
-        $this->assertNull($this->qr()->urlFor($parent));
+        $this->assertNull($this->qr()->payloadFor($parent));
+        $this->assertNull($this->qr()->payloadFor($parent, forAdmin: true));
     }
 
     /** @test */
     public function the_admin_order_screen_receives_the_qr_and_a_download_link(): void
     {
-        $order = $this->order();
+        $order = $this->order(['status' => 'confirmed']);
 
         $this->actingAs(User::factory()->create(['is_admin' => true]))
             ->get(route('admin.orders.show', $order))
@@ -229,11 +276,58 @@ class PaymentQrTest extends TestCase
     }
 
     /** @test */
-    public function a_pending_order_leaks_no_qr_to_the_lookup_page(): void
+    public function a_confirmed_order_no_longer_shows_the_qr_on_the_lookup_page(): void
     {
-        $order = $this->order(['status' => 'pending']);
+        $order = $this->order(['status' => 'confirmed']);
 
         $this->get(route('lookup', ['code' => $order->code, 'phone' => $order->customer_phone]))
             ->assertInertia(fn (Assert $p) => $p->where('order.payment_qr', null));
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Tình trạng thu tiền hiện cho khách (bopcamping-pew1)
+    |--------------------------------------------------------------------------
+    | Trước đây rental_paid/deposit_paid KHÔNG hề ra tới khách, nên khách chuyển
+    | khoản xong không có cách nào biết shop đã ghi nhận chưa — chỉ còn nước nhắn hỏi.
+    */
+
+    /** @test */
+    public function the_lookup_page_tells_the_customer_which_amounts_have_landed(): void
+    {
+        $order = $this->order(['status' => 'confirmed']);
+        $order->markPaid('rental', true);
+
+        $this->get(route('lookup', ['code' => $order->code, 'phone' => $order->customer_phone]))
+            ->assertInertia(fn (Assert $p) => $p
+                ->where('order.rental_due', $order->rental_due)
+                ->where('order.rental_paid', true)
+                ->where('order.deposit_paid', false));
+    }
+
+    /** @test */
+    public function the_account_page_tells_the_customer_which_amounts_have_landed(): void
+    {
+        $user = User::factory()->create(['phone' => '0911222333']);
+        $order = $this->order(['status' => 'confirmed', 'user_id' => $user->id]);
+        $order->markPaid('deposit', true);
+
+        $this->actingAs($user)->get(route('account'))
+            ->assertInertia(fn (Assert $p) => $p
+                ->where('orders.0.rental_paid', false)
+                ->where('orders.0.deposit_paid', true)
+                ->where('orders.0.rental_due', $order->rental_due));
+    }
+
+    /** Đơn chưa thu đồng nào thì cả hai khoản đều là chưa — không được vắng field. */
+    /** @test */
+    public function an_unpaid_order_reports_both_amounts_as_not_yet_received(): void
+    {
+        $order = $this->order();
+
+        $this->get(route('lookup', ['code' => $order->code, 'phone' => $order->customer_phone]))
+            ->assertInertia(fn (Assert $p) => $p
+                ->where('order.rental_paid', false)
+                ->where('order.deposit_paid', false));
     }
 }
