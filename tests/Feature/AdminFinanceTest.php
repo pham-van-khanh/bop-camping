@@ -644,8 +644,10 @@ class AdminFinanceTest extends TestCase
         $finance->monthlySeries(null);
         $finance->breakEvenMonth();
 
+        // Bỏ ký tự trích dẫn định danh trước khi so: MySQL dùng `expenses`, SQLite dùng
+        // "expenses" — không gỡ thì test chỉ chạy đúng trên một loại DB.
         $loaded = collect(DB::getQueryLog())
-            ->filter(fn ($q) => str_contains($q['query'], 'from `expenses`'))
+            ->filter(fn ($q) => str_contains(str_replace(['`', '"'], '', $q['query']), 'from expenses'))
             ->count();
         DB::disableQueryLog();
 
