@@ -39,10 +39,13 @@ export type LookupOrder = {
     // QR chuyển khoản (bopcamping-55rh) — null khi đơn không còn ở 'pending' / đã thu đủ
     // / là đơn cha (bopcamping-pew1).
     payment_qr: PaymentQrData | null;
-    // Shop đã nhận khoản nào (bopcamping-pew1).
+    // Shop đã nhận khoản nào (bopcamping-pew1) + SỐ TIỀN thật đã nhận (bopcamping-r3fy).
     rental_due: number;
     rental_paid: boolean;
     deposit_paid: boolean;
+    rental_received: number;
+    deposit_received: number;
+    outstanding_due: number;
     status: string;
     status_label: string;
     note: string | null;
@@ -58,6 +61,16 @@ export type LookupProps = {
     not_found: boolean;
     query: { code: string; phone: string };
 };
+
+/**
+ * Chỉ hiện tình trạng tiền khi chuyện tiền còn đang mở (bopcamping-r3fy).
+ *
+ * Đơn HUỶ: câu "shop cập nhật sau khi nhận được tiền" là hứa hão.
+ * Đơn ĐÃ TRẢ: đồ đã xong, mà admin/shipper lỡ quên bấm nút thu thì khối này nói với khách
+ * "Chưa nhận" vĩnh viễn trên một đơn họ đã trả tiền mặt từ lâu. Admin vẫn thấy đủ ở panel
+ * của mình — đây là màn của khách, không phải công cụ đòi nợ.
+ */
+const SHOW_PAYMENT_STATUS = ['pending', 'confirmed', 'renting'];
 
 const inputCls =
     'h-12 w-full rounded-[11px] border border-cardBorder bg-white px-3.5 text-[15px] text-ink outline-none focus:border-grass transition';
@@ -212,25 +225,32 @@ export default function OrderLookupPanel({
                                 v={money(order.deposit_total)}
                             />
                         )}
-                        {/* Khớp nhãn với checkout/màn thành công: thuê sau giảm + cọc, thu COD khi nhận */}
+                        {/* Thu được đồng nào thì ô này phải trừ đồng đó (bopcamping-r3fy):
+                            in tổng đủ trong khi khối "Tình trạng thanh toán" ngay dưới nói
+                            shop đã nhận tiền thuê là hai chỗ cãi nhau trong cùng một thẻ —
+                            mà theo quy trình mới thì ca đó xảy ra với MỌI đơn đã xác nhận.
+                            Nhãn giữ nguyên khi chưa thu gì, để khớp checkout/màn thành công. */}
                         <Box
-                            k="Trả khi nhận (COD)"
-                            v={money(order.amount_due)}
+                            k={
+                                order.outstanding_due < order.amount_due
+                                    ? 'Còn phải trả'
+                                    : 'Trả khi nhận (COD)'
+                            }
+                            v={money(order.outstanding_due)}
                             accent
                         />
                     </div>
 
                     {/* Đơn gộp: tiền thu theo từng đợt nên khối này để trong từng đợt bên
-                        dưới, không gộp ở cấp cha. Đơn HUỶ thì bỏ hẳn — câu "shop cập nhật
-                        sau khi nhận được tiền" trên đơn đã huỷ là hứa hão. */}
-                    {order.status !== 'cancelled' &&
+                        dưới, không gộp ở cấp cha. Xem SHOW_PAYMENT_STATUS ở trên. */}
+                    {SHOW_PAYMENT_STATUS.includes(order.status) &&
                         !order.installments?.length && (
                             <div className="mb-4">
                                 <PaymentStatus
                                     rentalDue={order.rental_due}
                                     depositTotal={order.deposit_total}
-                                    rentalPaid={order.rental_paid}
-                                    depositPaid={order.deposit_paid}
+                                    rentalReceived={order.rental_received}
+                                    depositReceived={order.deposit_received}
                                 />
                             </div>
                         )}
@@ -337,18 +357,20 @@ export default function OrderLookupPanel({
                                         {/* Mỗi đợt thu riêng nên tình trạng tiền và QR đều
                                             theo đợt — đơn cha không có của chính nó. Đợt
                                             đã huỷ thì bỏ, như đơn thường. */}
-                                        {inst.status !== 'cancelled' && (
+                                        {SHOW_PAYMENT_STATUS.includes(
+                                            inst.status,
+                                        ) && (
                                             <div className="border-t border-[#eef2e3] p-3">
                                                 <PaymentStatus
                                                     rentalDue={inst.rental_due}
                                                     depositTotal={
                                                         inst.deposit_total
                                                     }
-                                                    rentalPaid={
-                                                        inst.rental_paid
+                                                    rentalReceived={
+                                                        inst.rental_received
                                                     }
-                                                    depositPaid={
-                                                        inst.deposit_paid
+                                                    depositReceived={
+                                                        inst.deposit_received
                                                     }
                                                 />
                                             </div>

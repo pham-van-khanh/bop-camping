@@ -86,10 +86,13 @@ type AccountOrder = {
     amount_due: number;
     // QR chuyển khoản (bopcamping-55rh) — null khi đơn không còn ở 'pending' / đã thu đủ.
     payment_qr: PaymentQrData | null;
-    // Shop đã nhận khoản nào (bopcamping-pew1).
+    // Shop đã nhận khoản nào (bopcamping-pew1) + SỐ TIỀN thật đã nhận (bopcamping-r3fy).
     rental_due: number;
     rental_paid: boolean;
     deposit_paid: boolean;
+    rental_received: number;
+    deposit_received: number;
+    outstanding_due: number;
     groups: OrderGroup[];
     discounts: OrderDiscount[];
     reorder: ReorderPayload | null;
@@ -836,24 +839,27 @@ function OrderDetail({
                         className="mt-1 flex justify-between border-t border-dashed pt-1.5"
                         style={{ borderColor: '#e3e8d6' }}
                     >
+                        {/* Trừ khoản đã thu — xem chú thích ở OrderLookupPanel (bopcamping-r3fy). */}
                         <span className="font-bold text-ink">
-                            Trả khi nhận (COD)
+                            {order.outstanding_due < order.amount_due
+                                ? 'Còn phải trả'
+                                : 'Trả khi nhận (COD)'}
                         </span>
                         <span className="font-mono font-bold text-grass">
-                            {money(order.amount_due)}
+                            {money(order.outstanding_due)}
                         </span>
                     </div>
                 </div>
 
-                {/* Shop đã nhận khoản nào (bopcamping-pew1). Đơn huỷ thì bỏ hẳn — câu
-                    "shop cập nhật sau khi nhận được tiền" trên đơn đã huỷ là hứa hão. */}
-                {order.status !== 'cancelled' && (
+                {/* Shop đã nhận khoản nào (bopcamping-pew1) — chỉ khi chuyện tiền còn
+                    đang mở; xem SHOW_PAYMENT_STATUS ở OrderLookupPanel (bopcamping-r3fy). */}
+                {['pending', 'confirmed', 'renting'].includes(order.status) && (
                     <div className="mt-3">
                         <PaymentStatus
                             rentalDue={order.rental_due}
                             depositTotal={order.deposit_total}
-                            rentalPaid={order.rental_paid}
-                            depositPaid={order.deposit_paid}
+                            rentalReceived={order.rental_received}
+                            depositReceived={order.deposit_received}
                         />
                     </div>
                 )}

@@ -14,6 +14,10 @@ export type PaymentQrData = {
     amount: number;
     content: string;
     download_url?: string;
+    // Thông tin người nhận dạng CHỮ (bopcamping-r3fy) — xem chú thích ở khối dự phòng.
+    bank?: string | null;
+    account?: string | null;
+    holder?: string | null;
 };
 
 export default function PaymentQr({
@@ -57,6 +61,25 @@ export default function PaymentQr({
                     <div className="select-all font-mono text-[15px] font-bold text-pine">
                         {qr.content}
                     </div>
+
+                    {/* Người nhận dạng CHỮ (bopcamping-r3fy). Trước đây ba thông tin này chỉ
+                        nằm trong pixel của ảnh và trong query string, nên SePay sập hoặc
+                        mạng lỗi là khách hết đường: biết số tiền, biết nội dung, mà không
+                        biết chuyển cho ai. */}
+                    {qr.account && (
+                        <>
+                            <div className="mt-2 text-moss">Chuyển tới</div>
+                            <div className="select-all font-mono text-[14px] font-bold text-pine">
+                                {qr.account}
+                                {qr.bank ? ` · ${qr.bank}` : ''}
+                            </div>
+                            {qr.holder && (
+                                <div className="text-[12.5px] text-moss">
+                                    {qr.holder}
+                                </div>
+                            )}
+                        </>
+                    )}
 
                     {qr.download_url && (
                         <a

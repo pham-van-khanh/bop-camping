@@ -107,10 +107,10 @@ class OrderController extends Controller
         $relations = ['items.product', 'items.combo', 'vouchers', 'referralUse.referrer', 'serviceLocation', 'rentalPaidBy:id,name', 'depositPaidBy:id,name', 'depositRefundedBy:id,name', 'deliveredBy:id,name', 'collectedBy:id,name'];
         $order->load(array_merge($relations, array_map(fn ($r) => "children.$r", $relations), ['parent:id,code']));
 
-        $row = $this->mapOrder($order);
+        $row = $this->mapOrder($order, withQr: true);
         if ($order->is_parent) {
             $row['status'] = $order->aggregateStatus();
-            $row['children'] = $order->children->map(fn ($c) => $this->mapOrder($c))->values();
+            $row['children'] = $order->children->map(fn ($c) => $this->mapOrder($c, withQr: true))->values();
         }
         if ($order->parent_id && $order->parent) {
             $row['parent'] = ['id' => $order->parent->id, 'code' => $order->parent->code];
@@ -120,6 +120,9 @@ class OrderController extends Controller
             'order' => $row,
             'service_locations' => ServiceLocation::open()->ordered()->get()->map(fn ($l) => ['id' => $l->id, 'name' => $l->name]),
             'max_discount_percent' => (float) PromotionSetting::current()->max_discount_percent_per_order,
+            // Chưa khai SEPAY_* thì QR ẩn LẶNG LẼ, không phân biệt được với "ẩn vì luật
+            // đơn" — đã mất công đi dò đúng một lần trên staging (bopcamping-r3fy).
+            'payment_qr_configured' => $this->paymentQr->isConfigured(),
         ]);
     }
 
@@ -128,7 +131,7 @@ class OrderController extends Controller
      *
      * @return array<string,mixed>
      */
-    private function mapOrder(Order $o): array
+    private function mapOrder(Order $o, bool $withQr = false): array
     {
         return [
             'id' => $o->id,
@@ -136,7 +139,11 @@ class OrderController extends Controller
             // QR chuyển khoản (bopcamping-55rh). Luật admin (bopcamping-pew1): thấy ở mọi
             // trạng thái miễn còn tiền chưa thu — rộng hơn luật khách, vì admin là người
             // gửi QR đi đòi tiền. Kèm download_url để tải ảnh gửi qua Zalo.
-            'payment_qr' => $this->paymentQr->payloadFor($o, forAdmin: true),
+            //
+            // CHỈ dựng ở màn chi tiết (bopcamping-r3fy): danh sách đơn KHÔNG phân trang và
+            // không hề vẽ QR, nên dựng sẵn hai URL dài cho mỗi đơn (và mỗi đơn con) chỉ là
+            // payload chết.
+            'payment_qr' => $withQr ? $this->paymentQr->payloadFor($o, forAdmin: true) : null,
             'customer_name' => $o->customer_name,
             'customer_phone' => $o->customer_phone,
             'customer_email' => $o->customer_email,

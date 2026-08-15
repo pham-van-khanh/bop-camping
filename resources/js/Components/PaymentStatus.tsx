@@ -6,30 +6,69 @@ import { money } from '@/lib/format';
  * Trước đây rental_paid/deposit_paid không hề ra tới khách: khách chuyển khoản xong
  * không có cách nào biết shop đã ghi nhận chưa, chỉ còn nước nhắn hỏi.
  *
+ * In SỐ TIỀN THẬT ĐÃ NHẬN, không phải số tiền phải trả hiện tại (bopcamping-r3fy). Giá đơn
+ * còn đổi sau lúc thu (admin nhập phụ phí, đổi lịch), nên ghép cờ "đã nhận" với con số mới
+ * là khẳng định shop đã nhận một khoản chưa từng nhận. Thu thiếu thì nói rõ còn bao nhiêu.
+ *
  * Chữ dùng cố ý TRUNG TÍNH với hình thức trả ("Shop đã nhận", không phải "đã chuyển
  * khoản"): đơn COD trả tiền mặt lúc nhận đồ cũng đi qua đúng hai cột này.
  */
+type Row = {
+    label: string;
+    due: number;
+    received: number;
+};
+
+function StatusPill({ due, received }: { due: number; received: number }) {
+    if (received <= 0) {
+        // Tương phản 4.5:1 theo WCAG AA cho chữ nhỏ — bản đầu dùng #8b957a chỉ được
+        // 2.83:1, tức trạng thái quan trọng nhất lại là cái khó đọc nhất.
+        return (
+            <span className="shrink-0 whitespace-nowrap rounded-pill bg-[#f1f4ea] px-2.5 py-1 text-[11.5px] font-bold text-[#5f6650]">
+                Chưa nhận
+            </span>
+        );
+    }
+
+    if (received < due) {
+        return (
+            <span className="shrink-0 whitespace-nowrap rounded-pill bg-[#fdf0d9] px-2.5 py-1 text-[11.5px] font-bold text-[#8a5a1a]">
+                Đã nhận {money(received)} · còn {money(due - received)}
+            </span>
+        );
+    }
+
+    return (
+        <span className="shrink-0 whitespace-nowrap rounded-pill bg-[#dcebc4] px-2.5 py-1 text-[11.5px] font-bold text-[#3a5a1f]">
+            ✓ Shop đã nhận
+        </span>
+    );
+}
+
 export default function PaymentStatus({
     rentalDue,
     depositTotal,
-    rentalPaid,
-    depositPaid,
+    rentalReceived,
+    depositReceived,
 }: {
     rentalDue: number;
     depositTotal: number;
-    rentalPaid: boolean;
-    depositPaid: boolean;
+    rentalReceived: number;
+    depositReceived: number;
 }) {
     // Đơn không cọc thì đừng bịa ra một dòng luôn "chưa nhận" không bao giờ xong.
-    const rows = [
-        { label: 'Tiền thuê', amount: rentalDue, paid: rentalPaid, show: true },
-        {
-            label: 'Tiền cọc',
-            amount: depositTotal,
-            paid: depositPaid,
-            show: depositTotal > 0,
-        },
-    ].filter((r) => r.show);
+    const rows: Row[] = [
+        { label: 'Tiền thuê', due: rentalDue, received: rentalReceived },
+        ...(depositTotal > 0
+            ? [
+                  {
+                      label: 'Tiền cọc',
+                      due: depositTotal,
+                      received: depositReceived,
+                  },
+              ]
+            : []),
+    ];
 
     return (
         <div className="rounded-[10px] border border-[#eef2e3] bg-white p-3">
@@ -46,27 +85,16 @@ export default function PaymentStatus({
                         <span className="text-moss">
                             {r.label}{' '}
                             <span className="font-mono text-ink">
-                                {money(r.amount)}
+                                {money(r.due)}
                             </span>
                         </span>
-                        {/* shrink-0 + nowrap: trên mobile 375px nhãn "✓ Shop đã nhận" bị
-                            ngắt giữa chừng thành hai dòng, nhìn như vỡ giao diện (đo được
-                            trên trình duyệt — jsdom không bắt được lỗi kiểu này). */}
-                        {r.paid ? (
-                            <span className="shrink-0 whitespace-nowrap rounded-pill bg-[#dcebc4] px-2.5 py-1 text-[11.5px] font-bold text-[#3a5a1f]">
-                                ✓ Shop đã nhận
-                            </span>
-                        ) : (
-                            <span className="shrink-0 whitespace-nowrap rounded-pill bg-[#f1f4ea] px-2.5 py-1 text-[11.5px] font-bold text-[#8b957a]">
-                                Chưa nhận
-                            </span>
-                        )}
+                        <StatusPill due={r.due} received={r.received} />
                     </div>
                 ))}
             </div>
 
-            {rows.some((r) => !r.paid) && (
-                <p className="mt-2 border-t border-[#f1f4ea] pt-2 text-[11.5px] text-[#a3ad92]">
+            {rows.some((r) => r.received < r.due) && (
+                <p className="mt-2 border-t border-[#f1f4ea] pt-2 text-[11.5px] text-[#5f6650]">
                     Shop cập nhật mục này sau khi nhận được tiền.
                 </p>
             )}

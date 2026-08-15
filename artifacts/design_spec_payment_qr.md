@@ -1,6 +1,6 @@
 # Design Spec — QR thanh toán SePay
 
-- **Bead:** bopcamping-55rh, bopcamping-pew1
+- **Bead:** bopcamping-55rh, bopcamping-pew1, bopcamping-r3fy
 - **Ngày:** 15/08/2026
 - **Trạng thái:** đã chốt với chủ shop, đang triển khai
 
@@ -101,6 +101,29 @@ Cờ `$download` thêm `download=true` để SePay trả về kèm `Content-Disp
 > 540k đã thu 240k tiền thuê vẫn hiện QR đòi đủ 540k — khách quét là **chuyển thừa đúng
 > 240k**. Accessor `Order::$outstanding_due` là nguồn duy nhất cho "còn phải thu bao nhiêu";
 > chỗ nào đòi tiền khách phải dùng nó.
+
+### 4.1 Ghi SỐ TIỀN đã thu, không ghi CỜ (bopcamping-r3fy)
+
+Bản đầu của `outstanding_due` trừ theo cờ `rental_paid_at` / `deposit_paid_at`. Soi trước
+production phát hiện lỗ: **giá đơn còn đổi được sau lúc thu**.
+
+```
+đơn 500k thuê + 300k cọc, admin bấm thu tiền thuê  → QR đòi 300k        ✓
+admin nhập thêm phí ship 50k                        → QR VẪN đòi 300k
+   khách còn nợ thật 350k → shop thu hụt 50k, không dấu hiệu gì
+   khách bị báo "Tiền thuê 550.000đ ✓ Shop đã nhận" (shop mới nhận 500k)
+```
+
+Chạm được qua cả **Phụ phí** lẫn **Đổi lịch** (đổi ngày là tính lại giá). Lối thoát duy
+nhất của bản cũ là bỏ đánh dấu thu — nhưng làm vậy QR nhảy lên 850k, đòi lại cả khoản
+khách đã chuyển.
+
+Sửa: hai cột `rental_paid_amount` / `deposit_paid_amount`; `markPaid()` **chụp lại số tiền
+tại thời điểm bấm**; `outstanding_due` trừ theo số thật và **kẹp `max(0)` từng khoản**
+(kẹp ở tổng thì `rental_due` âm ăn lẹm vào cọc). Đơn cũ chưa có cột số tiền được coi như
+đã thu đủ phần đó — đúng bằng nghĩa cũ của cái cờ, để không bỗng dưng thành nợ.
+
+`PaymentStatus` in **số tiền thật đã nhận**; thu thiếu thì ghi rõ "Đã nhận X · còn Y".
 
 ### Điều kiện hiện QR — luật KHÁCH và luật ADMIN tách đôi (bopcamping-pew1)
 

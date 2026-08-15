@@ -85,6 +85,12 @@ class PaymentQrService
             'url' => $url,
             'amount' => $order->outstanding_due,
             'content' => $this->transferContentFor($order),
+            // Thông tin người nhận dạng CHỮ (bopcamping-r3fy): trước đây chúng chỉ nằm
+            // trong pixel của ảnh và trong query string, nên SePay sập hoặc mạng lỗi là
+            // khách không còn biết chuyển cho ai. Có bản chữ thì vẫn chuyển tay được.
+            'bank' => $this->config('bank'),
+            'account' => $this->config('account'),
+            'holder' => $this->config('holder'),
         ];
 
         if ($forAdmin) {
@@ -105,6 +111,18 @@ class PaymentQrService
     public function transferContentFor(Order $order): string
     {
         return strtoupper((string) preg_replace('/[^A-Za-z0-9]/', '', (string) $order->code));
+    }
+
+    /**
+     * Đã khai báo đủ tài khoản nhận tiền chưa (bopcamping-r3fy).
+     *
+     * Thiếu config thì QR ẩn LẶNG LẼ ở mọi trang — không lỗi, không log, không phân biệt
+     * được với "ẩn vì luật đơn". Đã dính đúng bẫy này một lần trên staging. Admin cần
+     * thấy được sự khác nhau đó, nên trạng thái cấu hình phải đẩy ra tới màn admin.
+     */
+    public function isConfigured(): bool
+    {
+        return $this->config('bank') !== null && $this->config('account') !== null;
     }
 
     /** Đơn này có đáng hiện QR không — luật khác nhau tuỳ người xem (bopcamping-pew1). */
