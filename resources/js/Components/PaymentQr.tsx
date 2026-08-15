@@ -32,10 +32,16 @@ export default function PaymentQr({
             </div>
 
             <div className="flex flex-wrap items-start gap-4">
+                {/* referrerPolicy: trang tra cứu có SĐT khách ngay trên URL
+                    (/tra-cuu?code=…&phone=…). Ảnh này tải từ miền SePay, nên nếu trình
+                    duyệt gửi Referer đầy đủ thì SĐT khách đi thẳng sang bên thứ ba.
+                    Trình duyệt hiện đại mặc định đã chỉ gửi origin, nhưng mặc định là
+                    thứ đổi được — khoá cứng ở đây thì không phụ thuộc vào nó nữa. */}
                 <img
                     src={qr.url}
                     alt={`Mã QR chuyển khoản ${money(qr.amount)}, nội dung ${qr.content}`}
                     loading="lazy"
+                    referrerPolicy="no-referrer"
                     className="w-[200px] max-w-full rounded-[8px] border border-[#eef2e3]"
                 />
 
@@ -55,6 +61,7 @@ export default function PaymentQr({
                     {qr.download_url && (
                         <a
                             href={qr.download_url}
+                            rel="noreferrer"
                             className="mt-3 inline-block rounded-[9px] border border-cardBorder px-3 py-1.5 text-[12.5px] font-semibold text-pine transition hover:border-grass hover:text-grass"
                         >
                             Tải ảnh QR

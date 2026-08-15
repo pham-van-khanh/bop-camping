@@ -100,6 +100,52 @@ class PaymentQrTest extends TestCase
     }
 
     /**
+     * QR phải đòi số CÒN THIẾU, không phải tổng đơn (bopcamping-pew1).
+     *
+     * LỖI ĐÃ ĐO: hai khoản thu độc lập nên khách trả tiền thuê trước rồi còn nợ mỗi cọc
+     * là chuyện thường. Bản đầu luôn ghi amount_due, nên đơn 540k đã thu 240k tiền thuê
+     * vẫn hiện QR đòi đủ 540k — khách quét là chuyển THỪA đúng 240k.
+     *
+     * @test
+     */
+    public function the_qr_asks_only_for_what_is_still_owed(): void
+    {
+        $order = $this->order(['total_price' => 240_000, 'deposit_total' => 300_000]);
+        $this->assertSame('540000', $this->params($this->qr()->urlFor($order))['amount']);
+
+        // Đã thu tiền thuê → chỉ còn cọc.
+        $order->markPaid('rental', true);
+        $order->refresh();
+        $this->assertSame('300000', $this->params($this->qr()->urlFor($order))['amount']);
+        $this->assertSame(300_000, $this->qr()->payloadFor($order)['amount']);
+
+        // Đổi lại: chỉ thu cọc → còn mỗi tiền thuê.
+        $order->markPaid('rental', false);
+        $order->markPaid('deposit', true);
+        $order->refresh();
+        $this->assertSame('240000', $this->params($this->qr()->urlFor($order))['amount']);
+    }
+
+    /** Phụ phí và giảm giá vẫn phải theo đúng khoản còn thiếu. */
+    /** @test */
+    public function what_is_still_owed_keeps_following_extra_fees_and_discounts(): void
+    {
+        $order = $this->order([
+            'total_price' => 500_000,
+            'extra_fee' => 40_000,
+            'discount_total' => 50_000,
+            'deposit_total' => 300_000,
+        ]);
+
+        $order->markPaid('deposit', true);
+        $order->refresh();
+
+        // Còn mỗi tiền thuê: 500k + 40k − 50k = 490k.
+        $this->assertSame(490_000, $order->outstanding_due);
+        $this->assertSame('490000', $this->params($this->qr()->urlFor($order))['amount']);
+    }
+
+    /**
      * VietQR chỉ nhận chữ và số ở tham số des. Giữ dấu gạch thì tuỳ ngân hàng mà bị cắt
      * hoặc thay ký tự, nội dung về sao kê không còn dò được.
      *

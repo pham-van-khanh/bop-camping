@@ -69,7 +69,10 @@ Route::get('/gio-thue/lam-tuoi', [CartController::class, 'refresh'])->name('cart
 Route::post('/gio-thue/goi-y-combo', [CartController::class, 'suggestion'])->name('cart.suggestion')->middleware('throttle:60,1');
 Route::post('/gio-thue/goi-y-combo/da-chuyen', [CartController::class, 'suggestionConverted'])->name('cart.suggestion.converted')->middleware('throttle:30,1');
 Route::post('/dat-hang', [OrderController::class, 'store'])->name('order.store')->middleware('throttle:20,1');
-Route::get('/tra-cuu', [OrderLookupController::class, 'index'])->name('lookup');
+// Tra cứu đơn = mã đơn + SĐT. Có throttle vì đây là endpoint DÒ ĐƯỢC: mã đơn sinh từ
+// uniqid() nên đoán được kha khá, và từ bopcamping-pew1 trang này trả cả tình trạng thu
+// tiền lẫn QR chuyển khoản. 60 lượt/phút thừa sức cho người thật, chặn được máy quét.
+Route::get('/tra-cuu', [OrderLookupController::class, 'index'])->name('lookup')->middleware('throttle:60,1');
 // Trang giới thiệu — nội dung sửa trong admin "Trang nội dung" (Epic 4)
 Route::get('/gioi-thieu', [StaticPageController::class, 'about'])->name('about');
 // Trang chính sách — DRY: mỗi slug 1 route top-level, cùng controller policy()
