@@ -99,8 +99,18 @@ export type Order = {
     discount_breakdown: DiscountLine[] | null;
     status: string;
     payment_status: string;
-    // Thu tiền theo 2 khoản ĐỘC LẬP (bopcamping-q7i0) — payment_status chỉ là tóm tắt suy ra.
+    // Thu tiền theo 3 khoản ĐỘC LẬP (bopcamping-q7i0; phụ phí tách ra ở bopcamping-urqo)
+    // — payment_status chỉ là tóm tắt suy ra. rental_due ở đây là tiền thuê GỐC.
     rental_due: number;
+    fee_due: number;
+    fee_paid: boolean;
+    fee_paid_at: string | null;
+    fee_paid_by: string | null;
+    fee_lines: { name: string; value: number }[];
+    // Hoàn cọc sau khi trừ phụ phí chưa thu; shortfall = phần trừ không hết vào cọc.
+    refund_due: number;
+    refund_shortfall: number;
+    deposit_refund_amount: number | null;
     rental_paid: boolean;
     rental_paid_at: string | null;
     rental_paid_by: string | null;
@@ -398,6 +408,37 @@ function RefundControl({ order }: { order: Order }) {
                 Hoàn cọc
             </div>
             <div className="rounded-[10px] border border-[#eef2e3] bg-white p-3">
+                {/* Số hoàn THẬT sau khi trừ phụ phí chưa thu (bopcamping-urqo) — không nói
+                    ra thì admin đưa nhầm nguyên cọc và mất đúng khoản phụ phí đó. */}
+                {order.deposit_refund_status !== 'refunded' &&
+                    order.fee_due > 0 &&
+                    !order.fee_paid && (
+                        <div className="mb-2 rounded-[9px] border border-[#e6d9b8] bg-[#fdf7e8] p-2.5 text-[12.5px] text-[#7a6320]">
+                            Trả lại khách{' '}
+                            <strong className="font-mono">
+                                {money(order.refund_due)}
+                            </strong>{' '}
+                            — đã giữ lại {money(order.fee_due)} phụ phí chưa
+                            thu.
+                            {order.refund_shortfall > 0 && (
+                                <div className="mt-1 font-semibold text-[#b3493a]">
+                                    Cọc không đủ trừ: còn thiếu{' '}
+                                    {money(order.refund_shortfall)}, thu tay của
+                                    khách.
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                {order.deposit_refund_amount !== null && (
+                    <div className="mb-2 text-[12.5px] text-moss">
+                        Đã trả lại khách{' '}
+                        <strong className="font-mono text-ink">
+                            {money(order.deposit_refund_amount)}
+                        </strong>
+                    </div>
+                )}
+
                 <div className="grid grid-cols-2 gap-2">
                     {REFUND_OPTIONS.map((opt) => {
                         const active = status === opt.key;
@@ -1021,7 +1062,7 @@ export function OrderDetailPanel({
         (usePage().props as { payment_qr_configured?: boolean })
             .payment_qr_configured !== false;
     const defaultTimeText = defaultTimeLabel(order, sessLabel);
-    const togglePaid = (kind: 'rental' | 'deposit', paid: boolean) => {
+    const togglePaid = (kind: 'rental' | 'fee' | 'deposit', paid: boolean) => {
         router.patch(
             route('admin.orders.payment', order.id),
             { kind, paid },
@@ -1452,8 +1493,9 @@ export function OrderDetailPanel({
                         )}
                 </div>
 
-                {/* Thu tiền: 2 khoản ĐỘC LẬP (bopcamping-q7i0) — khách có thể chuyển tiền thuê
-                    trước, cọc trả khi nhận đồ. Shipper cũng đánh dấu được trong app của họ. */}
+                {/* Thu tiền: 3 khoản ĐỘC LẬP (bopcamping-q7i0; phụ phí tách ra ở
+                    bopcamping-urqo) — khách có thể chuyển tiền thuê trước, cọc trả khi nhận
+                    đồ. Shipper cũng đánh dấu được trong app của họ. */}
                 <div className="mb-2 mt-3 text-[12px] font-bold uppercase tracking-[0.04em] text-grass">
                     Thu tiền
                 </div>
@@ -1467,6 +1509,22 @@ export function OrderDetailPanel({
                         disabled={order.status === 'cancelled'}
                         onToggle={(paid) => togglePaid('rental', paid)}
                     />
+                    {/* Phụ phí là khoản RIÊNG — kèm tên khoản để biết đang thu cái gì. */}
+                    {order.fee_due > 0 && (
+                        <PaidToggle
+                            label={
+                                order.fee_lines?.length
+                                    ? `Phụ phí (${order.fee_lines.map((f) => f.name).join(', ')})`
+                                    : 'Phụ phí'
+                            }
+                            amount={order.fee_due}
+                            paid={order.fee_paid}
+                            at={order.fee_paid_at}
+                            by={order.fee_paid_by}
+                            disabled={order.status === 'cancelled'}
+                            onToggle={(paid) => togglePaid('fee', paid)}
+                        />
+                    )}
                     <PaidToggle
                         label="Tiền cọc"
                         amount={order.deposit_total}
@@ -1479,6 +1537,15 @@ export function OrderDetailPanel({
                     <p className="mt-2 border-t border-[#f1f4ea] pt-2 text-[11.5px] text-[#a3ad92]">
                         Tổng phải thu khi giao {money(order.amount_due)}. Khoản
                         nào chưa thu thì shipper thu hộ được.
+                        {order.rental_paid &&
+                            order.fee_due > 0 &&
+                            !order.fee_paid && (
+                                <>
+                                    {' '}
+                                    Khách đã trả tiền thuê nên QR không đòi phụ
+                                    phí nữa — khoản này trừ vào cọc khi hoàn.
+                                </>
+                            )}
                     </p>
                 </div>
 

@@ -31,6 +31,12 @@ type ScheduleOrder = {
     amount_due: number;
     rental_due: number;
     rental_paid: boolean;
+    // Phụ phí là khoản thu RIÊNG (bopcamping-urqo) — trước gộp trong tiền thuê nên shipper
+    // không biết phải thu thêm bao nhiêu.
+    fee_due: number;
+    fee_paid: boolean;
+    fee_lines: { name: string; value: number }[];
+    refund_due: number;
     deposit_total: number;
     deposit_paid: boolean;
     deposit_refund_status: string;
@@ -408,6 +414,20 @@ function OrderDetail({
                     paid={order.rental_paid}
                     collectable={confirmed}
                 />
+                {order.fee_due > 0 && (
+                    <MoneyRow
+                        order={order}
+                        kind="fee"
+                        label={
+                            order.fee_lines?.length
+                                ? `Phụ phí (${order.fee_lines.map((f) => f.name).join(', ')})`
+                                : 'Phụ phí'
+                        }
+                        amount={order.fee_due}
+                        paid={order.fee_paid}
+                        collectable={confirmed}
+                    />
+                )}
                 <MoneyRow
                     order={order}
                     kind="deposit"
@@ -425,12 +445,15 @@ function OrderDetail({
                         <strong>chưa thu tiền</strong>. Gọi chủ shop nếu khách
                         muốn trả.
                     </p>
-                ) : !order.rental_paid || !order.deposit_paid ? (
+                ) : !order.rental_paid ||
+                  !order.deposit_paid ||
+                  (order.fee_due > 0 && !order.fee_paid) ? (
                     <p className="mt-1.5 text-[12px] text-[#a3ad92]">
                         Tổng cần thu:{' '}
                         <span className="font-mono font-bold text-ink">
                             {money(
                                 (order.rental_paid ? 0 : order.rental_due) +
+                                    (order.fee_paid ? 0 : order.fee_due) +
                                     (order.deposit_paid
                                         ? 0
                                         : order.deposit_total),
@@ -519,7 +542,7 @@ function MoneyRow({
     collectable,
 }: {
     order: ScheduleOrder;
-    kind: 'rental' | 'deposit';
+    kind: 'rental' | 'fee' | 'deposit';
     label: string;
     amount: number;
     paid: boolean;

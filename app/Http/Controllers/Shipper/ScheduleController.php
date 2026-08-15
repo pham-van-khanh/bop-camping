@@ -111,13 +111,25 @@ class ScheduleController extends Controller
         if (! $order->isConfirmed()) {
             return back()->withErrors(['payment' => 'Đơn chưa được xác nhận — chưa thu tiền. Gọi chủ shop nếu khách muốn trả.']);
         }
-        if ($kind === 'rental' ? $order->rentalPaid() : $order->depositPaid()) {
+        // Ba khoản từ bopcamping-urqo — không hardcode hai khoản nữa, thêm khoản mới mà
+        // quên chỗ này thì shipper cầm tiền về không có nút nào để ghi.
+        $paid = match ($kind) {
+            'rental' => $order->rentalPaid(),
+            'fee' => $order->feePaid(),
+            default => $order->depositPaid(),
+        };
+
+        if ($paid) {
             return back()->withErrors(['payment' => 'Khoản này đã được đánh dấu thu rồi.']);
         }
 
         $order->markPaid($kind, true, $request->user()->id);
 
-        return back()->with('success', $kind === 'rental' ? 'Đã ghi nhận thu tiền thuê' : 'Đã ghi nhận thu cọc');
+        return back()->with('success', 'Đã ghi nhận thu '.match ($kind) {
+            'rental' => 'tiền thuê',
+            'fee' => 'phụ phí',
+            default => 'cọc',
+        });
     }
 
     /**

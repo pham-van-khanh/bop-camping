@@ -62,6 +62,9 @@ class Order extends Model
         'deposit_paid_at',
         'deposit_paid_by',
         'deposit_paid_amount',
+        'fee_paid_at',
+        'fee_paid_by',
+        'fee_paid_amount',
         // Dấu ai đã làm gì: hoàn cọc, bấm đã giao, bấm đã thu đồ (bopcamping-3wfk).
         'deposit_refunded_at',
         'deposit_refunded_by',
@@ -81,6 +84,7 @@ class Order extends Model
         'payment_status',
         'deposit_refund_status',
         'deposit_refund_note',
+        'deposit_refund_amount',
         'note',
     ];
 
@@ -107,6 +111,9 @@ class Order extends Model
         'rental_paid_amount' => 'integer',
         'deposit_paid_at' => 'datetime',
         'deposit_paid_amount' => 'integer',
+        'fee_paid_at' => 'datetime',
+        'fee_paid_amount' => 'integer',
+        'deposit_refund_amount' => 'integer',
         'deposit_refunded_at' => 'datetime',
         'delivered_at' => 'datetime',
         'collected_at' => 'datetime',
@@ -118,14 +125,20 @@ class Order extends Model
      */
     public const TRACKED_ACTIONS = [
         'rental_paid' => 'Đã nhận tiền thuê',
+        'fee_paid' => 'Đã nhận phụ phí',
         'deposit_paid' => 'Đã nhận tiền cọc',
         'delivered' => 'Đã giao đồ',
         'collected' => 'Đã thu đồ',
         'deposit_refunded' => 'Đã hoàn cọc',
     ];
 
-    /** Hai khoản tiền thu riêng của 1 đơn (bopcamping-q7i0). */
-    public const PAYMENT_KINDS = ['rental', 'deposit'];
+    /**
+     * Các khoản tiền thu riêng của 1 đơn (bopcamping-q7i0; thêm 'fee' ở bopcamping-urqo).
+     *
+     * Phụ phí tách khỏi tiền thuê để chủ shop biết khoản nào đã thu — trước đây gộp chung
+     * nên "tiền thuê còn thiếu 50k" không nói được thiếu ở đâu.
+     */
+    public const PAYMENT_KINDS = ['rental', 'fee', 'deposit'];
 
     /**
      * Hình thức GIAO khách chọn ở checkout (bopcamping-z3ug).
@@ -306,12 +319,50 @@ class Order extends Model
      */
     public function rentalPaidAmount(): int
     {
-        return $this->rentalPaid() ? (int) ($this->rental_paid_amount ?? $this->rental_due) : 0;
+        if (! $this->rentalPaid()) {
+            return 0;
+        }
+
+        // Kẹp về tiền thuê GỐC: đơn cũ ghi số bao gồm cả phụ phí (nghĩa cũ của cái cờ),
+        // phần dôi ra thuộc về khoản phụ phí — feePaid() bên dưới nhận nó (bopcamping-urqo).
+        return min((int) ($this->rental_paid_amount ?? $this->rental_due), $this->base_rental_due);
     }
 
     public function depositPaidAmount(): int
     {
         return $this->depositPaid() ? (int) ($this->deposit_paid_amount ?? $this->deposit_total) : 0;
+    }
+
+    /**
+     * Phụ phí đã thu chưa (bopcamping-urqo).
+     *
+     * ĐƠN CŨ KHÔNG BỊ GHI ĐÈ MỘT DÒNG NÀO. Trước tính năng này, "đã thu tiền thuê" mang
+     * nghĩa thu cả phụ phí, và số ghi lại là `rental_due` (đã gồm phụ phí). Nhận ra bằng
+     * chính con số đó thay vì hardcode một mốc ngày — mốc ngày luôn mục nát sau vài lần
+     * deploy, còn luật này tự đúng cho cả hai chiều:
+     *
+     *   đơn cũ  thu 550k, rental_due 550k → 550 ≥ 550 → phụ phí đã thu
+     *   đơn mới thu 500k gốc, sau thêm ship 50k → 500 < 550 → phụ phí còn nợ
+     */
+    public function feePaid(): bool
+    {
+        if ($this->fee_paid_at !== null) {
+            return true;
+        }
+
+        return $this->rentalPaid()
+            && (int) ($this->rental_paid_amount ?? $this->rental_due) >= $this->rental_due;
+    }
+
+    public function feePaidAmount(): int
+    {
+        return $this->feePaid() ? (int) ($this->fee_paid_amount ?? $this->fee_due) : 0;
+    }
+
+    /** Phụ phí còn thiếu — dùng để trừ vào cọc lúc hoàn. */
+    public function feeOutstanding(): int
+    {
+        return max(0, $this->fee_due - $this->feePaidAmount());
     }
 
     /**
@@ -326,8 +377,54 @@ class Order extends Model
      */
     public function getOutstandingDueAttribute(): int
     {
-        return max(0, $this->rental_due - $this->rentalPaidAmount())
+        return max(0, $this->base_rental_due - $this->rentalPaidAmount())
+            + $this->feeOutstanding()
             + max(0, (int) $this->deposit_total - $this->depositPaidAmount());
+    }
+
+    /**
+     * Số tiền QR đòi CHUYỂN KHOẢN — khác `outstanding_due` ở đúng một chỗ: phụ phí
+     * (bopcamping-urqo).
+     *
+     * Khách đã chuyển tiền thuê rồi thì không bắt chuyển thêm lần nữa cho khoản lẻ vài
+     * chục nghìn; phụ phí đó TRỪ VÀO CỌC lúc hoàn (xem refund_due). Nhờ vậy khách không
+     * phải cầm thêm tiền mặt, nên chỗ nào hiện "còn phải trả" cho khách cũng dùng con số
+     * này — dùng outstanding_due sẽ doạ khách một khoản họ không cần chuẩn bị.
+     */
+    public function getTransferDueAttribute(): int
+    {
+        return max(0, $this->base_rental_due - $this->rentalPaidAmount())
+            + ($this->rentalPaid() ? 0 : $this->feeOutstanding())
+            + max(0, (int) $this->deposit_total - $this->depositPaidAmount());
+    }
+
+    /** Tiền thuê GỐC, chưa gồm phụ phí (bopcamping-urqo). */
+    public function getBaseRentalDueAttribute(): int
+    {
+        return (int) $this->total_price - (int) $this->discount_total;
+    }
+
+    /** Phụ phí — gộp mọi dòng, là một khoản thu độc lập. */
+    public function getFeeDueAttribute(): int
+    {
+        return (int) $this->extra_fee;
+    }
+
+    /**
+     * Số cọc thực trả lại khách = cọc đã thu − phụ phí còn thiếu (bopcamping-urqo).
+     *
+     * Kẹp ≥ 0: phụ phí lớn hơn cọc thì trừ không đủ, phần thiếu để refundShortfall() báo
+     * admin thu tay chứ không đẻ ra số âm.
+     */
+    public function getRefundDueAttribute(): int
+    {
+        return max(0, $this->depositPaidAmount() - $this->feeOutstanding());
+    }
+
+    /** Phần phụ phí KHÔNG trừ hết được vào cọc — admin phải thu tay. */
+    public function refundShortfall(): int
+    {
+        return max(0, $this->feeOutstanding() - $this->depositPaidAmount());
     }
 
     /** Riêng phần TIỀN THUÊ phải thu (đã gồm phụ phí, đã trừ giảm giá) — không gồm cọc. */
@@ -405,7 +502,14 @@ class Order extends Model
     {
         // Chụp lại SỐ TIỀN tại đúng thời điểm bấm (bopcamping-r3fy). Giá đơn còn đổi được
         // sau đó, nên chỉ ghi cờ là mất dấu khoản chênh — xem chú thích ở outstanding_due.
-        $amount = $kind === 'rental' ? $this->rental_due : (int) $this->deposit_total;
+        //
+        // 'rental' ghi tiền thuê GỐC, không gồm phụ phí (bopcamping-urqo) — nhờ vậy đơn mới
+        // luôn rơi vào vế "<" của luật đơn cũ ở feePaid() khi phụ phí phát sinh sau.
+        $amount = match ($kind) {
+            'rental' => $this->base_rental_due,
+            'fee' => $this->fee_due,
+            default => (int) $this->deposit_total,
+        };
 
         $this->forceFill([
             "{$kind}_paid_at" => $paid ? now() : null,
@@ -423,11 +527,13 @@ class Order extends Model
      */
     public function syncPaymentStatus(): void
     {
-        $paid = (int) $this->rentalPaid() + (int) $this->depositPaid();
+        // Suy từ SỐ TIỀN còn thiếu, không đếm cờ (bopcamping-urqo): từ khi có khoản phụ
+        // phí, đếm cờ sẽ báo 'full' cho đơn mới thu 2/3 khoản.
+        $collected = $this->rentalPaidAmount() + $this->feePaidAmount() + $this->depositPaidAmount();
 
-        $this->payment_status = match ($paid) {
-            2 => 'full',
-            1 => 'deposit',
+        $this->payment_status = match (true) {
+            $this->outstanding_due === 0 => 'full',
+            $collected > 0 => 'deposit',   // nghĩa cũ: đã thu MỘT PHẦN (3 mức, giữ nguyên tên)
             default => 'unpaid',
         };
     }
@@ -483,12 +589,39 @@ class Order extends Model
      */
     public function markRefunded(bool $refunded, ?int $byUserId, ?string $note = null): void
     {
+        // Phụ phí chưa thu được GIỮ LẠI từ cọc (bopcamping-urqo) — tiền đã về tay shop qua
+        // đường giữ lại, nên đánh dấu khoản đó đã thu luôn. Không làm thì nó treo "chưa
+        // thu" mãi trên một đơn đã đóng, và khách vẫn thấy mình đang nợ.
+        $deducted = $refunded ? min($this->feeOutstanding(), $this->depositPaidAmount()) : 0;
+
+        // Chốt số hoàn TRƯỚC khi đánh dấu phụ phí: đánh dấu xong thì feeOutstanding() về 0,
+        // refund_due sẽ ra nguyên cọc — tức ghi sổ là đã trả khách cả phần vừa giữ lại.
+        $refundAmount = $refunded ? $this->refund_due : null;
+
+        if ($deducted > 0) {
+            $this->forceFill([
+                'fee_paid_at' => now(),
+                'fee_paid_by' => $byUserId,
+                'fee_paid_amount' => $this->feePaidAmount() + $deducted,
+            ]);
+        }
+
         $this->forceFill([
             'deposit_refund_status' => $refunded ? 'refunded' : 'pending',
             'deposit_refund_note' => $note,
+            'deposit_refund_amount' => $refundAmount,
             'deposit_refunded_at' => $refunded ? now() : null,
             'deposit_refunded_by' => $refunded ? $byUserId : null,
-        ])->save();
+        ]);
+
+        $this->syncPaymentStatus();
+        $this->save();
+    }
+
+    /** Người đánh dấu đã thu phụ phí — cho đối soát. */
+    public function feePaidBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'fee_paid_by');
     }
 
     /**
@@ -503,6 +636,7 @@ class Order extends Model
         // Mốc suy từ trạng thái: đơn cũ đã giao/đã trả/đã hoàn cọc mà chưa có cột dấu.
         $impliedDone = [
             'rental_paid' => $this->rentalPaid(),
+            'fee_paid' => $this->fee_due > 0 && $this->feePaid(),
             'deposit_paid' => $this->depositPaid(),
             'delivered' => in_array($this->status, ['renting', 'returned'], true),
             'collected' => $this->status === 'returned',
@@ -511,6 +645,7 @@ class Order extends Model
 
         $relation = [
             'rental_paid' => 'rentalPaidBy',
+            'fee_paid' => 'feePaidBy',
             'deposit_paid' => 'depositPaidBy',
             'delivered' => 'deliveredBy',
             'collected' => 'collectedBy',

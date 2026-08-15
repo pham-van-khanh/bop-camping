@@ -103,6 +103,68 @@ describe('PaymentStatus', () => {
         expect(screen.getAllByText(/Shop đã nhận/)).toHaveLength(2);
     });
 
+    /**
+     * bopcamping-urqo — phụ phí là khoản thu RIÊNG. Trước đây nó nằm lẫn trong tiền thuê
+     * nên khách (và chủ shop) không biết còn thiếu ở đâu.
+     */
+    it('hiện phụ phí thành dòng riêng khi đơn có phụ phí', () => {
+        render(
+            <PaymentStatus
+                rentalDue={500000}
+                depositTotal={300000}
+                rentalReceived={500000}
+                depositReceived={0}
+                feeDue={50000}
+                feeReceived={0}
+            />,
+        );
+
+        expect(
+            within(rowFor('Phụ phí')).getByText(/Chưa nhận/),
+        ).toBeInTheDocument();
+        expect(
+            within(rowFor('Tiền thuê')).getByText(/Shop đã nhận/),
+        ).toBeInTheDocument();
+    });
+
+    it('đơn không phụ phí thì không có dòng phụ phí', () => {
+        render(
+            <PaymentStatus
+                rentalDue={500000}
+                depositTotal={300000}
+                rentalReceived={0}
+                depositReceived={0}
+            />,
+        );
+
+        expect(screen.queryByText(/Phụ phí/)).not.toBeInTheDocument();
+    });
+
+    /**
+     * Phụ phí trừ vào cọc thì phải nói ra, không thì con số trên QR lệch với "còn phải
+     * trả" mà không ai giải thích — và khách tưởng mình còn nợ phải chuyển thêm.
+     */
+    it('nói rõ phụ phí sẽ trừ vào cọc thay vì bắt khách chuyển thêm', () => {
+        render(
+            <PaymentStatus
+                rentalDue={500000}
+                depositTotal={300000}
+                rentalReceived={500000}
+                depositReceived={0}
+                feeDue={50000}
+                feeReceived={0}
+                feeFromDeposit={50000}
+            />,
+        );
+
+        expect(
+            screen.getByText(/trừ vào tiền cọc khi hoàn/),
+        ).toBeInTheDocument();
+        expect(
+            screen.queryByText(/sau khi nhận được tiền/),
+        ).not.toBeInTheDocument();
+    });
+
     it('còn khoản chưa nhận thì nhắc khách chờ shop cập nhật', () => {
         render(
             <PaymentStatus

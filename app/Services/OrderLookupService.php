@@ -67,7 +67,7 @@ class OrderLookupService
             'payment_qr' => $this->paymentQr->payloadFor($o),
             // Tình trạng thu tiền (bopcamping-pew1) — trước đây khách chuyển khoản xong
             // không có cách nào biết shop đã ghi nhận chưa, chỉ còn nước nhắn hỏi.
-            'rental_due' => $o->rental_due,
+            'rental_due' => $o->base_rental_due,
             'rental_paid' => $o->rentalPaid(),
             'deposit_paid' => $o->depositPaid(),
             // SỐ TIỀN thật đã nhận + số CÒN LẠI (bopcamping-r3fy). Chỉ có cờ đã-thu là
@@ -75,7 +75,12 @@ class OrderLookupService
             // shop nhận một số tiền chưa từng nhận khi giá đơn đổi sau lúc thu.
             'rental_received' => $o->rentalPaidAmount(),
             'deposit_received' => $o->depositPaidAmount(),
-            'outstanding_due' => $o->outstanding_due,
+            // Phụ phí là KHOẢN THU RIÊNG (bopcamping-urqo) — trước đây gộp vào tiền thuê
+            // nên khách không biết còn thiếu ở đâu.
+            'fee_due' => $o->fee_due,
+            'fee_received' => $o->feePaidAmount(),
+            // Số khách thật sự cần chuyển: phụ phí chưa thu sẽ trừ vào cọc, không đòi thêm.
+            'outstanding_due' => $o->transfer_due,
             'status' => $o->status,
             'status_label' => $this->statusLabel($o->status),
             'note' => $o->note,

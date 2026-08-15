@@ -50,15 +50,27 @@ export default function PaymentStatus({
     depositTotal,
     rentalReceived,
     depositReceived,
+    feeDue = 0,
+    feeReceived = 0,
+    feeFromDeposit = 0,
 }: {
     rentalDue: number;
     depositTotal: number;
     rentalReceived: number;
     depositReceived: number;
+    // Phụ phí là khoản thu RIÊNG (bopcamping-urqo) — trước đây gộp vào tiền thuê nên
+    // khách không biết còn thiếu ở đâu.
+    feeDue?: number;
+    feeReceived?: number;
+    // Phần phụ phí sẽ được trừ vào cọc lúc hoàn, thay vì đòi khách chuyển thêm.
+    feeFromDeposit?: number;
 }) {
-    // Đơn không cọc thì đừng bịa ra một dòng luôn "chưa nhận" không bao giờ xong.
+    // Khoản nào bằng 0 thì đừng bịa ra một dòng luôn "chưa nhận" không bao giờ xong.
     const rows: Row[] = [
         { label: 'Tiền thuê', due: rentalDue, received: rentalReceived },
+        ...(feeDue > 0
+            ? [{ label: 'Phụ phí', due: feeDue, received: feeReceived }]
+            : []),
         ...(depositTotal > 0
             ? [
                   {
@@ -93,7 +105,14 @@ export default function PaymentStatus({
                 ))}
             </div>
 
-            {rows.some((r) => r.received < r.due) && (
+            {feeFromDeposit > 0 && (
+                <p className="mt-2 border-t border-[#f1f4ea] pt-2 text-[11.5px] text-[#5f6650]">
+                    Phụ phí {money(feeFromDeposit)} sẽ trừ vào tiền cọc khi hoàn
+                    — bạn không cần chuyển thêm.
+                </p>
+            )}
+
+            {feeFromDeposit === 0 && rows.some((r) => r.received < r.due) && (
                 <p className="mt-2 border-t border-[#f1f4ea] pt-2 text-[11.5px] text-[#5f6650]">
                     Shop cập nhật mục này sau khi nhận được tiền.
                 </p>
