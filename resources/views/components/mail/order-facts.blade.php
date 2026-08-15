@@ -59,8 +59,17 @@
         <td style="padding:3px 0;color:#5a5445;border-top:1px solid #ece3cf;padding-top:7px;">Tiền cọc <span style="color:#8a8170;">(hoàn lại khi trả đồ)</span></td>
         <td style="padding:3px 0;text-align:right;font-family:{{ $mono }};font-weight:700;color:#c06a2a;border-top:1px solid #ece3cf;padding-top:7px;">{{ number_format($order->deposit_total, 0, ',', '.') }}đ</td>
     </tr>
+    {{-- Theo số CÒN THIẾU (bopcamping-r3fy): mail xác nhận đơn gửi đúng lúc admin chuyển
+         đơn sang "đã xác nhận", tức ngay sau khi tiền về theo quy trình mới. In tổng là
+         bảo khách cầm lại đúng số họ vừa chuyển. --}}
+    @if ($order->outstanding_due > 0)
     <tr>
         <td style="padding:8px 0 0;font-weight:800;color:#2e2a20;">Tổng cầm khi nhận đồ</td>
-        <td style="padding:8px 0 0;text-align:right;font-family:{{ $mono }};font-weight:800;font-size:15px;color:#2e2a20;">{{ number_format($order->amount_due, 0, ',', '.') }}đ</td>
+        <td style="padding:8px 0 0;text-align:right;font-family:{{ $mono }};font-weight:800;font-size:15px;color:#2e2a20;">{{ number_format($order->outstanding_due, 0, ',', '.') }}đ</td>
     </tr>
+    @else
+    <tr>
+        <td style="padding:8px 0 0;font-weight:800;color:#3a5a1f;" colspan="2">✓ Đơn đã thanh toán đủ — bạn không cần cầm thêm tiền.</td>
+    </tr>
+    @endif
 </table>

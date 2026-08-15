@@ -58,8 +58,10 @@ class Order extends Model
         // Thu tiền theo 2 khoản độc lập (bopcamping-q7i0) — payment_status là giá trị SUY RA.
         'rental_paid_at',
         'rental_paid_by',
+        'rental_paid_amount',
         'deposit_paid_at',
         'deposit_paid_by',
+        'deposit_paid_amount',
         // Dấu ai đã làm gì: hoàn cọc, bấm đã giao, bấm đã thu đồ (bopcamping-3wfk).
         'deposit_refunded_at',
         'deposit_refunded_by',
@@ -102,7 +104,9 @@ class Order extends Model
         'pickup_reminder_sent_at' => 'datetime',
         'schedule_confirmed_at' => 'datetime',
         'rental_paid_at' => 'datetime',
+        'rental_paid_amount' => 'integer',
         'deposit_paid_at' => 'datetime',
+        'deposit_paid_amount' => 'integer',
         'deposit_refunded_at' => 'datetime',
         'delivered_at' => 'datetime',
         'collected_at' => 'datetime',
@@ -295,19 +299,35 @@ class Order extends Model
     }
 
     /**
-     * Số tiền CÒN phải thu — amount_due trừ đi những khoản đã đánh dấu thu (bopcamping-pew1).
+     * Số tiền THẬT SỰ đã thu của từng khoản (bopcamping-r3fy).
      *
-     * Khác amount_due ở chỗ nó động theo thực tế thu: hai khoản thu ĐỘC LẬP nên khách trả
-     * tiền thuê trước, còn nợ mỗi cọc là chuyện thường. Chỗ nào đòi tiền khách (vd QR
-     * chuyển khoản) phải dùng con số này — dùng amount_due là đòi lại cả khoản đã trả.
+     * Đơn cũ có mốc thu nhưng chưa có cột số tiền (trước migration) thì coi như đã thu đủ
+     * phần đó — đúng bằng nghĩa cũ của cái cờ, để không bỗng dưng biến chúng thành còn nợ.
+     */
+    public function rentalPaidAmount(): int
+    {
+        return $this->rentalPaid() ? (int) ($this->rental_paid_amount ?? $this->rental_due) : 0;
+    }
+
+    public function depositPaidAmount(): int
+    {
+        return $this->depositPaid() ? (int) ($this->deposit_paid_amount ?? $this->deposit_total) : 0;
+    }
+
+    /**
+     * Số tiền CÒN phải thu (bopcamping-pew1, sửa gốc ở bopcamping-r3fy).
+     *
+     * Trừ theo SỐ TIỀN đã thu chứ không theo cờ đã-thu-hay-chưa: giá đơn còn đổi được sau
+     * lúc thu (admin nhập phụ phí, đổi lịch), nên lấy cờ là mọi khoản chênh sau đó biến mất
+     * không ai đòi. Chỗ nào đòi tiền khách (vd QR chuyển khoản) phải dùng con số này.
+     *
+     * Kẹp max(0) TỪNG KHOẢN, không kẹp ở tổng: giảm giá vượt tiền thuê làm rental_due âm,
+     * kẹp ở tổng thì phần âm đó ăn lẹm vào tiền cọc và QR đòi thiếu đúng bằng nó.
      */
     public function getOutstandingDueAttribute(): int
     {
-        $left = ($this->rentalPaid() ? 0 : $this->rental_due)
-            + ($this->depositPaid() ? 0 : (int) $this->deposit_total);
-
-        // Giảm giá vượt tiền thuê thì rental_due âm — đừng để nó ăn lẹm vào cọc.
-        return max(0, $left);
+        return max(0, $this->rental_due - $this->rentalPaidAmount())
+            + max(0, (int) $this->deposit_total - $this->depositPaidAmount());
     }
 
     /** Riêng phần TIỀN THUÊ phải thu (đã gồm phụ phí, đã trừ giảm giá) — không gồm cọc. */
@@ -383,9 +403,14 @@ class Order extends Model
      */
     public function markPaid(string $kind, bool $paid, ?int $byUserId = null): void
     {
+        // Chụp lại SỐ TIỀN tại đúng thời điểm bấm (bopcamping-r3fy). Giá đơn còn đổi được
+        // sau đó, nên chỉ ghi cờ là mất dấu khoản chênh — xem chú thích ở outstanding_due.
+        $amount = $kind === 'rental' ? $this->rental_due : (int) $this->deposit_total;
+
         $this->forceFill([
             "{$kind}_paid_at" => $paid ? now() : null,
             "{$kind}_paid_by" => $paid ? $byUserId : null,
+            "{$kind}_paid_amount" => $paid ? max(0, $amount) : null,
         ]);
         $this->syncPaymentStatus();
         $this->save();

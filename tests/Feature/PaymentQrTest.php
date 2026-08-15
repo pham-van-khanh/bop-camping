@@ -2,6 +2,8 @@
 
 namespace Tests\Feature;
 
+use App\Mail\OrderPickupReminderMail;
+use App\Mail\OrderStatusMail;
 use App\Models\Order;
 use App\Models\User;
 use App\Services\PaymentQrService;
@@ -124,6 +126,156 @@ class PaymentQrTest extends TestCase
         $order->markPaid('deposit', true);
         $order->refresh();
         $this->assertSame('240000', $this->params($this->qr()->urlFor($order))['amount']);
+    }
+
+    /**
+     * LỖI ĐÃ ĐO trước khi lên production (bopcamping-r3fy) — đây là ca đắt nhất của cả
+     * tính năng, nên khoá chặt.
+     *
+     * markPaid() chỉ ghi CỜ đã-thu chứ không ghi SỐ TIỀN. Admin bấm thu tiền thuê 500k rồi
+     * mới nhập phí ship 50k → rental_due thành 550k nhưng hệ thống vẫn coi tiền thuê xong,
+     * QR chỉ đòi 300k tiền cọc. Shop thu hụt đúng 50k, không dấu hiệu gì; còn khách thì
+     * được báo "Tiền thuê 550.000đ — Shop đã nhận" trong khi shop mới nhận 500k.
+     *
+     * @test
+     */
+    public function a_price_change_after_collecting_still_gets_billed(): void
+    {
+        $order = $this->order(['total_price' => 500_000, 'deposit_total' => 300_000]);
+
+        $order->markPaid('rental', true);
+        $order->refresh();
+        $this->assertSame(500_000, $order->rentalPaidAmount(), 'phải chụp lại SỐ TIỀN lúc bấm thu');
+        $this->assertSame(300_000, $this->qr()->payloadFor($order)['amount']);
+
+        // Admin gọi khách chốt ship rồi nhập phụ phí SAU khi đã đánh dấu thu.
+        $order->update(['extra_fee' => 50_000]);
+        $order->refresh();
+
+        $this->assertSame(550_000, $order->rental_due);
+        $this->assertSame(500_000, $order->rentalPaidAmount(), 'số đã thu KHÔNG được chạy theo giá mới');
+        $this->assertSame(350_000, $order->outstanding_due, '300k cọc + 50k chênh tiền thuê');
+        $this->assertSame(350_000, $this->qr()->payloadFor($order)['amount']);
+    }
+
+    /** Bỏ đánh dấu thu thì xoá luôn số tiền đã ghi — không để lại vết ma. */
+    /** @test */
+    public function unmarking_a_payment_clears_the_recorded_amount(): void
+    {
+        $order = $this->order();
+
+        $order->markPaid('rental', true);
+        $order->refresh();
+        $this->assertNotNull($order->rental_paid_amount);
+
+        $order->markPaid('rental', false);
+        $order->refresh();
+        $this->assertNull($order->rental_paid_amount);
+        $this->assertSame(0, $order->rentalPaidAmount());
+        $this->assertSame($order->amount_due, $order->outstanding_due);
+    }
+
+    /**
+     * Đơn CŨ (trước migration) có mốc thu nhưng cột số tiền còn null — phải coi như đã thu
+     * đủ phần đó, đúng bằng nghĩa cũ của cái cờ. Không thì mọi đơn cũ bỗng dưng thành nợ.
+     *
+     * @test
+     */
+    public function a_legacy_order_without_a_recorded_amount_counts_as_fully_collected(): void
+    {
+        $order = $this->order(['total_price' => 500_000, 'deposit_total' => 300_000]);
+        $order->forceFill(['rental_paid_at' => now(), 'rental_paid_amount' => null])->save();
+        $order->syncPaymentStatus();
+        $order->refresh();
+
+        $this->assertSame(500_000, $order->rentalPaidAmount());
+        $this->assertSame(300_000, $order->outstanding_due);
+    }
+
+    /**
+     * Giảm giá vượt tiền thuê làm rental_due âm. Kẹp max(0) ở TỔNG thì phần âm đó ăn lẹm
+     * vào tiền cọc và QR đòi thiếu đúng bằng nó — phải kẹp TỪNG KHOẢN.
+     *
+     * @test
+     */
+    public function a_negative_rental_never_eats_into_the_deposit(): void
+    {
+        $order = $this->order([
+            'total_price' => 100_000,
+            'discount_total' => 150_000,
+            'deposit_total' => 300_000,
+        ]);
+
+        $this->assertSame(-50_000, $order->rental_due);
+        $this->assertSame(300_000, $order->outstanding_due, 'vẫn phải thu đủ tiền cọc');
+    }
+
+    /** Khối QR phải mang thông tin người nhận dạng CHỮ — ảnh hỏng thì khách vẫn chuyển được. */
+    /** @test */
+    public function the_payload_carries_the_account_details_as_text(): void
+    {
+        $p = $this->qr()->payloadFor($this->order());
+
+        $this->assertSame('Vietcombank', $p['bank']);
+        $this->assertSame('QRPSEP1ZZZZ55400303', $p['account']);
+        $this->assertSame('HKD BOP CAMPING', $p['holder']);
+    }
+
+    /** Danh sách đơn admin KHÔNG dựng QR — chỉ màn chi tiết mới cần. */
+    /** @test */
+    public function the_admin_list_does_not_carry_a_dead_qr_payload(): void
+    {
+        $this->order();
+
+        $this->actingAs(User::factory()->create(['is_admin' => true]))
+            ->get(route('admin.orders'))
+            ->assertInertia(fn (Assert $p) => $p->where('orders.0.payment_qr', null));
+    }
+
+    /** Admin phải biết QR đang tắt vì CHƯA CẤU HÌNH, khác với tắt vì luật đơn. */
+    /** @test */
+    public function the_admin_screen_reports_whether_the_account_is_configured(): void
+    {
+        $order = $this->order();
+        $admin = User::factory()->create(['is_admin' => true]);
+
+        $this->actingAs($admin)->get(route('admin.orders.show', $order))
+            ->assertInertia(fn (Assert $p) => $p->where('payment_qr_configured', true));
+
+        config(['services.sepay.account' => null]);
+
+        $this->actingAs($admin)->get(route('admin.orders.show', $order))
+            ->assertInertia(fn (Assert $p) => $p->where('payment_qr_configured', false));
+    }
+
+    /**
+     * Mail không được bắt khách cầm lại số tiền họ vừa chuyển (bopcamping-r3fy).
+     *
+     * Quy trình mới: khách chuyển khoản xong shop mới xác nhận. Mail xác nhận đơn và mail
+     * nhắc nhận đồ đều gửi cho đơn ĐÃ xác nhận, tức phần lớn người nhận đã trả xong.
+     *
+     * @test
+     */
+    public function the_emails_ask_only_for_what_is_still_owed(): void
+    {
+        $order = $this->order(['status' => 'confirmed', 'total_price' => 490_000, 'deposit_total' => 300_000]);
+        $order->markPaid('rental', true);
+        $order->markPaid('deposit', true);
+        $order->refresh();
+
+        $this->assertSame(0, $order->outstanding_due);
+
+        $mails = [
+            'nhắc nhận đồ' => new OrderPickupReminderMail($order),
+            'xác nhận đơn' => new OrderStatusMail($order, 'confirmed'),
+        ];
+
+        foreach ($mails as $label => $mail) {
+            $html = $mail->render();
+
+            $this->assertStringNotContainsString('790.000đ', $html, "mail $label còn đòi lại tiền khách đã trả");
+            $this->assertStringContainsString('đã thanh toán đủ', $html);
+        }
     }
 
     /** Phụ phí và giảm giá vẫn phải theo đúng khoản còn thiếu. */

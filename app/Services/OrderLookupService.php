@@ -70,6 +70,12 @@ class OrderLookupService
             'rental_due' => $o->rental_due,
             'rental_paid' => $o->rentalPaid(),
             'deposit_paid' => $o->depositPaid(),
+            // SỐ TIỀN thật đã nhận + số CÒN LẠI (bopcamping-r3fy). Chỉ có cờ đã-thu là
+            // giao diện phải in rental_due hiện tại cạnh chữ "đã nhận", tức khẳng định
+            // shop nhận một số tiền chưa từng nhận khi giá đơn đổi sau lúc thu.
+            'rental_received' => $o->rentalPaidAmount(),
+            'deposit_received' => $o->depositPaidAmount(),
+            'outstanding_due' => $o->outstanding_due,
             'status' => $o->status,
             'status_label' => $this->statusLabel($o->status),
             'note' => $o->note,

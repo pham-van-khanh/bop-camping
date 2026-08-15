@@ -161,6 +161,10 @@ class AccountController extends Controller
             'rental_due' => (int) $order->rental_due,
             'rental_paid' => $order->rentalPaid(),
             'deposit_paid' => $order->depositPaid(),
+            // Xem chú thích ở OrderLookupService::shape() (bopcamping-r3fy).
+            'rental_received' => $order->rentalPaidAmount(),
+            'deposit_received' => $order->depositPaidAmount(),
+            'outstanding_due' => $order->outstanding_due,
             'groups' => $this->itemGroups($order),
             'discounts' => $this->discountLines($order),
             'reorder' => $this->reorderPayload($order),
