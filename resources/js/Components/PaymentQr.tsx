@@ -1,0 +1,67 @@
+import { money } from '@/lib/format';
+
+/**
+ * Khối QR chuyển khoản của một đơn (bopcamping-55rh) — dùng chung cho admin, trang tra
+ * cứu và trang tài khoản.
+ *
+ * Backend (PaymentQrService) đã quyết đơn nào có QR: prop null thì không vẽ gì. Component
+ * KHÔNG tự suy luận lại điều kiện, vì suy hai nơi là sớm muộn lệch nhau.
+ *
+ * `download_url` chỉ admin mới có — nút tải ảnh là để gửi khách qua Zalo.
+ */
+export type PaymentQrData = {
+    url: string;
+    amount: number;
+    content: string;
+    download_url?: string;
+};
+
+export default function PaymentQr({
+    qr,
+    title = 'QR chuyển khoản',
+}: {
+    qr: PaymentQrData | null;
+    title?: string;
+}) {
+    if (!qr) return null;
+
+    return (
+        <div className="rounded-[10px] border border-[#eef2e3] bg-white p-3">
+            <div className="mb-2 text-[12px] font-bold uppercase tracking-[0.04em] text-grass">
+                {title}
+            </div>
+
+            <div className="flex flex-wrap items-start gap-4">
+                <img
+                    src={qr.url}
+                    alt={`Mã QR chuyển khoản ${money(qr.amount)}, nội dung ${qr.content}`}
+                    loading="lazy"
+                    className="w-[200px] max-w-full rounded-[8px] border border-[#eef2e3]"
+                />
+
+                <div className="min-w-[180px] flex-1 text-[13px]">
+                    <div className="text-moss">Số tiền</div>
+                    <div className="font-mono text-[17px] font-bold text-ink">
+                        {money(qr.amount)}
+                    </div>
+
+                    {/* Nội dung CK hiện dạng chữ, KHÔNG chỉ nằm trong ảnh: đối soát ở đây
+                        làm tay, đây là chuỗi duy nhất để dò ra tiền của đơn nào trong sao kê. */}
+                    <div className="mt-2 text-moss">Nội dung chuyển khoản</div>
+                    <div className="select-all font-mono text-[15px] font-bold text-pine">
+                        {qr.content}
+                    </div>
+
+                    {qr.download_url && (
+                        <a
+                            href={qr.download_url}
+                            className="mt-3 inline-block rounded-[9px] border border-cardBorder px-3 py-1.5 text-[12.5px] font-semibold text-pine transition hover:border-grass hover:text-grass"
+                        >
+                            Tải ảnh QR
+                        </a>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+}

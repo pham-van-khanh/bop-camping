@@ -1,6 +1,7 @@
 // Dùng chung giữa danh sách đơn (Orders.tsx) và màn hình đơn riêng (Orders/Show.tsx) —
 // spec 2026-07-26. Chứa type, hằng, helper + các control admin (đổi lịch/vị trí/phụ phí/hoàn)
 // và OrderDetailPanel (khối chi tiết đầy đủ 1 đơn). Hành vi backend không đổi (route như cũ).
+import PaymentQr, { type PaymentQrData } from '@/Components/PaymentQr';
 import DateRangeCalendar from '@/Components/site/DateRangeCalendar';
 import { money } from '@/lib/format';
 import { sessionLabel, shopHours, type Session } from '@/lib/session';
@@ -93,6 +94,8 @@ export type Order = {
     deposit_total: number;
     discount_total: number;
     amount_due: number;
+    // QR chuyển khoản (bopcamping-55rh) — null khi đơn chưa xác nhận / đã thu đủ / là đơn cha.
+    payment_qr: PaymentQrData | null;
     discount_breakdown: DiscountLine[] | null;
     status: string;
     payment_status: string;
@@ -1473,6 +1476,14 @@ export function OrderDetailPanel({
                         nào chưa thu thì shipper thu hộ được.
                     </p>
                 </div>
+
+                {/* QR chuyển khoản (bopcamping-55rh) — tải ảnh gửi khách qua Zalo. Tiền về
+                    vẫn phải TỰ kiểm sao kê rồi bấm nút thu ở trên: không có đối soát tự động. */}
+                {order.payment_qr && (
+                    <div className="mt-3">
+                        <PaymentQr qr={order.payment_qr} />
+                    </div>
+                )}
 
                 {order.status === 'returned' && <RefundControl order={order} />}
 

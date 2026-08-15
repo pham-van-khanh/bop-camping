@@ -1,3 +1,4 @@
+import PaymentQr, { type PaymentQrData } from '@/Components/PaymentQr';
 import { money } from '@/lib/format';
 import { STATUS_STYLE } from '@/lib/orderStatus';
 import { router } from '@inertiajs/react';
@@ -34,6 +35,8 @@ export type LookupOrder = {
     deposit_total: number;
     discount_total: number;
     amount_due: number;
+    // QR chuyển khoản (bopcamping-55rh) — null khi đơn chưa xác nhận / đã thu đủ / là đơn cha.
+    payment_qr: PaymentQrData | null;
     status: string;
     status_label: string;
     note: string | null;
@@ -211,6 +214,14 @@ export default function OrderLookupPanel({
                         />
                     </div>
 
+                    {/* Chuyển khoản trước thay cho COD (bopcamping-55rh) — chỉ hiện khi đơn
+                        đã xác nhận và còn phải thu; backend quyết, đây không suy lại. */}
+                    {order.payment_qr && (
+                        <div className="mb-4">
+                            <PaymentQr qr={order.payment_qr} />
+                        </div>
+                    )}
+
                     {/* Đơn gộp: liệt kê TỪNG ĐỢT giao (mỗi đợt = đơn con) — bopcamping-wtuv T8. */}
                     {order.installments && order.installments.length > 0 ? (
                         <div className="mb-4 flex flex-col gap-3">
@@ -302,6 +313,16 @@ export default function OrderLookupPanel({
                                                 </tr>
                                             </tbody>
                                         </table>
+                                        {/* Mỗi đợt trả riêng nên QR cũng riêng — đơn cha
+                                            không có QR của chính nó (bopcamping-55rh). */}
+                                        {inst.payment_qr && (
+                                            <div className="border-t border-[#eef2e3] p-3">
+                                                <PaymentQr
+                                                    qr={inst.payment_qr}
+                                                    title={`Chuyển khoản đợt ${idx + 1}`}
+                                                />
+                                            </div>
+                                        )}
                                     </div>
                                 );
                             })}
