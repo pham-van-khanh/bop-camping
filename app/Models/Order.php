@@ -299,6 +299,15 @@ class Order extends Model
         return $this->hasOne(Referral::class, 'first_order_id');
     }
 
+    /**
+     * Hợp đồng thuê điện tử (bopcamping-4jao) — chỉ đơn con (hoặc đơn không tách) mới có.
+     * Đơn cha chỉ gom đợt, không có ngày/đồ riêng nên không lập hợp đồng được.
+     */
+    public function contract(): HasOne
+    {
+        return $this->hasOne(Contract::class);
+    }
+
     /** Số ngày thuê */
     public function getDaysAttribute(): int
     {

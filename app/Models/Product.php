@@ -27,6 +27,12 @@ class Product extends Model
         'price_per_day',
         'quantity',
         'deposit',
+        // Giá trị đền bù khi khách làm mất/hỏng (bopcamping-4jao) — KHÁC tiền cọc. Hợp đồng
+        // Điều 6 dựa vào con số này; 0 = chưa khai giá, hợp đồng in "—" chứ không in "0 đ".
+        'replacement_value',
+        // KHÔNG đổi tên thành 'accessories' — accessories() là quan hệ BelongsToMany bên
+        // dưới, cột trùng tên sẽ che mất quan hệ đó.
+        'parts_list',
         'early_return_discount_pct',
         'thumbnail',
         'status',
@@ -37,6 +43,7 @@ class Product extends Model
         'price_per_day' => 'integer',
         'quantity' => 'integer',
         'deposit' => 'integer',
+        'replacement_value' => 'integer',
         'early_return_discount_pct' => 'integer',
     ];
 
