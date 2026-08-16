@@ -6,8 +6,12 @@ use App\Models\Contract;
 use App\Models\ContractItem;
 use App\Models\Order;
 use App\Models\SiteSetting;
+use DomainException;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
+use RuntimeException;
 
 /**
  * NGUỒN DUY NHẤT dựng, render và ký hợp đồng thuê điện tử (bopcamping-4jao).
@@ -67,6 +71,83 @@ class ContractService
         }
 
         return strtr($this->templateFor($stage), $this->variables($contract));
+    }
+
+    /**
+     * Ký một giai đoạn.
+     *
+     * Đóng băng nội dung + hash TẠI ĐÂY chứ không phải lúc tạo hợp đồng, vì admin sửa mẫu
+     * được ở giữa chừng.
+     *
+     * $expectedHash là hash của bản khách ĐANG ĐỌC trên màn hình. Lệch nghĩa là nội dung vừa
+     * đổi giữa lúc khách mở trang và lúc bấm ký → từ chối, bắt tải lại. Nhờ vậy không ai ký
+     * được thứ mình chưa đọc.
+     *
+     * @throws RuntimeException giai đoạn đã ký, chưa tới lượt, hoặc biên bản còn thiếu ô
+     * @throws DomainException hash lệch, hoặc chữ ký không phải PNG hợp lệ
+     */
+    public function sign(Contract $contract, string $stage, string $signaturePng, string $expectedHash, Request $request): void
+    {
+        if ($contract->nextStage() !== $stage) {
+            throw new RuntimeException('Giai đoạn này đã ký hoặc chưa tới lượt ký.');
+        }
+
+        // Phụ lục A/B chỉ ký được khi ĐỦ tình trạng mọi món — biên bản thiếu ô là biên bản
+        // vô dụng đúng lúc cần đối chiếu để trừ cọc.
+        $conditionField = match ($stage) {
+            'handover' => 'handover_condition',
+            'return' => 'return_condition',
+            default => null,
+        };
+
+        if ($conditionField !== null && $contract->items->contains(fn ($i) => $i->{$conditionField} === null)) {
+            throw new RuntimeException('Còn thiết bị chưa ghi nhận tình trạng — không ký được biên bản thiếu ô.');
+        }
+
+        $html = $this->render($contract, $stage);
+        $hash = hash('sha256', $html);
+
+        if (! hash_equals($hash, $expectedHash)) {
+            throw new DomainException('Nội dung hợp đồng vừa thay đổi. Hãy tải lại trang và đọc lại trước khi ký.');
+        }
+
+        // Giải mã TRƯỚC khi ghi gì vào DB: chữ ký hỏng thì không được để lại bản ghi nửa vời.
+        $binary = $this->decodePng($signaturePng);
+
+        $path = "contracts/{$contract->id}/{$stage}.png";
+        Storage::disk('media')->put($path, $binary);
+
+        $contract->signatures()->create([
+            'stage' => $stage,
+            'content_html' => $html,
+            'content_hash' => $hash,
+            'signature_path' => $path,
+            'signed_at' => now(),
+            'signed_ip' => $request->ip(),
+            'signed_user_agent' => substr((string) $request->userAgent(), 0, 512),
+        ]);
+    }
+
+    /**
+     * data URL PNG -> binary. Từ chối mọi thứ không phải PNG.
+     *
+     * Không tin client: trường này là chuỗi tự do gửi từ trình duyệt, nhận bừa là cho phép
+     * nhồi file bất kỳ vào disk media dưới cái tên .png.
+     */
+    private function decodePng(string $dataUrl): string
+    {
+        if (! str_starts_with($dataUrl, 'data:image/png;base64,')) {
+            throw new DomainException('Chữ ký không hợp lệ.');
+        }
+
+        $binary = base64_decode(substr($dataUrl, strlen('data:image/png;base64,')), true);
+
+        // Kiểm cả magic bytes, không chỉ tin cái tiền tố do client tự khai.
+        if ($binary === false || ! str_starts_with($binary, "\x89PNG\x0d\x0a\x1a\x0a")) {
+            throw new DomainException('Chữ ký không hợp lệ.');
+        }
+
+        return $binary;
     }
 
     /**
