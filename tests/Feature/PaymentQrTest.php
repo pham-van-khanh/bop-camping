@@ -154,8 +154,317 @@ class PaymentQrTest extends TestCase
 
         $this->assertSame(550_000, $order->rental_due);
         $this->assertSame(500_000, $order->rentalPaidAmount(), 'số đã thu KHÔNG được chạy theo giá mới');
-        $this->assertSame(350_000, $order->outstanding_due, '300k cọc + 50k chênh tiền thuê');
-        $this->assertSame(350_000, $this->qr()->payloadFor($order)['amount']);
+        $this->assertSame(350_000, $order->outstanding_due, '300k cọc + 50k phụ phí');
+
+        // QR chỉ đòi 300k: tiền thuê đã trả rồi thì phụ phí KHÔNG đòi qua chuyển khoản nữa,
+        // nó trừ vào cọc lúc hoàn (bopcamping-urqo).
+        $this->assertSame(300_000, $order->transfer_due);
+        $this->assertSame(300_000, $this->qr()->payloadFor($order)['amount']);
+        $this->assertSame(50_000, $this->qr()->payloadFor($order)['fee_from_deposit']);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Phụ phí là KHOẢN THU RIÊNG (bopcamping-urqo)
+    |--------------------------------------------------------------------------
+    | Trước đây phụ phí gộp vào tiền thuê nên chủ shop không biết khoản nào đã thu.
+    */
+
+    /** Đẳng thức nền: tách khoản không được làm đổi tổng. */
+    /** @test */
+    public function the_base_rental_plus_the_fee_always_equals_the_old_rental_total(): void
+    {
+        $order = $this->order(['total_price' => 500_000, 'extra_fee' => 40_000, 'discount_total' => 50_000]);
+
+        $this->assertSame($order->rental_due, $order->base_rental_due + $order->fee_due);
+        $this->assertSame(450_000, $order->base_rental_due);
+        $this->assertSame(40_000, $order->fee_due);
+    }
+
+    /** Ba khoản thu độc lập — thu khoản này không đụng khoản kia. */
+    /** @test */
+    public function the_three_amounts_are_collected_independently(): void
+    {
+        $order = $this->order(['total_price' => 500_000, 'extra_fee' => 50_000, 'deposit_total' => 300_000]);
+
+        $order->markPaid('fee', true);
+        $order->refresh();
+
+        $this->assertTrue($order->feePaid());
+        $this->assertFalse($order->rentalPaid());
+        $this->assertFalse($order->depositPaid());
+        $this->assertSame(800_000, $order->outstanding_due, 'còn tiền thuê 500k + cọc 300k');
+    }
+
+    /**
+     * ĐƠN CŨ KHÔNG BỊ GHI ĐÈ (bopcamping-urqo). Luật suy từ chính con số đã ghi, không dùng
+     * mốc ngày hardcode — mốc ngày luôn mục nát sau vài lần deploy.
+     *
+     * @test
+     */
+    public function an_old_order_paid_under_the_old_meaning_is_not_falsely_shown_as_owing_the_fee(): void
+    {
+        $order = $this->order(['total_price' => 500_000, 'extra_fee' => 50_000, 'deposit_total' => 300_000]);
+
+        // Nghĩa CŨ: "đã thu tiền thuê" = thu cả phụ phí, số ghi lại là rental_due (550k).
+        $order->forceFill([
+            'rental_paid_at' => now(),
+            'rental_paid_amount' => $order->rental_due,
+        ])->save();
+        $order->refresh();
+
+        $this->assertTrue($order->feePaid(), 'đơn cũ không được báo nợ phụ phí');
+        $this->assertSame(300_000, $order->outstanding_due, 'chỉ còn cọc');
+    }
+
+    /** Chiều ngược lại: đơn MỚI thu tiền thuê gốc rồi thêm phụ phí thì vẫn còn nợ. */
+    /** @test */
+    public function a_new_order_that_gains_a_fee_after_collection_still_owes_it(): void
+    {
+        $order = $this->order(['total_price' => 500_000, 'deposit_total' => 300_000]);
+        $order->markPaid('rental', true);
+        $order->update(['extra_fee' => 50_000]);
+        $order->refresh();
+
+        $this->assertFalse($order->feePaid(), 'phụ phí thêm sau KHÔNG được coi là đã thu');
+        $this->assertSame(50_000, $order->feeOutstanding());
+    }
+
+    /**
+     * Hoàn cọc trừ phụ phí chưa thu, và tự đánh dấu khoản đó đã thu — tiền về tay shop qua
+     * đường giữ lại, không có lý do gì để nó treo "chưa thu" mãi.
+     *
+     * @test
+     */
+    public function refunding_the_deposit_deducts_the_unpaid_fee(): void
+    {
+        $order = $this->order(['total_price' => 500_000, 'extra_fee' => 50_000, 'deposit_total' => 300_000]);
+        $order->markPaid('rental', true);
+        $order->markPaid('deposit', true);
+        $order->refresh();
+
+        $this->assertSame(250_000, $order->refund_due, '300k cọc − 50k phụ phí');
+
+        $order->markRefunded(true, null);
+        $order->refresh();
+
+        $this->assertSame(250_000, $order->deposit_refund_amount, 'ghi sổ đúng số đã trả khách');
+        $this->assertTrue($order->feePaid());
+        $this->assertSame(0, $order->outstanding_due);
+        $this->assertSame('full', $order->payment_status);
+    }
+
+    /** Phụ phí lớn hơn cọc thì hoàn kẹp về 0, phần thiếu tách ra cho admin thu tay. */
+    /** @test */
+    public function a_fee_bigger_than_the_deposit_never_makes_the_refund_negative(): void
+    {
+        $order = $this->order(['total_price' => 500_000, 'extra_fee' => 50_000, 'deposit_total' => 30_000]);
+        $order->markPaid('rental', true);
+        $order->markPaid('deposit', true);
+        $order->refresh();
+
+        $this->assertSame(0, $order->refund_due);
+        $this->assertSame(20_000, $order->refundShortfall());
+    }
+
+    /** Khoản phụ phí phải ra tới cả trang khách lẫn màn admin. */
+    /** @test */
+    public function the_fee_amount_reaches_the_customer_and_the_admin(): void
+    {
+        $order = $this->order(['total_price' => 500_000, 'extra_fee' => 50_000]);
+
+        $this->get(route('lookup', ['code' => $order->code, 'phone' => $order->customer_phone]))
+            ->assertInertia(fn (Assert $p) => $p
+                ->where('order.fee_due', 50_000)
+                ->where('order.fee_received', 0)
+                ->where('order.rental_due', 500_000));
+
+        $this->actingAs(User::factory()->create(['is_admin' => true]))
+            ->get(route('admin.orders.show', $order))
+            ->assertInertia(fn (Assert $p) => $p
+                ->where('order.fee_due', 50_000)
+                ->where('order.fee_paid', false)
+                ->has('order.fee_lines'));
+    }
+
+    /**
+     * LỖI ĐÃ ĐO — markRefunded phải IDEMPOTENT.
+     *
+     * Bản đầu giữ lại phụ phí ở MỌI lần gọi. Admin chỉ cần bổ sung ghi chú sau khi đã
+     * hoàn là feeOutstanding() đã về 0 → số hoàn ghi lại nhảy lên NGUYÊN cọc (150.000 →
+     * 200.000). Admin đọc con số đó rồi đưa khách dư đúng phần phụ phí vừa giữ.
+     *
+     * @test
+     */
+    public function saving_the_refund_note_again_does_not_inflate_the_recorded_refund(): void
+    {
+        $order = $this->order(['status' => 'returned', 'total_price' => 500_000, 'extra_fee' => 50_000, 'deposit_total' => 200_000]);
+        $order->markPaid('rental', true);
+        $order->markPaid('deposit', true);
+        $order->refresh();
+
+        $order->markRefunded(true, null, 'Đủ đồ');
+        $order->refresh();
+        $this->assertSame(150_000, $order->deposit_refund_amount);
+
+        // Admin quay lại bổ sung ghi chú — KHÔNG được đụng vào số tiền.
+        $order->markRefunded(true, null, 'Đủ đồ, khách đã ký nhận');
+        $order->refresh();
+        $this->assertSame(150_000, $order->deposit_refund_amount, 'sửa ghi chú không được thổi số hoàn lên');
+        $this->assertSame(50_000, $order->feePaidAmount(), 'không được cộng dồn phụ phí');
+    }
+
+    /** Bỏ hoàn rồi hoàn lại phải khép kín — không rò số nào. */
+    /** @test */
+    public function toggling_the_refund_off_and_on_returns_to_the_same_numbers(): void
+    {
+        $order = $this->order(['status' => 'returned', 'total_price' => 500_000, 'extra_fee' => 50_000, 'deposit_total' => 200_000]);
+        $order->markPaid('rental', true);
+        $order->markPaid('deposit', true);
+        $order->refresh();
+
+        $order->markRefunded(true, null);
+        $order->refresh();
+        $this->assertSame(150_000, $order->deposit_refund_amount);
+
+        // Bỏ hoàn: phần phụ phí đã giữ phải trả lại trạng thái CHƯA thu.
+        $order->markRefunded(false, null);
+        $order->refresh();
+        $this->assertNull($order->deposit_refund_amount);
+        $this->assertSame(0, $order->feePaidAmount(), 'bỏ hoàn phải hoàn tác phần đã giữ');
+        $this->assertSame(50_000, $order->feeOutstanding());
+
+        $order->markRefunded(true, null);
+        $order->refresh();
+        $this->assertSame(150_000, $order->deposit_refund_amount);
+    }
+
+    /**
+     * LỖI ĐÃ ĐO — luật đơn cũ phải suy ra SỐ TIỀN, không phải cờ đúng/sai.
+     *
+     * Bản đầu dùng cờ (rental_paid_amount >= rental_due). Admin nâng phụ phí 50k→80k trên
+     * đơn cũ là cờ lật về false, hệ thống đòi lại cả 80k thay vì 30k chênh — khách bị trừ
+     * cọc thừa đúng 50k.
+     *
+     * @test
+     */
+    public function raising_the_fee_on_a_legacy_order_only_asks_for_the_difference(): void
+    {
+        $order = $this->order(['total_price' => 500_000, 'extra_fee' => 50_000, 'deposit_total' => 200_000]);
+        // Nghĩa CŨ: đã thu tiền thuê = thu cả phụ phí, ghi lại rental_due (550k).
+        $order->forceFill(['rental_paid_at' => now(), 'rental_paid_amount' => $order->rental_due])->save();
+        $order->refresh();
+        $this->assertSame(0, $order->feeOutstanding());
+
+        $order->update(['extra_fee' => 80_000]);
+        $order->refresh();
+
+        $this->assertSame(30_000, $order->feeOutstanding(), 'chỉ đòi phần CHÊNH, không đòi lại cả 80k');
+    }
+
+    /** Trên đơn cũ, bấm bỏ đánh dấu phụ phí phải có tác dụng — luật suy ra không được đè lên. */
+    /** @test */
+    public function unmarking_the_fee_on_a_legacy_order_actually_takes_effect(): void
+    {
+        $order = $this->order(['total_price' => 500_000, 'extra_fee' => 50_000]);
+        $order->forceFill(['rental_paid_at' => now(), 'rental_paid_amount' => $order->rental_due])->save();
+        $order->refresh();
+        $this->assertTrue($order->feePaid());
+
+        $order->markPaid('fee', false);
+        $order->refresh();
+
+        $this->assertFalse($order->feePaid(), 'bỏ đánh dấu phải đè được lên phần suy ra của đơn cũ');
+        $this->assertSame(50_000, $order->feeOutstanding());
+    }
+
+    /** Đơn không có phụ phí thì không treo mốc "Đã nhận phụ phí — chưa làm" vĩnh viễn. */
+    /** @test */
+    public function an_order_without_a_fee_has_no_fee_step_in_the_action_log(): void
+    {
+        $withFee = collect($this->order(['extra_fee' => 50_000])->actionLog())->pluck('key');
+        $without = collect($this->order(['extra_fee' => 0])->actionLog())->pluck('key');
+
+        $this->assertContains('fee_paid', $withFee->all());
+        $this->assertNotContains('fee_paid', $without->all());
+    }
+
+    /**
+     * Số "Shop đã nhận" KHÔNG được tụt theo giá khi admin rút ngắn lịch.
+     *
+     * Bản trước kẹp min() về tiền thuê gốc, nên đơn thu 500k rồi admin sửa giá còn 300k
+     * là khách bị hiện "đã nhận 300.000đ" — hệ thống tự khai nhận ít hơn số khách đã trả.
+     *
+     * @test
+     */
+    public function what_the_shop_received_does_not_shrink_when_the_price_drops(): void
+    {
+        $order = $this->order(['total_price' => 500_000, 'deposit_total' => 0]);
+        $order->markPaid('rental', true);
+        $order->refresh();
+        $this->assertSame(500_000, $order->rentalPaidAmount());
+
+        $order->update(['total_price' => 300_000]);
+        $order->refresh();
+
+        $this->assertSame(500_000, $order->rentalPaidAmount(), 'đã nhận 500k thì phải vẫn là 500k');
+        $this->assertSame(0, $order->outstanding_due);
+    }
+
+    /** Không bao giờ hiện số âm cho khách, kể cả đơn giảm giá vượt tiền thuê. */
+    /** @test */
+    public function the_received_amount_is_never_negative(): void
+    {
+        $order = $this->order(['total_price' => 100_000, 'discount_total' => 150_000, 'extra_fee' => 50_000]);
+        $order->forceFill(['rental_paid_at' => now(), 'rental_paid_amount' => 0])->save();
+        $order->refresh();
+
+        $this->assertGreaterThanOrEqual(0, $order->rentalPaidAmount());
+        $this->assertGreaterThanOrEqual(0, $order->feePaidAmount());
+    }
+
+    /**
+     * Phụ phí lớn hơn cọc: sau khi hoàn, phần KHÔNG trừ hết phải VẪN hiện để admin còn
+     * biết mà đòi. Bản trước trừ tiếp cọc nên con số về 0 ngay sau khi hoàn — cảnh báo
+     * biến mất đúng lúc cần nó nhất.
+     *
+     * @test
+     */
+    public function the_uncovered_fee_stays_visible_after_the_refund(): void
+    {
+        $order = $this->order(['status' => 'returned', 'extra_fee' => 300_000, 'deposit_total' => 200_000]);
+        $order->markPaid('rental', true);
+        $order->markPaid('deposit', true);
+        $order->refresh();
+        $this->assertSame(100_000, $order->refundShortfall());
+
+        $order->markRefunded(true, null);
+        $order->refresh();
+
+        $this->assertSame(100_000, $order->refundShortfall(), 'phần thu tay không được biến mất sau khi hoàn');
+        $this->assertSame(200_000, $order->refundWithheld(), 'chỉ giữ được đúng phần cọc có');
+        $this->assertSame(100_000, $order->outstanding_due);
+    }
+
+    /**
+     * Phụ phí sẽ TRỪ VÀO CỌC thì không được bảo shipper đi thu, và mail không được bắt
+     * khách cầm — cãi thẳng câu web vừa nói "bạn không cần chuyển thêm".
+     *
+     * @test
+     */
+    public function a_fee_covered_by_the_deposit_is_not_asked_for_in_cash(): void
+    {
+        $order = $this->order(['status' => 'confirmed', 'total_price' => 500_000, 'extra_fee' => 50_000, 'deposit_total' => 300_000]);
+        $order->markPaid('rental', true);
+        $order->markPaid('deposit', true);
+        $order->refresh();
+
+        $this->assertSame(0, $order->transfer_due, 'không còn gì phải đưa tay');
+        $this->assertSame(50_000, $order->outstanding_due, 'nhưng sổ vẫn ghi còn nợ phụ phí');
+
+        $html = (new OrderPickupReminderMail($order))->render();
+        $this->assertStringContainsString('đã thanh toán đủ', $html);
+        $this->assertStringNotContainsString('50.000đ (COD)', $html);
     }
 
     /** Bỏ đánh dấu thu thì xoá luôn số tiền đã ghi — không để lại vết ma. */
@@ -170,7 +479,10 @@ class PaymentQrTest extends TestCase
 
         $order->markPaid('rental', false);
         $order->refresh();
-        $this->assertNull($order->rental_paid_amount);
+        // Ghi 0 chứ KHÔNG ghi null: null mang nghĩa "chưa từng ghi nhận", và với khoản
+        // phụ phí thì nó rơi về phần suy ra của đơn cũ — bấm bỏ đánh dấu xong vẫn hiện
+        // đã thu (bopcamping-urqo).
+        $this->assertSame(0, $order->rental_paid_amount);
         $this->assertSame(0, $order->rentalPaidAmount());
         $this->assertSame($order->amount_due, $order->outstanding_due);
     }

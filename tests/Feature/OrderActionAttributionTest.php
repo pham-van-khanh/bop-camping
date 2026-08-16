@@ -175,13 +175,23 @@ class OrderActionAttributionTest extends TestCase
         $order = $this->order();
         $this->actingAs($admin)->patch(route('admin.orders.payment', $order), ['kind' => 'deposit', 'paid' => true]);
 
+        // Tìm mốc theo KEY chứ không theo vị trí: thêm một mốc vào Order::TRACKED_ACTIONS là
+        // mọi chỉ số phía sau dịch hết (đã dính đúng vậy khi thêm 'fee_paid' ở bopcamping-urqo).
         $this->actingAs($admin)->get(route('admin.orders.show', $order))
             ->assertOk()
-            ->assertInertia(fn ($page) => $page
-                ->has('order.actions', 5)
-                ->where('order.actions.1.key', 'deposit_paid')
-                ->where('order.actions.1.done', true)
-                ->where('order.actions.1.by', 'Chủ shop'));
+            ->assertInertia(function ($page) {
+                $actions = collect($page->toArray()['props']['order']['actions']);
+
+                // Đơn không có phụ phí thì mốc 'fee_paid' bị bỏ hẳn, không treo "chưa
+                // làm" vĩnh viễn (bopcamping-urqo) — nên ít hơn hằng đúng 1.
+                $this->assertSame(count(Order::TRACKED_ACTIONS) - 1, $actions->count());
+                $this->assertNull($actions->firstWhere('key', 'fee_paid'));
+
+                $deposit = $actions->firstWhere('key', 'deposit_paid');
+                $this->assertNotNull($deposit, 'thiếu mốc deposit_paid');
+                $this->assertTrue($deposit['done']);
+                $this->assertSame('Chủ shop', $deposit['by']);
+            });
     }
 
     /** @test */

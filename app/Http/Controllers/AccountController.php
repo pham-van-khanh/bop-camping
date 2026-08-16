@@ -158,13 +158,21 @@ class AccountController extends Controller
             'payment_qr' => $this->paymentQr->payloadFor($order),
             // Tình trạng thu tiền (bopcamping-pew1) — giống /tra-cuu, xem chú thích ở
             // OrderLookupService::shape().
-            'rental_due' => (int) $order->rental_due,
+            'rental_due' => $order->base_rental_due,
             'rental_paid' => $order->rentalPaid(),
             'deposit_paid' => $order->depositPaid(),
             // Xem chú thích ở OrderLookupService::shape() (bopcamping-r3fy).
             'rental_received' => $order->rentalPaidAmount(),
             'deposit_received' => $order->depositPaidAmount(),
-            'outstanding_due' => $order->outstanding_due,
+            // Xem chú thích ở OrderLookupService::shape() (bopcamping-urqo).
+            'fee_due' => $order->fee_due,
+            'fee_received' => $order->feePaidAmount(),
+            // Phần phụ phí sẽ TRỪ VÀO CỌC thay vì đòi khách chuyển thêm. Phải ở cấp này
+            // chứ không nhét trong payment_qr: khách chỉ có QR ở đơn 'pending', mà ca cần
+            // giải thích nhất lại là đơn ĐÃ xác nhận — nhét trong QR thì câu đó không bao
+            // giờ hiện (bopcamping-urqo).
+            'fee_from_deposit' => $order->rentalPaid() ? $order->feeOutstanding() : 0,
+            'outstanding_due' => $order->transfer_due,
             'groups' => $this->itemGroups($order),
             'discounts' => $this->discountLines($order),
             'reorder' => $this->reorderPayload($order),

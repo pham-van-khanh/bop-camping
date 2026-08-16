@@ -37,7 +37,7 @@ class OrderController extends Controller
 
         // Đơn cha/con (bopcamping-wtuv T6): danh sách chỉ TOP-LEVEL (đơn thường + cha, ẩn con);
         // con nạp kèm trong cha. Search theo mã đơn (cả mã con)/tên/SĐT.
-        $relations = ['items.product', 'items.combo', 'vouchers', 'referralUse.referrer', 'serviceLocation', 'rentalPaidBy:id,name', 'depositPaidBy:id,name', 'depositRefundedBy:id,name', 'deliveredBy:id,name', 'collectedBy:id,name'];
+        $relations = ['items.product', 'items.combo', 'vouchers', 'referralUse.referrer', 'serviceLocation', 'rentalPaidBy:id,name', 'feePaidBy:id,name', 'depositPaidBy:id,name', 'depositRefundedBy:id,name', 'deliveredBy:id,name', 'collectedBy:id,name'];
         $query = Order::topLevel()->with(array_merge($relations, array_map(fn ($r) => "children.$r", $relations)))->latest();
 
         if ($q !== '') {
@@ -104,7 +104,7 @@ class OrderController extends Controller
      */
     public function show(Order $order): Response
     {
-        $relations = ['items.product', 'items.combo', 'vouchers', 'referralUse.referrer', 'serviceLocation', 'rentalPaidBy:id,name', 'depositPaidBy:id,name', 'depositRefundedBy:id,name', 'deliveredBy:id,name', 'collectedBy:id,name'];
+        $relations = ['items.product', 'items.combo', 'vouchers', 'referralUse.referrer', 'serviceLocation', 'rentalPaidBy:id,name', 'feePaidBy:id,name', 'depositPaidBy:id,name', 'depositRefundedBy:id,name', 'deliveredBy:id,name', 'collectedBy:id,name'];
         $order->load(array_merge($relations, array_map(fn ($r) => "children.$r", $relations), ['parent:id,code']));
 
         $row = $this->mapOrder($order, withQr: true);
@@ -179,7 +179,18 @@ class OrderController extends Controller
             'status' => $o->status,
             'payment_status' => $o->payment_status,
             // Thu tiền theo 2 khoản độc lập (bopcamping-q7i0)
-            'rental_due' => $o->rental_due,
+            // Tiền thuê GỐC — phụ phí là khoản riêng bên dưới (bopcamping-urqo).
+            'rental_due' => $o->base_rental_due,
+            'fee_due' => $o->fee_due,
+            'fee_paid' => $o->feePaid(),
+            'fee_paid_at' => $o->fee_paid_at?->format('d/m H:i'),
+            'fee_paid_by' => $o->feePaidBy?->name,
+            'fee_lines' => $o->extraFeeLines(),
+            // Hoàn cọc sau khi trừ phụ phí chưa thu; shortfall = phần trừ không hết.
+            'refund_due' => $o->refund_due,
+            'refund_shortfall' => $o->refundShortfall(),
+            'refund_withheld' => $o->refundWithheld(),
+            'deposit_refund_amount' => $o->deposit_refund_amount,
             'rental_paid' => $o->rentalPaid(),
             'rental_paid_at' => $o->rental_paid_at?->format('d/m H:i'),
             'rental_paid_by' => $o->rentalPaidBy?->name,
@@ -540,7 +551,13 @@ class OrderController extends Controller
 
         $order->markPaid($validated['kind'], (bool) $validated['paid'], $request->user()->id);
 
-        $label = $validated['kind'] === 'rental' ? 'tiền thuê' : 'tiền cọc';
+        // Ba khoản từ bopcamping-urqo — if/else hai nhánh thì tích phụ phí lại được báo
+        // "đã cập nhật tiền cọc".
+        $label = match ($validated['kind']) {
+            'rental' => 'tiền thuê',
+            'fee' => 'phụ phí',
+            default => 'tiền cọc',
+        };
 
         return back()->with('success', "Đơn {$order->code}: đã cập nhật {$label}");
     }

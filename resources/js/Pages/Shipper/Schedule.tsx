@@ -31,6 +31,12 @@ type ScheduleOrder = {
     amount_due: number;
     rental_due: number;
     rental_paid: boolean;
+    // Phụ phí là khoản thu RIÊNG (bopcamping-urqo) — trước gộp trong tiền thuê nên shipper
+    // không biết phải thu thêm bao nhiêu.
+    fee_due: number;
+    fee_paid: boolean;
+    fee_lines: { name: string; value: number }[];
+    refund_due: number;
     deposit_total: number;
     deposit_paid: boolean;
     deposit_refund_status: string;
@@ -408,6 +414,20 @@ function OrderDetail({
                     paid={order.rental_paid}
                     collectable={confirmed}
                 />
+                {order.fee_due > 0 && (
+                    <MoneyRow
+                        order={order}
+                        kind="fee"
+                        label={
+                            order.fee_lines?.length
+                                ? `Phụ phí (${order.fee_lines.map((f) => f.name).join(', ')})`
+                                : 'Phụ phí'
+                        }
+                        amount={order.fee_due}
+                        paid={order.fee_paid}
+                        collectable={confirmed}
+                    />
+                )}
                 <MoneyRow
                     order={order}
                     kind="deposit"
@@ -425,12 +445,19 @@ function OrderDetail({
                         <strong>chưa thu tiền</strong>. Gọi chủ shop nếu khách
                         muốn trả.
                     </p>
-                ) : !order.rental_paid || !order.deposit_paid ? (
+                ) : !order.rental_paid ||
+                  !order.deposit_paid ||
+                  (order.fee_due > 0 &&
+                      !order.fee_paid &&
+                      !order.rental_paid) ? (
                     <p className="mt-1.5 text-[12px] text-[#a3ad92]">
                         Tổng cần thu:{' '}
                         <span className="font-mono font-bold text-ink">
                             {money(
                                 (order.rental_paid ? 0 : order.rental_due) +
+                                    (order.rental_paid || order.fee_paid
+                                        ? 0
+                                        : order.fee_due) +
                                     (order.deposit_paid
                                         ? 0
                                         : order.deposit_total),
@@ -519,7 +546,7 @@ function MoneyRow({
     collectable,
 }: {
     order: ScheduleOrder;
-    kind: 'rental' | 'deposit';
+    kind: 'rental' | 'fee' | 'deposit';
     label: string;
     amount: number;
     paid: boolean;
@@ -624,7 +651,7 @@ function RefundDeposit({ order }: { order: ScheduleOrder }) {
                 className="mt-3 rounded-[10px] p-2.5 text-[13px]"
                 style={{ background: GREEN.bg, color: GREEN.fg }}
             >
-                ✓ Đã hoàn cọc {money(order.deposit_total)} cho khách
+                ✓ Đã hoàn cọc {money(order.refund_due)} cho khách
                 {done && (
                     <span className="ml-1 text-[11.5px]">
                         — {done.by ?? 'không rõ ai'}
@@ -655,9 +682,23 @@ function RefundDeposit({ order }: { order: ScheduleOrder }) {
             <div className="text-[13px] font-bold text-pine">
                 Trả cọc cho khách
             </div>
+            {/* Số THỰC HOÀN, không phải nguyên cọc (bopcamping-urqo): phụ phí chưa thu
+                được giữ lại từ cọc. In deposit_total ở đây là shipper đưa khách dư đúng
+                bằng khoản phụ phí, trong khi sổ đã ghi là đã thu — mất tiền mặt thật. */}
             <p className="mt-0.5 text-[12.5px] text-moss">
-                Kiểm đồ trước khi trả {money(order.deposit_total)}. Nếu thiếu/hư
-                thì ghi lý do trừ cọc — có gì khác thường thì gọi chủ shop.
+                Kiểm đồ trước khi trả{' '}
+                <strong className="font-mono text-ink">
+                    {money(order.refund_due)}
+                </strong>
+                {order.fee_due > 0 && !order.fee_paid && (
+                    <>
+                        {' '}
+                        — đã giữ lại {money(order.fee_due)} phụ phí chưa thu
+                        (cọc {money(order.deposit_total)})
+                    </>
+                )}
+                . Nếu thiếu/hư thì ghi lý do trừ cọc — có gì khác thường thì gọi
+                chủ shop.
             </p>
             {errors.refund && (
                 <p className="mt-1.5 text-[12.5px] text-[#b3493a]">

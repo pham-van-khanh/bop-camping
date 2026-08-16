@@ -93,6 +93,10 @@ type AccountOrder = {
     rental_received: number;
     deposit_received: number;
     outstanding_due: number;
+    // Phụ phí là khoản thu riêng (bopcamping-urqo).
+    fee_due: number;
+    fee_received: number;
+    fee_from_deposit: number;
     groups: OrderGroup[];
     discounts: OrderDiscount[];
     reorder: ReorderPayload | null;
@@ -860,6 +864,9 @@ function OrderDetail({
                             depositTotal={order.deposit_total}
                             rentalReceived={order.rental_received}
                             depositReceived={order.deposit_received}
+                            feeDue={order.fee_due}
+                            feeReceived={order.fee_received}
+                            feeFromDeposit={order.fee_from_deposit}
                         />
                     </div>
                 )}
