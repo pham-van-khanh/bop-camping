@@ -95,6 +95,7 @@ Route::get('/hop-dong/{token}', [ContractController::class, 'show'])->name('cont
 Route::post('/hop-dong/{token}/mo', [ContractController::class, 'unlock'])->name('contract.unlock')->middleware('throttle:10,1');
 Route::post('/hop-dong/{token}/ky/{stage}', [ContractController::class, 'sign'])
     ->name('contract.sign')->middleware('throttle:10,1')->whereIn('stage', ['main', 'handover', 'return']);
+Route::get('/hop-dong/{token}/pdf', [ContractController::class, 'pdf'])->name('contract.pdf');
 // Admin — auth
 // Không dùng middleware('guest') vì shop user đang login sẽ bị redirect sang /login Breeze
 Route::get('/admin/login', [AdminAuthController::class, 'showLogin'])->name('admin.login');

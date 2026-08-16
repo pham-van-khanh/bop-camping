@@ -8,9 +8,11 @@ use App\Services\ContractService;
 use DomainException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
 use RuntimeException;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * Trang ký hợp đồng của khách — không cần đăng nhập, mở bằng link token (bopcamping-4jao).
@@ -97,6 +99,26 @@ class ContractController extends Controller
         }
 
         return back()->with('success', 'Đã ký xong. Bản PDF sẽ được gửi vào email của bạn.');
+    }
+
+    /**
+     * Tải bản PDF đã ký.
+     *
+     * PHẢI qua cửa 4 số cuối như trang xem: file chứa tên, địa chỉ và số CCCD, để ai có link
+     * cũng tải được thì cửa kia thành vô nghĩa.
+     */
+    public function pdf(Request $request, string $token): StreamedResponse
+    {
+        $contract = $this->find($token);
+
+        abort_unless($this->unlocked($request, $contract), 403);
+        abort_if($contract->pdf_path === null, 404);
+
+        return Storage::disk('media')->download(
+            $contract->pdf_path,
+            "hop-dong-{$contract->order->code}.pdf",
+            ['Content-Type' => 'application/pdf'],
+        );
     }
 
     private function find(string $token): Contract

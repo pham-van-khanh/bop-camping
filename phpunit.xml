@@ -18,6 +18,9 @@
         </include>
     </source>
     <php>
+        <!-- Suite chạy chung MỘT process PHP; dompdf rò vài MB mỗi lần render nên mặc
+             định 128M không đủ cho toàn bộ test hợp đồng (bopcamping-4jao). -->
+        <ini name="memory_limit" value="512M"/>
         <env name="APP_ENV" value="testing"/>
         <env name="APP_MAINTENANCE_DRIVER" value="file"/>
         <env name="BCRYPT_ROUNDS" value="4"/>

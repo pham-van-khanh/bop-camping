@@ -7,6 +7,7 @@ use App\Models\Order;
 use App\Models\Product;
 use App\Services\ContractService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
@@ -23,6 +24,9 @@ class ContractSigningTest extends TestCase
     private function makeContract(string $code = 'BOP-HD003', string $phone = '0912345678'): Contract
     {
         Storage::fake('media');
+        // Chặn job sinh PDF: test này kiểm luồng KÝ, không kiểm PDF (đã có ContractPdfTest).
+        // Render dompdf ngốn đỉnh ~75MB mỗi lần, để chạy thật ở đây là cả suite tràn bộ nhớ.
+        Queue::fake();
 
         $order = Order::create([
             'code' => $code,

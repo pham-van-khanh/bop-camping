@@ -148,6 +148,19 @@ class ContractServiceTest extends TestCase
     }
 
     /** @test */
+    public function so_ngay_tren_hop_dong_bang_dung_so_ngay_cua_don(): void
+    {
+        $service = app(ContractService::class);
+        $order = $this->makeOrder();
+
+        $html = $service->render($service->createFor($order, []), 'main');
+
+        // Hợp đồng KHÔNG được tự tính lại số ngày. Lệch với số ngày dùng để tính tiền là
+        // khách có ngay một điểm để cãi khi tranh chấp.
+        $this->assertStringContainsString("Tổng số ngày thuê: {$order->days} ngày", $html);
+    }
+
+    /** @test */
     public function giai_doan_khong_hop_le_bi_tu_choi(): void
     {
         $service = app(ContractService::class);

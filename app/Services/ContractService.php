@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Jobs\GenerateContractPdf;
 use App\Models\Contract;
 use App\Models\ContractItem;
 use App\Models\Order;
@@ -126,6 +127,77 @@ class ContractService
             'signed_ip' => $request->ip(),
             'signed_user_agent' => substr((string) $request->userAgent(), 0, 512),
         ]);
+
+        // Sinh PDF + gửi mail chạy NỀN. Render một hợp đồng đầy đủ ngốn đỉnh ~75MB (đo thật),
+        // sát trần memory_limit 128M của PHP-FPM — làm inline là có ngày khách ăn lỗi 500
+        // đúng lúc bấm ký. Xem GenerateContractPdf.
+        GenerateContractPdf::dispatch($contract, $stage);
+    }
+
+    /** Lưu PDF xuống disk `media`, trả về đường dẫn. */
+    public function storePdf(Contract $contract): string
+    {
+        $path = "contracts/{$contract->id}/hop-dong.pdf";
+        Storage::disk('media')->put($path, app(ContractPdf::class)->render($this->pdfHtml($contract)));
+
+        return $path;
+    }
+
+    /**
+     * HTML đầy đủ của bản PDF: hợp đồng chính + Phụ lục A + Phụ lục B + biên bản chứng thực.
+     *
+     * Phần ĐÃ KÝ lấy content_html đã đóng băng trong contract_signatures — KHÔNG render lại
+     * từ mẫu, vì mẫu có thể đã đổi sau đó. Phần chưa ký mới render từ mẫu hiện hành.
+     */
+    public function pdfHtml(Contract $contract): string
+    {
+        $order = $contract->order;
+
+        $stages = [];
+        foreach (Contract::STAGES as $stage) {
+            $signature = $contract->signatureFor($stage);
+
+            $stages[] = [
+                'label' => Contract::STAGE_LABELS[$stage],
+                'html' => $signature?->content_html ?? $this->render($contract, $stage),
+                'signature_data' => $signature ? $this->signatureDataUri($signature->signature_path) : null,
+                'signed_at' => $signature?->signed_at?->format('H:i d/m/Y'),
+                'signed_ip' => $signature?->signed_ip,
+                'signed_user_agent' => $signature?->signed_user_agent,
+                'content_hash' => $signature?->content_hash,
+            ];
+        }
+
+        return view('pdf.contract', [
+            'stages' => $stages,
+            'contract_code' => $contract->code,
+            'order_code' => $order->code,
+            'customer_name' => $order->customer_name,
+            'customer_phone' => $order->customer_phone,
+            'verified_email' => $order->notifiableEmail(),
+            'first_viewed_at' => $contract->first_viewed_at?->format('H:i d/m/Y'),
+            'transfer_content' => preg_replace('/[^A-Za-z0-9]/', '', (string) $order->code),
+            'deposit_total' => $this->money($order->deposit_total),
+            'deposit_paid_at' => $order->deposit_paid_at?->format('H:i d/m/Y'),
+            'deposit_paid_by' => $order->depositPaidBy?->name,
+        ])->render();
+    }
+
+    /**
+     * Ảnh chữ ký thành data URI để nhúng vào PDF.
+     *
+     * dompdf không đọc được đường dẫn trên disk `media` khi disk là S3, và cũng không nên
+     * cho nó đi tải qua mạng lúc render — nhúng thẳng là chắc chắn nhất.
+     */
+    private function signatureDataUri(string $path): ?string
+    {
+        $disk = Storage::disk('media');
+
+        if (! $disk->exists($path)) {
+            return null;
+        }
+
+        return 'data:image/png;base64,'.base64_encode($disk->get($path));
     }
 
     /**
@@ -173,7 +245,9 @@ class ContractService
             '{{noi_cap}}' => e($contract->signer_id_issued_place ?? '.....................'),
             '{{ngay_nhan}}' => $order->start_date?->format('d/m/Y') ?? '',
             '{{ngay_tra}}' => $order->end_date?->format('d/m/Y') ?? '',
-            '{{so_ngay_thue}}' => (string) $this->rentalDays($order),
+            // Dùng Order::days có sẵn, KHÔNG tự tính lại: số ngày trên hợp đồng mà lệch số
+            // ngày dùng để tính tiền là khách có ngay một điểm để cãi.
+            '{{so_ngay_thue}}' => (string) ($order->start_date && $order->end_date ? $order->days : 0),
             '{{tong_tien}}' => $this->money($order->total_price),
             '{{tien_coc}}' => $this->money($order->deposit_total),
             '{{bang_thiet_bi}}' => $this->equipmentTable($contract),
@@ -181,15 +255,6 @@ class ContractService
             '{{bang_nhan_lai}}' => $this->conditionTable($contract, 'return'),
             '{{bang_quyet_toan}}' => $this->settlementTable($contract),
         ];
-    }
-
-    private function rentalDays(Order $order): int
-    {
-        if (! $order->start_date || ! $order->end_date) {
-            return 0;
-        }
-
-        return (int) $order->start_date->diffInDays($order->end_date) + 1;
     }
 
     /** Bảng Điều 1 — CÓ cột giá trị đền bù, thứ hợp đồng giấy đang thiếu. */
