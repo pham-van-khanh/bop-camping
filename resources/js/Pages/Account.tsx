@@ -96,6 +96,7 @@ type AccountOrder = {
     // Phụ phí là khoản thu riêng (bopcamping-urqo).
     fee_due: number;
     fee_received: number;
+    fee_from_deposit: number;
     groups: OrderGroup[];
     discounts: OrderDiscount[];
     reorder: ReorderPayload | null;
@@ -865,9 +866,7 @@ function OrderDetail({
                             depositReceived={order.deposit_received}
                             feeDue={order.fee_due}
                             feeReceived={order.fee_received}
-                            feeFromDeposit={
-                                order.payment_qr?.fee_from_deposit ?? 0
-                            }
+                            feeFromDeposit={order.fee_from_deposit}
                         />
                     </div>
                 )}

@@ -647,7 +647,7 @@ function RefundDeposit({ order }: { order: ScheduleOrder }) {
                 className="mt-3 rounded-[10px] p-2.5 text-[13px]"
                 style={{ background: GREEN.bg, color: GREEN.fg }}
             >
-                ✓ Đã hoàn cọc {money(order.deposit_total)} cho khách
+                ✓ Đã hoàn cọc {money(order.refund_due)} cho khách
                 {done && (
                     <span className="ml-1 text-[11.5px]">
                         — {done.by ?? 'không rõ ai'}
@@ -678,9 +678,23 @@ function RefundDeposit({ order }: { order: ScheduleOrder }) {
             <div className="text-[13px] font-bold text-pine">
                 Trả cọc cho khách
             </div>
+            {/* Số THỰC HOÀN, không phải nguyên cọc (bopcamping-urqo): phụ phí chưa thu
+                được giữ lại từ cọc. In deposit_total ở đây là shipper đưa khách dư đúng
+                bằng khoản phụ phí, trong khi sổ đã ghi là đã thu — mất tiền mặt thật. */}
             <p className="mt-0.5 text-[12.5px] text-moss">
-                Kiểm đồ trước khi trả {money(order.deposit_total)}. Nếu thiếu/hư
-                thì ghi lý do trừ cọc — có gì khác thường thì gọi chủ shop.
+                Kiểm đồ trước khi trả{' '}
+                <strong className="font-mono text-ink">
+                    {money(order.refund_due)}
+                </strong>
+                {order.fee_due > 0 && !order.fee_paid && (
+                    <>
+                        {' '}
+                        — đã giữ lại {money(order.fee_due)} phụ phí chưa thu
+                        (cọc {money(order.deposit_total)})
+                    </>
+                )}
+                . Nếu thiếu/hư thì ghi lý do trừ cọc — có gì khác thường thì gọi
+                chủ shop.
             </p>
             {errors.refund && (
                 <p className="mt-1.5 text-[12.5px] text-[#b3493a]">

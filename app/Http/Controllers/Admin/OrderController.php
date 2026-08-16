@@ -550,7 +550,13 @@ class OrderController extends Controller
 
         $order->markPaid($validated['kind'], (bool) $validated['paid'], $request->user()->id);
 
-        $label = $validated['kind'] === 'rental' ? 'tiền thuê' : 'tiền cọc';
+        // Ba khoản từ bopcamping-urqo — if/else hai nhánh thì tích phụ phí lại được báo
+        // "đã cập nhật tiền cọc".
+        $label = match ($validated['kind']) {
+            'rental' => 'tiền thuê',
+            'fee' => 'phụ phí',
+            default => 'tiền cọc',
+        };
 
         return back()->with('success', "Đơn {$order->code}: đã cập nhật {$label}");
     }

@@ -167,6 +167,11 @@ class AccountController extends Controller
             // Xem chú thích ở OrderLookupService::shape() (bopcamping-urqo).
             'fee_due' => $order->fee_due,
             'fee_received' => $order->feePaidAmount(),
+            // Phần phụ phí sẽ TRỪ VÀO CỌC thay vì đòi khách chuyển thêm. Phải ở cấp này
+            // chứ không nhét trong payment_qr: khách chỉ có QR ở đơn 'pending', mà ca cần
+            // giải thích nhất lại là đơn ĐÃ xác nhận — nhét trong QR thì câu đó không bao
+            // giờ hiện (bopcamping-urqo).
+            'fee_from_deposit' => $order->rentalPaid() ? $order->feeOutstanding() : 0,
             'outstanding_due' => $order->transfer_due,
             'groups' => $this->itemGroups($order),
             'discounts' => $this->discountLines($order),

@@ -182,7 +182,10 @@ class OrderActionAttributionTest extends TestCase
             ->assertInertia(function ($page) {
                 $actions = collect($page->toArray()['props']['order']['actions']);
 
-                $this->assertSame(count(Order::TRACKED_ACTIONS), $actions->count());
+                // Đơn không có phụ phí thì mốc 'fee_paid' bị bỏ hẳn, không treo "chưa
+                // làm" vĩnh viễn (bopcamping-urqo) — nên ít hơn hằng đúng 1.
+                $this->assertSame(count(Order::TRACKED_ACTIONS) - 1, $actions->count());
+                $this->assertNull($actions->firstWhere('key', 'fee_paid'));
 
                 $deposit = $actions->firstWhere('key', 'deposit_paid');
                 $this->assertNotNull($deposit, 'thiếu mốc deposit_paid');

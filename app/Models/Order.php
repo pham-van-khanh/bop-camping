@@ -346,17 +346,41 @@ class Order extends Model
      */
     public function feePaid(): bool
     {
-        if ($this->fee_paid_at !== null) {
-            return true;
-        }
-
-        return $this->rentalPaid()
-            && (int) ($this->rental_paid_amount ?? $this->rental_due) >= $this->rental_due;
+        return $this->fee_due > 0 && $this->feePaidAmount() >= $this->fee_due;
     }
 
+    /**
+     * Phần phụ phí mà đơn CŨ đã thu kèm trong tiền thuê — suy ra SỐ TIỀN, không phải cờ.
+     *
+     * Nghĩa cũ: "đã thu tiền thuê" = thu cả rental_due (gồm phụ phí). Phần vượt quá tiền
+     * thuê gốc chính là phụ phí đã thu.
+     *
+     * PHẢI là số tiền chứ không phải đúng/sai. Bản đầu dùng cờ
+     * (rental_paid_amount >= rental_due) và hỏng ở hai chỗ đã đo được:
+     *   - admin NÂNG phụ phí 50k→80k trên đơn cũ: cờ lật về false, hệ thống đòi lại cả
+     *     80k thay vì 30k chênh — khách bị trừ cọc thừa đúng 50k.
+     *   - không bỏ đánh dấu được: markPaid('fee', false) xong cờ vẫn true.
+     * Suy ra số tiền thì phần đã thu đứng yên, giá đổi bao nhiêu cũng chỉ đòi phần chênh.
+     */
+    private function legacyFeeCredit(): int
+    {
+        if (! $this->rentalPaid()) {
+            return 0;
+        }
+
+        return max(0, (int) ($this->rental_paid_amount ?? $this->rental_due) - $this->base_rental_due);
+    }
+
+    /**
+     * fee_paid_amount = null nghĩa là CHƯA TỪNG ghi nhận (đơn cũ) → suy ra từ tiền thuê.
+     * Ghi 0 là ghi nhận rõ ràng "chưa thu đồng nào" — nhờ vậy bỏ đánh dấu mới đè được
+     * lên phần suy ra của đơn cũ.
+     */
     public function feePaidAmount(): int
     {
-        return $this->feePaid() ? (int) ($this->fee_paid_amount ?? $this->fee_due) : 0;
+        return $this->fee_paid_amount !== null
+            ? (int) $this->fee_paid_amount
+            : $this->legacyFeeCredit();
     }
 
     /** Phụ phí còn thiếu — dùng để trừ vào cọc lúc hoàn. */
@@ -514,7 +538,10 @@ class Order extends Model
         $this->forceFill([
             "{$kind}_paid_at" => $paid ? now() : null,
             "{$kind}_paid_by" => $paid ? $byUserId : null,
-            "{$kind}_paid_amount" => $paid ? max(0, $amount) : null,
+            // Bỏ đánh dấu ghi 0 chứ KHÔNG ghi null: null mang nghĩa "chưa từng ghi nhận"
+            // và với khoản phụ phí thì nó rơi về phần suy ra của đơn cũ (legacyFeeCredit),
+            // tức bấm bỏ đánh dấu xong vẫn hiện đã thu — đã đo được đúng lỗi này.
+            "{$kind}_paid_amount" => $paid ? max(0, $amount) : 0,
         ]);
         $this->syncPaymentStatus();
         $this->save();
@@ -589,29 +616,52 @@ class Order extends Model
      */
     public function markRefunded(bool $refunded, ?int $byUserId, ?string $note = null): void
     {
-        // Phụ phí chưa thu được GIỮ LẠI từ cọc (bopcamping-urqo) — tiền đã về tay shop qua
-        // đường giữ lại, nên đánh dấu khoản đó đã thu luôn. Không làm thì nó treo "chưa
-        // thu" mãi trên một đơn đã đóng, và khách vẫn thấy mình đang nợ.
-        $deducted = $refunded ? min($this->feeOutstanding(), $this->depositPaidAmount()) : 0;
+        $was = $this->deposit_refund_status === 'refunded';
 
-        // Chốt số hoàn TRƯỚC khi đánh dấu phụ phí: đánh dấu xong thì feeOutstanding() về 0,
-        // refund_due sẽ ra nguyên cọc — tức ghi sổ là đã trả khách cả phần vừa giữ lại.
-        $refundAmount = $refunded ? $this->refund_due : null;
+        if ($refunded && ! $was) {
+            // CHUYỂN pending → refunded. Phụ phí chưa thu được GIỮ LẠI từ cọc, nên đánh dấu
+            // khoản đó đã thu luôn: tiền đã về tay shop qua đường giữ lại.
+            //
+            // Chỉ làm ở đúng lần chuyển này. Bản đầu làm mỗi lần gọi, nên admin chỉ cần
+            // bổ sung ghi chú sau khi đã hoàn là feeOutstanding() đã về 0 → số hoàn ghi
+            // lại nhảy lên NGUYÊN cọc. Admin đọc con số đó rồi đưa khách dư đúng phần
+            // phụ phí vừa giữ (đã đo được: 150.000 → 200.000).
+            $deducted = min($this->feeOutstanding(), $this->depositPaidAmount());
 
-        if ($deducted > 0) {
-            $this->forceFill([
-                'fee_paid_at' => now(),
-                'fee_paid_by' => $byUserId,
-                'fee_paid_amount' => $this->feePaidAmount() + $deducted,
-            ]);
+            // Chốt số hoàn TRƯỚC khi đánh dấu phụ phí — đánh dấu xong feeOutstanding() về 0.
+            $refundAmount = $this->refund_due;
+
+            if ($deducted > 0) {
+                $this->forceFill([
+                    'fee_paid_at' => now(),
+                    'fee_paid_by' => $byUserId,
+                    'fee_paid_amount' => $this->feePaidAmount() + $deducted,
+                ]);
+            }
+
+            $this->forceFill(['deposit_refund_amount' => $refundAmount]);
+        } elseif (! $refunded && $was) {
+            // CHUYỂN refunded → pending: trả lại hiện trạng, không để lại phần đã giữ.
+            $withheld = max(0, $this->depositPaidAmount() - (int) $this->deposit_refund_amount);
+
+            if ($withheld > 0) {
+                $left = max(0, $this->feePaidAmount() - $withheld);
+                $this->forceFill([
+                    'fee_paid_amount' => $left,
+                    'fee_paid_at' => $left > 0 ? $this->fee_paid_at : null,
+                    'fee_paid_by' => $left > 0 ? $this->fee_paid_by : null,
+                ]);
+            }
+
+            $this->forceFill(['deposit_refund_amount' => null]);
         }
+        // Không đổi trạng thái (vd admin chỉ sửa ghi chú): giữ nguyên mọi con số tiền.
 
         $this->forceFill([
             'deposit_refund_status' => $refunded ? 'refunded' : 'pending',
             'deposit_refund_note' => $note,
-            'deposit_refund_amount' => $refundAmount,
-            'deposit_refunded_at' => $refunded ? now() : null,
-            'deposit_refunded_by' => $refunded ? $byUserId : null,
+            'deposit_refunded_at' => $refunded ? ($this->deposit_refunded_at ?? now()) : null,
+            'deposit_refunded_by' => $refunded ? ($this->deposit_refunded_by ?? $byUserId) : null,
         ]);
 
         $this->syncPaymentStatus();
@@ -654,6 +704,12 @@ class Order extends Model
 
         $log = [];
         foreach (self::TRACKED_ACTIONS as $key => $label) {
+            // Đơn không có phụ phí thì không có việc gì để làm — treo mốc "chưa làm"
+            // vĩnh viễn chỉ làm nhiễu bảng việc (bopcamping-urqo).
+            if ($key === 'fee_paid' && $this->fee_due <= 0) {
+                continue;
+            }
+
             /** @var User|null $actor */
             $actor = $this->{$relation[$key]};
 

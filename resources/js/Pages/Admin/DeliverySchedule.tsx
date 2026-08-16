@@ -30,6 +30,9 @@ type ScheduleOrder = {
     rental_paid: boolean;
     deposit_total: number;
     deposit_paid: boolean;
+    // Phụ phí là khoản thu RIÊNG (bopcamping-urqo).
+    fee_due: number;
+    fee_paid: boolean;
     schedule_note: string | null;
     items: ScheduleItem[];
     // Gán shipper theo lượt (bopcamping-yc7d) + tình trạng lượt còn lại (bopcamping-h7w4)
@@ -465,11 +468,15 @@ function ScheduleOrderCard({
         (usePage().props as { site?: Parameters<typeof shopHours>[0] }).site,
     );
     const sessTag = sessionLabel(order.session, hours);
+    // Phụ phí là khoản thu RIÊNG (bopcamping-urqo) — bỏ sót là ô này báo "đã thu đủ"
+    // trong khi đơn còn nợ đúng bằng extra_fee.
     const remaining =
         (order.rental_paid ? 0 : order.rental_due) +
+        (order.fee_paid ? 0 : order.fee_due) +
         (order.deposit_paid ? 0 : order.deposit_total);
     const unpaidLabel = [
         !order.rental_paid && 'tiền thuê',
+        order.fee_due > 0 && !order.fee_paid && 'phụ phí',
         !order.deposit_paid && 'cọc',
     ]
         .filter(Boolean)
