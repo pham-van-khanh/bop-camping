@@ -122,3 +122,95 @@
     outline: 3px solid #7fa64b;
     outline-offset: 2px;
 }
+
+/* ============================================================================
+   Hợp đồng điện tử — trình bày trên MÀN HÌNH giống tờ A4 in ra (bopcamping-4jao).
+
+   Mục đích: khách mở link ký phải thấy một VĂN BẢN, không phải một trang web.
+   Bộ quy tắc này soi gương với resources/views/pdf/contract.blade.php — sửa một
+   bên thì sửa cả bên kia, không thì bản khách ĐỌC khác bản khách NHẬN.
+
+   Cố ý dùng CSS thuần thay vì @apply: nội dung hợp đồng do admin soạn nên Tailwind
+   không quét được class trong đó, và các thẻ ở đây (h2, table, p) đến từ HTML lưu
+   trong DB chứ không nằm trong JSX.
+   ============================================================================ */
+.contract-doc {
+    font-family: 'Times New Roman', 'DejaVu Serif', Georgia, serif;
+    font-size: 15px;
+    line-height: 1.65;
+    color: #1c1917;
+    text-align: justify;
+    background: #fff;
+}
+
+/* Tiêu đề: quốc hiệu, tên hợp đồng, tên phụ lục */
+.contract-doc h1,
+.contract-doc h2 {
+    font-size: 17px;
+    font-weight: 700;
+    text-align: center;
+    text-transform: uppercase;
+    margin: 1.1em 0 0.15em;
+    line-height: 1.35;
+    letter-spacing: 0.01em;
+}
+.contract-doc h2:first-child { margin-top: 0; }
+
+/* Điều khoản */
+.contract-doc h3 {
+    font-size: 15px;
+    font-weight: 700;
+    text-transform: uppercase;
+    text-align: left;
+    margin: 1.25em 0 0.4em;
+}
+
+.contract-doc p { margin: 0 0 0.6em; }
+.contract-doc strong { font-weight: 700; }
+.contract-doc em { font-style: italic; }
+
+/* Dòng "Độc lập – Tự do – Hạnh phúc" và số hợp đồng nằm giữa */
+.contract-doc p[style*='center'] { text-align: center; }
+
+.contract-doc table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 0.7em 0 1em;
+    font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+    font-size: 13px;
+    text-align: left;
+}
+.contract-doc th,
+.contract-doc td {
+    border: 1px solid #57534e;
+    padding: 6px 9px;
+    vertical-align: top;
+    line-height: 1.45;
+}
+.contract-doc th {
+    background: #ededeb;
+    font-weight: 700;
+    text-align: center;
+}
+
+/* Tờ giấy: nền xám quanh, trang trắng có bóng đổ, lề trong như văn bản in */
+.contract-sheet {
+    background: #fff;
+    box-shadow: 0 1px 2px rgba(28, 25, 23, 0.08), 0 8px 24px rgba(28, 25, 23, 0.07);
+    padding: 46px 52px;
+    border-radius: 2px;
+}
+
+@media (max-width: 640px) {
+    /* Điện thoại: bỏ lề rộng kiểu trang in, giữ chữ đọc được */
+    .contract-sheet { padding: 22px 18px; }
+    .contract-doc { font-size: 14.5px; }
+    .contract-doc table { font-size: 12px; }
+    .contract-doc th,
+    .contract-doc td { padding: 5px 6px; }
+
+    /* Canh trái trên màn hẹp. Canh đều chỉ đẹp khi dòng đủ dài; trên điện thoại nó
+       kéo giãn khoảng trắng giữa các từ thành những "dòng sông" trắng, đọc rất mệt —
+       mà đây đúng là màn hình phần lớn khách dùng để ký. */
+    .contract-doc { text-align: left; }
+}

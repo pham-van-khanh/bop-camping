@@ -46,46 +46,54 @@ export default function Contract({
     return (
         <SiteLayout>
             <Head title={`Hợp đồng ${code ?? ''}`} />
-            <div className="mx-auto max-w-3xl px-4 py-8">
-                <h1 className="text-2xl font-semibold text-stone-800">
-                    {stage_label}
-                </h1>
-                <p className="mt-1 text-sm text-stone-500">
-                    Hợp đồng số {code} · {customer_name}
-                </p>
+            {/* Nền xám để "tờ giấy" trắng nổi lên — khách phải cảm thấy đang đọc một
+                VĂN BẢN, không phải một trang web. */}
+            <div className="bg-[#eceae5] py-6 sm:py-10">
+                <div className="mx-auto max-w-[820px] px-3 sm:px-4">
+                    <div className="mb-4 flex flex-wrap items-end justify-between gap-2">
+                        <div>
+                            <h1 className="text-lg font-semibold text-stone-800 sm:text-xl">
+                                {stage_label}
+                            </h1>
+                            <p className="mt-0.5 text-sm text-stone-500">
+                                Hợp đồng số {code} · {customer_name}
+                            </p>
+                        </div>
+                        {has_pdf && (
+                            <a
+                                href={`/hop-dong/${token}/pdf`}
+                                className="rounded-md border border-stone-300 bg-white px-3 py-1.5 text-sm font-medium text-stone-700 hover:border-stone-400"
+                            >
+                                Tải bản PDF
+                            </a>
+                        )}
+                    </div>
 
-                <StageProgress signed={signed_stages} labels={stage_labels} />
-
-                <article
-                    className="prose prose-stone mt-6 max-w-none rounded-lg border border-stone-200 bg-white p-5"
-                    // Nội dung do ADMIN soạn, đã qua EditorHtml::clean() (HTMLPurifier) lúc
-                    // lưu, và mọi giá trị của khách đều qua e() trong ContractService. Khách
-                    // KHÔNG chèn được HTML vào đây.
-                    dangerouslySetInnerHTML={{ __html: content_html ?? '' }}
-                />
-
-                {stage ? (
-                    <SignForm
-                        token={token}
-                        stage={stage}
-                        contentHash={content_hash ?? ''}
+                    <StageProgress
+                        signed={signed_stages}
+                        labels={stage_labels}
                     />
-                ) : (
-                    <p className="mt-6 rounded-md bg-emerald-50 p-4 text-emerald-800">
-                        Hợp đồng đã ký đủ cả ba phần. Cảm ơn bạn!
-                    </p>
-                )}
 
-                {has_pdf && (
-                    <p className="mt-4">
-                        <a
-                            href={`/hop-dong/${token}/pdf`}
-                            className="text-sm underline"
-                        >
-                            Tải bản PDF đã ký
-                        </a>
-                    </p>
-                )}
+                    <article
+                        className="contract-sheet contract-doc mt-4"
+                        // Nội dung do ADMIN soạn, đã qua EditorHtml::clean() (HTMLPurifier) lúc
+                        // lưu, và mọi giá trị của khách đều qua e() trong ContractService. Khách
+                        // KHÔNG chèn được HTML vào đây.
+                        dangerouslySetInnerHTML={{ __html: content_html ?? '' }}
+                    />
+
+                    {stage ? (
+                        <SignForm
+                            token={token}
+                            stage={stage}
+                            contentHash={content_hash ?? ''}
+                        />
+                    ) : (
+                        <p className="mt-5 rounded-md border border-emerald-200 bg-emerald-50 p-4 text-emerald-800">
+                            Hợp đồng đã ký đủ cả ba phần. Cảm ơn bạn!
+                        </p>
+                    )}
+                </div>
             </div>
         </SiteLayout>
     );
@@ -220,7 +228,7 @@ function SignForm({
                     preserveScroll: true,
                 });
             }}
-            className="mt-6 rounded-lg border border-stone-200 bg-stone-50 p-5"
+            className="contract-sheet mt-4 !p-6"
         >
             <h2 className="text-base font-semibold text-stone-800">
                 Chữ ký của bạn
