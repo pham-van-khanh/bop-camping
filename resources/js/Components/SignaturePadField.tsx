@@ -39,13 +39,38 @@ export default function SignaturePadField({
         });
         padRef.current = pad;
 
+        /**
+         * Đổi kích thước canvas là XOÁ SẠCH bitmap của nó — nên phải cứu nét trước rồi vẽ lại.
+         *
+         * Hai điều bắt buộc, đừng bỏ:
+         *   1. Chỉ làm khi kích thước THẬT SỰ đổi. Trên điện thoại, chỉ cần cuộn trang làm
+         *      thanh địa chỉ thu lại là trình duyệt bắn 'resize'. Cứ nghe là dựng lại canvas
+         *      thì khách đang ký sẽ mất nét giữa chừng.
+         *   2. Cứu bằng toData()/fromData() (toạ độ nét), KHÔNG phải ảnh — vẽ lại từ toạ độ
+         *      thì nét vẫn sắc ở kích thước mới.
+         */
         const resize = () => {
             const ratio = Math.max(window.devicePixelRatio || 1, 1);
-            canvas.width = canvas.offsetWidth * ratio;
-            canvas.height = canvas.offsetHeight * ratio;
+            const width = canvas.offsetWidth * ratio;
+            const height = canvas.offsetHeight * ratio;
+
+            // offsetWidth = 0 khi phần tử đang bị ẩn (tab nền, display:none). Dựng canvas
+            // 0px ở đây là mất chữ ký mà chẳng đổi lại được gì.
+            if (width === 0 || height === 0) return;
+            if (canvas.width === width && canvas.height === height) return;
+
+            const strokes = pad.toData();
+
+            canvas.width = width;
+            canvas.height = height;
             canvas.getContext('2d')?.scale(ratio, ratio);
-            // Đổi kích thước canvas là mất nét — báo cho cha biết ô đã trống trở lại.
-            pad.clear();
+            pad.clear(); // dọn state nội bộ của signature_pad sau khi bitmap đã mất
+
+            if (strokes.length > 0) {
+                pad.fromData(strokes);
+                return; // còn nét thì trạng thái "đã ký" giữ nguyên
+            }
+
             setEmpty(true);
             onChangeRef.current(null);
         };
