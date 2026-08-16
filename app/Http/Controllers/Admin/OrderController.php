@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Mail\OrderDatesChangedMail;
 use App\Mail\OrderScheduleConfirmedMail;
+use App\Models\Contract;
 use App\Models\Order;
 use App\Models\Product;
 use App\Models\PromotionSetting;
@@ -104,7 +105,9 @@ class OrderController extends Controller
      */
     public function show(Order $order): Response
     {
-        $relations = ['items.product', 'items.combo', 'vouchers', 'referralUse.referrer', 'serviceLocation', 'rentalPaidBy:id,name', 'feePaidBy:id,name', 'depositPaidBy:id,name', 'depositRefundedBy:id,name', 'deliveredBy:id,name', 'collectedBy:id,name'];
+        // 'contract.signatures' CHỈ nạp ở đây: mapContract() chỉ chạy khi withQr = true, tức
+        // là chỉ ở màn chi tiết. Nạp cả ở danh sách là truy vấn thừa cho mỗi đơn.
+        $relations = ['items.product', 'items.combo', 'vouchers', 'referralUse.referrer', 'serviceLocation', 'rentalPaidBy:id,name', 'feePaidBy:id,name', 'depositPaidBy:id,name', 'depositRefundedBy:id,name', 'deliveredBy:id,name', 'collectedBy:id,name', 'contract.signatures'];
         $order->load(array_merge($relations, array_map(fn ($r) => "children.$r", $relations), ['parent:id,code']));
 
         $row = $this->mapOrder($order, withQr: true);
@@ -127,6 +130,32 @@ class OrderController extends Controller
     }
 
     /**
+     * Khối hợp đồng cho FE — null nếu đơn chưa lập hợp đồng.
+     *
+     * @return array<string,mixed>|null
+     */
+    private function mapContract(Order $o): ?array
+    {
+        $contract = $o->contract;
+
+        if (! $contract) {
+            return null;
+        }
+
+        return [
+            'code' => $contract->code,
+            // Link ký: chủ shop sao chép rồi dán vào Zalo cho khách.
+            'sign_url' => url("/hop-dong/{$contract->token}"),
+            'signed_stages' => $contract->signatures->pluck('stage')->values(),
+            'stage_labels' => Contract::STAGE_LABELS,
+            'id_number' => $contract->signer_id_number,
+            'id_issued_on' => $contract->signer_id_issued_on?->format('Y-m-d'),
+            'id_issued_place' => $contract->signer_id_issued_place,
+            'has_pdf' => $contract->pdf_path !== null,
+        ];
+    }
+
+    /**
      * Chuẩn hoá 1 đơn → mảng cho FE (dùng chung index + show). Đơn cha bổ sung status/children ở caller.
      *
      * @return array<string,mixed>
@@ -144,6 +173,10 @@ class OrderController extends Controller
             // không hề vẽ QR, nên dựng sẵn hai URL dài cho mỗi đơn (và mỗi đơn con) chỉ là
             // payload chết.
             'payment_qr' => $withQr ? $this->paymentQr->payloadFor($o, forAdmin: true) : null,
+            // Hợp đồng điện tử (bopcamping-4jao) — CHỈ ở màn chi tiết như QR, danh sách đơn
+            // không cần link ký. Số CCCD lộ ra đây là CÓ CHỦ Ý: đây là trang chỉ admin vào
+            // được, và chủ shop cần đọc lại để đối chiếu lúc bàn giao.
+            'contract' => $withQr ? $this->mapContract($o) : null,
             'customer_name' => $o->customer_name,
             'customer_phone' => $o->customer_phone,
             'customer_email' => $o->customer_email,

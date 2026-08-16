@@ -1,6 +1,7 @@
 import AdminLayout from '@/Layouts/AdminLayout';
 import { money } from '@/lib/format';
 import { STATUS_LABEL, STATUS_STYLE } from '@/lib/orderStatus';
+import ContractPanel, { type ContractBlock } from '@/Pages/Admin/ContractPanel';
 import {
     NEXT_STATUSES,
     OrderDetailPanel,
@@ -21,7 +22,7 @@ export default function AdminOrderShow({
     service_locations,
     max_discount_percent,
 }: {
-    order: Order;
+    order: Order & { contract?: ContractBlock | null };
     service_locations: StoreOption[];
     max_discount_percent: number;
 }) {
@@ -207,11 +208,18 @@ export default function AdminOrderShow({
                         </div>
                     </div>
                 ) : (
-                    <div className="rounded-[16px] border border-cardBorder bg-white p-5">
-                        <OrderDetailPanel
-                            order={order}
-                            locations={service_locations}
-                            maxDiscountPercent={max_discount_percent}
+                    <div className="grid gap-4">
+                        <div className="rounded-[16px] border border-cardBorder bg-white p-5">
+                            <OrderDetailPanel
+                                order={order}
+                                locations={service_locations}
+                                maxDiscountPercent={max_discount_percent}
+                            />
+                        </div>
+                        <ContractPanel
+                            orderId={order.id}
+                            contract={order.contract ?? null}
+                            isParent={false}
                         />
                     </div>
                 )}

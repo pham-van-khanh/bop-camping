@@ -6,6 +6,7 @@ use App\Http\Controllers\Admin\BannerController as AdminBannerController;
 use App\Http\Controllers\Admin\CampingSpotController as AdminCampingSpotController;
 use App\Http\Controllers\Admin\CategoryController as AdminCategoryController;
 use App\Http\Controllers\Admin\ComboController as AdminComboController;
+use App\Http\Controllers\Admin\ContractController as AdminContractController;
 use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\Admin\DeliveryScheduleController as AdminDeliveryScheduleController;
 use App\Http\Controllers\Admin\EditorImageController as AdminEditorImageController;
@@ -158,6 +159,9 @@ Route::middleware(['admin'])->prefix('admin')->name('admin.')->group(function ()
     Route::patch('/orders/{order}/refund', [AdminOrderController::class, 'updateRefund'])->name('orders.refund');
     // Chốt giờ giao/thu + ghi chú nội bộ cho shipper (bopcamping-5xir, prd_delivery_schedule)
     Route::patch('/orders/{order}/schedule', [AdminOrderController::class, 'updateSchedule'])->name('orders.schedule')->middleware('throttle:30,1');
+
+    // Hợp đồng điện tử của đơn — admin nhập danh tính bên thuê rồi lập (bopcamping-4jao)
+    Route::post('/orders/{order}/contract', [AdminContractController::class, 'store'])->name('contracts.store')->middleware('throttle:30,1');
 
     // Lịch giao/thu theo ngày cho shipper (bopcamping-rtkh, prd_delivery_schedule)
     Route::get('/lich-giao', [AdminDeliveryScheduleController::class, 'index'])->name('schedule');
