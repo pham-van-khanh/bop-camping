@@ -1,15 +1,15 @@
-# Design Spec — Hợp đồng thuê điện tử + chữ ký tay online
+# Design Spec — Hệ thống hợp đồng thuê điện tử của BopCamping
 
 **Ngày:** 2026-08-16 · **ADR:** [adr_contract_esignature.md](adr_contract_esignature.md)
 
 ## 1. Mục tiêu
 
 Bỏ hẳn việc in hợp đồng ra giấy. Khách đọc và ký hợp đồng qua **một link duy nhất**, gửi qua
-Zalo hoặc email, mở trên máy nào cũng ký được.
+Zalo hoặc email, mở trên máy nào cũng ký được. Hệ thống của BopCamping, gắn thẳng vào dữ liệu
+đơn hàng sẵn có — không phụ thuộc dịch vụ ký bên ngoài.
 
-**Không làm trong phạm vi này:** chữ ký số của CA Việt Nam; tích hợp DocuSign hay nhà cung cấp
-eContract; webhook đối soát ngân hàng; hợp đồng cho đơn cha/con nhiều chặng (đơn cha không có
-hợp đồng riêng — xem 3.1).
+**Không làm trong phạm vi này:** chữ ký số của CA Việt Nam; webhook đối soát ngân hàng; hợp đồng
+cho đơn cha/con nhiều chặng (đơn cha không có hợp đồng riêng — xem 3.1).
 
 ## 2. Luồng nghiệp vụ
 
