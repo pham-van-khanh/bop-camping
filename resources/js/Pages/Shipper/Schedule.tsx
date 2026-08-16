@@ -447,13 +447,17 @@ function OrderDetail({
                     </p>
                 ) : !order.rental_paid ||
                   !order.deposit_paid ||
-                  (order.fee_due > 0 && !order.fee_paid) ? (
+                  (order.fee_due > 0 &&
+                      !order.fee_paid &&
+                      !order.rental_paid) ? (
                     <p className="mt-1.5 text-[12px] text-[#a3ad92]">
                         Tổng cần thu:{' '}
                         <span className="font-mono font-bold text-ink">
                             {money(
                                 (order.rental_paid ? 0 : order.rental_due) +
-                                    (order.fee_paid ? 0 : order.fee_due) +
+                                    (order.rental_paid || order.fee_paid
+                                        ? 0
+                                        : order.fee_due) +
                                     (order.deposit_paid
                                         ? 0
                                         : order.deposit_total),

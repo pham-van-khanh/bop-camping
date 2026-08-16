@@ -110,6 +110,7 @@ export type Order = {
     // Hoàn cọc sau khi trừ phụ phí chưa thu; shortfall = phần trừ không hết vào cọc.
     refund_due: number;
     refund_shortfall: number;
+    refund_withheld: number;
     deposit_refund_amount: number | null;
     rental_paid: boolean;
     rental_paid_at: string | null;
@@ -418,8 +419,8 @@ function RefundControl({ order }: { order: Order }) {
                             <strong className="font-mono">
                                 {money(order.refund_due)}
                             </strong>{' '}
-                            — đã giữ lại {money(order.fee_due)} phụ phí chưa
-                            thu.
+                            — đã giữ lại {money(order.refund_withheld)} phụ phí
+                            chưa thu.
                             {order.refund_shortfall > 0 && (
                                 <div className="mt-1 font-semibold text-[#b3493a]">
                                     Cọc không đủ trừ: còn thiếu{' '}
