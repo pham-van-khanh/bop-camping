@@ -1,8 +1,8 @@
 import SignaturePadField from '@/Components/SignaturePadField';
 import SiteLayout from '@/Layouts/SiteLayout';
 import type { PageProps } from '@/types';
-import { Head, useForm, usePage } from '@inertiajs/react';
-import { useCallback, useState } from 'react';
+import { Head, router, useForm, usePage } from '@inertiajs/react';
+import { useCallback, useEffect, useState } from 'react';
 
 type Stage = 'main' | 'handover' | 'return';
 
@@ -39,6 +39,36 @@ export default function Contract({
     stage_labels,
     has_pdf,
 }: Props) {
+    const pdfUrl = `/hop-dong/${token}/pdf`;
+
+    // PDF sinh ở JOB NỀN (xem GenerateContractPdf), nên ngay sau khi bấm Ký thì file chưa
+    // có. Không dò lại thì khách nhìn thấy một khoảng trống và tưởng hệ thống nuốt mất bản
+    // hợp đồng. Dò vài nhịp rồi thôi — hết nhịp vẫn còn bản gửi qua email.
+    const hasSigned = signed_stages.length > 0;
+    const waitingForPdf = unlocked && hasSigned && !has_pdf;
+    const [pdfGaveUp, setPdfGaveUp] = useState(false);
+
+    useEffect(() => {
+        if (!waitingForPdf) return;
+
+        setPdfGaveUp(false);
+        let tries = 0;
+        const timer = window.setInterval(() => {
+            tries += 1;
+            if (tries > 10) {
+                window.clearInterval(timer);
+                // Dò 30 giây không thấy thì gần như chắc chắn queue worker không chạy. Nói
+                // thật với khách thay vì để chữ "đang tạo" quay mãi — hợp đồng đã ký xong
+                // rồi, thiếu mỗi file, và file vẫn sẽ tới qua email.
+                setPdfGaveUp(true);
+                return;
+            }
+            router.reload({ only: ['has_pdf'] });
+        }, 3000);
+
+        return () => window.clearInterval(timer);
+    }, [waitingForPdf]);
+
     if (!unlocked) {
         return <LockGate token={token} customerName={customer_name} />;
     }
@@ -59,13 +89,21 @@ export default function Contract({
                                 Hợp đồng số {code} · {customer_name}
                             </p>
                         </div>
-                        {has_pdf && (
+                        {has_pdf ? (
                             <a
-                                href={`/hop-dong/${token}/pdf`}
-                                className="rounded-md border border-stone-300 bg-white px-3 py-1.5 text-sm font-medium text-stone-700 hover:border-stone-400"
+                                href={pdfUrl}
+                                className="rounded-md border border-stone-800 bg-stone-800 px-3 py-1.5 text-sm font-medium text-white hover:bg-stone-700"
                             >
                                 Tải bản PDF
                             </a>
+                        ) : (
+                            waitingForPdf && (
+                                <span className="max-w-[16rem] rounded-md border border-stone-300 bg-white px-3 py-1.5 text-sm text-stone-500">
+                                    {pdfGaveUp
+                                        ? 'Bản PDF sẽ được gửi vào email của bạn.'
+                                        : 'Đang tạo bản PDF…'}
+                                </span>
+                            )
                         )}
                     </div>
 
