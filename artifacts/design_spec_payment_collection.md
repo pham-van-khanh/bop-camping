@@ -113,7 +113,34 @@ thì shipper cầm tiền phụ phí về mà không có nút nào để ghi nh�
 - Hoàn cọc tự đánh dấu phụ phí đã thu
 - Shipper thu được phụ phí
 
-## 7. Không đụng tới
+## 7. Năm lỗi bắt được khi soi trước production
+
+Soi bằng 4 góc độc lập + phản biện chéo. Tất cả đều đã tái hiện được bằng số thật.
+
+**1. Shipper trả NGUYÊN cọc trong khi sổ ghi đã giữ lại phụ phí — mất tiền mặt thật.**
+Thẻ trả cọc in `deposit_total`, còn `markRefunded()` lại ghi là đã giữ 50k và đánh dấu
+phụ phí đã thu. Shipper đưa khách đủ 200k → shop mất 50k, sổ nói đã thu. Ba agent độc lập
+cùng chỉ vào chỗ này. Sửa: thẻ dùng `refund_due` và nói rõ phần giữ lại.
+
+**2. `markRefunded()` không idempotent.** Giữ lại phụ phí ở MỌI lần gọi, nên admin chỉ cần
+bổ sung ghi chú sau khi đã hoàn là số hoàn ghi lại nhảy từ 150.000 lên NGUYÊN cọc 200.000.
+Sửa: chỉ chốt số ở đúng lần chuyển `pending → refunded`, và hoàn tác được ở chiều ngược lại.
+
+**3. Luật đơn cũ là CỜ nên lật sai khi giá đổi.** `rental_paid_amount >= rental_due` lật về
+false khi admin nâng phụ phí 50k→80k trên đơn cũ → hệ thống đòi lại cả 80k thay vì 30k
+chênh, khách bị trừ cọc thừa 50k. Và không bỏ đánh dấu được: `markPaid('fee', false)` xong
+cờ vẫn true. Sửa: suy ra **SỐ TIỀN** (`legacyFeeCredit()`) thay vì cờ, và ghi 0 thay vì
+null khi bỏ đánh dấu để đè được lên phần suy ra.
+
+**4. Ba chỗ vẫn giả định chỉ có hai khoản.** Ô "còn phải thu" ở lịch giao admin, tin Zalo
+giao việc ("khách đã chuyển đủ — không cần thu gì"), và thông báo của admin ("đã cập nhật
+tiền cọc" khi tích phụ phí).
+
+**5. Câu "phụ phí trừ vào cọc" không bao giờ hiện cho khách.** Nó lấy từ `payment_qr`, mà
+khách chỉ có QR ở đơn `pending` — đúng ca cần giải thích nhất (đơn **đã** xác nhận) thì
+không có QR. Sửa: đưa `fee_from_deposit` lên cấp cao nhất của shape khách.
+
+## 8. Không đụng tới
 
 `rental_due`, `StatsController`, `FinanceService`, `DeliveryScheduleService`, và toàn bộ
 luật hiện/ẩn QR đã chốt ở [design_spec_payment_qr.md](design_spec_payment_qr.md).

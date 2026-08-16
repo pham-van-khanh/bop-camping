@@ -101,7 +101,7 @@ class DeliveryScheduleService
                 'items.product', 'serviceLocation',
                 'pickupShipper:id,name,phone', 'returnShipper:id,name,phone',
                 // Ai đã làm gì (bopcamping-3wfk) — chỉ cần tên người làm.
-                'rentalPaidBy:id,name', 'depositPaidBy:id,name',
+                'rentalPaidBy:id,name', 'feePaidBy:id,name', 'depositPaidBy:id,name',
                 'depositRefundedBy:id,name',
                 'deliveredBy:id,name', 'collectedBy:id,name',
             ])
@@ -234,10 +234,15 @@ class DeliveryScheduleService
             if (! $o->rentalPaid()) {
                 $lines[] = 'Nhờ shipper thu tiền thuê: '.$vnd($o->rental_due);
             }
+            if ($o->fee_due > 0 && ! $o->feePaid()) {
+                $lines[] = 'Nhờ shipper thu phụ phí: '.$vnd($o->feeOutstanding());
+            }
             if (! $o->depositPaid()) {
                 $lines[] = 'Nhờ shipper thu tiền cọc: '.$vnd((int) $o->deposit_total);
             }
-            if ($o->rentalPaid() && $o->depositPaid()) {
+            // Xét CẢ BA khoản (bopcamping-urqo) — bỏ sót phụ phí là nhắn cho shipper
+            // "không cần thu gì" trong khi đơn còn nợ.
+            if ($o->outstanding_due === 0) {
                 $lines[] = 'Khách đã chuyển đủ tiền — không cần thu gì.';
             }
         }

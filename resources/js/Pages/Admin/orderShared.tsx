@@ -430,14 +430,15 @@ function RefundControl({ order }: { order: Order }) {
                         </div>
                     )}
 
-                {order.deposit_refund_amount !== null && (
-                    <div className="mb-2 text-[12.5px] text-moss">
-                        Đã trả lại khách{' '}
-                        <strong className="font-mono text-ink">
-                            {money(order.deposit_refund_amount)}
-                        </strong>
-                    </div>
-                )}
+                {order.deposit_refund_status === 'refunded' &&
+                    order.deposit_refund_amount !== null && (
+                        <div className="mb-2 text-[12.5px] text-moss">
+                            Đã trả lại khách{' '}
+                            <strong className="font-mono text-ink">
+                                {money(order.deposit_refund_amount)}
+                            </strong>
+                        </div>
+                    )}
 
                 <div className="grid grid-cols-2 gap-2">
                     {REFUND_OPTIONS.map((opt) => {

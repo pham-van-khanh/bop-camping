@@ -49,6 +49,7 @@ export type LookupOrder = {
     // Phụ phí là khoản thu riêng (bopcamping-urqo).
     fee_due: number;
     fee_received: number;
+    fee_from_deposit: number;
     status: string;
     status_label: string;
     note: string | null;
@@ -256,9 +257,7 @@ export default function OrderLookupPanel({
                                     depositReceived={order.deposit_received}
                                     feeDue={order.fee_due}
                                     feeReceived={order.fee_received}
-                                    feeFromDeposit={
-                                        order.payment_qr?.fee_from_deposit ?? 0
-                                    }
+                                    feeFromDeposit={order.fee_from_deposit}
                                 />
                             </div>
                         )}
@@ -383,6 +382,9 @@ export default function OrderLookupPanel({
                                                     feeDue={inst.fee_due}
                                                     feeReceived={
                                                         inst.fee_received
+                                                    }
+                                                    feeFromDeposit={
+                                                        inst.fee_from_deposit
                                                     }
                                                 />
                                             </div>

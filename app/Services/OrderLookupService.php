@@ -79,6 +79,11 @@ class OrderLookupService
             // nên khách không biết còn thiếu ở đâu.
             'fee_due' => $o->fee_due,
             'fee_received' => $o->feePaidAmount(),
+            // Phần phụ phí sẽ TRỪ VÀO CỌC thay vì đòi khách chuyển thêm. Phải ở cấp này
+            // chứ không nhét trong payment_qr: khách chỉ có QR ở đơn 'pending', mà ca cần
+            // giải thích nhất lại là đơn ĐÃ xác nhận — nhét trong QR thì câu đó không bao
+            // giờ hiện (bopcamping-urqo).
+            'fee_from_deposit' => $o->rentalPaid() ? $o->feeOutstanding() : 0,
             // Số khách thật sự cần chuyển: phụ phí chưa thu sẽ trừ vào cọc, không đòi thêm.
             'outstanding_due' => $o->transfer_due,
             'status' => $o->status,
