@@ -149,7 +149,8 @@ class ContractPdfTest extends TestCase
 
         $html = app(ContractService::class)->pdfHtml($c);
 
-        $this->assertStringContainsString('BIÊN BẢN CHỨNG THỰC', $html);
+        // Chữ hoa do CSS text-transform lo, nguồn HTML viết thường — assert theo NGUỒN.
+        $this->assertStringContainsString('Biên bản chứng thực chữ ký điện tử', $html);
         $this->assertStringContainsString($c->signatureFor('main')->content_hash, $html);
         $this->assertStringContainsString('BOP-PDF01', $html);
         // Chỉ dẫn tra sao kê — bằng chứng ngân hàng nằm NGOÀI hệ thống, biên bản chỉ đường.

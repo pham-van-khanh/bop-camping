@@ -30,7 +30,6 @@ class Contract extends Model
     protected $fillable = [
         'order_id', 'code', 'token',
         'signer_id_number', 'signer_id_issued_on', 'signer_id_issued_place',
-        'id_front_path', 'id_back_path',
         'pdf_path', 'first_viewed_at',
     ];
 
@@ -43,10 +42,10 @@ class Contract extends Model
 
     /**
      * Lớp chặn CUỐI cho dữ liệu định danh: kể cả ai đó lỡ trả nguyên model ra prop Inertia
-     * thì số CCCD, đường dẫn ảnh và token vẫn không lọt ra. Controller vẫn phải chọn field
-     * tường minh — đây chỉ là lưới an toàn, không phải giấy phép cẩu thả.
+     * thì số CCCD và token vẫn không lọt ra. Controller vẫn phải chọn field tường minh —
+     * đây chỉ là lưới an toàn, không phải giấy phép cẩu thả.
      */
-    protected $hidden = ['signer_id_number', 'id_front_path', 'id_back_path', 'token'];
+    protected $hidden = ['signer_id_number', 'token'];
 
     public function order(): BelongsTo
     {

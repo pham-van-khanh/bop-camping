@@ -99,21 +99,20 @@ class ContractSigningTest extends TestCase
     }
 
     /** @test */
-    public function so_cccd_va_duong_dan_anh_khong_bao_gio_lot_ra_prop_trang_khach(): void
+    public function token_khong_bao_gio_lot_ra_prop_trang_khach(): void
     {
         $c = $this->makeContract();
-        $c->update([
-            'signer_id_number' => '040202015437',
-            'id_front_path' => 'identity/front.jpg',
-        ]);
+        $c->update(['signer_id_number' => '040202015437']);
         $this->unlock($c);
 
         $props = $this->get("/hop-dong/{$c->token}")->viewData('page')['props'];
-        $json = json_encode($props, JSON_UNESCAPED_UNICODE);
+        $contractProps = json_encode($props['signed_stages'] ?? [], JSON_UNESCAPED_UNICODE);
 
-        // Số CCCD CÓ trong nội dung hợp đồng khách đang đọc (đó là chủ ý — hợp đồng phải có),
-        // nhưng đường dẫn ảnh thì tuyệt đối không được lộ ra.
-        $this->assertStringNotContainsString('identity/front.jpg', $json);
+        // Số CCCD CÓ trong nội dung hợp đồng khách đang đọc — đó là chủ ý, hợp đồng phải có.
+        // Hệ thống KHÔNG lưu ảnh CCCD (xem migration 000007), nên không còn đường dẫn ảnh nào
+        // để rò; thứ còn phải canh là model hợp đồng không bị trả nguyên si ra prop.
+        $this->assertStringNotContainsString('signer_id_number', $contractProps);
+        $this->assertArrayNotHasKey('contract', $props);
     }
 
     /** @test */

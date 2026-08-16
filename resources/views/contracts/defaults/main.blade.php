@@ -6,10 +6,18 @@
     Khối verbatim bao ngoài để Blade KHÔNG nuốt các biến dạng ngoặc nhọn kép — biến ở đây do
     ContractService thay bằng strtr(), không phải do Blade.
 
-    CẢNH BÁO: đừng viết tên hai directive verbatim/endverbatim kèm ký tự a-còng ở trong chú
+    CẢNH BÁO 1: đừng viết tên hai directive verbatim/endverbatim kèm ký tự a-còng ở trong chú
     thích này. Blade gom khối verbatim TRƯỚC khi bỏ chú thích, nên một tên directive lạc
     trong comment sẽ bắt cặp với directive đóng ở cuối file và đẩy NGUYÊN KHỐI CHÚ THÍCH vào
     hợp đồng gửi cho khách. Đã dính đúng lỗi này một lần.
+
+    CẢNH BÁO 2: không đặt chú thích Blade BÊN TRONG khối verbatim bên dưới — verbatim in ra
+    nguyên văn, nên chú thích sẽ nằm chình ình trong hợp đồng của khách. Ghi chú gì thì viết
+    ở đây. Cũng đã dính một lần.
+
+    Quy ước trình bày: dấu câu đi liền sau chữ in đậm phải nằm BÊN TRONG thẻ (viết
+    "<strong>... .</strong>" chứ không phải "<strong>...</strong>."). dompdf coi ranh giới
+    thẻ inline là chỗ được ngắt dòng, nên dấu chấm dễ bị đẩy xuống thành một dòng riêng.
 
     BỐN CHỖ CỐ Ý KHÁC BẢN GIẤY (xem mục 8 design_spec_contract_esignature.md):
       1. Ghi chú CCCD: bản giấy ghi "không giữ bản gốc CCCD", nhưng quy trình mới CÓ lưu ảnh
@@ -42,9 +50,8 @@ Luật Bảo vệ quyền lợi người tiêu dùng số 19/2023/QH15; Luật G
 - CCCD số: {{cccd_khach}} — Ngày cấp: {{ngay_cap}} — Nơi cấp: {{noi_cap}}<br>
 - Địa chỉ liên hệ: {{dia_chi_khach}}<br>
 - Điện thoại: {{sdt_khach}}</p>
-<p><em>(Bên A ghi nhận thông tin và ảnh chụp CCCD của Bên B chỉ để đối chiếu khi bàn giao và
-hoàn cọc, không giữ bản gốc. Dữ liệu này được xoá trong vòng 90 ngày kể từ khi hoàn tất
-hoàn cọc.)</em></p>
+<p><em>(Bên A chỉ ghi nhận thông tin CCCD của Bên B để đối chiếu khi bàn giao và hoàn cọc;
+không giữ bản gốc và không lưu ảnh chụp CCCD.)</em></p>
 
 <p>Hai Bên thống nhất ký kết Hợp đồng thuê thiết bị camping với các nội dung sau:</p>
 
@@ -60,9 +67,9 @@ như sau (tình trạng cụ thể của từng thiết bị được ghi nhận
 2.3. Tổng số ngày thuê: {{so_ngay_thue}} ngày.</p>
 
 <h3>ĐIỀU 3. GIÁ THUÊ VÀ THANH TOÁN</h3>
-<p>3.1. Tổng số tiền Bên B thanh toán cho BỐP CAMPING: <strong>{{tong_tien}}</strong>.</p>
-<p>3.2. Tiền đặt cọc: <strong>{{tien_coc}}</strong>, thanh toán bằng tiền mặt hoặc chuyển khoản
-<strong>trước khi nhận thiết bị</strong>. Tiền đặt cọc được hoàn trả cho Bên B ngay sau 24h kể
+<p>3.1. Tổng số tiền Bên B thanh toán cho BỐP CAMPING: <strong>{{tong_tien}}.</strong></p>
+<p>3.2. Tiền đặt cọc: <strong>{{tien_coc}},</strong> thanh toán bằng tiền mặt hoặc chuyển khoản
+<strong>trước khi nhận thiết bị.</strong> Tiền đặt cọc được hoàn trả cho Bên B ngay sau 24h kể
 từ khi Bên A kiểm tra thiết bị trả về đủ số lượng, không hư hỏng bất thường (trừ hao mòn tự
 nhiên do sử dụng đúng cách).</p>
 <p>3.3. Trường hợp có phát sinh phí phạt trễ hạn, bồi thường hư hỏng/mất mát theo Điều 6, Bên A
@@ -107,11 +114,10 @@ sử dụng, trừ khi Hai Bên có thỏa thuận khác.</p>
 Bên B vi phạm nghiêm trọng nghĩa vụ tại Điều 4 (ví dụ: cho thuê lại thiết bị cho bên thứ ba).</p>
 
 <h3>ĐIỀU 8. BẢO MẬT THÔNG TIN KHÁCH HÀNG</h3>
-<p>Bên A cam kết chỉ sử dụng thông tin cá nhân của Bên B (họ tên, số CCCD, ảnh chụp CCCD, số
-điện thoại, địa chỉ) để phục vụ việc đối chiếu và thực hiện Hợp đồng này, không chia sẻ cho
-bên thứ ba vì mục đích khác. Ảnh chụp và số CCCD được lưu trữ có kiểm soát truy cập và bị xoá
-trong vòng 90 ngày kể từ khi hoàn tất hoàn cọc, phù hợp với Luật Bảo vệ quyền lợi người tiêu
-dùng và pháp luật về bảo vệ dữ liệu cá nhân hiện hành.</p>
+<p>Bên A cam kết chỉ sử dụng thông tin cá nhân của Bên B (họ tên, số CCCD, số điện thoại, địa
+chỉ) để phục vụ việc đối chiếu và thực hiện Hợp đồng này, không chia sẻ cho bên thứ ba vì mục
+đích khác. Bên A không lưu ảnh chụp CCCD của Bên B. Việc xử lý dữ liệu tuân theo Luật Bảo vệ
+quyền lợi người tiêu dùng và pháp luật về bảo vệ dữ liệu cá nhân hiện hành.</p>
 
 <h3>ĐIỀU 9. GIẢI QUYẾT TRANH CHẤP</h3>
 <p>Mọi tranh chấp phát sinh trước hết do Hai Bên thương lượng, hòa giải. Trường hợp không giải
