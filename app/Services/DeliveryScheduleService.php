@@ -234,7 +234,10 @@ class DeliveryScheduleService
             if (! $o->rentalPaid()) {
                 $lines[] = 'Nhờ shipper thu tiền thuê: '.$vnd($o->rental_due);
             }
-            if ($o->fee_due > 0 && ! $o->feePaid()) {
+            // Tiền thuê ĐÃ trả thì phụ phí trừ vào cọc lúc hoàn, KHÔNG thu tay — bảo
+            // shipper đi thu là mâu thuẫn thẳng với câu web vừa nói với khách
+            // "bạn không cần chuyển thêm" (bopcamping-urqo).
+            if ($o->fee_due > 0 && ! $o->feePaid() && ! $o->rentalPaid()) {
                 $lines[] = 'Nhờ shipper thu phụ phí: '.$vnd($o->feeOutstanding());
             }
             if (! $o->depositPaid()) {
@@ -300,8 +303,10 @@ class DeliveryScheduleService
         }
         // Phụ phí là khoản thu riêng từ bopcamping-urqo — trước đây nằm lẫn trong tiền thuê
         // nên shipper không biết phải thu thêm bao nhiêu.
-        if ($o->fee_due > 0 && ! $o->feePaid()) {
-            $todo[] = 'Thu phụ phí '.$vnd($o->fee_due);
+        // Xem chú thích ở dòng nhắn Zalo: phụ phí của đơn đã trả tiền thuê thì trừ vào
+        // cọc, shipper không thu.
+        if ($o->fee_due > 0 && ! $o->feePaid() && ! $o->rentalPaid()) {
+            $todo[] = 'Thu phụ phí '.$vnd($o->feeOutstanding());
         }
         if (! $o->depositPaid()) {
             $todo[] = 'Thu cọc '.$vnd((int) $o->deposit_total);

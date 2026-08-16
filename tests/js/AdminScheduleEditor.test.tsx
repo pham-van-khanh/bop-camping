@@ -54,6 +54,7 @@ function makeOrder(overrides: Partial<Order> = {}): Order {
         fee_lines: [],
         refund_due: 0,
         refund_shortfall: 0,
+        refund_withheld: 0,
         deposit_refund_amount: null,
         discount_breakdown: null,
         status: 'confirmed',

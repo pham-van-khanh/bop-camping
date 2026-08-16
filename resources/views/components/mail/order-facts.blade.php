@@ -62,10 +62,10 @@
     {{-- Theo số CÒN THIẾU (bopcamping-r3fy): mail xác nhận đơn gửi đúng lúc admin chuyển
          đơn sang "đã xác nhận", tức ngay sau khi tiền về theo quy trình mới. In tổng là
          bảo khách cầm lại đúng số họ vừa chuyển. --}}
-    @if ($order->outstanding_due > 0)
+    @if ($order->transfer_due > 0)
     <tr>
         <td style="padding:8px 0 0;font-weight:800;color:#2e2a20;">Tổng cầm khi nhận đồ</td>
-        <td style="padding:8px 0 0;text-align:right;font-family:{{ $mono }};font-weight:800;font-size:15px;color:#2e2a20;">{{ number_format($order->outstanding_due, 0, ',', '.') }}đ</td>
+        <td style="padding:8px 0 0;text-align:right;font-family:{{ $mono }};font-weight:800;font-size:15px;color:#2e2a20;">{{ number_format($order->transfer_due, 0, ',', '.') }}đ</td>
     </tr>
     @else
     <tr>

@@ -189,6 +189,7 @@ class OrderController extends Controller
             // Hoàn cọc sau khi trừ phụ phí chưa thu; shortfall = phần trừ không hết.
             'refund_due' => $o->refund_due,
             'refund_shortfall' => $o->refundShortfall(),
+            'refund_withheld' => $o->refundWithheld(),
             'deposit_refund_amount' => $o->deposit_refund_amount,
             'rental_paid' => $o->rentalPaid(),
             'rental_paid_at' => $o->rental_paid_at?->format('d/m H:i'),

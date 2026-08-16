@@ -323,9 +323,11 @@ class Order extends Model
             return 0;
         }
 
-        // Kẹp về tiền thuê GỐC: đơn cũ ghi số bao gồm cả phụ phí (nghĩa cũ của cái cờ),
-        // phần dôi ra thuộc về khoản phụ phí — feePaid() bên dưới nhận nó (bopcamping-urqo).
-        return min((int) ($this->rental_paid_amount ?? $this->rental_due), $this->base_rental_due);
+        // KHÔNG kẹp về tiền thuê gốc. Kẹp thì admin rút ngắn lịch (giá tụt 500k→300k) là
+        // số "Shop đã nhận" hiện cho khách tụt theo — hệ thống tự khai nhận ít hơn số khách
+        // đã trả. Phần dôi ra do legacyFeeCredit() lo riêng, và outstanding_due đã max(0)
+        // từng khoản nên không đếm đôi.
+        return max(0, (int) ($this->rental_paid_amount ?? $this->rental_due));
     }
 
     public function depositPaidAmount(): int
@@ -368,7 +370,9 @@ class Order extends Model
             return 0;
         }
 
-        return max(0, (int) ($this->rental_paid_amount ?? $this->rental_due) - $this->base_rental_due);
+        // Kẹp trần bằng chính phụ phí: phần dôi ra vì lý do khác (vd admin giảm giá sau
+        // khi thu) không phải là phụ phí đã trả.
+        return min($this->fee_due, max(0, (int) ($this->rental_paid_amount ?? $this->rental_due) - $this->base_rental_due));
     }
 
     /**
@@ -445,9 +449,34 @@ class Order extends Model
         return max(0, $this->depositPaidAmount() - $this->feeOutstanding());
     }
 
-    /** Phần phụ phí KHÔNG trừ hết được vào cọc — admin phải thu tay. */
+    /**
+     * Số phụ phí THỰC SỰ giữ lại từ cọc — cọc ít hơn phụ phí thì chỉ giữ được bấy nhiêu.
+     *
+     * Đã hoàn rồi thì đọc từ số đã chốt (cọc đã thu − số trả lại khách), vì feeOutstanding()
+     * lúc đó đã trừ đi phần vừa giữ nên tính lại sẽ ra thiếu.
+     */
+    public function refundWithheld(): int
+    {
+        if ($this->deposit_refund_status === 'refunded') {
+            return max(0, $this->depositPaidAmount() - (int) $this->deposit_refund_amount);
+        }
+
+        return min($this->feeOutstanding(), $this->depositPaidAmount());
+    }
+
+    /**
+     * Phần phụ phí KHÔNG trừ hết được vào cọc — admin phải thu tay.
+     *
+     * Đã hoàn rồi thì cọc không còn gì để trừ nữa, nên phần phụ phí còn thiếu CHÍNH LÀ
+     * phần phải thu tay. Trừ tiếp depositPaidAmount() ở đây là con số về 0 ngay sau khi
+     * hoàn — cảnh báo biến mất khỏi màn admin đúng lúc cần nó nhất (bopcamping-urqo).
+     */
     public function refundShortfall(): int
     {
+        if ($this->deposit_refund_status === 'refunded') {
+            return $this->feeOutstanding();
+        }
+
         return max(0, $this->feeOutstanding() - $this->depositPaidAmount());
     }
 
