@@ -7,12 +7,14 @@
 Chủ shop muốn bỏ hẳn việc in hợp đồng ra giấy cho khách ký tay. BopCamping tự xây hệ thống hợp
 đồng điện tử riêng, gắn thẳng vào dữ liệu đơn hàng sẵn có.
 
+Văn bản gốc cần số hoá: **Hợp đồng thuê thiết bị camping số 1408/HĐTTB** của shop, gồm hợp đồng
+chính (Điều 1–10), **Phụ lục A — Biên bản bàn giao** và **Phụ lục B — Biên bản nhận lại thiết bị**.
+
 Yêu cầu:
 
-- Shop xác nhận đơn → **gửi hợp đồng cho khách trước** để khách đọc.
-- Khách **ký lúc bàn giao đồ**, nhưng ai muốn ký sớm ở nhà thì cũng được — "ký trước hay sau tuỳ khách".
+- Khách đặt đơn → chuyển cọc → shop xin ảnh 2 mặt CCCD qua Zalo → **admin tự nhập** thông tin và tạo hợp đồng.
 - Gửi bằng **link**, chủ yếu qua **Zalo**, mở trên **máy nào cũng ký được** (máy khách hoặc máy shipper).
-- Hợp đồng có **số CCCD** do khách tự điền lúc ký.
+- **Ba lần ký:** hợp đồng chính (online, trước khi giao) → Phụ lục A (tại chỗ, lúc giao) → Phụ lục B (tại chỗ, lúc trả).
 - Mẫu hợp đồng **admin tự sửa được**, không phải gọi dev.
 - Chưa ký thì **cảnh báo, không chặn** việc giao đồ.
 
@@ -121,12 +123,14 @@ events, làm mượt nét, tỷ lệ DPI, ngăn cuộn trang khi vẽ) nhiều l
 Không dựng cơ chế soạn thảo mới. Dùng lại **editor TipTap + `EditorHtml::clean()`** đang phục vụ
 `StaticPage`, lưu vào cột mới trên `site_settings` (singleton cấu hình shop đã có).
 
-### 4.4 Dữ liệu cá nhân
+### 4.4 Dữ liệu cá nhân — điểm rủi ro cao nhất
 
-- `signer_id_number` dùng cast **`encrypted`** của Laravel — lộ DB cũng không đọc được.
-- **Không bao giờ** đưa vào prop Inertia của trang khách; nơi hiển thị ngoài admin che còn 4 số cuối.
-- Command chạy theo lịch **xoá số CCCD sau khi đơn đã hoàn cọc xong 90 ngày** (bắt chước `SendPickupReminders`).
-- Checkbox đồng ý **riêng**, không gộp vào "đồng ý điều khoản", nêu rõ mục đích: *đối chiếu khi bàn giao và hoàn cọc*.
+Chủ shop chốt: **xin ảnh 2 mặt CCCD của khách, admin tự nhập thông tin.** Quyết định kèm theo:
+
+- **Ảnh lưu trong hệ thống, không để trong Zalo.** Ảnh nằm trong chat Zalo là chỗ tệ nhất — không kiểm soát quyền xem, không bao giờ tự xoá, nằm luôn trong thư viện ảnh điện thoại. Lưu trên disk `media` ở thư mục riêng, không sinh biến thể public, chỉ phục vụ qua route kiểm quyền admin, **không** nhúng vào PDF hợp đồng. Trang admin có dòng nhắc xoá ảnh khỏi Zalo sau khi upload.
+- `signer_id_number` dùng cast **`encrypted`** của Laravel — lộ DB cũng không đọc được. **Không bao giờ** đưa vào prop Inertia của trang khách; ngoài admin che còn 4 số cuối; không ghi log.
+- Command theo lịch `contracts:purge-identity` — xoá **cả số lẫn ảnh** sau khi đơn hoàn cọc xong **90 ngày** (bắt chước `SendPickupReminders`).
+- **Hợp đồng phải sửa câu chữ cho khớp:** bản hiện tại ghi *"Bên A ghi nhận thông tin để đối chiếu, không giữ bản gốc CCCD của Bên B"* — quy trình mới có lưu ảnh, nên phải nêu rõ phạm vi lưu và thời hạn xoá ở trang 1 và Điều 8 (xem mục 8 của design spec).
 
 ### 4.5 Phương án đã loại
 
@@ -138,7 +142,8 @@ Không dựng cơ chế soạn thảo mới. Dùng lại **editor TipTap + `Edit
 ## 5. Hệ quả
 
 - Thêm 2 dependency: `barryvdh/laravel-dompdf` (PHP), `signature_pad` (JS). Phải **cập nhật bảng golden path** trong `.claude/rules/tech-strategy.md` — dòng PDF đã bị gỡ khi ADR cũ bị Rejected.
-- Thêm 3 thay đổi schema: bảng `contracts`, bảng `handover_photos`, cột `contract_template_html` trên `site_settings`.
+- Thêm 4 bảng (`contracts`, `contract_signatures`, `contract_items`, `handover_photos`) + cột mới trên `products` và `site_settings`.
+- **Phát hiện lỗ hổng trong hợp đồng hiện tại:** Điều 6.3 nói mất thiết bị thì đền *"100% giá trị theo bảng Điều 1"*, nhưng bảng Điều 1 chỉ ghi *"15–90% giá trị thiết bị"* — **không có con số gốc nào để nhân tỷ lệ vào**. `products` cũng chỉ có `deposit`, không có giá trị đền bù. Phải thêm `products.replacement_value` và thêm cột tiền vào bảng Điều 1, nếu không thì shop không có căn cứ trừ cọc khi khách làm mất đồ.
 - Toàn bộ việc render/đóng băng/hash/ký/sinh PDF nằm trong **một** `ContractService` — single source of truth, không chỗ nào khác được tự render hợp đồng.
 - Nếu sau này muốn lên tầng "tương đương chữ ký tay": chỗ sửa là bước sinh PDF trong `ContractService` — ký số bản PDF bằng chứng thư của CA Việt Nam trước khi lưu. Không đụng tới schema hay luồng khách.
 
