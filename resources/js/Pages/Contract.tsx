@@ -78,39 +78,47 @@ export default function Contract({
             <Head title={`Hợp đồng ${code ?? ''}`} />
             {/* Nền xám để "tờ giấy" trắng nổi lên — khách phải cảm thấy đang đọc một
                 VĂN BẢN, không phải một trang web. */}
-            <div className="bg-[#eceae5] py-6 sm:py-10">
-                <div className="mx-auto max-w-[820px] px-3 sm:px-4">
-                    <div className="mb-4 flex flex-wrap items-end justify-between gap-2">
-                        <div>
-                            <h1 className="text-lg font-semibold text-stone-800 sm:text-xl">
-                                {stage_label}
-                            </h1>
-                            <p className="mt-0.5 text-sm text-stone-500">
-                                Hợp đồng số {code} · {customer_name}
-                            </p>
+            <div className="bg-[#eceae5] py-5 sm:py-9">
+                <div className="mx-auto max-w-[860px] px-3 sm:px-4">
+                    {/* Thẻ đầu trang: gom danh tính hợp đồng + việc cần làm + nút PDF vào
+                        một chỗ, để khách không phải đoán mình đang ở đâu trong quy trình. */}
+                    <div className="rounded-card border border-cardBorder bg-card p-4 sm:p-5">
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                            <div className="min-w-0">
+                                <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-campfire">
+                                    Hợp đồng {code}
+                                </p>
+                                <h1 className="mt-1 text-lg font-bold leading-snug text-pine sm:text-xl">
+                                    {stage_label}
+                                </h1>
+                                <p className="mt-0.5 text-sm text-moss">
+                                    Bên thuê: {customer_name}
+                                </p>
+                            </div>
+                            {has_pdf ? (
+                                <a
+                                    href={pdfUrl}
+                                    className="shrink-0 rounded-pill bg-grass px-4 py-2 text-[13px] font-bold text-white shadow-btn transition hover:bg-grass-light"
+                                >
+                                    Tải bản PDF
+                                </a>
+                            ) : (
+                                waitingForPdf && (
+                                    <span className="max-w-[15rem] shrink-0 rounded-pill border border-cardBorder bg-white px-3.5 py-2 text-[12px] text-moss">
+                                        {pdfGaveUp
+                                            ? 'Bản PDF sẽ được gửi vào email của bạn.'
+                                            : 'Đang tạo bản PDF…'}
+                                    </span>
+                                )
+                            )}
                         </div>
-                        {has_pdf ? (
-                            <a
-                                href={pdfUrl}
-                                className="rounded-md border border-stone-800 bg-stone-800 px-3 py-1.5 text-sm font-medium text-white hover:bg-stone-700"
-                            >
-                                Tải bản PDF
-                            </a>
-                        ) : (
-                            waitingForPdf && (
-                                <span className="max-w-[16rem] rounded-md border border-stone-300 bg-white px-3 py-1.5 text-sm text-stone-500">
-                                    {pdfGaveUp
-                                        ? 'Bản PDF sẽ được gửi vào email của bạn.'
-                                        : 'Đang tạo bản PDF…'}
-                                </span>
-                            )
-                        )}
-                    </div>
 
-                    <StageProgress
-                        signed={signed_stages}
-                        labels={stage_labels}
-                    />
+                        <StageProgress
+                            signed={signed_stages}
+                            labels={stage_labels}
+                            current={stage ?? null}
+                        />
+                    </div>
 
                     <article
                         className="contract-sheet contract-doc mt-4"
@@ -127,8 +135,8 @@ export default function Contract({
                             contentHash={content_hash ?? ''}
                         />
                     ) : (
-                        <p className="mt-5 rounded-md border border-emerald-200 bg-emerald-50 p-4 text-emerald-800">
-                            Hợp đồng đã ký đủ cả ba phần. Cảm ơn bạn!
+                        <p className="mt-4 rounded-card border border-grass bg-[#f2f7ec] px-5 py-4 text-[14px] font-semibold text-grass">
+                            ✓ Hợp đồng đã ký đủ cả ba phần. Cảm ơn bạn!
                         </p>
                     )}
                 </div>
@@ -149,83 +157,141 @@ function LockGate({
     return (
         <SiteLayout>
             <Head title="Mở hợp đồng" />
-            <div className="mx-auto max-w-md px-4 py-12">
-                <h1 className="text-xl font-semibold text-stone-800">
-                    Xác nhận để mở hợp đồng
-                </h1>
-                <p className="mt-2 text-sm text-stone-600">
-                    {customerName ? `Chào ${customerName}. ` : ''}
-                    Nhập <strong>4 số cuối</strong> của số điện thoại bạn đã
-                    dùng để đặt đơn.
-                </p>
-
-                <form
-                    onSubmit={(e) => {
-                        e.preventDefault();
-                        post(`/hop-dong/${token}/mo`, { preserveScroll: true });
-                    }}
-                    className="mt-5"
-                >
-                    <label htmlFor="last4" className="sr-only">
-                        Bốn số cuối số điện thoại
-                    </label>
-                    <input
-                        id="last4"
-                        inputMode="numeric"
-                        autoComplete="off"
-                        maxLength={4}
-                        value={data.last4}
-                        onChange={(e) =>
-                            setData(
-                                'last4',
-                                e.target.value.replace(/\D/g, '').slice(0, 4),
-                            )
-                        }
-                        className="w-full rounded-md border-stone-300 text-center text-2xl tracking-[0.5em]"
-                        placeholder="••••"
-                    />
-                    {errors.last4 && (
-                        <p className="mt-2 text-sm text-red-600">
-                            {errors.last4}
+            <div className="bg-[#eceae5] py-10 sm:py-16">
+                <div className="mx-auto max-w-md px-4">
+                    <div className="rounded-card border border-cardBorder bg-card p-6 sm:p-7">
+                        <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-campfire">
+                            Hợp đồng thuê thiết bị
                         </p>
-                    )}
-                    <button
-                        type="submit"
-                        disabled={data.last4.length !== 4 || processing}
-                        className="mt-4 w-full rounded-md bg-stone-800 px-4 py-2.5 text-white disabled:opacity-40"
-                    >
-                        Mở hợp đồng
-                    </button>
-                </form>
+                        <h1 className="mt-1.5 text-xl font-bold text-pine">
+                            Xác nhận để mở hợp đồng
+                        </h1>
+                        <p className="mt-2 text-[13.5px] leading-relaxed text-moss">
+                            {customerName ? `Chào ${customerName}. ` : ''}
+                            Nhập <strong>4 số cuối</strong> số điện thoại bạn đã
+                            dùng để đặt đơn.
+                        </p>
+
+                        <form
+                            onSubmit={(e) => {
+                                e.preventDefault();
+                                post(`/hop-dong/${token}/mo`, {
+                                    preserveScroll: true,
+                                });
+                            }}
+                            className="mt-5"
+                        >
+                            <label htmlFor="last4" className="sr-only">
+                                Bốn số cuối số điện thoại
+                            </label>
+                            <input
+                                id="last4"
+                                inputMode="numeric"
+                                autoComplete="off"
+                                maxLength={4}
+                                value={data.last4}
+                                onChange={(e) =>
+                                    setData(
+                                        'last4',
+                                        e.target.value
+                                            .replace(/\D/g, '')
+                                            .slice(0, 4),
+                                    )
+                                }
+                                className="w-full rounded-control border-cardBorder bg-white py-3 text-center text-2xl tracking-[0.5em] text-pine focus:border-grass focus:ring-grass"
+                                placeholder="••••"
+                            />
+                            {errors.last4 && (
+                                <p className="mt-2 rounded-control border border-[#e9c4c4] bg-[#fdf2f2] px-3 py-2 text-[13px] text-[#a03028]">
+                                    {errors.last4}
+                                </p>
+                            )}
+                            <button
+                                type="submit"
+                                disabled={data.last4.length !== 4 || processing}
+                                className="mt-4 w-full rounded-pill bg-grass px-4 py-3 text-[15px] font-bold text-white shadow-btn transition hover:bg-grass-light disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"
+                            >
+                                Mở hợp đồng
+                            </button>
+                        </form>
+                    </div>
+                </div>
             </div>
         </SiteLayout>
     );
 }
 
+const STEP_NUMBER: Record<Stage, number> = { main: 1, handover: 2, return: 3 };
+
+/** Nhãn ngắn cho thanh tiến trình — tên đầy đủ quá dài, xuống 3 dòng trên điện thoại. */
+const SHORT_LABEL: Record<Stage, string> = {
+    main: 'Hợp đồng',
+    handover: 'Bàn giao',
+    return: 'Nhận lại',
+};
+
+/**
+ * Thanh ba bước ký. Khách phải nhìn một cái là biết mình đang ở đâu và còn phải làm gì —
+ * hợp đồng này ký làm ba lần, cách nhau nhiều ngày, nên rất dễ quên.
+ */
 function StageProgress({
     signed,
     labels,
+    current,
 }: {
     signed: Stage[];
     labels?: Record<Stage, string>;
+    current: Stage | null;
 }) {
     const order: Stage[] = ['main', 'handover', 'return'];
 
     return (
-        <ol className="mt-4 flex flex-wrap gap-2 text-xs">
-            {order.map((s) => (
-                <li
-                    key={s}
-                    className={`rounded-full px-3 py-1 ${
-                        signed.includes(s)
-                            ? 'bg-emerald-100 text-emerald-800'
-                            : 'bg-stone-100 text-stone-500'
-                    }`}
-                >
-                    {signed.includes(s) ? '✓ ' : ''}
-                    {labels?.[s] ?? s}
-                </li>
-            ))}
+        <ol className="mt-4 flex items-start gap-1 border-t border-cardBorder pt-4">
+            {order.map((s, i) => {
+                const done = signed.includes(s);
+                const active = current === s;
+
+                return (
+                    <li
+                        key={s}
+                        className="flex flex-1 flex-col items-center gap-1.5 text-center"
+                        aria-current={active ? 'step' : undefined}
+                    >
+                        <div className="flex w-full items-center">
+                            {/* Đường nối: vẽ ở hai bên chấm để thành một dải liền mạch. */}
+                            <span
+                                className={`h-[2px] flex-1 ${i === 0 ? 'bg-transparent' : done || active ? 'bg-grass' : 'bg-cardBorder'}`}
+                            />
+                            <span
+                                className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[12px] font-bold ${
+                                    done
+                                        ? 'bg-grass text-white'
+                                        : active
+                                          ? 'border-2 border-grass bg-white text-grass'
+                                          : 'border border-cardBorder bg-white text-[#b0ba98]'
+                                }`}
+                            >
+                                {done ? '✓' : i + 1}
+                            </span>
+                            <span
+                                className={`h-[2px] flex-1 ${i === order.length - 1 ? 'bg-transparent' : done ? 'bg-grass' : 'bg-cardBorder'}`}
+                            />
+                        </div>
+                        <span
+                            title={labels?.[s]}
+                            className={`text-[11px] leading-tight sm:text-[12px] ${
+                                active
+                                    ? 'font-bold text-pine'
+                                    : done
+                                      ? 'font-semibold text-grass'
+                                      : 'text-[#9aa585]'
+                            }`}
+                        >
+                            {SHORT_LABEL[s]}
+                        </span>
+                    </li>
+                );
+            })}
         </ol>
     );
 }
@@ -266,38 +332,48 @@ function SignForm({
                     preserveScroll: true,
                 });
             }}
-            className="contract-sheet mt-4 !p-6"
+            className="mt-4 rounded-card border-2 border-grass bg-card p-5 sm:p-6"
         >
-            <h2 className="text-base font-semibold text-stone-800">
-                Chữ ký của bạn
-            </h2>
-            <p className="mb-3 mt-1 text-sm text-stone-600">
+            <div className="flex items-center gap-2">
+                <span className="rounded-pill bg-grass px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wide text-white">
+                    Bước {STEP_NUMBER[stage]}/3
+                </span>
+                <h2 className="text-[15px] font-bold text-pine">
+                    Ký {SHORT_LABEL[stage].toLowerCase()}
+                </h2>
+            </div>
+            <p className="mb-4 mt-1.5 text-[13px] leading-relaxed text-moss">
                 Ký tên nghĩa là bạn đã đọc và đồng ý toàn bộ nội dung ở trên.
+                Bản đã ký sẽ được gửi vào email của bạn.
             </p>
 
             <SignaturePadField onChange={handleChange} disabled={processing} />
 
             <input type="hidden" value={data.content_hash} readOnly />
 
-            {errors.content_hash && (
-                <p className="mt-3 text-sm text-red-600">
-                    {errors.content_hash}
-                </p>
-            )}
-            {stageError && (
-                <p className="mt-3 text-sm text-red-600">{stageError}</p>
-            )}
-            {errors.signature && (
-                <p className="mt-3 text-sm text-red-600">{errors.signature}</p>
-            )}
+            {[errors.content_hash, stageError, errors.signature]
+                .filter(Boolean)
+                .map((message) => (
+                    <p
+                        key={message}
+                        className="mt-3 rounded-control border border-[#e9c4c4] bg-[#fdf2f2] px-3 py-2 text-[13px] text-[#a03028]"
+                    >
+                        {message}
+                    </p>
+                ))}
 
             <button
                 type="submit"
                 disabled={!signature || processing}
-                className="mt-4 w-full rounded-md bg-stone-800 px-4 py-2.5 text-white disabled:opacity-40"
+                className="mt-4 w-full rounded-pill bg-grass px-4 py-3 text-[15px] font-bold text-white shadow-btn transition hover:bg-grass-light disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"
             >
                 {processing ? 'Đang lưu…' : 'Ký và lưu'}
             </button>
+            {!signature && !processing && (
+                <p className="mt-2 text-center text-[12px] text-[#9aa585]">
+                    Hãy ký vào khung ở trên để bật nút này.
+                </p>
+            )}
         </form>
     );
 }
