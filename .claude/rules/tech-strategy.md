@@ -20,6 +20,7 @@ This is the **SINGLE SOURCE OF TRUTH** for technology choices on BopCamping
 | UI | **React 18 + TypeScript** | Component, strict typing — tránh `any`. |
 | Styling | **Tailwind CSS** | Theme tông **be / màu đất Naturehike** (xem KE_HOACH.md). |
 | Component library | **shadcn/ui** | Button, Card, Dialog, Calendar (chọn ngày thuê)... |
+| Vẽ chữ ký tay | **signature_pad** | Canvas ký hợp đồng điện tử. ~4KB, xử lý pointer events + tỷ lệ DPI đa thiết bị — phần nhiều lỗi vặt hơn vẻ ngoài nếu tự viết. |
 | Build tool | **Vite** | Đi kèm Laravel/Breeze. |
 | Node runtime | **Node 20 (LTS)** | Quản lý bằng **nvm** (`nvm alias default 20`); React/Vite cần ≥ 20. |
 
@@ -32,6 +33,7 @@ This is the **SINGLE SOURCE OF TRUTH** for technology choices on BopCamping
 | ORM / Query | **Eloquent + Query Builder** | Luôn dùng prepared statements (mặc định của Eloquent). |
 | File/Ảnh sản phẩm | **Laravel Storage — disk `media`** | Dev: local disk (`storage/app/public` + `php artisan storage:link`). Prod (tuỳ chọn): S3 (hoặc S3-compatible) qua `league/flysystem-aws-s3-v3`, chuyển bằng `MEDIA_DISK=s3` + `AWS_*` trong `.env` — không cần đổi code. Xem `artifacts/adr_s3_media_storage.md`. |
 | Resize ảnh | **intervention/image v4 (driver GD)** | Sinh biến thể WebP 400/800/1600px khi upload, render qua `srcset`. Single source = `app/Services/MediaVariantService.php` — KHÔNG resize ảnh ở chỗ khác. Backfill: `php artisan media:variants`. Xem `artifacts/adr_image_variants.md`. |
+| Sinh PDF (hợp đồng) | **barryvdh/laravel-dompdf** | Single source = `app/Services/ContractPdf.php` — KHÔNG gọi dompdf ở chỗ khác. `default_font` = **DejaVu Sans** để có dấu tiếng Việt; đổi giá trị đó là chữ ra ô vuông mà KHÔNG có lỗi nào ném ra, nên `ContractPdfFontTest` canh sẵn. Xem `artifacts/adr_contract_esignature.md`. |
 | Email (OTP đăng nhập) | **Laravel Mail (SMTP)** | Cấu hình `MAIL_*` trong `.env` (KHÔNG commit secret). Dev có thể dùng `MAIL_MAILER=log`. Prod: SMTP thật (vd Gmail app-password). |
 
 ## Tooling & Quality Gates

@@ -6,6 +6,7 @@ use App\Http\Controllers\Admin\BannerController as AdminBannerController;
 use App\Http\Controllers\Admin\CampingSpotController as AdminCampingSpotController;
 use App\Http\Controllers\Admin\CategoryController as AdminCategoryController;
 use App\Http\Controllers\Admin\ComboController as AdminComboController;
+use App\Http\Controllers\Admin\ContractController as AdminContractController;
 use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\Admin\DeliveryScheduleController as AdminDeliveryScheduleController;
 use App\Http\Controllers\Admin\EditorImageController as AdminEditorImageController;
@@ -29,6 +30,7 @@ use App\Http\Controllers\Shipper\AuthController as ShipperAuthController;
 use App\Http\Controllers\Shipper\ScheduleController as ShipperScheduleController;
 use App\Http\Controllers\Shop\CartController;
 use App\Http\Controllers\Shop\ComboController;
+use App\Http\Controllers\Shop\ContractController;
 use App\Http\Controllers\Shop\FeedbackController;
 use App\Http\Controllers\Shop\GuestAuthController;
 use App\Http\Controllers\Shop\OrderController;
@@ -86,6 +88,15 @@ Route::post('/gop-y', [FeedbackController::class, 'store'])->name('feedback.stor
 // Đánh giá sau chuyến đi qua link token (không cần đăng nhập)
 Route::get('/danh-gia/{token}', [ReviewInviteController::class, 'show'])->name('review.invite');
 Route::post('/danh-gia/{token}', [ReviewInviteController::class, 'store'])->name('review.invite.store')->middleware('throttle:10,1');
+
+// Hợp đồng thuê điện tử — ký qua link token, không cần đăng nhập (bopcamping-4jao).
+// MỘT link cho cả ba giai đoạn ký; trang tự hiện giai đoạn đang tới lượt.
+// throttle trên 'mo' để chặn dò 4 số cuối; token 64 ký tự đã chặn dò mù từ trước.
+Route::get('/hop-dong/{token}', [ContractController::class, 'show'])->name('contract.show');
+Route::post('/hop-dong/{token}/mo', [ContractController::class, 'unlock'])->name('contract.unlock')->middleware('throttle:10,1');
+Route::post('/hop-dong/{token}/ky/{stage}', [ContractController::class, 'sign'])
+    ->name('contract.sign')->middleware('throttle:10,1')->whereIn('stage', ['main', 'handover', 'return']);
+Route::get('/hop-dong/{token}/pdf', [ContractController::class, 'pdf'])->name('contract.pdf');
 // Admin — auth
 // Không dùng middleware('guest') vì shop user đang login sẽ bị redirect sang /login Breeze
 Route::get('/admin/login', [AdminAuthController::class, 'showLogin'])->name('admin.login');
@@ -148,6 +159,9 @@ Route::middleware(['admin'])->prefix('admin')->name('admin.')->group(function ()
     Route::patch('/orders/{order}/refund', [AdminOrderController::class, 'updateRefund'])->name('orders.refund');
     // Chốt giờ giao/thu + ghi chú nội bộ cho shipper (bopcamping-5xir, prd_delivery_schedule)
     Route::patch('/orders/{order}/schedule', [AdminOrderController::class, 'updateSchedule'])->name('orders.schedule')->middleware('throttle:30,1');
+
+    // Hợp đồng điện tử của đơn — admin nhập danh tính bên thuê rồi lập (bopcamping-4jao)
+    Route::post('/orders/{order}/contract', [AdminContractController::class, 'store'])->name('contracts.store')->middleware('throttle:30,1');
 
     // Lịch giao/thu theo ngày cho shipper (bopcamping-rtkh, prd_delivery_schedule)
     Route::get('/lich-giao', [AdminDeliveryScheduleController::class, 'index'])->name('schedule');
