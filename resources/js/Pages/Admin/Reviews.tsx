@@ -198,6 +198,11 @@ export default function AdminReviews() {
                                                         index: i,
                                                     })
                                                 }
+                                                // Ảnh/video là nội dung duy nhất của nút
+                                                // — không nhãn thì trình đọc chỉ đọc
+                                                // "nút" (bopcamping-1xja). Đặt lên NÚT vì
+                                                // nhánh video không có thẻ img.
+                                                aria-label={`Xem ${m.type === 'video' ? 'video' : 'ảnh'} ${i + 1} ${r.reviewer_name} gửi kèm`}
                                                 className="relative block h-16 w-16 overflow-hidden rounded-[10px] border border-cardBorder"
                                             >
                                                 {m.type === 'video' ? (
@@ -408,7 +413,9 @@ function Lightbox({
                 ) : (
                     <img
                         src={m.url}
-                        alt=""
+                        // Đây là nội dung CHÍNH của lightbox; div bọc chỉ có class, cạnh
+                        // ảnh chỉ có bộ đếm "1 / n" nên alt rỗng là xoá hẳn nội dung.
+                        alt={`Ảnh khách gửi kèm đánh giá (${index + 1}/${media.length})`}
                         className="max-h-[86vh] max-w-[90vw] rounded-[12px] object-contain"
                     />
                 )}

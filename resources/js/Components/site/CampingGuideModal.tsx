@@ -435,6 +435,10 @@ function SpotDetail({ spot, onBack }: { spot: GuideSpot; onBack: () => void }) {
                             <button
                                 key={i}
                                 onClick={() => setIdx(i)}
+                                // Ảnh/video là nội dung DUY NHẤT của nút — không có nhãn
+                                // thì trình đọc màn hình chỉ đọc "nút" (bopcamping-1xja).
+                                // Đặt lên nút chứ không lên img: nhánh video không có img.
+                                aria-label={`Xem ảnh ${i + 1} của ${spot.name}`}
                                 className="relative h-12 w-16 flex-none overflow-hidden rounded-[8px]"
                                 style={{
                                     outline:

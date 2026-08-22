@@ -6,15 +6,27 @@ export default function MediaThumb({
     m,
     size,
     onClick,
+    label,
 }: {
     m: ReviewMedia;
     size: number;
     onClick?: () => void;
+    /**
+     * Tên khả truy cập của ô (bopcamping-1xja). Ảnh/video là nội dung DUY NHẤT của nút
+     * này, nên nếu không có nhãn thì trình đọc màn hình chỉ đọc "nút" — không biết là
+     * nút gì. Đặt nhãn lên chính NÚT chứ không lên thẻ img: nhánh video không có img
+     * nên gắn vào img sẽ bỏ sót đúng một nửa trường hợp.
+     */
+    label?: string;
 }) {
     return (
         <button
             type="button"
             onClick={onClick}
+            aria-label={
+                label ??
+                (m.type === 'video' ? 'Video đính kèm' : 'Ảnh đính kèm')
+            }
             className="relative overflow-hidden rounded-[9px] border border-cardBorder"
             style={{ width: size, height: size }}
         >

@@ -90,6 +90,47 @@ class SeoTest extends TestCase
         $this->assertStringContainsString('0976544370', $html);
     }
 
+    /**
+     * Chưa cơ sở nào điền địa chỉ -> vẫn 1 khối LocalBusiness chung (hành vi cũ), không
+     * khai `address` bịa ra.
+     *
+     * @test
+     */
+    public function local_business_stays_generic_without_any_address_filled(): void
+    {
+        SiteSetting::current()->update(['hotline_primary' => '0976544370']);
+
+        $html = $this->get('/')->getContent();
+
+        $this->assertSame(1, substr_count($html, '"@type":"LocalBusiness"'));
+        $this->assertStringContainsString('"name":"BỐP CAMPING"', $html);
+        $this->assertStringNotContainsString('"address"', $html);
+    }
+
+    /**
+     * Cơ sở nào ĐÃ điền địa chỉ (Cài đặt > Điểm cắm trại) -> LocalBusiness riêng cho cơ sở
+     * đó với PostalAddress cụ thể — cần cho rich result "gần bạn"/Google Maps. Cơ sở còn
+     * lại (Hà Nội, tạo sẵn ở setUp) chưa có địa chỉ nên KHÔNG được khai bịa.
+     *
+     * @test
+     */
+    public function local_business_becomes_per_branch_once_address_is_filled(): void
+    {
+        SiteSetting::current()->update(['hotline_primary' => '0976544370']);
+        ServiceLocation::where('name', 'Vinh')->update(['address' => '12 Lê Duẩn']);
+        ServiceLocation::firstOrCreate(['name' => 'Hà Nội'], ['area' => 'Nội thành', 'status' => 'open', 'sort_order' => 2]);
+
+        $html = $this->get('/')->getContent();
+
+        $this->assertSame(1, substr_count($html, '"@type":"LocalBusiness"'));
+        $this->assertStringContainsString('"name":"BỐP CAMPING - Vinh"', $html);
+        $this->assertStringContainsString('"streetAddress":"12 Lê Duẩn"', $html);
+        $this->assertStringContainsString('"addressRegion":"Nghệ An"', $html);
+        $this->assertStringContainsString('"addressCountry":"VN"', $html);
+        // Hà Nội chưa có địa chỉ -> không được lên thành LocalBusiness riêng.
+        $this->assertStringNotContainsString('"name":"BỐP CAMPING - Hà Nội"', $html);
+    }
+
     /* ---- T2: meta động + breadcrumb ---- */
 
     /** @test */
