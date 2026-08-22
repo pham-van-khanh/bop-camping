@@ -284,7 +284,10 @@ export default function ComboDetail({ combo, stores = [] }: Props) {
         <button
             key={i}
             onClick={() => setActiveImg(i)}
-            aria-label={`Ảnh ${i + 1}`}
+            // Nhãn phải nói ảnh CỦA CÁI GÌ (bopcamping-1xja) — "Ảnh 1" không cho người
+            // dùng trình đọc màn hình biết gì. Ảnh bên trong giữ alt="" là đúng: nhãn
+            // nằm ở nút bọc, thêm alt nữa sẽ bị đọc lặp.
+            aria-label={`Ảnh ${i + 1} của ${combo.name}`}
             className={`relative ${sizeClass} overflow-hidden rounded-[11px] transition`}
         >
             {g.type === 'img' ? (

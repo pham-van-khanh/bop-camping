@@ -521,7 +521,11 @@ export default function ProductDetail({
         <button
             key={i}
             onClick={() => setActiveImg(i)}
-            aria-label={`Ảnh ${i + 1}`}
+            // Nhãn phải nói ảnh CỦA CÁI GÌ (bopcamping-1xja). "Ảnh 1" không cho người
+            // dùng trình đọc màn hình biết gì, và Google cũng không có chữ nào để hiểu
+            // tấm ảnh. Ảnh bên trong để alt="" là đúng — nhãn nằm ở nút bọc, thêm alt
+            // nữa sẽ bị đọc lặp.
+            aria-label={`Ảnh ${i + 1} của ${product.name}`}
             className={`relative ${sizeClass} overflow-hidden rounded-[11px] transition`}
         >
             {g.type === 'img' ? (
