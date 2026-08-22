@@ -97,10 +97,12 @@
             <script type="application/ld+json">{!! json_encode($seo['jsonld'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) !!}</script>
         @endif
 
-        {{-- LocalBusiness (site-wide) — chỉ khi shop đã điền hotline ở Cài đặt shop --}}
-        @if (! empty($seoSite['local_business']))
-            <script type="application/ld+json">{!! json_encode($seoSite['local_business'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) !!}</script>
-        @endif
+        {{-- LocalBusiness (site-wide) — chỉ khi shop đã điền hotline ở Cài đặt shop.
+             1 khối cho mỗi cơ sở đã có địa chỉ (SeoService::localBusinessJsonLd), gộp
+             chung 1 khối generic khi chưa cơ sở nào điền địa chỉ. --}}
+        @foreach ($seoSite['local_business'] ?? [] as $block)
+            <script type="application/ld+json">{!! json_encode($block, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) !!}</script>
+        @endforeach
 
         {{-- Google Tag Manager (chỉ khi đặt GTM_ID trong .env) --}}
         @if (config('services.gtm.id'))

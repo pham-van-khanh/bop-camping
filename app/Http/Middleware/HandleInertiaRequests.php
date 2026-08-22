@@ -120,19 +120,9 @@ class HandleInertiaRequests extends Middleware
             // .blade.php thì Laravel 11+ nuốt mất '@context' (có directive cùng tên) —
             // đo trên production 11/08: cả hai khối này đều hỏng @context.
             'site_jsonld' => app(SeoService::class)->siteJsonLd(),
-            // LocalBusiness chỉ render khi có hotline (đủ dữ liệu tối thiểu cho rich result).
-            'local_business' => $hotlines === [] ? null : [
-                '@context' => 'https://schema.org',
-                '@type' => 'LocalBusiness',
-                'name' => 'BỐP CAMPING',
-                'description' => 'Cho thuê thiết bị cắm trại theo ngày — lều, bếp, túi ngủ, đèn trại.',
-                'url' => url('/'),
-                'image' => url('/images/album/forest-camp-aerial.jpg'),
-                'telephone' => $hotlines[0],
-                'areaServed' => ServiceLocation::open()->ordered()->pluck('name')->all() ?: ['Vinh', 'Hà Nội'],
-                'openingHours' => $s->working_hours,
-                'priceRange' => '$$',
-            ],
+            // LocalBusiness — 1 khối/cơ sở khi đã có địa chỉ, gộp chung khi chưa (xem
+            // SeoService::localBusinessJsonLd()). null khi chưa có hotline.
+            'local_business' => app(SeoService::class)->localBusinessJsonLd($hotlines[0] ?? null, $s->working_hours),
         ];
     }
 
