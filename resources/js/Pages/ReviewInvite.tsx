@@ -283,7 +283,11 @@ function ItemCard({
                         className="relative"
                         style={{ width: 56, height: 56 }}
                     >
-                        <MediaThumb m={p} size={56} />
+                        <MediaThumb
+                            m={p}
+                            size={56}
+                            label={`Ảnh vừa chọn ${i + 1}`}
+                        />
                         <button
                             type="button"
                             onClick={() => removeAt(i)}

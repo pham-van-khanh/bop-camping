@@ -137,6 +137,7 @@ export default function ProductReviews({
                                                 key={i}
                                                 m={m}
                                                 size={46}
+                                                label={`Ảnh ${i + 1} ${cur.reviewer_name} gửi kèm đánh giá — mở để xem lớn`}
                                                 onClick={() => setModal(cur)}
                                             />
                                         ))}
@@ -355,7 +356,11 @@ function ReviewForm({
                             className="relative"
                             style={{ width: 62, height: 62 }}
                         >
-                            <MediaThumb m={p} size={62} />
+                            <MediaThumb
+                                m={p}
+                                size={62}
+                                label={`Ảnh vừa chọn ${i + 1}`}
+                            />
                             <button
                                 onClick={() => removeAt(i)}
                                 aria-label="Xoá"
@@ -535,7 +540,10 @@ function ReviewModalView({
                                     ) : (
                                         <img
                                             src={m.url}
-                                            alt=""
+                                            // Ảnh khách gửi kèm — mang thông tin không
+                                            // có ở đâu khác, và div bọc ngoài không hề
+                                            // có nhãn (bopcamping-1xja).
+                                            alt={`Ảnh ${i + 1} ${review.reviewer_name} gửi kèm đánh giá`}
                                             className="h-full w-full object-cover"
                                         />
                                     )}

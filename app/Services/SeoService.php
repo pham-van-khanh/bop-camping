@@ -159,6 +159,68 @@ class SeoService
     }
 
     /**
+     * LocalBusiness JSON-LD — MỘT khối/cơ sở khi admin đã điền địa chỉ cụ thể (Cài đặt >
+     * Điểm cắm trại), gộp chung MỘT khối generic khi chưa điền.
+     *
+     * Trước đây luôn khai 1 khối chung dùng `areaServed` (chỉ tên khu vực, vd "Vinh"),
+     * dù `service_locations.address` đã có sẵn cột và form admin đã cho nhập từ lâu —
+     * chỉ là chưa ai điền. Rich result "gần bạn"/Google Maps cần `address` (PostalAddress)
+     * cụ thể mới xếp hạng local pack tốt; tên khu vực suông không đủ.
+     *
+     * Vinh và Hà Nội là hai CƠ SỞ THẬT (kho riêng, sản phẩm/tồn kho riêng — xem ADR
+     * per-store stock), không phải một cơ sở phục vụ nhiều khu vực, nên khi đã có địa chỉ
+     * thì khai MỖI cơ sở một LocalBusiness riêng — đúng hơn là nhét chung một khối.
+     *
+     * Trả null khi chưa có hotline (đủ dữ liệu tối thiểu cho rich result).
+     *
+     * @return array<int, array<string, mixed>>|null
+     */
+    public function localBusinessJsonLd(?string $telephone, ?string $workingHours): ?array
+    {
+        if (blank($telephone)) {
+            return null;
+        }
+
+        $locations = ServiceLocation::open()->ordered()->get();
+        $withAddress = $locations->filter(fn (ServiceLocation $l) => filled($l->address));
+
+        if ($withAddress->isEmpty()) {
+            return [array_filter([
+                '@context' => 'https://schema.org',
+                '@type' => 'LocalBusiness',
+                'name' => self::BRAND,
+                'description' => 'Cho thuê thiết bị cắm trại theo ngày — lều, bếp, túi ngủ, đèn trại.',
+                'url' => url('/'),
+                'image' => url('/images/album/forest-camp-aerial.jpg'),
+                'telephone' => $telephone,
+                'areaServed' => $locations->pluck('name')->all() ?: ['Vinh', 'Hà Nội'],
+                'openingHours' => $workingHours,
+                'priceRange' => '$$',
+            ], fn ($v) => $v !== null)];
+        }
+
+        return $withAddress->map(fn (ServiceLocation $l) => array_filter([
+            '@context' => 'https://schema.org',
+            '@type' => 'LocalBusiness',
+            'name' => self::BRAND.' - '.$l->name,
+            'description' => 'Cho thuê thiết bị cắm trại theo ngày — lều, bếp, túi ngủ, đèn trại.',
+            'url' => url('/'),
+            'image' => url('/images/album/forest-camp-aerial.jpg'),
+            'telephone' => $telephone,
+            'address' => array_filter([
+                '@type' => 'PostalAddress',
+                'streetAddress' => $l->address,
+                'addressLocality' => $l->name,
+                'addressRegion' => $l->area,
+                'addressCountry' => 'VN',
+            ], fn ($v) => filled($v)),
+            'areaServed' => [$l->name],
+            'openingHours' => $workingHours,
+            'priceRange' => '$$',
+        ], fn ($v) => $v !== null))->values()->all();
+    }
+
+    /**
      * Nối brand vào title, nhưng CHỈ KHI title chưa có (bopcamping-12n9).
      *
      * Tiêu đề trang tĩnh do admin nhập trong panel, mà người nhập thường tự gõ luôn
