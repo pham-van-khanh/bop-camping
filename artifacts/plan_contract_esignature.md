@@ -1918,3 +1918,75 @@ git push
 - [ ] Kiểm thủ công trên trình duyệt: ký thử đủ 3 giai đoạn trên viewport mobile (jsdom **không** kiểm được layout thật — chồng lấn, z-index, canvas cảm ứng).
 - [ ] Mở PDF sinh ra, **nhìn bằng mắt** xem chữ có dấu hiển thị đúng không (test chỉ khẳng định font được nhúng, không khẳng định layout đẹp).
 - [ ] Nhắc chủ shop: sửa 5 chỗ trong văn bản hợp đồng (mục 8 design spec) + điền `replacement_value` cho từng sản phẩm.
+
+---
+
+## TRẠNG THÁI: TẠM DỪNG (16/08/2026)
+
+Chủ shop yêu cầu pending tính năng. **Task 1–6 đã xong và đã push**; Task 7–9 chưa làm.
+Nhánh: `feature/contract-esignature` (đã gộp `feature/contract-pdf-viewer`).
+
+### Đã xong
+
+| Task | Nội dung | Commit |
+|---|---|---|
+| 1 | dompdf + signature_pad, font DejaVu Sans có dấu | `d2bb972` |
+| 2 | Schema + model (4 bảng), 3 giai đoạn ký, CCCD mã hoá | `6b56a66` |
+| 3 | `ContractService` dựng + render, 3 mẫu theo hợp đồng 1408/HĐTTB | `c439ac6` |
+| 4 | Trang ký của khách + cửa 4 số cuối SĐT | `9d7c7ae`, `aa15604` |
+| 5 | PDF + biên bản chứng thực + mail bản đã ký | `c439ac6` |
+| 6 | Admin lập hợp đồng + sao chép link gửi Zalo | `1da3bd8` |
+| — | PDF kiểu văn bản hành chính; bỏ lưu ảnh CCCD | `f6299fa` |
+| — | Trang ký hiển thị như tờ A4 | `ed6ff57` |
+| — | Báo trạng thái khi PDF chưa sinh xong | `d9e2b38` |
+| — | Bố cục trang ký + thanh 3 bước | `fb41a83` |
+
+**Chạy được tới đâu:** admin lập hợp đồng → sao chép link → khách mở link, nhập 4 số cuối,
+đọc, ký giai đoạn `main` → job nền sinh PDF → mail kèm PDF cho khách → tải PDF được.
+Đã kiểm tận mắt trên desktop 1280 và mobile 375.
+
+### Chưa làm
+
+- **Task 7 — Phụ lục A** (ký lúc bàn giao): checklist tình trạng từng món + ảnh + ký tại chỗ.
+- **Task 8 — Phụ lục B** (ký lúc trả): checklist + bảng quyết toán cọc + ký.
+- **Task 9 — Trang Mẫu hợp đồng** trong admin (3 mẫu, editor TipTap).
+  Lệnh `contracts:purge-identity` **đã bỏ** theo yêu cầu chủ shop (không lưu ảnh CCCD nữa
+  nên không có gì phải xoá tự động).
+
+Backend cho Task 7–8 **đã có sẵn một phần**: `ContractService::sign()` đã chặn ký Phụ lục
+khi còn món chưa ghi nhận tình trạng, `contract_items` đã có 4 cột tình trạng/ghi chú, bảng
+`handover_photos` đã tạo. Còn thiếu route lưu tình trạng + upload ảnh và giao diện.
+
+### Bẫy đã biết, đọc trước khi làm tiếp
+
+1. **Task 7 — hash đổi khi tick tình trạng.** `{{bang_ban_giao}}` nằm TRONG nội dung được
+   hash, nên lưu tình trạng là hash đổi và chữ ký kèm hash cũ sẽ bị `sign()` từ chối. Phải
+   tách làm HAI request: lưu tình trạng → server trả `content_html` + `content_hash` mới →
+   FE thay vào state → mới cho ký. Gộp một request là shipper ăn lỗi ngay giữa lúc bàn giao.
+2. **Mẫu Blade dùng khối verbatim.** Đừng viết tên directive `verbatim`/`endverbatim` kèm
+   ký tự a-còng trong chú thích, và đừng đặt chú thích Blade BÊN TRONG khối verbatim — cả
+   hai đều đẩy chú thích vào hợp đồng gửi khách. Đã dính đủ hai lần.
+3. **Dấu câu sau chữ in đậm** phải nằm trong thẻ (`<strong>… .</strong>`), không thì dompdf
+   đẩy dấu chấm xuống một dòng riêng.
+4. **Bộ nhớ khi render PDF ~75MB/lần.** Vì vậy PDF sinh ở job nền, và `phpunit.xml` phải
+   giữ `memory_limit = 512M`. Test nào không cần PDF thật thì `Queue::fake()`.
+5. **Đừng đặt tên cột là `accessories`** trên `products` — trùng quan hệ `Product::accessories()`
+   có sẵn, sẽ che mất quan hệ và làm trang admin sản phẩm nổ. Đang dùng `parts_list`.
+
+### pdf.js — đã thử và bỏ
+
+Xem PDF ngay trong trang bằng `pdfjs-dist`: `page.render()` không resolve ổn định. Hai dữ
+kiện đo được, ai làm lại nên bắt đầu từ đây: (a) effect của component bị chạy HAI lượt dù
+app không bật StrictMode — đo bằng network, file PDF và worker tải hai lần; (b) canvas chưa
+gắn vào DOM thì pdf.js không resolve. Nhánh `feature/contract-pdf-viewer` còn trên remote.
+
+### Việc của chủ shop (không phải việc code)
+
+- Sửa văn bản hợp đồng theo mục 8 phía trên — quan trọng nhất là **thêm cột giá trị đền bù
+  bằng tiền vào Điều 1**, vì Điều 6 đang dựa vào con số đó.
+- Điền `products.replacement_value` cho từng sản phẩm (mặc định 0 = hợp đồng in "—").
+
+### Dọn dẹp còn lại trên máy dev
+
+- Đơn demo `BOP-DEMO-HD` + hợp đồng của nó nằm trong DB dev (dùng để kiểm thử).
+- Mật khẩu admin `admin@bopcamping.local` đã bị đổi thành `demo-kiem-tra-2026` để kiểm tra.
