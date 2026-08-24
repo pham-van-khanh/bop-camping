@@ -1113,7 +1113,7 @@ export default function ComboDetail({
                         targetName={combo.name}
                         reviews={reviews}
                         summary={review_summary}
-                        isLoggedIn={!!auth.user}
+                        isLoggedIn={!!auth?.user}
                     />
                 </section>
             </main>

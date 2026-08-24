@@ -17,6 +17,17 @@ const tiers = [{ minDays: 5, percent: 20 }];
 
 vi.mock('@inertiajs/react', () => ({
     Head: () => null,
+    // Trang combo giờ có form đánh giá (bopcamping-vxwx) nên ComboDetail dùng useForm
+    // — thiếu mock này là cả file test nổ, không liên quan gì tới thứ đang kiểm.
+    useForm: () => ({
+        data: { reviewer_name: '', rating: 0, content: '', media: [] },
+        setData: () => {},
+        post: () => {},
+        processing: false,
+        errors: {},
+        reset: () => {},
+    }),
+
     Link: ({ children, ...p }: { children: React.ReactNode }) => (
         <a {...p}>{children}</a>
     ),
