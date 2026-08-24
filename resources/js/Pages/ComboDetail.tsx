@@ -1102,15 +1102,14 @@ export default function ComboDetail({
                     </div>
                 </div>
 
-                {/* Đánh giá combo (bopcamping-saeb) — cuối trang như trang sản phẩm.
-                    Chỉ khách đã thuê & trả combo này gửi được, nên khi chưa đủ điều kiện
-                    thì hiện lời nhắc thay cho form. */}
+                {/* Đánh giá combo (bopcamping-saeb) — cuối trang như trang sản phẩm,
+                    cùng luật: ai cũng gửi được, admin duyệt rồi mới hiện. */}
                 <section className="mt-12">
                     <div className="mb-1 font-mono text-[12px] font-bold tracking-[0.14em] text-campfire">
                         ĐÁNH GIÁ COMBO
                     </div>
                     <h2 className="mb-2 text-[20px] font-extrabold tracking-tight text-ink">
-                        Khách đã thuê nói gì về {combo.name}
+                        Khách nói gì về {combo.name}
                     </h2>
                     <ProductReviews
                         submitUrl={route('combos.reviews.store', combo.slug)}
@@ -1119,12 +1118,6 @@ export default function ComboDetail({
                         summary={review_summary}
                         canReview={can_review}
                         isLoggedIn={!!auth.user}
-                        requireRented
-                        gateHint={
-                            auth.user
-                                ? 'Chỉ khách đã thuê trọn bộ combo này (và đã trả đồ) mới đánh giá được — để đánh giá combo luôn là trải nghiệm thật của người dùng cả bộ.'
-                                : 'Đăng nhập bằng số điện thoại đã đặt combo này để viết đánh giá.'
-                        }
                     />
                 </section>
             </main>

@@ -18,10 +18,10 @@ use Tests\TestCase;
 /**
  * bopcamping-saeb — đánh giá combo.
  *
- * Điểm KHÁC đánh giá sản phẩm và là lý do file test này tồn tại: đây là CỔNG CHẶN. Đánh
- * giá sản phẩm cho cả khách vãng lai gửi (xem ReviewSubmitTest), còn đánh giá combo chỉ
- * nhận từ khách đã thuê đúng combo đó và đơn đã trả đồ. Nên các nhánh CHẶN được kiểm kỹ
- * hơn nhánh thành công.
+ * Cùng luật với đánh giá sản phẩm (xem ReviewSubmitTest): ai cũng gửi được, mọi đánh giá
+ * vào pending chờ duyệt. Cái đáng kiểm ở đây là chuyện RIÊNG của combo: đánh giá phải gắn
+ * vào combo_id chứ không phải một món con nào, không lẫn với đánh giá sản phẩm, và vé
+ * order_item chỉ gắn khi khách thật sự thuê combo đó.
  */
 class ComboReviewTest extends TestCase
 {
@@ -52,44 +52,55 @@ class ComboReviewTest extends TestCase
         $this->assertSame(1, $review->images()->count());
     }
 
-    /**
-     * Khách đã đăng nhập nhưng CHƯA từng thuê combo -> bị chặn.
-     *
-     * Đây là khác biệt cốt lõi so với đánh giá sản phẩm: cùng tình huống này ở sản phẩm là
-     * ĐƯỢC gửi (ReviewSubmitTest::logged_in_customer_without_returned_order_can_still_review).
-     *
-     * @test
-     */
-    public function logged_in_customer_who_never_rented_the_combo_is_blocked(): void
+    /** @test */
+    public function logged_in_customer_who_never_rented_the_combo_can_still_review(): void
     {
         $user = User::create(['name' => 'Khách Lạ', 'phone' => '0900000302']);
         $combo = $this->combo();
 
         $this->actingAs($user)->post(route('combos.reviews.store', $combo->slug), ['rating' => 5, 'content' => 'Nhìn xịn'])
-            ->assertSessionHasErrors('review');
+            ->assertRedirect()->assertSessionHas('success');
 
-        $this->assertSame(0, Review::count());
+        $review = Review::first();
+        $this->assertSame('combo', $review->category);
+        $this->assertSame($combo->id, $review->combo_id);
+        $this->assertNull($review->order_item_id, 'Chưa thuê -> không có vé order_item để gắn.');
     }
 
     /** @test */
-    public function guest_cannot_review_a_combo_at_all(): void
+    public function guest_can_review_a_combo_with_a_name(): void
     {
         $combo = $this->combo();
 
-        // Route có middleware auth -> đá về đăng nhập, không phải lỗi validate.
-        $this->post(route('combos.reviews.store', $combo->slug), ['reviewer_name' => 'Vãng Lai', 'rating' => 5])
-            ->assertRedirect(route('login'));
+        $this->post(route('combos.reviews.store', $combo->slug), ['reviewer_name' => 'Vãng Lai', 'rating' => 5, 'content' => 'Nhìn hợp lý'])
+            ->assertRedirect()->assertSessionHas('success');
+
+        $review = Review::first();
+        $this->assertSame('combo', $review->category);
+        $this->assertSame('Vãng Lai', $review->reviewer_name);
+        $this->assertNull($review->user_id);
+        $this->assertNull($review->order_item_id);
+    }
+
+    /** @test */
+    public function guest_must_provide_a_name_to_review_a_combo(): void
+    {
+        $combo = $this->combo();
+
+        $this->post(route('combos.reviews.store', $combo->slug), ['rating' => 4])
+            ->assertSessionHasErrors('reviewer_name');
 
         $this->assertSame(0, Review::count());
     }
 
     /**
-     * Thuê LẺ đủ các món giống combo thì vẫn KHÔNG được đánh giá combo — đánh giá combo
-     * phải của người thật sự đặt trọn bộ, nếu không thì "đánh giá combo" mất hết ý nghĩa.
+     * Vé order_item CHỈ gắn khi khách thật sự đặt trọn bộ. Thuê lẻ đủ các món giống combo
+     * thì vẫn đánh giá được (ai cũng được), nhưng không được nhận vé — nếu không thì meta
+     * "X ngày" nói sai rằng người này đã thuê combo.
      *
      * @test
      */
-    public function renting_the_member_products_separately_does_not_unlock_the_combo_review(): void
+    public function renting_the_member_products_separately_does_not_earn_the_order_item_ticket(): void
     {
         $user = User::create(['name' => 'Thuê Lẻ', 'phone' => '0900000303']);
         $combo = $this->combo();
@@ -104,30 +115,30 @@ class ComboReviewTest extends TestCase
         }
 
         $this->actingAs($user)->post(route('combos.reviews.store', $combo->slug), ['rating' => 5])
-            ->assertSessionHasErrors('review');
+            ->assertRedirect()->assertSessionHas('success');
 
-        $this->assertSame(0, Review::count());
+        $this->assertNull(Review::first()->order_item_id);
     }
 
     /**
-     * Đơn còn đang thuê (chưa trả đồ) thì chưa được đánh giá — phải dùng xong mới nói được.
+     * Đơn còn đang thuê (chưa trả đồ) cũng chưa được tính là "đã thuê" -> chưa có vé.
      *
      * @test
      */
-    public function combo_order_not_yet_returned_does_not_unlock_the_review(): void
+    public function combo_order_not_yet_returned_does_not_earn_the_ticket_either(): void
     {
         $user = User::create(['name' => 'Đang Thuê', 'phone' => '0900000304']);
         $combo = $this->combo();
         $this->returnedComboOrder($user, $combo, status: 'renting');
 
         $this->actingAs($user)->post(route('combos.reviews.store', $combo->slug), ['rating' => 5])
-            ->assertSessionHasErrors('review');
+            ->assertRedirect()->assertSessionHas('success');
 
-        $this->assertSame(0, Review::count());
+        $this->assertNull(Review::first()->order_item_id);
     }
 
     /** @test */
-    public function combo_detail_page_shows_only_approved_reviews_and_the_gate_flag(): void
+    public function combo_detail_page_shows_only_approved_reviews_and_the_rented_flag(): void
     {
         $user = User::create(['name' => 'Hà', 'phone' => '0900000305']);
         $combo = $this->combo();
@@ -144,7 +155,7 @@ class ComboReviewTest extends TestCase
             ->has('reviews', 1)
             ->where('reviews.0.reviewer_name', 'A'));
 
-        // Khách chưa thuê combo -> không mở form.
+        // Khách chưa thuê combo: vẫn đánh giá được, chỉ là cờ "đã thuê" tắt.
         $stranger = User::create(['name' => 'Lạ', 'phone' => '0900000306']);
         $this->actingAs($stranger)->get(route('combos.show', $combo->slug))
             ->assertInertia(fn (Assert $page) => $page->where('can_review', false));

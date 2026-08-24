@@ -54,7 +54,9 @@ describe('SystemReviewCta — cổng viết đánh giá', () => {
         render(<SystemReviewCta isLoggedIn canReview={false} />);
 
         // Lời nhắc hiện sẵn, khách biết trước khi bấm.
-        expect(screen.getByText(/hẹn bạn sau chuyến đi đầu tiên/)).toBeVisible();
+        expect(
+            screen.getByText(/hẹn bạn sau chuyến đi đầu tiên/),
+        ).toBeVisible();
 
         await userEvent.click(
             screen.getByRole('button', { name: 'Viết đánh giá của bạn' }),

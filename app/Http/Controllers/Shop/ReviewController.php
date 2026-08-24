@@ -36,31 +36,19 @@ class ReviewController extends Controller
     /**
      * POST /combos/{slug}/danh-gia — gửi đánh giá combo (bopcamping-saeb).
      *
-     * KHÁC đánh giá sản phẩm ở một điểm quan trọng: đây là CỔNG CHẶN, chỉ khách đã thuê
-     * đúng combo này và đơn đã trả đồ mới gửi được. Chủ shop chốt vậy vì đánh giá combo
-     * là đánh giá "trọn bộ dùng có hợp nhau không" — người chưa đặt trọn bộ không có gì
-     * để nói về nó, và combo là mặt hàng dễ bị đánh giá mồi nhất (giá cao, ít lượt).
-     *
-     * Vì đã bắt buộc đăng nhập + phải có đơn, không có nhánh khách vãng lai nhập tên.
+     * Cùng luật với đánh giá sản phẩm: ai cũng gửi được (khách vãng lai nhập tên), mọi
+     * đánh giá vào pending chờ admin duyệt. Khách đã thuê & trả combo này thì gắn thêm
+     * order_item để hiện "X ngày" trong meta.
      */
     public function storeForCombo(Request $request, string $slug): RedirectResponse
     {
         $combo = Combo::active()->where('slug', $slug)->firstOrFail();
         $user = $request->user();
 
-        $orderItemId = $user?->reviewableComboOrderItemId($combo->id);
-        if (! $orderItemId) {
-            // Trả về lỗi ở khoá 'review' — cùng khoá form đánh giá đang đọc, và cùng cách
-            // ReviewInviteController báo "đơn này đã đánh giá rồi".
-            return back()->withErrors([
-                'review' => 'Chỉ khách đã thuê và trả combo này mới đánh giá được.',
-            ]);
-        }
-
-        $data = $this->validated($request, requireName: false);
+        $data = $this->validated($request, requireName: ! $user);
 
         $this->create($request, $data, [
-            'order_item_id' => $orderItemId,
+            'order_item_id' => $user?->reviewableComboOrderItemId($combo->id),
             'combo_id' => $combo->id,
             'category' => 'combo',
         ]);

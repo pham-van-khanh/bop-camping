@@ -23,14 +23,6 @@ type Props = {
     summary: ReviewSummary;
     canReview: boolean;
     isLoggedIn: boolean;
-    /**
-     * Bắt buộc đã thuê mới cho gửi (bopcamping-saeb). Combo bật cờ này; sản phẩm để false
-     * vì khách vãng lai vẫn gửi được. Bật mà canReview=false thì hiện lời nhắc thay cho form
-     * — chặn ở FE chỉ để khỏi cho khách gõ xong mới bị từ chối; server vẫn chặn thật.
-     */
-    requireRented?: boolean;
-    /** Lời nhắc khi chưa đủ điều kiện gửi (chỉ dùng khi requireRented). */
-    gateHint?: string;
 };
 
 const STAR = '★';
@@ -82,10 +74,7 @@ export default function ProductReviews({
     targetName,
     reviews,
     summary,
-    canReview,
     isLoggedIn,
-    requireRented = false,
-    gateHint,
 }: Props) {
     const [idx, setIdx] = useState(0);
     const [modal, setModal] = useState<ReviewItem | null>(null);
@@ -233,18 +222,8 @@ export default function ProductReviews({
                 )}
             </div>
 
-            {/* ===== Form viết — mọi đánh giá vào pending chờ duyệt ===== */}
-            {requireRented && !canReview ? (
-                <div
-                    className="rounded-card bg-card p-5 text-[14px] leading-[1.6] text-moss"
-                    style={{ border: '1px dashed #cdd6b6' }}
-                >
-                    {gateHint ??
-                        'Chỉ khách đã thuê và trả đồ mới đánh giá được.'}
-                </div>
-            ) : (
-                <ReviewForm submitUrl={submitUrl} isLoggedIn={isLoggedIn} />
-            )}
+            {/* ===== Form viết (ai cũng gửi được, đánh giá vào pending chờ duyệt) ===== */}
+            <ReviewForm submitUrl={submitUrl} isLoggedIn={isLoggedIn} />
 
             {modal && (
                 <ReviewModalView
