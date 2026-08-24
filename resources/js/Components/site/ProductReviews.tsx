@@ -14,11 +14,13 @@ export type ReviewItem = {
 export type ReviewSummary = { count: number; avg: number };
 
 type Props = {
-    productSlug: string;
-    productName: string;
+    /** URL nhận POST đánh giá — đã resolve ở phía trang, để component không phải biết
+     *  route nào dành cho sản phẩm và route nào cho combo. */
+    submitUrl: string;
+    /** Tên thứ đang được đánh giá (sản phẩm hoặc combo) — hiện trên đầu modal xem ảnh. */
+    targetName: string;
     reviews: ReviewItem[];
     summary: ReviewSummary;
-    canReview: boolean;
     isLoggedIn: boolean;
 };
 
@@ -67,8 +69,8 @@ function Stars({
 }
 
 export default function ProductReviews({
-    productSlug,
-    productName,
+    submitUrl,
+    targetName,
     reviews,
     summary,
     isLoggedIn,
@@ -220,12 +222,12 @@ export default function ProductReviews({
             </div>
 
             {/* ===== Form viết (ai cũng gửi được, đánh giá vào pending chờ duyệt) ===== */}
-            <ReviewForm productSlug={productSlug} isLoggedIn={isLoggedIn} />
+            <ReviewForm submitUrl={submitUrl} isLoggedIn={isLoggedIn} />
 
             {modal && (
                 <ReviewModalView
                     review={modal}
-                    productName={productName}
+                    targetName={targetName}
                     onClose={() => setModal(null)}
                 />
             )}
@@ -235,10 +237,10 @@ export default function ProductReviews({
 
 /** Form viết đánh giá: (tên nếu khách vãng lai) + sao + nội dung + upload ≤4 ảnh/video. */
 function ReviewForm({
-    productSlug,
+    submitUrl,
     isLoggedIn,
 }: {
-    productSlug: string;
+    submitUrl: string;
     isLoggedIn: boolean;
 }) {
     const fileRef = useRef<HTMLInputElement>(null);
@@ -282,7 +284,7 @@ function ReviewForm({
         );
 
     const submit = () => {
-        post(route('reviews.store', productSlug), {
+        post(submitUrl, {
             forceFormData: true,
             preserveScroll: true,
             onSuccess: () => {
@@ -446,11 +448,11 @@ function ReviewForm({
 /** Modal preview đánh giá (lưới ảnh/video đầy đủ). */
 function ReviewModalView({
     review,
-    productName,
+    targetName,
     onClose,
 }: {
     review: ReviewItem;
-    productName: string;
+    targetName: string;
     onClose: () => void;
 }) {
     useEffect(() => {
@@ -479,7 +481,7 @@ function ReviewModalView({
                     }}
                 >
                     <div className="absolute inset-0 grid place-items-center font-mono text-[13px] tracking-[0.1em] text-white/80">
-                        {productName}
+                        {targetName}
                     </div>
                     <button
                         onClick={onClose}
