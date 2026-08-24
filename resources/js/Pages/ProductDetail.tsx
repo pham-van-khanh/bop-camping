@@ -67,7 +67,6 @@ interface Props {
     combo_banner: ComboBanner | null;
     reviews: ReviewItem[];
     review_summary: ReviewSummary;
-    can_review: boolean;
     // "You may also like" (1.6) — admin tự chọn, chỉ sản phẩm active
     related_products: ProductResource[];
     // Per-store: tồn theo từng cửa hàng phục vụ
@@ -87,7 +86,6 @@ export default function ProductDetail({
     combo_banner,
     reviews,
     review_summary,
-    can_review,
     related_products,
     stock_by_location,
 }: Props) {
@@ -1547,7 +1545,6 @@ export default function ProductDetail({
                         targetName={product.name}
                         reviews={reviews}
                         summary={review_summary}
-                        canReview={can_review}
                         isLoggedIn={!!auth.user}
                     />
                 </section>

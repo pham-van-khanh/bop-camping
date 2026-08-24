@@ -21,7 +21,6 @@ type Props = {
     targetName: string;
     reviews: ReviewItem[];
     summary: ReviewSummary;
-    canReview: boolean;
     isLoggedIn: boolean;
 };
 

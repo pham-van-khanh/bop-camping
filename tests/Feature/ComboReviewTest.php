@@ -138,27 +138,51 @@ class ComboReviewTest extends TestCase
     }
 
     /** @test */
-    public function combo_detail_page_shows_only_approved_reviews_and_the_rented_flag(): void
+    public function combo_detail_page_shows_only_approved_reviews(): void
     {
-        $user = User::create(['name' => 'Hà', 'phone' => '0900000305']);
         $combo = $this->combo();
-        $this->returnedComboOrder($user, $combo);
 
         Review::create(['combo_id' => $combo->id, 'reviewer_name' => 'A', 'rating' => 5, 'content' => 'ok', 'category' => 'combo', 'status' => 'approved']);
         Review::create(['combo_id' => $combo->id, 'reviewer_name' => 'B', 'rating' => 1, 'content' => 'no', 'category' => 'combo', 'status' => 'pending']);
+        Review::create(['combo_id' => $combo->id, 'reviewer_name' => 'C', 'rating' => 1, 'content' => 'no', 'category' => 'combo', 'status' => 'rejected']);
 
-        $this->actingAs($user)->get(route('combos.show', $combo->slug))->assertInertia(fn (Assert $page) => $page
+        $this->get(route('combos.show', $combo->slug))->assertInertia(fn (Assert $page) => $page
             ->component('ComboDetail')
-            ->where('can_review', true)
             ->where('review_summary.count', 1)
             ->where('review_summary.avg', 5)
             ->has('reviews', 1)
             ->where('reviews.0.reviewer_name', 'A'));
+    }
 
-        // Khách chưa thuê combo: vẫn đánh giá được, chỉ là cờ "đã thuê" tắt.
-        $stranger = User::create(['name' => 'Lạ', 'phone' => '0900000306']);
-        $this->actingAs($stranger)->get(route('combos.show', $combo->slug))
-            ->assertInertia(fn (Assert $page) => $page->where('can_review', false));
+    /**
+     * Đánh giá của người ĐÃ thuê combo mang thêm dòng "X ngày" trong meta; của người chưa
+     * thuê thì không. Đây là chỗ duy nhất còn phân biệt hai nhóm sau khi bỏ cổng chặn, nên
+     * nếu vé order_item gắn nhầm thì trang combo nói dối mà không ai thấy.
+     *
+     * @test
+     */
+    public function only_a_real_renter_review_shows_the_rented_days_in_its_meta(): void
+    {
+        $user = User::create(['name' => 'Hà', 'phone' => '0900000305']);
+        $combo = $this->combo();
+        $order = $this->returnedComboOrder($user, $combo);
+
+        Review::create([
+            'combo_id' => $combo->id, 'order_item_id' => $order->items()->value('id'),
+            'reviewer_name' => 'Đã thuê', 'rating' => 5, 'category' => 'combo', 'status' => 'approved',
+        ]);
+        Review::create([
+            'combo_id' => $combo->id, 'reviewer_name' => 'Chưa thuê', 'rating' => 4,
+            'category' => 'combo', 'status' => 'approved',
+        ]);
+
+        $this->get(route('combos.show', $combo->slug))->assertInertia(function (Assert $page) {
+            $metas = collect($page->toArray()['props']['reviews'])
+                ->pluck('meta', 'reviewer_name');
+
+            $this->assertStringContainsString('2 ngày', $metas['Đã thuê']);
+            $this->assertStringNotContainsString('ngày', $metas['Chưa thuê']);
+        });
     }
 
     /**

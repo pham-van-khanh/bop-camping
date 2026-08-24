@@ -64,6 +64,11 @@ class ReviewController extends Controller
      * đánh giá tổng thể hiện ngay trang chủ nên là chỗ dễ bị spam nhất, và người chưa
      * thuê thì chưa có trải nghiệm để kể.
      *
+     * Chặn ở ĐÂY chứ không bằng middleware `auth`: middleware đó đá về `/login` của Breeze
+     * — màn đăng nhập BẰNG MẬT KHẨU dành cho admin, khách không dùng được (khách đăng nhập
+     * bằng modal SĐT+OTP). Khách hết phiên giữa chừng sẽ bị ném sang trang lạ và mất luôn
+     * đoạn vừa gõ; trả lỗi ở đây thì họ ở lại trang và thấy nhắc ngay dưới form.
+     *
      * Không cần combo/sản phẩm nào — đây là đánh giá về shop, không gắn order_item.
      */
     public function storeSystem(Request $request): RedirectResponse
@@ -76,9 +81,23 @@ class ReviewController extends Controller
             ]);
         }
 
-        $data = $this->validated($request, requireName: false);
+        // Một đơn đã trả mở khoá VĨNH VIỄN, nên nếu không chặn thì một tài khoản gửi được
+        // vô số đánh giá (throttle 10/phút vẫn cho ~600 dòng chờ duyệt mỗi giờ) và chủ shop
+        // è cổ duyệt tay. Luồng token trong mail chống bằng `review_submitted_at`; ở đây
+        // dùng luật tương đương: đang có một cái chờ duyệt thì chưa gửi tiếp.
+        $hasPending = $user->reviews()
+            ->where('category', 'system')->where('status', 'pending')->exists();
+        if ($hasPending) {
+            return back()->withErrors([
+                'review' => 'Bạn đang có một đánh giá chờ duyệt. Đợi tụi mình duyệt xong rồi gửi tiếp nhé!',
+            ]);
+        }
 
-        $this->create($request, $data, ['category' => 'system']);
+        // KHÔNG nhận ảnh/video: carousel đánh giá tổng thể ở trang chủ (SystemReviews) chỉ
+        // render chữ + sao, nên nhận file là nhận 4×30MB vào đĩa để không ai nhìn thấy.
+        $data = $this->validated($request, requireName: false, allowMedia: false);
+
+        $this->create($request, $data, ['category' => 'system'], withMedia: false);
 
         return back()->with('success', 'Cảm ơn bạn! Đánh giá sẽ hiển thị sau khi được duyệt.');
     }
@@ -86,16 +105,19 @@ class ReviewController extends Controller
     /**
      * Luật hợp lệ chung cho mọi loại đánh giá gửi từ trang chi tiết.
      *
+     * @param  bool  $allowMedia  false thì bỏ hẳn nhánh file (đánh giá tổng thể không hiện ảnh)
      * @return array<string, mixed>
      */
-    private function validated(Request $request, bool $requireName): array
+    private function validated(Request $request, bool $requireName, bool $allowMedia = true): array
     {
         $rules = [
             'rating' => ['required', 'integer', 'min:1', 'max:5'],
             'content' => ['nullable', 'string', 'max:1500'],
-            'media' => ['nullable', 'array', 'max:4'],
-            'media.*' => ['file', MediaType::MIMES_RULE, 'max:30720'], // ≤30MB (ảnh thực tế nhỏ hơn nhiều)
         ];
+        if ($allowMedia) {
+            $rules['media'] = ['nullable', 'array', 'max:4'];
+            $rules['media.*'] = ['file', MediaType::MIMES_RULE, 'max:30720']; // ≤30MB (ảnh thực tế nhỏ hơn nhiều)
+        }
         if ($requireName) {
             $rules['reviewer_name'] = ['required', 'string', 'max:60'];
         }
@@ -116,8 +138,10 @@ class ReviewController extends Controller
      *
      * @param  array<string, mixed>  $data
      * @param  array<string, mixed>  $target
+     * @param  bool  $withMedia  PHẢI khớp $allowMedia của validated(): tắt validate mà vẫn
+     *                           đọc file ở đây thì file lọt vào đĩa mà không qua luật nào.
      */
-    private function create(Request $request, array $data, array $target): void
+    private function create(Request $request, array $data, array $target, bool $withMedia = true): void
     {
         $user = $request->user();
 
@@ -129,7 +153,7 @@ class ReviewController extends Controller
             'status' => 'pending',
         ]);
 
-        foreach ((array) $request->file('media', []) as $i => $file) {
+        foreach ($withMedia ? (array) $request->file('media', []) : [] as $i => $file) {
             $review->images()->create([
                 'type' => MediaType::detect($file),
                 'path' => $file->store('user/reviews', 'media'),

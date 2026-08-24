@@ -6,6 +6,8 @@ use App\Models\Order;
 use App\Models\Review;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
@@ -77,12 +79,65 @@ class HomeSystemReviewTest extends TestCase
         $this->assertSame(0, Review::count());
     }
 
-    /** @test */
-    public function guest_cannot_post_a_system_review(): void
+    /**
+     * Khách vãng lai bị chặn, nhưng phải chặn bằng LỖI Ở LẠI TRANG chứ không đá sang
+     * /login: đó là màn đăng nhập bằng mật khẩu của admin, khách không dùng được (khách
+     * đăng nhập bằng modal SĐT+OTP). Bị ném sang đó là mất luôn đoạn vừa gõ.
+     *
+     * @test
+     */
+    public function guest_is_blocked_without_being_thrown_to_the_admin_login_page(): void
     {
-        $this->post(route('reviews.system.store'), ['rating' => 5])->assertRedirect(route('login'));
+        $response = $this->from('/')->post(route('reviews.system.store'), ['rating' => 5]);
 
+        $response->assertRedirect('/')->assertSessionHasErrors('review');
         $this->assertSame(0, Review::count());
+    }
+
+    /**
+     * Một đơn đã trả mở khoá vĩnh viễn, nên không chặn thì một tài khoản gửi được vô số
+     * đánh giá và chủ shop è cổ duyệt tay. Đang có cái chờ duyệt thì chưa gửi tiếp.
+     *
+     * @test
+     */
+    public function a_customer_cannot_pile_up_pending_system_reviews(): void
+    {
+        $user = $this->userWithReturnedOrder();
+
+        $this->actingAs($user)->post(route('reviews.system.store'), ['rating' => 5])
+            ->assertSessionHas('success');
+
+        $this->actingAs($user)->post(route('reviews.system.store'), ['rating' => 4])
+            ->assertSessionHasErrors('review');
+
+        $this->assertSame(1, Review::count());
+
+        // Duyệt xong thì được gửi tiếp — chặn là để xếp hàng, không phải cấm vĩnh viễn.
+        Review::first()->update(['status' => 'approved']);
+        $this->actingAs($user)->post(route('reviews.system.store'), ['rating' => 4])
+            ->assertSessionHas('success');
+
+        $this->assertSame(2, Review::count());
+    }
+
+    /**
+     * Carousel trang chủ chỉ render chữ + sao, không có chỗ hiện ảnh — nhận file là ghi
+     * 4×30MB vào đĩa để không ai nhìn thấy.
+     *
+     * @test
+     */
+    public function system_review_never_stores_media_because_the_home_carousel_shows_none(): void
+    {
+        Storage::fake('media');
+        $user = $this->userWithReturnedOrder();
+
+        $this->actingAs($user)->post(route('reviews.system.store'), [
+            'rating' => 5,
+            'media' => [UploadedFile::fake()->image('a.jpg')],
+        ])->assertSessionHas('success');
+
+        $this->assertSame(0, Review::first()->images()->count());
+        $this->assertEmpty(Storage::disk('media')->allFiles());
     }
 
     /** @test */

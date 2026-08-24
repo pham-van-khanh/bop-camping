@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
@@ -36,10 +37,21 @@ return new class extends Migration
 
     public function down(): void
     {
+        // Gỡ combo_id là mất chỗ neo của đánh giá combo, nên phải hạ category về giá trị
+        // mà bản cũ hiểu được TRƯỚC. Không làm thì các dòng 'combo' còn nguyên và admin
+        // của bản cũ (chỉ biết system/product) hiển thị chúng thành "Sản phẩm" — sai hẳn
+        // thứ đang được đánh giá. Hạ về 'system' chứ không 'product': mất combo_id rồi thì
+        // đánh giá không còn gắn với món nào, 'system' (nói về shop) là chỗ đúng hơn.
+        DB::table('reviews')->where('category', 'combo')->update(['category' => 'system']);
+
         Schema::table('reviews', function (Blueprint $table) {
             $table->dropForeign(['combo_id']);
             $table->dropIndex(['combo_id', 'status']);
             $table->dropColumn('combo_id');
         });
+
+        // `category` CỐ Ý giữ string(20), không trả về enum: bản cũ đọc string bình thường
+        // (enum chỉ là ràng buộc ghi), còn ép về enum thì cần liệt kê lại đúng danh sách cũ
+        // và sẽ vỡ nếu sau này có thêm loại. Đây là thay đổi tiến-một-chiều có chủ ý.
     }
 };

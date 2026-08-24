@@ -66,9 +66,11 @@ Route::get('/combos/{slug}/kha-dung', [ComboController::class, 'availability'])-
 // gửi được, mọi đánh giá vào 'pending' chờ admin duyệt.
 Route::post('/combos/{slug}/danh-gia', [ReviewController::class, 'storeForCombo'])->name('combos.reviews.store')
     ->middleware('throttle:10,1');
-// Đánh giá tổng thể shop từ trang chủ — cũng chặn theo "đã thuê và trả đồ".
+// Đánh giá tổng thể shop từ trang chủ — chặn theo "đã thuê và trả đồ" NGAY TRONG
+// controller, cố ý không dùng middleware `auth`: `auth` đá về /login của Breeze (màn mật
+// khẩu của admin) mà khách không dùng được — khách đăng nhập bằng modal SĐT+OTP.
 Route::post('/danh-gia-shop', [ReviewController::class, 'storeSystem'])->name('reviews.system.store')
-    ->middleware(['auth', 'throttle:10,1']);
+    ->middleware('throttle:10,1');
 Route::get('/gio-thue', [CartController::class, 'index'])->name('cart');
 // Làm tươi giỏ: trả giá/vị trí mới nhất theo ids (giỏ ở localStorage có thể đã cũ)
 Route::get('/gio-thue/lam-tuoi', [CartController::class, 'refresh'])->name('cart.refresh')->middleware('throttle:60,1');

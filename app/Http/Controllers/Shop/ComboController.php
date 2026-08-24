@@ -117,14 +117,13 @@ class ComboController extends Controller
     }
 
     /** GET /combos/{slug} — chi tiết combo: gallery, so sánh giá, check tồn kho, đánh giá. */
-    public function show(Request $request, string $slug): Response
+    public function show(string $slug): Response
     {
         /** @var Combo $combo */
         $combo = $this->sellable()->where('slug', $slug)->firstOrFail();
 
         $shaped = $this->shape($combo, ServiceLocation::open()->count());
 
-        $user = $request->user();
         $reviewCount = $combo->reviews()->where('status', 'approved')->count();
 
         // Qua SeoService::plainText — xem ghi chú ở ProductController (bopcamping-1xja).
@@ -139,8 +138,6 @@ class ComboController extends Controller
             'stores' => $this->storesFor($combo),
             'reviews' => $this->reviews($combo),
             'review_summary' => ['count' => $reviewCount, 'avg' => $combo->averageRating()],
-            // Cổng gửi đánh giá: phải đăng nhập VÀ đã thuê đúng combo này (đơn đã trả đồ).
-            'can_review' => $user !== null && $user->reviewableComboOrderItemId($combo->id) !== null,
             'seo' => $this->seo->page(
                 $combo->name.' — Thuê trọn bộ tại BỐP CAMPING',
                 $seoDesc,

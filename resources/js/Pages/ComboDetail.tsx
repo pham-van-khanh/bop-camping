@@ -77,8 +77,6 @@ interface Props {
     stores?: ComboStore[];
     reviews?: ReviewItem[];
     review_summary?: ReviewSummary;
-    /** Đã thuê & trả combo này chưa — cổng gửi đánh giá (bopcamping-saeb). */
-    can_review?: boolean;
 }
 
 export default function ComboDetail({
@@ -86,7 +84,6 @@ export default function ComboDetail({
     stores = [],
     reviews = [],
     review_summary = { count: 0, avg: 0 },
-    can_review = false,
 }: Props) {
     // Bậc giảm dài ngày là prop DÙNG CHUNG của mọi trang — không cần controller truyền thêm.
     const { durationTiers, auth } = usePage<PageProps>().props;
@@ -1116,7 +1113,6 @@ export default function ComboDetail({
                         targetName={combo.name}
                         reviews={reviews}
                         summary={review_summary}
-                        canReview={can_review}
                         isLoggedIn={!!auth.user}
                     />
                 </section>

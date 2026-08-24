@@ -28,7 +28,6 @@ const base = {
     targetName: 'Combo Cặp Đôi',
     reviews: [],
     summary: { count: 0, avg: 0 },
-    canReview: false,
     isLoggedIn: true,
 };
 
@@ -47,8 +46,8 @@ describe('ProductReviews — dùng chung cho sản phẩm và combo', () => {
         expect(posted.urls).toEqual(['/combos/combo-cap-doi/danh-gia']);
     });
 
-    it('ai cũng gửi được — chưa thuê vẫn thấy form', () => {
-        render(<ProductReviews {...base} canReview={false} />);
+    it('ai cũng gửi được — không có nhánh nào giấu form đi', () => {
+        render(<ProductReviews {...base} />);
 
         expect(
             screen.getByRole('button', { name: 'Gửi đánh giá' }),
