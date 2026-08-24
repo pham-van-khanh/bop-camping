@@ -174,7 +174,7 @@ export default function ReviewInvite() {
                         </h1>
                         <p className="mt-2 text-[14px] text-moss">
                             {flash.success ||
-                                'Đánh giá sẽ hiển thị sau khi được tụi mình duyệt. Hẹn gặp lại chuyến sau!'}
+                                'Cảm ơn bạn đã dành thời gian chia sẻ. Hẹn gặp lại chuyến sau!'}
                         </p>
                         <Link
                             href="/"

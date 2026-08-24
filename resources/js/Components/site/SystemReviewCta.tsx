@@ -82,7 +82,7 @@ export default function SystemReviewCta({
             >
                 <div className="text-[15px] font-bold">Cảm ơn bạn! 🎉</div>
                 <p className="mt-1 text-[13.5px]">
-                    Đánh giá sẽ hiển thị sau khi được tụi mình duyệt.
+                    Cảm ơn bạn đã dành thời gian chia sẻ với tụi mình.
                 </p>
             </div>
         );

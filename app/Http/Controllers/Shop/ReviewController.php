@@ -30,7 +30,7 @@ class ReviewController extends Controller
             'category' => 'product',
         ]);
 
-        return back()->with('success', 'Cảm ơn bạn! Đánh giá sẽ hiển thị sau khi được duyệt.');
+        return back()->with('success', 'Cảm ơn bạn đã chia sẻ trải nghiệm!');
     }
 
     /**
@@ -53,7 +53,7 @@ class ReviewController extends Controller
             'category' => 'combo',
         ]);
 
-        return back()->with('success', 'Cảm ơn bạn! Đánh giá sẽ hiển thị sau khi được duyệt.');
+        return back()->with('success', 'Cảm ơn bạn đã chia sẻ trải nghiệm!');
     }
 
     /**
@@ -89,7 +89,7 @@ class ReviewController extends Controller
             ->where('category', 'system')->where('status', 'pending')->exists();
         if ($hasPending) {
             return back()->withErrors([
-                'review' => 'Bạn đang có một đánh giá chờ duyệt. Đợi tụi mình duyệt xong rồi gửi tiếp nhé!',
+                'review' => 'Bạn vừa gửi một đánh giá rồi. Cảm ơn bạn!',
             ]);
         }
 
@@ -99,7 +99,7 @@ class ReviewController extends Controller
 
         $this->create($request, $data, ['category' => 'system'], withMedia: false);
 
-        return back()->with('success', 'Cảm ơn bạn! Đánh giá sẽ hiển thị sau khi được duyệt.');
+        return back()->with('success', 'Cảm ơn bạn đã chia sẻ trải nghiệm!');
     }
 
     /**
