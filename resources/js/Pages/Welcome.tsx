@@ -11,12 +11,14 @@ import HomeServingPanel, {
 } from '@/Components/site/HomeServingPanel';
 import ProductCard from '@/Components/site/ProductCard';
 import RentalDateModal from '@/Components/site/RentalDateModal';
+import SystemReviewCta from '@/Components/site/SystemReviewCta';
 import SystemReviews, {
     type SystemReview,
 } from '@/Components/site/SystemReviews';
 import SiteLayout from '@/Layouts/SiteLayout';
+import type { PageProps } from '@/types';
 import type { ProductResource } from '@/types/product';
-import { Head, Link } from '@inertiajs/react';
+import { Head, Link, usePage } from '@inertiajs/react';
 import { motion } from 'framer-motion';
 import { ReactNode, useState } from 'react';
 
@@ -68,6 +70,8 @@ interface Props {
     camping_provinces: ProvinceGroup[];
     hero_banners: HeroBanner[];
     promo_banners: PromoBanner[];
+    /** Đã thuê & trả đồ lần nào chưa — cổng viết đánh giá tổng thể (bopcamping-saeb). */
+    can_review_system: boolean;
 }
 
 export default function Home({
@@ -81,7 +85,9 @@ export default function Home({
     camping_provinces,
     hero_banners,
     promo_banners,
+    can_review_system,
 }: Props) {
+    const { auth } = usePage<PageProps>().props;
     const [guideOpen, setGuideOpen] = useState(false);
     const [dateOpen, setDateOpen] = useState(false);
     const openCities = service_locations.filter((l) => l.status === 'open');
@@ -325,8 +331,10 @@ export default function Home({
                 </section>
             )}
 
-            {/* Khách nói gì (đánh giá hệ thống) */}
-            {system_reviews.length > 0 && (
+            {/* Khách nói gì (đánh giá hệ thống) + chỗ tự viết đánh giá (bopcamping-saeb).
+                Vẫn hiện khối này khi CHƯA có đánh giá nào miễn là khách đủ điều kiện viết —
+                nếu không thì shop mới chạy sẽ không bao giờ có đánh giá đầu tiên. */}
+            {(system_reviews.length > 0 || can_review_system) && (
                 <section className="mx-auto max-w-[1400px] px-5 pb-2 pt-12">
                     <motion.div {...reveal} className="mb-6 text-center">
                         <div className="mb-2 font-mono text-[12px] tracking-[0.1em] text-campfire">
@@ -339,8 +347,16 @@ export default function Home({
                             Trải nghiệm thật từ những chuyến đi
                         </h2>
                     </motion.div>
-                    <motion.div {...reveal}>
-                        <SystemReviews reviews={system_reviews} />
+                    {system_reviews.length > 0 && (
+                        <motion.div {...reveal}>
+                            <SystemReviews reviews={system_reviews} />
+                        </motion.div>
+                    )}
+                    <motion.div {...reveal} className="mt-6">
+                        <SystemReviewCta
+                            isLoggedIn={!!auth.user}
+                            canReview={can_review_system}
+                        />
                     </motion.div>
                 </section>
             )}

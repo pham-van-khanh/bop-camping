@@ -77,7 +77,7 @@ class ProductController extends Controller
     }
 
     /** GET / — trang chủ với 4 sản phẩm nổi bật */
-    public function home(): Response
+    public function home(Request $request): Response
     {
         $featuredModels = Product::active()
             ->with('category', 'images', 'serviceLocations')
@@ -162,6 +162,10 @@ class ProductController extends Controller
                 'avg' => round((float) (clone $systemQuery)->avg('rating'), 1),
                 'count' => (clone $systemQuery)->count(),
             ],
+            // Cổng viết đánh giá tổng thể ngay trang chủ (bopcamping-saeb): phải đăng nhập
+            // và đã thuê–trả đồ ít nhất một lần. Trang chủ là chỗ dễ bị spam nhất nên
+            // không mở cho khách vãng lai như đánh giá sản phẩm.
+            'can_review_system' => $request->user()?->hasReturnedOrder() ?? false,
             // Cẩm nang cắm trại: vị trí phục vụ + điểm gợi ý + tất cả điểm gom theo tỉnh/thành
             'service_locations' => ServiceLocation::ordered()->get()->map(fn (ServiceLocation $l) => [
                 'name' => $l->name,

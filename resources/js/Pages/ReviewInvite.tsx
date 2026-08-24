@@ -4,7 +4,15 @@ import type { PageProps } from '@/types';
 import { Head, Link, useForm, usePage } from '@inertiajs/react';
 import { ReactNode, useMemo, useRef, useState } from 'react';
 
+/** Món thuê LẺ (món nằm trong combo không hỏi riêng — xem ReviewInviteController::show). */
 type ItemRow = { order_item_id: number; name: string };
+/** Một LƯỢT combo trong đơn (bopcamping-vxwx) — `key` là combo_group_uuid. */
+type ComboRow = {
+    key: string;
+    combo_id: number;
+    name: string;
+    items: string[];
+};
 type Props = PageProps<{
     found: boolean;
     token?: string;
@@ -12,11 +20,20 @@ type Props = PageProps<{
     customer_name?: string;
     code?: string;
     items?: ItemRow[];
+    combos?: ComboRow[];
 }>;
 
 // Dòng đánh giá 1 sản phẩm trong form (kèm ảnh/video).
 type ItemForm = {
     order_item_id: number;
+    rating: number;
+    content: string;
+    media: File[];
+};
+
+// Dòng đánh giá 1 lượt combo — cùng hình dáng, chỉ khác khoá định danh.
+type ComboForm = {
+    key: string;
     rating: number;
     content: string;
     media: File[];
@@ -60,19 +77,34 @@ function Stars({
 }
 
 export default function ReviewInvite() {
-    const { found, token, submitted, customer_name, code, items, flash } =
-        usePage<Props>().props;
+    const {
+        found,
+        token,
+        submitted,
+        customer_name,
+        code,
+        items,
+        combos,
+        flash,
+    } = usePage<Props>().props;
     const [done, setDone] = useState(false);
 
     const { data, setData, post, processing, errors, transform } = useForm<{
         system_rating: number;
         system_content: string;
         items: ItemForm[];
+        combos: ComboForm[];
     }>({
         system_rating: 0,
         system_content: '',
         items: (items ?? []).map((i) => ({
             order_item_id: i.order_item_id,
+            rating: 0,
+            content: '',
+            media: [],
+        })),
+        combos: (combos ?? []).map((c) => ({
+            key: c.key,
             rating: 0,
             content: '',
             media: [],
@@ -85,6 +117,12 @@ export default function ReviewInvite() {
             data.items.map((it, j) => (j === idx ? { ...it, ...patch } : it)),
         );
 
+    const setCombo = (idx: number, patch: Partial<ComboForm>) =>
+        setData(
+            'combos',
+            data.combos.map((c, j) => (j === idx ? { ...c, ...patch } : c)),
+        );
+
     const submit = () => {
         // Backend chỉ nhận sao 1–5: bỏ system_rating khi 0, chỉ gửi item ĐÃ chấm sao
         // (item chưa chấm không tạo review → khỏi vướng rule min:1).
@@ -92,6 +130,7 @@ export default function ReviewInvite() {
             system_rating: d.system_rating > 0 ? d.system_rating : null,
             system_content: d.system_content,
             items: d.items.filter((i) => i.rating > 0),
+            combos: d.combos.filter((c) => c.rating > 0),
         }));
         post(route('review.invite.store', token), {
             forceFormData: true,
@@ -101,7 +140,9 @@ export default function ReviewInvite() {
     };
 
     const hasRating =
-        data.system_rating > 0 || data.items.some((i) => i.rating > 0);
+        data.system_rating > 0 ||
+        data.items.some((i) => i.rating > 0) ||
+        data.combos.some((c) => c.rating > 0);
     const mediaError = Object.keys(errors).some((k) => k.includes('.media'));
 
     return (
@@ -133,7 +174,7 @@ export default function ReviewInvite() {
                         </h1>
                         <p className="mt-2 text-[14px] text-moss">
                             {flash.success ||
-                                'Đánh giá sẽ hiển thị sau khi được tụi mình duyệt. Hẹn gặp lại chuyến sau!'}
+                                'Cảm ơn bạn đã dành thời gian chia sẻ. Hẹn gặp lại chuyến sau!'}
                         </p>
                         <Link
                             href="/"
@@ -180,7 +221,26 @@ export default function ReviewInvite() {
                             />
                         </Card>
 
-                        {/* Từng sản phẩm — kèm ảnh/video */}
+                        {/* Từng lượt combo — MỘT mục chấm cho cả bộ (bopcamping-vxwx).
+                            Không hỏi thêm từng món bên trong: khách thuê trọn bộ thì nhớ
+                            cái bộ, form dài gấp mấy lần chỉ làm người ta bỏ ngang. */}
+                        {(combos ?? []).length > 0 && (
+                            <div className="mb-1 mt-5 font-mono text-[12px] uppercase tracking-[0.1em] text-campfire">
+                                Combo đã thuê
+                            </div>
+                        )}
+                        {(combos ?? []).map((c, idx) => (
+                            <ItemCard
+                                key={c.key}
+                                name={c.name}
+                                subtitle={`Gồm: ${c.items.join(' · ')}`}
+                                value={data.combos[idx]}
+                                onChange={(patch) => setCombo(idx, patch)}
+                                placeholder="Trọn bộ có đủ đồ không? Các món hợp nhau chứ?"
+                            />
+                        ))}
+
+                        {/* Món thuê lẻ (server đã lọc bỏ món nằm trong combo) */}
                         {(items ?? []).map((it, idx) => (
                             <ItemCard
                                 key={it.order_item_id}
@@ -226,15 +286,24 @@ export default function ReviewInvite() {
     );
 }
 
-/** Thẻ đánh giá 1 sản phẩm: sao + nhận xét + ảnh/video (tối đa 4). */
+/**
+ * Thẻ đánh giá một mục: sao + nhận xét + ảnh/video (tối đa 4).
+ *
+ * Dùng chung cho sản phẩm lẻ và cho combo — hai bên khác nhau đúng phần chữ (tên, dòng
+ * liệt kê món, gợi ý trong ô nhập), còn thao tác thì giống hệt.
+ */
 function ItemCard({
     name,
+    subtitle,
     value,
     onChange,
+    placeholder = 'Đồ này dùng thế nào?',
 }: {
     name: string;
-    value?: ItemForm;
-    onChange: (patch: Partial<ItemForm>) => void;
+    subtitle?: string;
+    value?: ItemForm | ComboForm;
+    onChange: (patch: Partial<ItemForm & ComboForm>) => void;
+    placeholder?: string;
 }) {
     const fileRef = useRef<HTMLInputElement>(null);
     const media = value?.media ?? [];
@@ -261,7 +330,14 @@ function ItemCard({
     return (
         <Card className="mt-3">
             <div className="mb-3 flex items-center justify-between gap-3">
-                <h2 className="text-[15px] font-bold text-ink">{name}</h2>
+                <div className="min-w-0">
+                    <h2 className="text-[15px] font-bold text-ink">{name}</h2>
+                    {subtitle && (
+                        <p className="mt-0.5 text-[12.5px] leading-[1.5] text-moss">
+                            {subtitle}
+                        </p>
+                    )}
+                </div>
                 <Stars
                     value={value?.rating ?? 0}
                     onPick={(n) => onChange({ rating: n })}
@@ -270,7 +346,7 @@ function ItemCard({
             <textarea
                 value={value?.content ?? ''}
                 onChange={(e) => onChange({ content: e.target.value })}
-                placeholder="Đồ này dùng thế nào?"
+                placeholder={placeholder}
                 rows={2}
                 className="w-full rounded-[11px] border border-cardBorder bg-white px-3.5 py-2.5 text-[14px] outline-none focus:border-grass"
             />

@@ -10,10 +10,11 @@ type ReviewRow = {
     reviewer_name: string;
     rating: number;
     content: string | null;
-    category: 'system' | 'product';
+    category: 'system' | 'product' | 'combo';
     status: 'pending' | 'approved' | 'rejected';
     admin_note: string | null;
     product: { id: number; name: string } | null;
+    combo: { id: number; name: string } | null;
     created_at: string;
     media: Media[];
 };
@@ -40,6 +41,11 @@ const STATUS_PILL: Record<string, { c: string; b: string; t: string }> = {
     pending: { c: '#9a7a2a', b: '#fbf2d8', t: 'Chờ duyệt' },
     approved: { c: '#3a5a1f', b: '#dcebc4', t: 'Đã duyệt' },
     rejected: { c: '#b3493a', b: '#f6ddd6', t: 'Đã từ chối' },
+};
+const CATEGORY_LABEL: Record<ReviewRow['category'], string> = {
+    system: 'Hệ thống',
+    product: 'Sản phẩm',
+    combo: 'Combo',
 };
 const Stars = ({ n }: { n: number }) => (
     <span className="font-mono text-[13px]" style={{ color: '#C97B36' }}>
@@ -131,6 +137,7 @@ export default function AdminReviews() {
                             options={[
                                 { value: 'all', label: 'Tất cả loại' },
                                 { value: 'product', label: 'Sản phẩm' },
+                                { value: 'combo', label: 'Combo' },
                                 { value: 'system', label: 'Hệ thống' },
                             ]}
                         />
@@ -167,15 +174,16 @@ export default function AdminReviews() {
                                                 {STATUS_PILL[r.status].t}
                                             </span>
                                             <span className="rounded-pill bg-[#eef2e3] px-2 py-0.5 font-mono text-[11px] text-moss">
-                                                {r.category === 'system'
-                                                    ? 'Hệ thống'
-                                                    : 'Sản phẩm'}
+                                                {CATEGORY_LABEL[r.category]}
                                             </span>
                                         </div>
                                         <div className="mt-0.5 font-mono text-[12px] text-moss">
-                                            {r.product
-                                                ? r.product.name + ' · '
-                                                : ''}
+                                            {/* Tên thứ được đánh giá: combo hoặc sản phẩm.
+                                                Đánh giá hệ thống không gắn thứ nào. */}
+                                            {r.combo?.name ??
+                                                r.product?.name ??
+                                                ''}
+                                            {r.combo || r.product ? ' · ' : ''}
                                             {r.created_at}
                                         </div>
                                     </div>

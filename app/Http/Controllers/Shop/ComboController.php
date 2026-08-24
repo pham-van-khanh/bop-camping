@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Combo;
 use App\Models\ComboItem;
 use App\Models\Product;
+use App\Models\Review;
 use App\Models\ServiceLocation;
 use App\Services\AvailabilityService;
 use App\Services\SeoService;
@@ -115,13 +116,15 @@ class ComboController extends Controller
         ]);
     }
 
-    /** GET /combos/{slug} — chi tiết combo: gallery, so sánh giá, check tồn kho. */
+    /** GET /combos/{slug} — chi tiết combo: gallery, so sánh giá, check tồn kho, đánh giá. */
     public function show(string $slug): Response
     {
         /** @var Combo $combo */
         $combo = $this->sellable()->where('slug', $slug)->firstOrFail();
 
         $shaped = $this->shape($combo, ServiceLocation::open()->count());
+
+        $reviewCount = $combo->reviews()->where('status', 'approved')->count();
 
         // Qua SeoService::plainText — xem ghi chú ở ProductController (bopcamping-1xja).
         $seoDesc = $this->seo->plainText($combo->description, 155)
@@ -133,6 +136,8 @@ class ComboController extends Controller
         return Inertia::render('ComboDetail', [
             'combo' => $shaped,
             'stores' => $this->storesFor($combo),
+            'reviews' => $this->reviews($combo),
+            'review_summary' => ['count' => $reviewCount, 'avg' => $combo->averageRating()],
             'seo' => $this->seo->page(
                 $combo->name.' — Thuê trọn bộ tại BỐP CAMPING',
                 $seoDesc,
@@ -359,6 +364,28 @@ class ComboController extends Controller
         }
 
         return $data;
+    }
+
+    /**
+     * Đánh giá đã duyệt của combo, cùng hình dáng payload với đánh giá sản phẩm để
+     * component ProductReviews dùng lại được nguyên (bopcamping-saeb).
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private function reviews(Combo $combo): array
+    {
+        return $combo->approvedReviews()->with(['images', 'orderItem'])->limit(20)->get()
+            ->map(fn (Review $r) => [
+                'id' => $r->id,
+                'reviewer_name' => $r->reviewer_name,
+                'rating' => $r->rating,
+                'content' => $r->content,
+                'meta' => trim(($r->orderItem ? $r->orderItem->days.' ngày · ' : '').'Tháng '.$r->created_at->format('n, Y')),
+                'media' => $r->images->map(fn ($m) => [
+                    'type' => $m->type,
+                    'url' => Storage::disk('media')->url($m->path),
+                ])->values(),
+            ])->values()->all();
     }
 
     private function storesFor(Combo $combo): array

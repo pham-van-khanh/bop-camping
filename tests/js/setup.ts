@@ -30,3 +30,27 @@ if (!('ResizeObserver' in globalThis)) {
         disconnect() {}
     };
 }
+
+/**
+ * `route()` là hàm TOÀN CỤC do Ziggy chèn vào lúc chạy thật (@routes trong app.blade.php),
+ * không phải thứ component import — nên trong jsdom nó không tồn tại và mọi component gọi
+ * tới nó sẽ nổ ReferenceError ngay khi render.
+ *
+ * Stub ở đây thay vì rải trong từng file test: đây là chuyện của MÔI TRƯỜNG (giống
+ * matchMedia/ResizeObserver ở trên), không phải chuyện riêng của test nào. Trả lại chính
+ * tên route + tham số để test nào muốn kiểm "gửi đi đúng đích" vẫn khẳng định được.
+ * Test cần dạng khác cứ gán đè globalThis.route trong file của mình.
+ */
+if (!('route' in globalThis)) {
+    (globalThis as { route?: unknown }).route = (
+        name: string,
+        params?: unknown,
+    ) =>
+        params === undefined
+            ? `/${name}`
+            : `/${name}/${String(
+                  typeof params === 'object'
+                      ? Object.values(params as object).join('/')
+                      : params,
+              )}`;
+}
