@@ -237,6 +237,17 @@ php artisan view:cache
 sudo nano /etc/nginx/sites-available/bopcamping
 ```
 ```nginx
+# Nén text response — JS/CSS app chạy build hiện ~350KB raw, gzip đưa về ~110KB
+# (đúng số "gzip" mà `npm run build` in ra). Không nén ảnh/video: đã là định dạng
+# nén sẵn (webp/mp4), gzip thêm lần nữa chỉ tốn CPU mà không nhỏ hơn.
+gzip on;
+gzip_vary on;
+gzip_comp_level 6;
+gzip_min_length 512;
+gzip_proxied any;
+gzip_types text/plain text/css text/xml application/xml application/javascript
+    application/json image/svg+xml font/ttf font/otf;
+
 server {
     listen 80;
     server_name bopcamping.vn www.bopcamping.vn;
@@ -245,6 +256,31 @@ server {
     index index.php;
     charset utf-8;
     client_max_body_size 55M;          # video sản phẩm/điểm cắm trại tới 50MB — khớp 2.2b
+
+    # Asset Vite (/build/assets/*): Vite hash tên file theo nội dung (app-<hash>.js) —
+    # nội dung đổi thì tên đổi theo, nên cache 1 năm + immutable an toàn tuyệt đối:
+    # trình duyệt sẽ KHÔNG BAO GIỜ phải hỏi lại server cho một file đã tải, kể cả sau
+    # deploy mới (deploy mới sinh hash mới, HTML trỏ sang file mới).
+    location ^~ /build/ {
+        add_header Cache-Control "public, max-age=31536000, immutable";
+        try_files $uri =404;
+    }
+
+    # Ảnh/video khách hàng & sản phẩm (Storage::disk('media'), qua `storage:link`):
+    # tên file là chuỗi random sinh lúc upload, xoá rồi tải lại là path khác — cũng
+    # bất biến như asset Vite, cache dài hạn tương tự.
+    location ^~ /storage/ {
+        add_header Cache-Control "public, max-age=31536000, immutable";
+        try_files $uri =404;
+    }
+
+    # Ảnh tĩnh trong resources/public (favicon, ảnh minh hoạ...) CÓ THỂ bị ghi đè cùng
+    # tên khi sửa nội dung rồi deploy lại — không immutable, chỉ cache vừa phải để lần
+    # sau vẫn tự làm mới trong vài tuần.
+    location ~* \.(?:jpg|jpeg|png|webp|gif|svg|ico|mp4|webm|mov|woff2?|ttf)$ {
+        add_header Cache-Control "public, max-age=2592000";
+        try_files $uri =404;
+    }
 
     location / {
         try_files $uri $uri/ /index.php?$query_string;
@@ -259,6 +295,11 @@ server {
     location ~ /\.(?!well-known).* { deny all; }
 }
 ```
+
+> **Vì sao KHÔNG đổi driver cache/session/queue sang Redis ở đây**: đúng là
+> `CACHE_STORE`/`SESSION_DRIVER`/`QUEUE_CONNECTION` đang là `database` (mỗi lần
+> đọc/ghi session là 1 query MySQL), nhưng lợi ích nhỏ hơn nhiều so với 2 việc trên
+> và tốn công cài thêm Redis trên server — tách thành việc riêng khi cần.
 ```bash
 sudo ln -s /etc/nginx/sites-available/bopcamping /etc/nginx/sites-enabled/
 sudo rm -f /etc/nginx/sites-enabled/default
