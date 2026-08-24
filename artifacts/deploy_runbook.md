@@ -80,14 +80,29 @@ chặn TRƯỚC KHI Laravel kịp validate, admin/khách nhận lỗi mơ hồ
 ```bash
 sudo nano /etc/php/8.3/fpm/php.ini
 ```
-Sửa 2 dòng (chừa margin cho multipart overhead so với trần 50MB của app):
+Sửa 3 dòng (chừa margin cho multipart overhead so với trần 50MB của app):
 ```ini
 upload_max_filesize = 55M
 post_max_size = 55M
+max_file_uploads = 60
 ```
 ```bash
 sudo systemctl restart php8.3-fpm
 ```
+
+`max_file_uploads` (mặc định **20**) là dòng dễ bỏ sót nhất, vì nó hỏng theo kiểu
+IM LẶNG: chọn 30 ảnh combo thì PHP **cắt bỏ phần thừa ngay ở tầng SAPI**, Laravel chỉ
+thấy 20 tệp, validate pass, flash báo "đã tải lên" — admin không hề biết mất 10 ảnh.
+Không có exception, không có log. Tầng app đã bỏ trần số tệp mỗi lượt
+(`ComboController::storeImage`, bopcamping-p8h6) nên trần thật giờ CHÍNH LÀ dòng này.
+
+Kiểm tra giá trị đang chạy (đọc từ FPM, không phải CLI — hai bản php.ini khác nhau):
+```bash
+php -i | grep -E 'max_file_uploads|upload_max_filesize|post_max_size'   # CLI, chỉ tham khảo
+curl -s https://<domain>/up | head -1   # app còn sống sau khi restart FPM
+```
+Muốn chắc chắn giá trị FPM: tạm thêm `<?php phpinfo();` vào một file trong `public/`,
+xem cột "Local Value", rồi **xoá file đó ngay**.
 
 ### 2.3 Tạo database MySQL
 

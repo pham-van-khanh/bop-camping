@@ -154,11 +154,14 @@ class ComboController extends Controller
 
     public function storeImage(Request $request, Combo $combo): RedirectResponse
     {
+        // Không giới hạn số tệp mỗi lượt (bopcamping-p8h6). Trần thật nằm ở PHP:
+        // `max_file_uploads` (mặc định 20) CẮT ÂM THẦM các tệp thừa — không báo lỗi,
+        // không exception, admin tưởng đã lên hết. Đã nâng trên server, xem mục 2.2b
+        // trong artifacts/deploy_runbook.md.
         $request->validate([
-            'images' => ['required', 'array', 'max:12'],
+            'images' => ['required', 'array'],
             'images.*' => ['file', MediaType::MIMES_RULE, 'max:51200'], // ≤50MB
         ], [
-            'images.max' => 'Tối đa 12 ảnh/video mỗi lần.',
             'images.*.mimetypes' => 'Chỉ nhận ảnh (jpg, png, gif, webp) hoặc video (mp4, webm, mov).',
             'images.*.max' => 'Mỗi tệp tối đa 50MB.',
         ]);

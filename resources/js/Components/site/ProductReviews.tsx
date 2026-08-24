@@ -1,3 +1,4 @@
+import MediaLightbox from '@/Components/MediaLightbox';
 import MediaThumb, { type ReviewMedia } from '@/Components/site/MediaThumb';
 import { useForm } from '@inertiajs/react';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -455,11 +456,18 @@ function ReviewModalView({
     targetName: string;
     onClose: () => void;
 }) {
+    const [zoom, setZoom] = useState<number | null>(null);
+
     useEffect(() => {
-        const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
+        // Khi lightbox đang mở, Esc là của nó — nếu không chặn ở đây thì một lần Esc
+        // đóng luôn cả modal đánh giá, khách mất chỗ đang đọc (bopcamping-ydls).
+        const onKey = (e: KeyboardEvent) => {
+            if (zoom !== null) return;
+            if (e.key === 'Escape') onClose();
+        };
         window.addEventListener('keydown', onKey);
         return () => window.removeEventListener('keydown', onKey);
-    }, [onClose]);
+    }, [onClose, zoom]);
 
     return (
         <div
@@ -524,15 +532,24 @@ function ReviewModalView({
                             }}
                         >
                             {review.media.map((m, i) => (
-                                <div
+                                // Bấm để mở lightbox (bopcamping-ydls): ô này là
+                                // object-cover nên đã cắt mất mép ảnh — muốn xem đủ thì
+                                // phải phóng to được. Nhãn đặt trên NÚT vì nhánh video
+                                // không có thẻ img để gắn alt (bopcamping-1xja).
+                                <button
                                     key={i}
-                                    className="overflow-hidden rounded-[10px]"
+                                    type="button"
+                                    onClick={() => setZoom(i)}
+                                    aria-label={`Xem lớn ${m.type === 'video' ? 'video' : 'ảnh'} ${i + 1} ${review.reviewer_name} gửi kèm đánh giá`}
+                                    className="block overflow-hidden rounded-[10px]"
                                     style={{ aspectRatio: '1/1' }}
                                 >
                                     {m.type === 'video' ? (
+                                        // Không có `controls`: thẻ video nằm trong
+                                        // <button>, controls bên trong nút thì bấm
+                                        // không được — điều khiển ở lightbox.
                                         <video
                                             src={m.url}
-                                            controls
                                             autoPlay
                                             muted
                                             loop
@@ -542,19 +559,25 @@ function ReviewModalView({
                                     ) : (
                                         <img
                                             src={m.url}
-                                            // Ảnh khách gửi kèm — mang thông tin không
-                                            // có ở đâu khác, và div bọc ngoài không hề
-                                            // có nhãn (bopcamping-1xja).
-                                            alt={`Ảnh ${i + 1} ${review.reviewer_name} gửi kèm đánh giá`}
+                                            alt=""
                                             className="h-full w-full object-cover"
                                         />
                                     )}
-                                </div>
+                                </button>
                             ))}
                         </div>
                     )}
                 </div>
             </div>
+            {zoom !== null && (
+                <MediaLightbox
+                    media={review.media}
+                    index={zoom}
+                    onClose={() => setZoom(null)}
+                    onNav={setZoom}
+                    subject={`${review.reviewer_name} gửi kèm đánh giá`}
+                />
+            )}
         </div>
     );
 }

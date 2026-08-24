@@ -294,6 +294,37 @@ class AdminComboTest extends TestCase
     }
 
     /**
+     * bopcamping-p8h6 — bỏ trần 12 tệp/lượt. Combo có nhiều món nên bộ ảnh dài; trước
+     * đây admin phải chia lượt mà thông báo lỗi thì chẳng nói vì sao chỉ 12.
+     *
+     * Lưu ý trần THẬT không nằm ở đây: PHP `max_file_uploads` (mặc định 20) cắt âm thầm
+     * phần thừa trước khi Laravel thấy request. Test này không mô phỏng được tầng đó
+     * (nó nằm trong SAPI), nên phần đó là việc của server — xem deploy_runbook 2.2b.
+     *
+     * @test
+     */
+    public function admin_can_upload_more_than_twelve_combo_images_in_one_go(): void
+    {
+        Storage::fake('media');
+        $combo = $this->makeCombo();
+
+        $files = [];
+        for ($i = 1; $i <= 15; $i++) {
+            $files[] = UploadedFile::fake()->image("anh-{$i}.jpg");
+        }
+
+        $this->actingAs($this->admin())
+            ->post(route('admin.combos.images.store', $combo), ['images' => $files])
+            ->assertRedirect()
+            ->assertSessionHasNoErrors()
+            ->assertSessionHas('success');
+
+        $this->assertSame(15, $combo->images()->count());
+        // sort_order phải liên tục 1..15 để thứ tự hiển thị không bị trộn.
+        $this->assertSame(range(1, 15), $combo->images()->orderBy('sort_order')->pluck('sort_order')->all());
+    }
+
+    /**
      * IDOR (CWE-639): không xoá được ảnh qua URL combo khác.
      *
      * @test

@@ -31,6 +31,18 @@ const base = {
     isLoggedIn: true,
 };
 
+const withMedia = {
+    id: 1,
+    reviewer_name: 'Hà',
+    rating: 5,
+    content: 'Trọn bộ ổn',
+    meta: 'Tháng 8, 2026',
+    media: [
+        { type: 'image' as const, url: '/media/a.jpg' },
+        { type: 'image' as const, url: '/media/b.jpg' },
+    ],
+};
+
 beforeEach(() => {
     posted.urls = [];
 });
@@ -69,6 +81,67 @@ describe('ProductReviews — dùng chung cho sản phẩm và combo', () => {
         render(<ProductReviews {...base} />);
 
         expect(screen.getByText(/Chưa có đánh giá nào/)).toBeVisible();
+    });
+
+    it('bấm ảnh trong modal thì mở lightbox, chuyển được ảnh và Esc đóng lightbox trước', async () => {
+        render(
+            <ProductReviews
+                {...base}
+                reviews={[withMedia]}
+                summary={{ count: 1, avg: 5 }}
+            />,
+        );
+        await userEvent.click(screen.getByRole('button', { name: 'Xem' }));
+
+        // Ô ảnh trong modal phải là NÚT bấm được — trước đây là div trơn (bopcamping-ydls).
+        await userEvent.click(
+            screen.getByRole('button', {
+                name: /Xem lớn ảnh 1 Hà gửi kèm đánh giá/,
+            }),
+        );
+
+        const box = screen.getByRole('dialog', { name: 'Xem ảnh đính kèm' });
+        expect(box).toBeVisible();
+        expect(screen.getByText('1 / 2')).toBeVisible();
+        // object-contain: ảnh khách gửi kèm là bằng chứng, không được cắt mép.
+        expect(
+            screen.getByAltText(/Ảnh Hà gửi kèm đánh giá \(1\/2\)/),
+        ).toHaveClass('object-contain');
+
+        await userEvent.click(screen.getByRole('button', { name: 'Ảnh sau' }));
+        expect(screen.getByText('2 / 2')).toBeVisible();
+
+        // Esc lần đầu chỉ đóng lightbox — modal đánh giá vẫn còn để khách đọc tiếp.
+        await userEvent.keyboard('{Escape}');
+        expect(
+            screen.queryByRole('dialog', { name: 'Xem ảnh đính kèm' }),
+        ).toBeNull();
+        expect(screen.getByText('Combo Cặp Đôi')).toBeVisible();
+    });
+
+    it('bấm nền lightbox chỉ đóng lightbox, không đóng luôn modal đánh giá', async () => {
+        render(
+            <ProductReviews
+                {...base}
+                reviews={[withMedia]}
+                summary={{ count: 1, avg: 5 }}
+            />,
+        );
+        await userEvent.click(screen.getByRole('button', { name: 'Xem' }));
+        await userEvent.click(
+            screen.getByRole('button', {
+                name: /Xem lớn ảnh 1 Hà gửi kèm đánh giá/,
+            }),
+        );
+
+        await userEvent.click(
+            screen.getByRole('dialog', { name: 'Xem ảnh đính kèm' }),
+        );
+
+        expect(
+            screen.queryByRole('dialog', { name: 'Xem ảnh đính kèm' }),
+        ).toBeNull();
+        expect(screen.getByText('Combo Cặp Đôi')).toBeVisible();
     });
 
     it('modal xem ảnh mang tên thứ đang được đánh giá (combo chứ không phải sản phẩm)', async () => {

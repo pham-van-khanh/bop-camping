@@ -1,3 +1,4 @@
+import MediaLightbox from '@/Components/MediaLightbox';
 import SelectInput from '@/Components/admin/SelectInput';
 import AdminLayout from '@/Layouts/AdminLayout';
 import type { PageProps } from '@/types';
@@ -337,103 +338,14 @@ export default function AdminReviews() {
             </div>
 
             {lightbox && (
-                <Lightbox
-                    state={lightbox}
+                <MediaLightbox
+                    media={lightbox.media}
+                    index={lightbox.index}
                     onClose={() => setLightbox(null)}
                     onNav={(i) => setLightbox({ ...lightbox, index: i })}
                 />
             )}
         </>
-    );
-}
-
-function Lightbox({
-    state,
-    onClose,
-    onNav,
-}: {
-    state: { media: Media[]; index: number };
-    onClose: () => void;
-    onNav: (i: number) => void;
-}) {
-    const { media, index } = state;
-    const m = media[index];
-    const prev = () => onNav((index - 1 + media.length) % media.length);
-    const next = () => onNav((index + 1) % media.length);
-
-    useEffect(() => {
-        const onKey = (e: KeyboardEvent) => {
-            if (e.key === 'Escape') onClose();
-            if (e.key === 'ArrowLeft') prev();
-            if (e.key === 'ArrowRight') next();
-        };
-        window.addEventListener('keydown', onKey);
-        return () => window.removeEventListener('keydown', onKey);
-    }, [index]);
-
-    return (
-        <div
-            onClick={onClose}
-            className="fixed inset-0 z-[95] flex items-center justify-center p-6"
-            style={{ background: 'rgba(12,16,8,.82)' }}
-        >
-            <button
-                onClick={onClose}
-                aria-label="Đóng"
-                className="absolute right-4 top-4 grid h-10 w-10 place-items-center rounded-full bg-white/15 text-[20px] text-white"
-            >
-                ×
-            </button>
-            {media.length > 1 && (
-                <>
-                    <button
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            prev();
-                        }}
-                        className="absolute left-4 grid h-11 w-11 place-items-center rounded-full bg-white/15 text-[22px] text-white"
-                    >
-                        ‹
-                    </button>
-                    <button
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            next();
-                        }}
-                        className="absolute right-4 grid h-11 w-11 place-items-center rounded-full bg-white/15 text-[22px] text-white"
-                        style={{ top: '50%' }}
-                    >
-                        ›
-                    </button>
-                </>
-            )}
-            <div
-                onClick={(e) => e.stopPropagation()}
-                className="max-h-[86vh] max-w-[90vw]"
-            >
-                {m.type === 'video' ? (
-                    <video
-                        src={m.url}
-                        controls
-                        autoPlay
-                        className="max-h-[86vh] max-w-[90vw] rounded-[12px]"
-                    />
-                ) : (
-                    <img
-                        src={m.url}
-                        // Đây là nội dung CHÍNH của lightbox; div bọc chỉ có class, cạnh
-                        // ảnh chỉ có bộ đếm "1 / n" nên alt rỗng là xoá hẳn nội dung.
-                        alt={`Ảnh khách gửi kèm đánh giá (${index + 1}/${media.length})`}
-                        className="max-h-[86vh] max-w-[90vw] rounded-[12px] object-contain"
-                    />
-                )}
-                {media.length > 1 && (
-                    <div className="mt-2 text-center font-mono text-[12px] text-white/70">
-                        {index + 1} / {media.length}
-                    </div>
-                )}
-            </div>
-        </div>
     );
 }
 
