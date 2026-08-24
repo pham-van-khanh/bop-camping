@@ -16,6 +16,6 @@
         <x-mail.button :href="$reviewUrl">Viết đánh giá ★</x-mail.button>
     </div>
     <p style="text-align:center;font-size:12px;color:#a39b88;line-height:1.6;margin:0;">
-        Link riêng cho đơn của bạn, không cần đăng nhập. Đánh giá hiển thị sau khi được duyệt.
+        Link riêng cho đơn của bạn, không cần đăng nhập.
     </p>
 </x-mail.brand>
