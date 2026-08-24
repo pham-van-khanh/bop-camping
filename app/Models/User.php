@@ -147,15 +147,52 @@ class User extends Authenticatable
     {
         return OrderItem::query()
             ->where('product_id', $productId)
-            ->whereHas('order', fn (Builder $q) => $q->where('status', 'returned')
-                ->where(function (Builder $w) {
-                    $w->where('user_id', $this->id);
-                    if ($this->phone) {
-                        $w->orWhere('customer_phone', $this->phone);
-                    }
-                }))
+            ->whereHas('order', fn (Builder $q) => $this->scopeReturnedOwnOrders($q))
             ->latest('id')
             ->value('id');
+    }
+
+    /**
+     * Khách đủ điều kiện đánh giá COMBO: có đơn ĐÃ TRẢ chứa combo này.
+     *
+     * Combo lúc checkout bị bung thành nhiều order_items (mỗi món con một dòng), tất cả
+     * cùng `combo_id` + `combo_group_uuid` — nên "đã thuê combo" = tồn tại dòng nào mang
+     * `combo_id` đó. Cố ý KHÔNG suy ra từ việc khách thuê lẻ đủ các món giống combo:
+     * đánh giá combo phải là của người thật sự đặt trọn bộ.
+     *
+     * Khác `reviewableOrderItemId()` ở chỗ dùng làm CỔNG CHẶN (không có vé thì không cho
+     * gửi), chứ không chỉ để gắn meta "X ngày".
+     */
+    public function reviewableComboOrderItemId(int $comboId): ?int
+    {
+        return OrderItem::query()
+            ->where('combo_id', $comboId)
+            ->whereHas('order', fn (Builder $q) => $this->scopeReturnedOwnOrders($q))
+            ->latest('id')
+            ->value('id');
+    }
+
+    /** Đã từng thuê và trả đồ (bất kể món gì) — cổng cho đánh giá tổng thể shop ở trang chủ. */
+    public function hasReturnedOrder(): bool
+    {
+        return $this->scopeReturnedOwnOrders(Order::query())->exists();
+    }
+
+    /**
+     * Lọc còn lại đơn ĐÃ TRẢ thuộc về khách này — một chỗ duy nhất giữ luật "đơn của tôi".
+     *
+     * Khớp theo user_id HOẶC số điện thoại: khách từng đặt lúc chưa đăng nhập thì đơn chỉ
+     * có customer_phone, không có user_id.
+     */
+    private function scopeReturnedOwnOrders(Builder $query): Builder
+    {
+        return $query->where('status', 'returned')
+            ->where(function (Builder $w) {
+                $w->where('user_id', $this->id);
+                if ($this->phone) {
+                    $w->orWhere('customer_phone', $this->phone);
+                }
+            });
     }
 
     /**

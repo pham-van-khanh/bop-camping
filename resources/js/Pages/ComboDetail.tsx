@@ -1,6 +1,10 @@
 import { COMBO_GRAD } from '@/Components/site/ComboCard';
 import DateRangeCalendar from '@/Components/site/DateRangeCalendar';
 import PickupReturnNote from '@/Components/site/PickupReturnNote';
+import ProductReviews, {
+    type ReviewItem,
+    type ReviewSummary,
+} from '@/Components/site/ProductReviews';
 import SiteLayout from '@/Layouts/SiteLayout';
 import { emit, EVENTS } from '@/lib/bus';
 import {
@@ -71,11 +75,21 @@ type ComboStore = { id: number; name: string; slug: string; served: boolean };
 interface Props {
     combo: ComboData;
     stores?: ComboStore[];
+    reviews?: ReviewItem[];
+    review_summary?: ReviewSummary;
+    /** Đã thuê & trả combo này chưa — cổng gửi đánh giá (bopcamping-saeb). */
+    can_review?: boolean;
 }
 
-export default function ComboDetail({ combo, stores = [] }: Props) {
+export default function ComboDetail({
+    combo,
+    stores = [],
+    reviews = [],
+    review_summary = { count: 0, avg: 0 },
+    can_review = false,
+}: Props) {
     // Bậc giảm dài ngày là prop DÙNG CHUNG của mọi trang — không cần controller truyền thêm.
-    const { durationTiers } = usePage<PageProps>().props;
+    const { durationTiers, auth } = usePage<PageProps>().props;
     // Khung giờ shop: đọc rời khỏi PageProps vì type SiteInfo chưa khai các trường giờ —
     // ProductDetail cũng làm y hệt, giữ giống nhau để hai trang không lệch.
     const site = (
@@ -1087,6 +1101,32 @@ export default function ComboDetail({ combo, stores = [] }: Props) {
                         </div>
                     </div>
                 </div>
+
+                {/* Đánh giá combo (bopcamping-saeb) — cuối trang như trang sản phẩm.
+                    Chỉ khách đã thuê & trả combo này gửi được, nên khi chưa đủ điều kiện
+                    thì hiện lời nhắc thay cho form. */}
+                <section className="mt-12">
+                    <div className="mb-1 font-mono text-[12px] font-bold tracking-[0.14em] text-campfire">
+                        ĐÁNH GIÁ COMBO
+                    </div>
+                    <h2 className="mb-2 text-[20px] font-extrabold tracking-tight text-ink">
+                        Khách đã thuê nói gì về {combo.name}
+                    </h2>
+                    <ProductReviews
+                        submitUrl={route('combos.reviews.store', combo.slug)}
+                        targetName={combo.name}
+                        reviews={reviews}
+                        summary={review_summary}
+                        canReview={can_review}
+                        isLoggedIn={!!auth.user}
+                        requireRented
+                        gateHint={
+                            auth.user
+                                ? 'Chỉ khách đã thuê trọn bộ combo này (và đã trả đồ) mới đánh giá được — để đánh giá combo luôn là trải nghiệm thật của người dùng cả bộ.'
+                                : 'Đăng nhập bằng số điện thoại đã đặt combo này để viết đánh giá.'
+                        }
+                    />
+                </section>
             </main>
 
             {/* Lightbox */}

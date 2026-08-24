@@ -17,11 +17,13 @@ class ReviewController extends Controller
         $status = $request->string('status')->toString() ?: 'pending';
         $category = $request->string('category')->toString();
 
-        $query = Review::with(['images', 'product:id,name'])->latest();
+        $query = Review::with(['images', 'product:id,name', 'combo:id,name'])->latest();
         if (in_array($status, ['pending', 'approved', 'rejected'], true)) {
             $query->where('status', $status);
         }
-        if (in_array($category, ['system', 'product'], true)) {
+        // Review::CATEGORIES là nguồn duy nhất — thêm loại đánh giá mới thì bộ lọc tự có,
+        // không phải sửa lại danh sách gõ tay ở đây (bopcamping-saeb).
+        if (in_array($category, Review::CATEGORIES, true)) {
             $query->where('category', $category);
         }
 
@@ -34,6 +36,7 @@ class ReviewController extends Controller
             'status' => $r->status,
             'admin_note' => $r->admin_note,
             'product' => $r->product ? ['id' => $r->product->id, 'name' => $r->product->name] : null,
+            'combo' => $r->combo ? ['id' => $r->combo->id, 'name' => $r->combo->name] : null,
             'created_at' => $r->created_at->format('d/m/Y H:i'),
             'media' => $r->images->map(fn ($m) => ['type' => $m->type, 'url' => Storage::disk('media')->url($m->path)])->values(),
         ]);

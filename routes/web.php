@@ -62,6 +62,14 @@ Route::get('/combos', [ComboController::class, 'index'])->name('combos');
 Route::get('/combos/{slug}', [ComboController::class, 'show'])->name('combos.show');
 // Check tồn kho realtime theo khoảng ngày (Case 4) — fetch từ trang chi tiết
 Route::get('/combos/{slug}/kha-dung', [ComboController::class, 'availability'])->name('combos.availability')->middleware('throttle:60,1');
+// Đánh giá combo (bopcamping-saeb) — KHÁC đánh giá sản phẩm: bắt buộc đăng nhập và phải
+// đã thuê đúng combo này (controller chặn tiếp), vì đánh giá "trọn bộ" chỉ người đặt trọn
+// bộ mới nói được.
+Route::post('/combos/{slug}/danh-gia', [ReviewController::class, 'storeForCombo'])->name('combos.reviews.store')
+    ->middleware(['auth', 'throttle:10,1']);
+// Đánh giá tổng thể shop từ trang chủ — cũng chặn theo "đã thuê và trả đồ".
+Route::post('/danh-gia-shop', [ReviewController::class, 'storeSystem'])->name('reviews.system.store')
+    ->middleware(['auth', 'throttle:10,1']);
 Route::get('/gio-thue', [CartController::class, 'index'])->name('cart');
 // Làm tươi giỏ: trả giá/vị trí mới nhất theo ids (giỏ ở localStorage có thể đã cũ)
 Route::get('/gio-thue/lam-tuoi', [CartController::class, 'refresh'])->name('cart.refresh')->middleware('throttle:60,1');

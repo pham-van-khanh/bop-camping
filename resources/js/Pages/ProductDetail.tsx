@@ -1543,8 +1543,8 @@ export default function ProductDetail({
                 {/* 1.5: đánh giá chuyển xuống cuối trang (carousel + form + modal) */}
                 <section className="mt-12">
                     <ProductReviews
-                        productSlug={product.slug}
-                        productName={product.name}
+                        submitUrl={route('reviews.store', product.slug)}
+                        targetName={product.name}
                         reviews={reviews}
                         summary={review_summary}
                         canReview={can_review}
