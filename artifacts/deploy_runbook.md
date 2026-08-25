@@ -1,14 +1,14 @@
 # Runbook Deploy BopCamping lên VPS Linux
 
 > Hướng dẫn từng bước dựng server và deploy. Quyết định kiến trúc: [adr_deployment.md](adr_deployment.md).
-> Quy ước: thay `bopcamping.vn` bằng domain thật, `<...>` bằng giá trị của bạn.
+> Domain production: **bopcamping.com**. Quy ước: `<...>` là giá trị cần bạn tự điền.
 > Lệnh `$` chạy trên VPS với user thường (có sudo) trừ khi ghi rõ.
 
 ---
 
 ## Giai đoạn 0 — Mua/đăng ký (làm trước, ngoài server)
 
-- [ ] **Tên miền** — vd `bopcamping.vn` (Mắt Bão/PA/Tenten cho `.vn`, hoặc Cloudflare/Namecheap cho `.com`).
+- [ ] **Tên miền** — `bopcamping.com` (Cloudflare/Namecheap...).
 - [ ] **VPS** — Ubuntu 24.04 LTS, ≥1GB RAM (khuyến nghị 2GB). Lấy **IP public** + mật khẩu/SSH key root.
 - [ ] **Tài khoản gửi mail SMTP** — Gmail App Password (Google Account → Security → App passwords; cần bật 2FA), hoặc Brevo/Resend.
 - [ ] **Trỏ DNS:** tạo bản ghi A `@` và `www` → IP của VPS. Chờ DNS lan (vài phút–vài giờ).
@@ -155,7 +155,7 @@ nano .env
 APP_NAME="BopCamping"
 APP_ENV=production
 APP_DEBUG=false
-APP_URL=https://bopcamping.vn
+APP_URL=https://bopcamping.com
 
 DB_CONNECTION=mysql
 DB_HOST=127.0.0.1
@@ -166,7 +166,7 @@ DB_PASSWORD=<MAT_KHAU_DB_MANH>
 
 SESSION_DRIVER=database
 SESSION_SECURE_COOKIE=true
-SESSION_DOMAIN=bopcamping.vn
+SESSION_DOMAIN=bopcamping.com
 
 QUEUE_CONNECTION=database
 CACHE_STORE=database
@@ -174,7 +174,7 @@ FILESYSTEM_DISK=public
 
 # Tài khoản admin (seed lần đầu) — ADMIN_PASSWORD bắt buộc ở production
 ADMIN_PHONE=0976544370
-ADMIN_EMAIL=admin@bopcamping.vn
+ADMIN_EMAIL=admin@bopcamping.com
 ADMIN_PASSWORD=<MAT_KHAU_ADMIN_MANH>
 
 MAIL_MAILER=smtp
@@ -183,7 +183,7 @@ MAIL_PORT=587
 MAIL_USERNAME=<email_gui@gmail.com>
 MAIL_PASSWORD=<app_password_16_ky_tu>
 MAIL_SCHEME=tls
-MAIL_FROM_ADDRESS="no-reply@bopcamping.vn"
+MAIL_FROM_ADDRESS="no-reply@bopcamping.com"
 MAIL_FROM_NAME="BopCamping"
 ```
 
@@ -250,7 +250,7 @@ gzip_types text/plain text/css text/xml application/xml application/javascript
 
 server {
     listen 80;
-    server_name bopcamping.vn www.bopcamping.vn;
+    server_name bopcamping.com www.bopcamping.com;
     root /var/www/bopcamping/public;
 
     index index.php;
@@ -309,7 +309,7 @@ sudo nginx -t && sudo systemctl reload nginx
 ### 4.2 SSL Let's Encrypt
 
 ```bash
-sudo certbot --nginx -d bopcamping.vn -d www.bopcamping.vn
+sudo certbot --nginx -d bopcamping.com -d www.bopcamping.com
 # Chọn redirect HTTP → HTTPS khi được hỏi. Certbot tự thêm cron gia hạn.
 ```
 
@@ -394,7 +394,7 @@ php artisan orders:send-pickup-reminders   # chạy tay 1 lần để test (ch�
 
 ## Giai đoạn 6 — Kiểm tra (smoke test)
 
-- [ ] Mở `https://bopcamping.vn` → trang chủ hiện, có khoá HTTPS, không có cảnh báo.
+- [ ] Mở `https://bopcamping.com` → trang chủ hiện, có khoá HTTPS, không có cảnh báo.
 - [ ] Vào trang thuê đồ → đặt thử một đơn → **nhận được mail OTP** (kiểm tra queue chạy).
 - [ ] Đăng nhập admin (`/admin/...`) bằng mật khẩu mới → vào được dashboard.
 - [ ] Ảnh sản phẩm hiển thị (storage link OK).
@@ -451,7 +451,7 @@ APP_NAME="BopCamping"
 APP_ENV=production
 APP_KEY=                      # php artisan key:generate sinh ra
 APP_DEBUG=false
-APP_URL=https://bopcamping.vn
+APP_URL=https://bopcamping.com
 
 APP_LOCALE=vi
 APP_FALLBACK_LOCALE=en
@@ -469,7 +469,7 @@ DB_PASSWORD=<MAT_KHAU_DB_MANH>
 SESSION_DRIVER=database
 SESSION_LIFETIME=120
 SESSION_SECURE_COOKIE=true
-SESSION_DOMAIN=bopcamping.vn
+SESSION_DOMAIN=bopcamping.com
 
 QUEUE_CONNECTION=database
 CACHE_STORE=database
@@ -482,7 +482,7 @@ MAIL_PORT=587
 MAIL_USERNAME=<email_gui@gmail.com>
 MAIL_PASSWORD=<app_password>
 MAIL_SCHEME=tls
-MAIL_FROM_ADDRESS="no-reply@bopcamping.vn"
+MAIL_FROM_ADDRESS="no-reply@bopcamping.com"
 MAIL_FROM_NAME="BopCamping"
 
 VITE_APP_NAME="${APP_NAME}"
