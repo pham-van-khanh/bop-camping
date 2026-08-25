@@ -3,8 +3,13 @@ import '@testing-library/jest-dom/vitest';
 /**
  * jsdom không có IntersectionObserver / matchMedia — framer-motion và một số
  * component dùng tới. Stub tối thiểu để render không nổ.
+ *
+ * Guard bằng `typeof ... !== 'function'`, KHÔNG dùng `'matchMedia' in window`:
+ * jsdom 29 khai báo sẵn thuộc tính `matchMedia` (nhưng không implement, gọi vào
+ * ra `undefined`) nên `in` luôn trả true và bỏ qua stub bên dưới — mọi component
+ * gọi `window.matchMedia(...)` sẽ nổ "is not a function" ngay khi render.
  */
-if (!('matchMedia' in window)) {
+if (typeof window.matchMedia !== 'function') {
     Object.defineProperty(window, 'matchMedia', {
         writable: true,
         value: (query: string) => ({

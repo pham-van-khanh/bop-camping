@@ -58,6 +58,10 @@ export default function HeroSlideshow({
     const [index, setIndex] = useState(0);
     const [paused, setPaused] = useState(false);
     const reduced = useRef(prefersReducedMotion());
+    // Chỉ slide đầu (khớp <link rel=preload> ở app.blade.php) tải ngay — 6 slide còn
+    // lại tải khi thực sự sắp cần, không phải lúc mount (bopcamping-vq7t: trước đây
+    // cả 7 ảnh ~1.3MB tải cùng lúc dù 6 ảnh đang ẩn, PageSpeed mobile báo LCP 5.3s).
+    const [loaded, setLoaded] = useState<Set<number>>(() => new Set([0]));
 
     // Dùng banner hero từ admin; nếu chưa có thì rơi về 7 ảnh mặc định.
     const SLIDES = slides && slides.length > 0 ? slides : DEFAULT_SLIDES;
@@ -68,6 +72,25 @@ export default function HeroSlideshow({
     );
     const next = useCallback(() => go(index + 1), [go, index]);
     const prev = useCallback(() => go(index - 1), [go, index]);
+
+    const markLoaded = useCallback((i: number) => {
+        setLoaded((prev) => (prev.has(i) ? prev : new Set(prev).add(i)));
+    }, []);
+
+    // Slide đang hiện thì chắc chắn phải có ảnh.
+    useEffect(() => {
+        markLoaded(index);
+    }, [index, markLoaded]);
+
+    // Tải trước slide kế tiếp sau một nhịp nghỉ (không phải ngay lúc mount), để lúc
+    // autoplay chuyển ảnh không bị chớp nền trống mà vẫn không cạnh tranh băng thông
+    // với ảnh LCP lúc trang mới vào.
+    useEffect(() => {
+        const nextIndex = (index + 1) % total;
+        if (loaded.has(nextIndex)) return;
+        const id = window.setTimeout(() => markLoaded(nextIndex), 1500);
+        return () => window.clearTimeout(id);
+    }, [index, total, loaded, markLoaded]);
 
     // Tự chạy: dừng khi hover, khi tab ẩn, hoặc khi giảm chuyển động.
     useEffect(() => {
@@ -120,9 +143,13 @@ export default function HeroSlideshow({
                                         ? 'kenburns h-full w-full'
                                         : 'h-full w-full'
                                 }
-                                style={{
-                                    background: `url(${s.src}) center/cover no-repeat`,
-                                }}
+                                style={
+                                    loaded.has(i)
+                                        ? {
+                                              background: `url(${s.src}) center/cover no-repeat`,
+                                          }
+                                        : undefined
+                                }
                             />
                         </div>
                     ))}
@@ -189,7 +216,14 @@ export default function HeroSlideshow({
                                     className="h-8 flex-none rounded-[8px] bg-cover bg-center transition-all duration-300"
                                     style={{
                                         width: active ? 54 : 40,
-                                        backgroundImage: `url(${s.src})`,
+                                        // Nút thumbnail dùng chung URL ảnh full-size với slide
+                                        // chính — trước khi slide đó được tải (xem `loaded`
+                                        // ở trên), đừng tự ý tải qua đây; chip màu tạm thay chỗ.
+                                        ...(loaded.has(i)
+                                            ? {
+                                                  backgroundImage: `url(${s.src})`,
+                                              }
+                                            : { background: '#25301a' }),
                                         opacity: active ? 1 : 0.55,
                                         outline: active
                                             ? '2px solid #bfe06a'
