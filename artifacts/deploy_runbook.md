@@ -231,23 +231,40 @@ php artisan view:cache
 
 ## Giai đoạn 4 — Nginx + HTTPS
 
+> ⚠️ **Lệch giữa runbook và thực tế (phát hiện 2026-08-25)**: production đang chạy
+> qua một pipeline deploy khác với mô tả "Giai đoạn 3" ở trên — file site tên
+> **`bopcamping-production`** (không phải `bopcamping`), root là
+> **`/var/www/production/current/public`** (deploy kiểu release/symlink, không phải
+> `/var/www/bopcamping/public`). Trước khi dựng lại server từ đầu bằng runbook này,
+> xác nhận lại tên/đường dẫn thật bằng `sudo nginx -T | grep -n "server_name\|root"`
+> — đừng tin mù các đường dẫn ở Giai đoạn 3/5, chúng có thể đã lỗi thời.
+
 ### 4.1 Cấu hình Nginx
 
+Gzip đặt ở **`/etc/nginx/nginx.conf`** (context `http`, áp dụng cho mọi site) —
+KHÔNG lặp lại `gzip on;` trong file site, nginx sẽ báo lỗi
+`"gzip" directive is duplicate` vì Ubuntu mặc định đã có `gzip on;` sẵn trong
+`nginx.conf`, chỉ các dòng tinh chỉnh còn bị comment:
+
+```bash
+sudo nano /etc/nginx/nginx.conf
+```
+Trong block `http { ... }`, sau dòng `gzip on;` có sẵn, bật thêm (bỏ `#`, chỉnh theo mẫu):
+```nginx
+gzip_vary on;
+gzip_proxied any;
+gzip_comp_level 6;
+gzip_min_length 512;
+gzip_types text/plain text/css text/xml application/xml application/javascript
+    application/json image/svg+xml font/ttf font/otf;
+```
+
+Rồi cấu hình site (thay đúng tên file đang thực sự bật trong
+`/etc/nginx/sites-enabled/` — xem cảnh báo đầu Giai đoạn 4):
 ```bash
 sudo nano /etc/nginx/sites-available/bopcamping
 ```
 ```nginx
-# Nén text response — JS/CSS app chạy build hiện ~350KB raw, gzip đưa về ~110KB
-# (đúng số "gzip" mà `npm run build` in ra). Không nén ảnh/video: đã là định dạng
-# nén sẵn (webp/mp4), gzip thêm lần nữa chỉ tốn CPU mà không nhỏ hơn.
-gzip on;
-gzip_vary on;
-gzip_comp_level 6;
-gzip_min_length 512;
-gzip_proxied any;
-gzip_types text/plain text/css text/xml application/xml application/javascript
-    application/json image/svg+xml font/ttf font/otf;
-
 server {
     listen 80;
     server_name bopcamping.com www.bopcamping.com;
@@ -296,6 +313,9 @@ server {
 }
 ```
 
+> Dùng `sudo nginx -t` trước khi reload — nếu báo `"gzip" directive is duplicate`
+> nghĩa là bạn quên bỏ block gzip khỏi file site (nó phải nằm ở `nginx.conf` như trên).
+>
 > **Vì sao KHÔNG đổi driver cache/session/queue sang Redis ở đây**: đúng là
 > `CACHE_STORE`/`SESSION_DRIVER`/`QUEUE_CONNECTION` đang là `database` (mỗi lần
 > đọc/ghi session là 1 query MySQL), nhưng lợi ích nhỏ hơn nhiều so với 2 việc trên
