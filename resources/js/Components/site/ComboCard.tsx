@@ -20,6 +20,8 @@ export type ComboCardData = {
     savings_percent: number;
     suitable_for: number | null;
     image?: string | null;
+    /** srcset đi kèm ảnh cover — biến thể WebP 400/800/1600px (bopcamping-hjde). */
+    image_srcset?: string | null;
     items_count?: number;
     /** null/undefined = chưa chọn ngày; số = còn bao nhiêu bộ trong khoảng đã chọn. */
     available?: number | null;
@@ -67,6 +69,9 @@ export default function ComboCard({
                     {c.image && (
                         <img
                             src={c.image}
+                            srcSet={c.image_srcset ?? undefined}
+                            sizes="(min-width: 1024px) 300px, (min-width: 640px) 50vw, 100vw"
+                            loading="lazy"
                             alt={c.name}
                             className="absolute inset-0 h-full w-full object-cover"
                         />
