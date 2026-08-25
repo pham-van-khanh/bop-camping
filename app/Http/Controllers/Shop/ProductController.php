@@ -91,7 +91,7 @@ class ProductController extends Controller
         $spots = CampingSpot::ordered()->with(['media', 'nearestServiceLocation'])->get();
 
         // Section "Combo tiết kiệm": 3–4 combo nổi bật theo sort_order (PRD combo mục 6)
-        $featuredCombos = Combo::active()
+        $comboModels = Combo::active()
             ->whereHas('items')
             // serviceLocations: thẻ combo hiện badge cơ sở như thẻ sản phẩm (bopcamping-daet).
             // Không eager load thì badge trống ở trang chủ + N+1 một query mỗi combo.
@@ -99,9 +99,16 @@ class ProductController extends Controller
             ->orderBy('sort_order')
             ->orderBy('name')
             ->limit(4)
-            ->get()
+            ->get();
+        // Ảnh thẻ combo qua MediaVariantService như ProductCard (bopcamping-hjde) — trước
+        // đây serve thẳng file admin upload NGUYÊN BẢN (tới 50MB), bỏ qua hệ resize WebP.
+        MediaVariantService::warm($comboModels->map(fn (Combo $c) => $c->images->first()?->path));
+        $featuredCombos = $comboModels
             ->map(function (Combo $c) {
                 $locations = $c->openLocations();
+                $cover = $c->images->first()
+                    ? MediaVariantService::payload($c->images->first()->path)
+                    : null;
 
                 return [
                     'id' => $c->id,
@@ -113,9 +120,8 @@ class ProductController extends Controller
                     'savings_percent' => $c->savingsPercent(),
                     'suitable_for' => $c->suitable_for,
                     'items_count' => $c->items->count(),
-                    'image' => $c->images->first()
-                        ? Storage::disk('media')->url($c->images->first()->path)
-                        : null,
+                    'image' => $cover['url'] ?? null,
+                    'image_srcset' => $cover['srcset'] ?? null,
                     'locations' => $locations,
                     // openLocationCount() đã memoize nên không thành N+1 (bopcamping-65k9).
                     'all_locations' => $this->openLocationCount() > 0
