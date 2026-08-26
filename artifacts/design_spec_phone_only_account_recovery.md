@@ -269,6 +269,45 @@ phải nằm ở server, và nó nằm đúng chỗ.
 **Dữ liệu test còn trên staging:** `0912000111` (tài khoản bị khoá vĩnh viễn — cố ý, để
 kiểm chứng), `0912000222` + đơn `BOP-3D2054`.
 
+## 7d. Đợt soi thủ công toàn bộ mặt phẳng đăng nhập (26/08/2026)
+
+Soi cả phần `bopcamping-bqsv` (impersonation) vì hai nhánh xếp chồng, lên production cùng lúc.
+Ba lỗi thật, đã sửa trong đợt này:
+
+### (1) Bấm "Đăng xuất" lúc đang xem hộ khách → mất luôn phiên admin
+
+`GuestAuthController::destroy()` gọi `session()->invalidate()`, xoá sạch session **kể cả**
+`impersonator_id`. Admin đang xem hộ mà bấm nút "Đăng xuất" quen tay ở header khách (header
+không phân biệt được hai nút) là rơi ra ngoài hoàn toàn, phải đăng nhập lại từ đầu.
+
+Sửa: `destroy()` phát hiện `impersonator_id` thì **uỷ quyền cho `ImpersonationController::stop()`**
+thay vì đăng xuất. Gọi lại hàm cũ chứ không chép logic — chỗ đó còn kiểm lại `is_admin` ở thời
+điểm thoát, chép ra là sớm muộn cũng lệch. Test: `logging_out_while_impersonating_returns_to_the_admin`
++ `a_normal_customer_logging_out_is_still_logged_out` (chốt hai đầu).
+
+### (2) Ghi SĐT khách vào log
+
+`UserController::impersonate()` log `target_phone`. SĐT là PII, và `target_id` đã đủ truy vết.
+Vi phạm chính quy tắc của dự án (`.claude/rules/code-quality.md` — *"Never log secrets, tokens,
+or PII"*). Đã gỡ.
+
+### (3) Lỗi đua ở debounce tra SĐT
+
+Xem §4f. Có sẵn từ trước nhưng chỉ thành vấn đề khi `lookup` bắt đầu điều khiển `needsSupport`.
+
+### Đã kiểm và KHÔNG có vấn đề
+
+| Điểm kiểm | Kết luận |
+|---|---|
+| Mạo danh lồng nhau (đang xem hộ rồi xem hộ tiếp) | Chặn — phiên lúc đó là khách, không qua nổi `EnsureAdmin` |
+| `impersonator_id` sống sót qua `session()->regenerate()` | Có — `regenerate()` giữ dữ liệu; và code đặt cờ SAU regenerate |
+| Phiên xem hộ có cấp cookie nhớ đăng nhập không | Không — `Auth::login($user)` không kèm `remember` |
+| Admin bị gỡ quyền giữa chừng | `stop()` kiểm lại `is_admin` rồi đá ra hẳn |
+| Route `impersonate.stop` nằm ngoài nhóm admin | Đúng chủ ý; khách gọi nhầm chỉ bị chuyển về trang chủ, không bị đăng xuất |
+| `Auth::guard('web')` có cùng instance với `Auth::login()` không | Có — `AuthManager` cache theo tên guard, mặc định là `web`; nếu khác thì cookie 400 ngày đã không có tác dụng |
+| Hoa/thường trong email | `allowedEmails` lower cả hai vế trước khi so; MySQL `utf8mb4_unicode_ci` cũng không phân biệt |
+| `maskEmail` với phần tên 1–2 ký tự | Giữ 1 ký tự, tối thiểu 2 dấu `*` — không lộ độ dài thật |
+
 ## 8. Còn thiếu (đã ghi bead riêng)
 
 - **Sửa email trong trang tài khoản.** Gõ sai email lúc checkout → tài khoản gắn vĩnh viễn vào

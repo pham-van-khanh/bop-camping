@@ -404,10 +404,11 @@ class UserController extends Controller
 
         $admin = $request->user();
 
+        // KHÔNG ghi SĐT vào log: đó là PII, và `target_id` đã đủ để truy vết
+        // (.claude/rules/code-quality.md — "Never log secrets, tokens, or PII").
         Log::info('admin.user.impersonated', [
             'actor_id' => $admin->id,
             'target_id' => $user->id,
-            'target_phone' => $user->phone,
             'ip' => $request->ip(),
         ]);
 

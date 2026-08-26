@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Shop;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\ImpersonationController;
 use App\Models\Order;
 use App\Models\User;
 use App\Services\Auth\OtpService;
@@ -325,9 +326,21 @@ class GuestAuthController extends Controller
 
     /**
      * Đăng xuất.
+     *
+     * Đang XEM HỘ khách (bopcamping-bqsv) mà bấm "Đăng xuất" ở header khách: đó không phải
+     * đăng xuất của khách — admin không có quyền đá khách ra khỏi phiên của họ — mà chỉ là
+     * kết thúc phiên xem hộ. Không chặn ở đây thì `session()->invalidate()` xoá luôn
+     * `impersonator_id`, admin mất cả phiên quản trị và phải đăng nhập lại từ đầu.
+     *
+     * Gọi thẳng ImpersonationController::stop() thay vì chép lại logic khôi phục: chỗ đó còn
+     * kiểm lại `is_admin` ở thời điểm thoát, chép ra là sớm muộn cũng lệch.
      */
-    public function destroy(Request $request): RedirectResponse
+    public function destroy(Request $request, ImpersonationController $impersonation): RedirectResponse
     {
+        if ($request->session()->has('impersonator_id')) {
+            return $impersonation->stop($request);
+        }
+
         Auth::guard('web')->logout();
 
         $request->session()->invalidate();
