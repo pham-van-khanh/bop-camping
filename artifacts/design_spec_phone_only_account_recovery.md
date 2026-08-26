@@ -185,6 +185,31 @@ DB_CONNECTION=mysql DB_DATABASE=bop_camping_test php artisan test   # toàn bộ
 npm test && npx tsc --noEmit && npm run lint && ./vendor/bin/pint --test && npm run build
 ```
 
+## 7b. Đã đo thật trên staging (26/08/2026)
+
+Vì không chạy được test cục bộ, toàn bộ luật được đo trực tiếp trên
+`staging.bopcamping.cloud` bằng trình duyệt, gồm cả đường **bỏ qua giao diện**.
+
+| # | Kịch bản | Cách đo | Kết quả |
+|---|---|---|---|
+| 1 | Số mới `0912000111` → vào thẳng | Modal đăng nhập | ✅ vào được |
+| 2 | Cookie 400 ngày | Header `Set-Cookie` của `POST /dang-nhap` | ✅ `Max-Age=34560000` (= 400 ngày), hết hạn 30/09/2027 |
+| 3 | Đăng xuất rồi vào lại bằng đúng số đó | Modal đăng nhập | ✅ hiện cảnh báo + nút Zalo (`zalo.me/791036…`), **ẩn** nút "Tiếp tục" |
+| 4 | Kẻ tấn công bỏ qua giao diện: `POST /dang-nhap` với email của họ | `fetch()` trong console | ✅ `auth.user: null`, lỗi ở `phone`, `login_needs_support: true` |
+| 5 | Tài khoản nạn nhân sau đòn tấn công | `lookup()` | ✅ tên vẫn "Khách Chỉ SĐT" (không thành "Kẻ Lạ"), email vẫn là bản tạm |
+| 6 | Điền email lúc checkout (`0912000222`) | `POST /dat-hang` rồi `lookup()` | ✅ `email_mask: "kh***********@example.com"`, `needs_support: false` |
+| 7 | Sau khi gắn email, đăng xuất rồi vào lại | `POST /dang-nhap` chỉ có SĐT | ✅ không vào thẳng, gửi OTP, email trả về **đã che** |
+
+Kịch bản 4 là kịch bản đáng giá nhất: giao diện ẩn nút không phải là bảo mật — chốt chặn
+phải nằm ở server, và nó nằm đúng chỗ.
+
+**Lưu ý còn tồn:** tài khoản đã "lên đời" có email (ca 6) vẫn giữ cookie 400 ngày cấp từ lần
+đăng nhập đầu, vì cookie phát một lần lúc đăng nhập. Không đáng sửa — tài khoản đó nay đã có
+đường OTP để quay lại, chỉ là cookie sống dài hơn 60 ngày cho tới khi họ đăng nhập lại.
+
+**Dữ liệu test còn trên staging:** `0912000111` (tài khoản bị khoá vĩnh viễn — cố ý, để
+kiểm chứng), `0912000222` + đơn `BOP-3D2054`.
+
 ## 8. Còn thiếu (đã ghi bead riêng)
 
 - **Sửa email trong trang tài khoản.** Gõ sai email lúc checkout → tài khoản gắn vĩnh viễn vào
