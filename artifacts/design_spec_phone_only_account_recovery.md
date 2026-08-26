@@ -35,10 +35,34 @@ gõ kèm **email của chính họ** là tạo/chiếm được tài khoản. R�
 ## 3. Ba luật mới (chủ shop chốt)
 
 1. Tài khoản **chỉ có SĐT** → cookie nhớ đăng nhập **400 ngày** trên máy đó (thay vì 60).
-2. SĐT **đã có chủ** mà **không hộp thư nào** nhận được mã → **không cho đăng nhập**; màn hình
-   báo *"cần có email"* kèm **nút Zalo**.
+2. SĐT **đã có chủ** mà **không hộp thư nào** nhận được mã → **bắt buộc nhập email**, mã gửi
+   tới chính email vừa nhập; bên dưới ô email có dòng **liên hệ Zalo** làm lối phụ.
 3. Khách điền email lúc **checkout** → gắn luôn email đó vào tài khoản. Trong 60 ngày tiếp
    theo vẫn vào thẳng nhờ cookie, không phải nhập OTP.
+
+### 3a. Luật 2 đã được nới (chủ shop chốt lại 26/08/2026, sau khi bản chặn lên staging)
+
+Bản đầu **chặn hẳn** nhánh này và bắt nhắn Zalo. Chủ shop thấy quá nặng cho khách thật:
+
+> *"nhắn zalo chỉ là option thôi. vẫn giao diện cũ nhưng bắt khách phải nhập email, phía dưới
+> là liên hệ zalo để được hỗ trợ."*
+
+**Hệ quả bảo mật — nói thẳng, đây là đánh đổi chứ không phải sơ suất.** Mã gửi tới hộp thư
+khách *vừa gõ* chỉ chứng minh "người này mở được hộp thư họ vừa nhập", **không** chứng minh họ
+là chủ số. Vậy nên với **tài khoản chưa gắn email**, người lạ biết SĐT vẫn:
+
+- chiếm được tài khoản (gắn email của họ vào),
+- và xem được **toàn bộ lịch sử đơn** — tên, địa chỉ giao, số điện thoại — vì
+  `User::relatedOrders()` khớp đơn theo `customer_phone`.
+
+Không có cách nào phân biệt chủ số thật với người lạ ở bước này, vì **shop không gửi OTP SMS**
+nên số điện thoại chưa bao giờ được xác thực.
+
+Diện bị ảnh hưởng **chỉ là** tài khoản/SĐT chưa có email nào. Khách đã có email vẫn được bảo vệ
+đầy đủ bởi chốt `allowedEmails` (xem §4c).
+
+Nếu sau này muốn siết lại mà vẫn giữ trải nghiệm: **hỏi thêm mã một đơn cũ** khi SĐT đó có
+lịch sử đơn (số không có đơn thì chẳng có gì để mất, cứ cho vào). Đã ghi bead riêng.
 
 ### 3b. Chốt nghĩa cho luật 3 — chỗ dễ hiểu nhầm nhất
 
@@ -71,19 +95,38 @@ $phoneIsClaimed = $existing !== null
     || Order::where('customer_phone', $data['phone'])->exists();
 ```
 
-### 4c. Chốt chặn Zalo — đặt TRƯỚC khi rẽ nhánh email
+### 4c. Chốt chính còn lại — điều kiện là `isNotEmpty()`, KHÔNG phải `$phoneIsClaimed`
 
-Đặt trước là có chủ ý: chặn **cả** nhánh bỏ trống email lẫn nhánh gõ email lạ. Nếu chỉ chặn
-nhánh bỏ trống thì gõ đại một email là lách được.
+Đây là dòng dễ sửa nhầm nhất trong cả thay đổi. Sau khi nới luật 2, hai khái niệm tách đôi:
+
+| Biến | Nghĩa | Dùng ở đâu |
+|---|---|---|
+| `$phoneIsClaimed` | số đã có tài khoản **hoặc** đã có đơn | quyết định "có được vào thẳng không" |
+| `$allowedEmails` | những hộp thư **đã gắn** với số đó | quyết định "mã được gửi đi đâu" |
+| `$mailboxUnknown` | đã có chủ **nhưng** chưa hộp thư nào | quyết định "có bắt nhập email không" |
 
 ```php
-if ($phoneIsClaimed && $allowedEmails->isEmpty()) {
-    return back()
-        ->withErrors(['phone' => 'Số này cần có email mới đăng nhập được. Nhắn Zalo để shop hỗ trợ.'])
-        ->with('login_needs_support', true)
-        ->withInput();
+// Số ĐÃ CÓ hộp thư → email lạ bị từ chối. Chốt này giữ nguyên, là chốt chính.
+if ($allowedEmails->isNotEmpty() && ! $allowedEmails->contains(Str::lower($email))) { … }
+```
+
+- Đổi nhầm sang `$phoneIsClaimed` → chặn luôn ca `$mailboxUnknown`, **trái quyết định §3a**.
+- Bỏ hẳn điều kiện → **mở lại chiếm tài khoản của khách đã có email**, tức lỗ hổng `bqsv` gốc.
+
+Test `a_stranger_cannot_claim_a_phone_that_has_guest_orders_using_another_email` khoá dòng này.
+
+### 4c-2. Bỏ trống email khi số chưa gắn hộp thư → bắt nhập
+
+```php
+if ($mailboxUnknown) {
+    return back()->withErrors(['email' => 'Vui lòng nhập email để nhận mã xác thực.'])
+        ->with('login_needs_support', true)->withInput();
 }
 ```
+
+Cờ `login_needs_support` nay có nghĩa hẹp: *"số này chưa gắn hộp thư → ô email thành bắt buộc,
+thêm dòng Zalo bên dưới"*. **Không** dùng lại cờ này cho ngõ cụt "email gắn với số đang thuộc
+tài khoản khác" — số đó CÓ hộp thư, bật cờ sẽ hiện đúng câu sai rồi đẩy khách vào chốt §4c.
 
 ### 4d. Cookie 400 ngày
 
@@ -100,36 +143,49 @@ qua OTP bao giờ. **Không** đè lên tài khoản đã có email thật (đ�
 họ sẽ tự đá mình ra khỏi tài khoản). Bỏ qua nếu email đã thuộc tài khoản khác (`users.email`
 là UNIQUE — ghi vào là vỡ ràng buộc, trả 500).
 
-### 4f. Giao diện
+### 4f. Giao diện — vẫn là ô email cũ
 
-`lookup()` trả thêm `needs_support` → LoginModal hiện khối cảnh báo + nút Zalo **ngay khi
-khách vừa gõ xong SĐT**, và **ẩn hẳn** nút "Tiếp tục" (để lại nút xám chỉ khiến khách thử đi
-thử lại).
+`lookup()` trả thêm `needs_support` → LoginModal đổi ô email thành **bắt buộc** ngay khi khách
+gõ xong SĐT: placeholder thành *"Email (bắt buộc)"*, nút "Tiếp tục" khoá tới khi có email hợp
+lệ, và bên dưới thêm một dòng chữ nhỏ *"Chưa có email? Nhắn Zalo để shop hỗ trợ"*.
+
+Không có khối cảnh báo to, không ẩn nút "Tiếp tục" — Zalo là **lối phụ**, không phải lối duy nhất.
 
 Vẫn cần flash `login_needs_support` bên cạnh: với khách **vãng lai** (có đơn cũ, chưa có tài
 khoản), `lookup()` cố tình trả `exists: false` để không lộ "số này từng thuê đồ ở shop" — nên
-chỉ tới lúc bấm gửi mã mới biết.
+chỉ tới lúc bấm gửi mã mới biết. Effect đọc cờ này phải phụ thuộc **cả object `flash`**, không
+phải riêng giá trị boolean: giá trị giữ nguyên `true` giữa hai lần chặn nên effect sẽ không
+chạy lại lần thứ hai.
+
+**Lỗi đua ở debounce tra SĐT** (có sẵn từ trước, nay mới đáng kể): gõ số A → chờ 450ms → bắn
+request A → gõ tiếp thành B → bắn request B; A về sau B sẽ ghi đè trạng thái của B. Từ khi
+`lookup` điều khiển cả `needsSupport`, ghi đè nhầm nghĩa là bắt nhập email cho số không cần
+(hoặc bỏ bắt cho số cần). Đã chặn bằng `if (phone !== lastLookup.current) return;` sau `await`.
 
 ## 5. Cái giá phải trả — nói thẳng
 
 | Ai | Ảnh hưởng |
 |---|---|
-| Khách phone-only mất cookie | Không tự vào lại được, phải nhắn Zalo |
-| Khách vãng lai từng đặt đơn không email | Không tạo được tài khoản bằng SĐT đó |
-| Chủ tài khoản thật, cookie còn hạn | Không ảnh hưởng; điền email lúc checkout là thoát hẳn diện này |
+| Khách phone-only mất cookie | Nhập một email là vào lại được (qua OTP) |
+| Khách vãng lai từng đặt đơn không email | Nhập email là nhận được số đó |
+| **Tài khoản/SĐT chưa có email** | ⚠️ **người lạ biết SĐT chiếm được**, xem trọn lịch sử đơn |
+| Khách đã có email | Không ảnh hưởng — chốt `allowedEmails` (§4c) vẫn bảo vệ đầy đủ |
 
-**Nút Zalo dời rủi ro sang người, không xoá nó.** Kẻ tấn công không phá được OTP thì sẽ nhắn
-Zalo: *"em quên email, anh gắn giúp em email này"*. Người trực **phải** hỏi thông tin một đơn
-cũ (mã đơn / ngày thuê / địa chỉ giao) trước khi gắn email — không có quy tắc này thì toàn bộ
-phần code vừa siết bị vô hiệu ở khâu con người.
+Dòng thứ ba là đánh đổi ở §3a, chủ shop đã biết và chấp nhận. Ghi ở đây để lần sau ai đọc code
+cũng thấy — **không phải sơ suất**.
+
+**Người trực Zalo vẫn cần quy tắc.** Zalo giờ là lối phụ, nhưng vẫn là một mặt tấn công: kẻ lạ
+sẽ nhắn *"em quên email, anh gắn giúp em email này"*. Người trực **phải** hỏi thông tin một đơn
+cũ (mã đơn / ngày thuê / địa chỉ giao) trước khi gắn email.
 
 ## 6. Việc phải làm TRƯỚC khi deploy production
 
 Chủ shop đã chốt **force-logout toàn bộ phiên hiện có** (rotate `remember_token`) ở
-`bopcamping-bqsv`. Ghép với luật mới thì **mọi khách phone-only mất quyền vào cùng một lúc** —
-cookie 400 ngày không cứu được vì họ chưa hề có cookie mới. Tất cả dồn về Zalo trong vài ngày.
+`bopcamping-bqsv`. Sau khi nới luật 2 (§3a), việc này **nhẹ hơn hẳn**: khách phone-only bị đá
+ra chỉ cần nhập một email là vào lại được, không còn dồn hết về Zalo.
 
-**Đếm trước trên production:**
+Vẫn nên **đếm trước** để biết bao nhiêu khách sẽ gặp bước nhập email lạ lẫm — và vì con số này
+chính là **diện chịu rủi ro ở §3a** (số người mà kẻ lạ biết SĐT là chiếm được tài khoản):
 
 ```sql
 SELECT COUNT(*) FROM users u
@@ -141,9 +197,9 @@ WHERE u.is_admin = 0
   );
 ```
 
-- Con số **nhỏ** → deploy thẳng.
-- Con số **lớn** → tách hai đợt: deploy luật mới trước cho khách kịp tích cookie 400 ngày,
-  force-logout sau.
+- Con số **nhỏ** → deploy thẳng, rủi ro §3a không đáng kể.
+- Con số **lớn** → cân nhắc bổ sung bước hỏi mã đơn cũ (bead riêng) trước khi lên production,
+  vì đó chính là số tài khoản đang chiếm được chỉ bằng SĐT.
 
 ## 7. Test
 
@@ -152,15 +208,15 @@ WHERE u.is_admin = 0
 | Test | Đổi gì |
 |---|---|
 | `remember_cookie_lasts_sixty_days` | Đổi tên + đi qua luồng OTP; 60 ngày giờ chỉ đúng cho tài khoản **có email** |
-| `old_phone_account_can_add_email_via_otp` | Thay bằng `a_phone_only_account_can_no_longer_attach_an_email_at_login` — đường này bị bỏ hẳn |
-| `returning_guest_without_a_real_email_is_asked_for_one…` | Thay bằng `a_returning_phone_only_account_is_sent_to_zalo…` |
+| `old_phone_account_can_add_email_via_otp` | Đổi tên thành `a_phone_only_account_can_attach_an_email_at_login`, thêm khẳng định "chưa xác thực thì chưa đổi email" |
+| `returning_guest_without_a_real_email_is_asked_for_one…` | Thay bằng `a_phone_only_account_must_type_an_email_and_is_offered_zalo` (kiểm cả cờ `login_needs_support`) |
+| `a_phone_with_guest_orders_that_carry_no_email_cannot_be_claimed` | Thành `…must_type_an_email` — bỏ trống vẫn chặn, gõ email thì qua |
 
 ### Mới
 
 | Test | Khẳng định |
 |---|---|
 | `remember_cookie_lasts_four_hundred_days_for_a_phone_only_account` | Cookie 400 ngày |
-| `a_phone_with_guest_orders_that_carry_no_email_cannot_be_claimed` | Lỗ hổng ở §2, cả hai nhánh (gõ email lạ + bỏ trống) |
 | `lookup_follows_the_same_rule_as_login_for_a_placeholder_email_account` | `lookup()` và `store()` không lệch nhau |
 | `lookup_flags_an_account_with_no_reachable_mailbox` | `needs_support` bật đúng lúc |
 | `lookup_does_not_reveal_guest_orders_for_a_phone_without_an_account` | Không lộ khách vãng lai |
@@ -185,7 +241,10 @@ DB_CONNECTION=mysql DB_DATABASE=bop_camping_test php artisan test   # toàn bộ
 npm test && npx tsc --noEmit && npm run lint && ./vendor/bin/pint --test && npm run build
 ```
 
-## 7b. Đã đo thật trên staging (26/08/2026)
+## 7b. Đã đo thật trên staging — ĐỢT 1, bản CHẶN (26/08/2026)
+
+> ⚠️ Đợt đo này chạy trên bản **chặn hẳn** (trước khi nới luật 2 ở §3a). Ca 3 và 4 đã đổi hành
+> vi; giữ lại làm hồ sơ. Kết quả đo lại của bản hiện tại ở **§7c**.
 
 Vì không chạy được test cục bộ, toàn bộ luật được đo trực tiếp trên
 `staging.bopcamping.cloud` bằng trình duyệt, gồm cả đường **bỏ qua giao diện**.

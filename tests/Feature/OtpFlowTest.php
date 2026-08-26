@@ -115,35 +115,59 @@ class OtpFlowTest extends TestCase
     }
 
     /**
-     * BỎ HẲN đường "tài khoản chỉ có SĐT tự gắn email ở màn đăng nhập" (bopcamping-kuhg).
+     * Tài khoản chỉ có SĐT tự gắn email ở màn đăng nhập — ĐÁNH ĐỔI chủ shop chốt 26/08/2026.
      *
-     * Trước đây gõ SĐT + một email bất kỳ là gắn được — tiện cho chủ tài khoản, nhưng người lạ
-     * biết SĐT cũng làm được y hệt, và không có cách nào phân biệt hai người đó vì SĐT chưa hề
-     * được xác thực (shop không gửi OTP SMS). Nay chặn cả hai, đẩy sang Zalo để người trực
-     * xác minh bằng thông tin đơn cũ.
+     * Bản trước chặn hẳn nhánh này (bắt nhắn Zalo) vì mã gửi tới hộp thư khách VỪA GÕ chỉ
+     * chứng minh họ mở được hộp thư đó, không chứng minh họ là chủ số. Chủ shop thấy quá nặng
+     * cho khách thật nên đổi: cho gắn email mới, Zalo hạ xuống thành lối phụ.
      *
-     * Chủ tài khoản thật vẫn còn một đường KHÔNG cần Zalo: cookie 400 ngày giữ họ đăng nhập,
-     * và điền email lúc checkout là email tự gắn vào tài khoản (OrderCheckoutTest).
+     * Test này khoá hành vi ĐÃ CHỌN. Rủi ro còn lại ghi ở design_spec §5 — nếu sau này siết
+     * lại thì đây là test phải sửa đầu tiên.
      *
      * @test
      */
-    public function a_phone_only_account_can_no_longer_attach_an_email_at_login(): void
+    public function a_phone_only_account_can_attach_an_email_at_login(): void
     {
         Mail::fake();
         $old = User::create(['name' => 'Khách Cũ', 'phone' => '0912345678']);
-        $placeholder = $old->email;
 
         $this->post(route('guest.login'), [
             'name' => 'Khách Cũ', 'phone' => '0912345678', 'email' => 'that@example.com',
-        ])->assertSessionHasErrors('phone')
+        ])->assertSessionHas('otp_sent', true)->assertSessionHasNoErrors();
+
+        // Chưa xác thực thì CHƯA vào được và tài khoản chưa bị đổi email.
+        $this->assertGuest();
+        $this->assertTrue($old->fresh()->hasPlaceholderEmail());
+
+        $code = null;
+        Mail::assertQueued(OtpMail::class, function (OtpMail $m) use (&$code) {
+            $code = $m->code;
+
+            return true;
+        });
+        $this->post(route('guest.login.verify'), ['code' => $code])->assertRedirect();
+
+        $this->assertAuthenticatedAs($old->fresh());
+        $this->assertSame('that@example.com', $old->fresh()->email);
+    }
+
+    /**
+     * Bỏ trống email cho số chưa gắn hộp thư → BẮT nhập email, kèm cờ để LoginModal hiện thêm
+     * dòng liên hệ Zalo bên dưới ô email. Không cho vào thẳng bằng SĐT (đó là bopcamping-bqsv).
+     *
+     * @test
+     */
+    public function a_phone_only_account_must_type_an_email_and_is_offered_zalo(): void
+    {
+        Mail::fake();
+        User::create(['name' => 'Khách Cũ', 'phone' => '0912345678']);
+
+        $this->post(route('guest.login'), ['name' => 'Khách Cũ', 'phone' => '0912345678'])
+            ->assertSessionHasErrors('email')
             ->assertSessionHas('login_needs_support', true);
 
         $this->assertGuest();
         Mail::assertNothingQueued();
-        // Tài khoản không bị đụng vào: cả email lẫn tên hiển thị đều nguyên vẹn.
-        $old->refresh();
-        $this->assertSame($placeholder, $old->email);
-        $this->assertSame('Khách Cũ', $old->name);
     }
 
     /** @test */
@@ -223,52 +247,35 @@ class OtpFlowTest extends TestCase
     }
 
     /**
-     * ĐỔI HÀNH VI (bopcamping-kuhg): tài khoản chỉ có email TẠM (@bopcamping.local) thì không
-     * hộp thư nào nhận được mã → KHÔNG cho đăng nhập, chỉ đường nhắn Zalo.
+     * Khách VÃNG LAI có đơn cũ nhưng đơn bỏ trống email (email checkout là TUỲ CHỌN).
      *
-     * Bản bqsv trước đó bảo "nhập email đi" — nghe thân thiện nhưng chính là lỗ hổng: gõ email
-     * nào cũng được thì kẻ lạ biết SĐT sẽ gõ email của chính mình vào (xem test dưới).
-     *
-     * @test
-     */
-    public function a_returning_phone_only_account_is_sent_to_zalo_instead_of_being_let_in(): void
-    {
-        Mail::fake();
-        $old = User::create(['name' => 'Khách Cũ', 'phone' => '0912345678']);
-
-        $this->post(route('guest.login'), ['name' => 'Khách Cũ', 'phone' => '0912345678'])
-            ->assertSessionHasErrors('phone')
-            ->assertSessionHas('login_needs_support', true);
-
-        $this->assertGuest();
-        Mail::assertNothingQueued();
-        $this->assertNotNull($old->fresh());
-    }
-
-    /**
-     * LỖ HỔNG CÒN SÓT sau bqsv (bopcamping-kuhg), ca khách VÃNG LAI: chưa có tài khoản, nhưng
-     * đã đặt đơn mà bỏ trống email — email lúc checkout là TUỲ CHỌN nên đây là ca có thật.
-     * Trước kuhg, `$phoneIsClaimed` đếm theo email nên số này bị coi là vô chủ → tạo tài khoản
-     * mới bằng SĐT người khác là xem được đơn của họ.
+     * Bỏ trống email → vẫn KHÔNG cho vào thẳng bằng SĐT (chốt bopcamping-bqsv, không đụng tới),
+     * mà bắt nhập email; gõ email vào thì gắn được như tài khoản email-tạm. Điều này CỐ Ý mở
+     * theo quyết định 26/08/2026 — xem design_spec §5.
      *
      * @test
      */
-    public function a_phone_with_guest_orders_that_carry_no_email_cannot_be_claimed(): void
+    public function a_phone_with_guest_orders_that_carry_no_email_must_type_an_email(): void
     {
         Mail::fake();
         $order = $this->guestOrder();
         $order->forceFill(['customer_email' => null])->save();
 
-        $this->post(route('guest.login'), [
-            'name' => 'Kẻ Lạ', 'phone' => '0912345678', 'email' => 'kela@evil.com',
-        ])->assertSessionHasErrors('phone');
-
-        // Và cả khi bỏ trống email — không được lách bằng cách không gõ gì.
-        $this->post(route('guest.login'), ['name' => 'Kẻ Lạ', 'phone' => '0912345678'])
-            ->assertSessionHasErrors('phone');
+        // Bỏ trống → không tạo tài khoản, không cho vào, đòi email.
+        $this->post(route('guest.login'), ['name' => 'Khách', 'phone' => '0912345678'])
+            ->assertSessionHasErrors('email')
+            ->assertSessionHas('login_needs_support', true);
 
         $this->assertGuest();
         Mail::assertNothingQueued();
+        $this->assertSame(0, User::where('phone', '0912345678')->count());
+
+        // Gõ email → gửi mã tới chính hộp thư đó, nhưng vẫn chưa được vào khi chưa xác thực.
+        $this->post(route('guest.login'), [
+            'name' => 'Khách', 'phone' => '0912345678', 'email' => 'khach@example.com',
+        ])->assertSessionHas('otp_sent', true);
+
+        $this->assertGuest();
         $this->assertSame(0, User::where('phone', '0912345678')->count());
     }
 
@@ -294,7 +301,7 @@ class OtpFlowTest extends TestCase
         $this->assertTrue($user->fresh()->hasPlaceholderEmail());
     }
 
-    /** @test Tài khoản không có hộp thư nào → lookup báo needs_support để modal hiện nút Zalo. */
+    /** @test Không hộp thư nào → needs_support để modal đổi ô email thành BẮT BUỘC + thêm dòng Zalo. */
     public function lookup_flags_an_account_with_no_reachable_mailbox(): void
     {
         User::create(['name' => 'Khách Cũ', 'phone' => '0912345678']);
@@ -371,17 +378,27 @@ class OtpFlowTest extends TestCase
         $this->assertSame('ngoc@example.com', $victim->fresh()->email);
     }
 
-    /** Cùng kịch bản nhưng nạn nhân chỉ có ĐƠN vãng lai, chưa có tài khoản. @test */
+    /**
+     * Cùng kịch bản nhưng nạn nhân chỉ có ĐƠN vãng lai, chưa có tài khoản.
+     *
+     * Đây là chốt chính còn lại sau quyết định 26/08/2026. Điều kiện trong code là
+     * `$allowedEmails->isNotEmpty()`, KHÔNG phải `$phoneIsClaimed` — hai thứ đó nay khác nhau:
+     * đổi nhầm sang `$phoneIsClaimed` là chặn luôn ca số chưa gắn hộp thư (trái ý chủ shop),
+     * còn bỏ hẳn điều kiện là mở lại chiếm tài khoản của khách ĐÃ có email.
+     *
+     * @test
+     */
     public function a_stranger_cannot_claim_a_phone_that_has_guest_orders_using_another_email(): void
     {
         Mail::fake();
-        $this->guestOrder();
+        $this->guestOrder(); // đơn cũ CÓ email thật ngoc@example.com
 
         $this->post(route('guest.login'), [
             'name' => 'Kẻ Lạ', 'phone' => '0912345678', 'email' => 'kela@evil.com',
         ])->assertSessionHasErrors('email');
 
         $this->assertGuest();
+        Mail::assertNothingQueued();
         $this->assertSame(0, User::where('phone', '0912345678')->count());
     }
 

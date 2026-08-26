@@ -67,6 +67,11 @@ export default function LoginModal() {
                     email_mask?: string | null;
                     needs_support?: boolean;
                 } = await res.json();
+                // Phản hồi CŨ về muộn thì bỏ qua. Gõ số A (đợi 450ms, bắn request A) rồi gõ
+                // tiếp thành số B: hai request cùng bay, A về sau B sẽ ghi đè trạng thái của B.
+                // Từ khi lookup điều khiển cả needsSupport, ghi đè nhầm nghĩa là bắt nhập email
+                // cho một số không cần, hoặc bỏ bắt cho số cần.
+                if (phone !== lastLookup.current) return;
                 // Khách quen có email đã xác thực → đăng nhập nhanh bằng SĐT (email server tự dùng).
                 setAccount(
                     j.exists && j.email_mask
@@ -187,9 +192,11 @@ export default function LoginModal() {
     const phoneValid = /^0[0-9]{8,10}$/.test(data.phone.trim());
     const emailTyped = data.email.trim() !== '';
     const emailOk = !emailTyped || /\S+@\S+\.\S+/.test(data.email);
-    // needsSupport → khoá nút: số này không có đường đăng nhập tự động, bấm chỉ nhận lại lỗi.
+    // needsSupport → email thành BẮT BUỘC: số này chưa gắn hộp thư nào, không nhập thì server
+    // không biết gửi mã đi đâu. Khoá nút thay vì để khách bấm rồi nhận lỗi.
     const formValid =
-        phoneValid && !needsSupport && (usingAccountEmail || emailOk);
+        phoneValid &&
+        (usingAccountEmail || (emailOk && (!needsSupport || emailTyped)));
     const codeValid = /^[0-9]{6}$/.test(data.code);
     const bonusText = emailBonus?.enabled
         ? emailBonus.type === 'percent'
@@ -293,33 +300,45 @@ export default function LoginModal() {
                                         autoFocus
                                     />
                                     {needsSupport ? (
-                                        <div
-                                            className="flex flex-col gap-2.5 rounded-[11px] px-3.5 py-3"
-                                            style={{
-                                                background: '#fdf3e7',
-                                                border: '1px solid #e6c9a3',
-                                            }}
-                                            role="alert"
-                                        >
-                                            <p className="text-[13px] leading-[1.55] text-ink">
-                                                Số này <strong>cần có email</strong>{' '}
-                                                mới đăng nhập được. Tài khoản chưa
-                                                gắn email nào nên shop không gửi
-                                                được mã xác thực.
+                                        // Vẫn là ô email cũ, chỉ khác: BẮT BUỘC nhập (nút
+                                        // "Tiếp tục" khoá tới khi có email hợp lệ), kèm dòng
+                                        // Zalo bên dưới làm LỐI PHỤ cho khách không có email —
+                                        // không phải lối duy nhất như bản trước.
+                                        <div>
+                                            <Field
+                                                value={data.email}
+                                                onChange={(v) =>
+                                                    setData('email', v)
+                                                }
+                                                onEnter={() =>
+                                                    formValid &&
+                                                    !processing &&
+                                                    requestOtp()
+                                                }
+                                                placeholder="Email (bắt buộc)"
+                                                inputMode="email"
+                                                error={errors.email}
+                                            />
+                                            <p className="mt-1.5 text-[12.5px] leading-[1.5] text-moss">
+                                                Số này chưa gắn email nên cần
+                                                nhập email để nhận mã xác thực.
+                                                {site?.zalo_oa && (
+                                                    <>
+                                                        {' '}
+                                                        Chưa có email?{' '}
+                                                        <a
+                                                            href={site.zalo_oa}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="font-semibold text-grass underline underline-offset-2"
+                                                        >
+                                                            Nhắn Zalo để shop hỗ
+                                                            trợ
+                                                        </a>
+                                                        .
+                                                    </>
+                                                )}
                                             </p>
-                                            {site?.zalo_oa && (
-                                                <a
-                                                    href={site.zalo_oa}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    className="grid h-11 w-full place-items-center rounded-control text-[15px] font-bold text-white transition hover:opacity-90"
-                                                    style={{
-                                                        background: '#0068ff',
-                                                    }}
-                                                >
-                                                    Nhắn Zalo để shop hỗ trợ
-                                                </a>
-                                            )}
                                         </div>
                                     ) : usingAccountEmail ? (
                                         <div className="flex flex-col gap-1.5">
@@ -387,26 +406,19 @@ export default function LoginModal() {
                                         className="h-12 w-full rounded-[11px] border border-cardBorder bg-white px-3.5 font-mono text-[15px] uppercase tracking-[0.04em] text-ink outline-none focus:border-grass"
                                     />
                                 </div>
-                                {/* Ẩn hẳn khi needsSupport: bấm cũng không đi đâu được, để lại
-                                    một nút xám chỉ khiến khách thử đi thử lại. Nút Zalo phía
-                                    trên mới là hành động duy nhất còn dùng được. */}
-                                {!needsSupport && (
-                                    <button
-                                        onClick={requestOtp}
-                                        disabled={!formValid || processing}
-                                        className="h-[50px] w-full rounded-control text-[16px] font-bold text-white transition disabled:cursor-not-allowed"
-                                        style={{
-                                            background:
-                                                formValid && !processing
-                                                    ? '#557A2B'
-                                                    : '#c4cfae',
-                                        }}
-                                    >
-                                        {processing
-                                            ? 'Đang xử lý…'
-                                            : 'Tiếp tục'}
-                                    </button>
-                                )}
+                                <button
+                                    onClick={requestOtp}
+                                    disabled={!formValid || processing}
+                                    className="h-[50px] w-full rounded-control text-[16px] font-bold text-white transition disabled:cursor-not-allowed"
+                                    style={{
+                                        background:
+                                            formValid && !processing
+                                                ? '#557A2B'
+                                                : '#c4cfae',
+                                    }}
+                                >
+                                    {processing ? 'Đang xử lý…' : 'Tiếp tục'}
+                                </button>
                             </>
                         ) : (
                             <>
