@@ -138,7 +138,7 @@ class AdminUserTest extends TestCase
     }
 
     /** @test */
-    public function customer_created_by_admin_logs_in_without_otp(): void
+    public function customer_created_by_admin_gets_otp_at_the_email_the_admin_typed(): void
     {
         $admin = $this->makeUser(true, '0900000001');
 
@@ -147,6 +147,11 @@ class AdminUserTest extends TestCase
         ])->assertRedirect();
 
         $created = User::where('phone', '0912345678')->first();
+
+        // Rời phiên admin: phần dưới đo luồng khách, actingAs() ở trên giữ admin đăng nhập
+        // suốt test nên không bỏ thì assertGuest() luôn đỏ dù code khách đúng.
+        auth()->logout();
+        $this->flushSession();
 
         // Khách vào bằng SĐT: OTP gửi tới ĐÚNG email admin đã điền hộ, khách không phải gõ
         // lại email của chính mình (bopcamping-bqsv). Chưa xác thực thì chưa vào được.

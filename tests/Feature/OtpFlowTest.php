@@ -11,6 +11,7 @@ use Illuminate\Auth\SessionGuard;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Testing\TestResponse;
 use Tests\TestCase;
 
 /**
@@ -456,7 +457,7 @@ class OtpFlowTest extends TestCase
      * Chạy trọn luồng đăng nhập có email (gửi mã → nhập mã) và trả response của bước cuối —
      * bước duy nhất mang cookie nhớ đăng nhập. Gọi Mail::fake() trước khi dùng.
      */
-    private function loginViaOtp(string $phone, string $email): \Illuminate\Testing\TestResponse
+    private function loginViaOtp(string $phone, string $email): TestResponse
     {
         User::factory()->create([
             'phone' => $phone, 'email' => $email,
