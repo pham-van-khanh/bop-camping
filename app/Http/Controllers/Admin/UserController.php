@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
@@ -383,6 +384,39 @@ class UserController extends Controller
         ]);
 
         return back()->with('success', 'Đã xoá người dùng.');
+    }
+
+    /**
+     * Đăng nhập THAY một khách để hỗ trợ (bopcamping-bqsv) — nút "Đăng nhập" ở /admin/users.
+     *
+     * Cố ý làm thành ĐƯỜNG RIÊNG chứ không thêm ngoại lệ "là admin thì bỏ qua OTP" vào luồng
+     * đăng nhập khách: chính dạng ngoại lệ đó ("email trống thì cho vào thẳng") đã đẻ ra lỗ
+     * hổng đang phải vá. Ở đây quyền được kiểm bằng middleware `admin`, có log, và không đụng
+     * gì tới luồng khách.
+     *
+     * KHÔNG dùng `remember`: phiên mạo danh chỉ sống trong phiên hiện tại, không để lại cookie
+     * 60 ngày của tài khoản khách trên máy admin.
+     */
+    public function impersonate(Request $request, User $user): RedirectResponse
+    {
+        // Không cho mạo danh admin khác — nếu không, một admin chiếm được quyền của admin kia.
+        abort_if($user->is_admin, 403, 'Không thể đăng nhập thay một tài khoản admin.');
+
+        $admin = $request->user();
+
+        Log::info('admin.user.impersonated', [
+            'actor_id' => $admin->id,
+            'target_id' => $user->id,
+            'target_phone' => $user->phone,
+            'ip' => $request->ip(),
+        ]);
+
+        Auth::login($user);
+        $request->session()->regenerate();
+        // Đặt SAU regenerate: regenerate() thay id phiên, ghi trước thì dễ hụt khi đổi driver.
+        $request->session()->put('impersonator_id', $admin->id);
+
+        return redirect()->route('account');
     }
 
     private function adminCount(): int

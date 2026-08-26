@@ -484,6 +484,21 @@ export default function AdminUsers({
                                                                         ? 'Ẩn'
                                                                         : 'Xem'}
                                                                 </button>
+                                                                {/* Vào thẳng tài khoản khách để hỗ trợ, không cần OTP
+                                                                    (bopcamping-bqsv). Thoát bằng thanh nhắc ở đầu trang khách. */}
+                                                                <button
+                                                                    onClick={() =>
+                                                                        router.post(
+                                                                            route(
+                                                                                'admin.users.impersonate',
+                                                                                c.id,
+                                                                            ),
+                                                                        )
+                                                                    }
+                                                                    className="rounded-[8px] border border-cardBorder px-3 py-1.5 text-[12px] font-semibold text-pine transition hover:border-grass hover:text-grass"
+                                                                >
+                                                                    Đăng nhập
+                                                                </button>
                                                                 <button
                                                                     onClick={() => {
                                                                         setDeleteTarget(

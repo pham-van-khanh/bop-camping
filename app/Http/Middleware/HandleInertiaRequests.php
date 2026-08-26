@@ -90,6 +90,11 @@ class HandleInertiaRequests extends Middleware
             'pending_feedback' => fn () => $request->user()?->is_admin
                 ? Feedback::where('status', 'new')->count()
                 : null,
+            // Đang xem hộ khách nào (bopcamping-bqsv) — layout hiện thanh nhắc + nút Thoát.
+            // Không có thanh này thì admin rất dễ quên mình đang ở trong tài khoản khách.
+            'impersonating' => fn () => $request->session()->has('impersonator_id')
+                ? ['name' => $request->user()?->name]
+                : null,
             // Thông tin liên hệ/mạng xã hội (footer + dải Zalo đọc chung) — lazy, 1 row.
             'site' => fn () => $this->sharedSite(),
             // SEO mặc định site-wide (controller có thể ghi đè bằng prop 'seo'); blade dựng meta head.

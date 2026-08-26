@@ -33,7 +33,6 @@ export default function LoginModal() {
         name: string;
         emailMask: string;
     } | null>(null);
-    const [useOtherEmail, setUseOtherEmail] = useState(false);
     const autoFilledName = useRef('');
     const lastLookup = useRef('');
 
@@ -68,7 +67,6 @@ export default function LoginModal() {
                         ? { name: j.name ?? '', emailMask: j.email_mask }
                         : null,
                 );
-                if (j.exists) setUseOtherEmail(false);
                 // Điền sẵn tên hiện tại (chỉ khi khách chưa tự gõ) để khách thấy & đổi nếu muốn.
                 if (j.exists && j.name) {
                     setData((prev) =>
@@ -86,7 +84,7 @@ export default function LoginModal() {
     }, [data.phone]);
 
     // Dùng email tài khoản (đã che) khi có account & khách không chọn nhập email khác.
-    const usingAccountEmail = !!account && !useOtherEmail;
+    const usingAccountEmail = !!account;
 
     // Prefill mã giới thiệu từ link (?ref=) khi có.
     useEffect(() => {
@@ -165,7 +163,8 @@ export default function LoginModal() {
         post(route('guest.login.verify'), { preserveScroll: true });
 
     // Tên & email không bắt buộc — SĐT là khoá định danh duy nhất. Nếu có nhập email thì phải
-    // đúng định dạng (còn để trống thì bỏ qua, khách vào thẳng không cần OTP).
+    // đúng định dạng. Bỏ trống: số đã có chủ thì server gửi OTP tới hộp thư đã lưu, số hoàn
+    // toàn mới thì vào thẳng (bopcamping-bqsv).
     const phoneValid = /^0[0-9]{8,10}$/.test(data.phone.trim());
     const emailTyped = data.email.trim() !== '';
     const emailOk = !emailTyped || /\S+@\S+\.\S+/.test(data.email);
@@ -280,16 +279,14 @@ export default function LoginModal() {
                                                     {account?.emailMask}
                                                 </span>
                                             </div>
-                                            <button
-                                                type="button"
-                                                onClick={() => {
-                                                    setUseOtherEmail(true);
-                                                    setData('email', '');
-                                                }}
-                                                className="self-start text-[13px] font-semibold text-grass hover:text-pine"
-                                            >
-                                                Dùng email khác
-                                            </button>
+                                            {/* KHÔNG còn nút "Dùng email khác" (bopcamping-bqsv): mã xác thực
+                                                chỉ được gửi tới hộp thư đã gắn với số này, nên nút đó nay chỉ
+                                                dẫn tới thông báo lỗi. Mất quyền vào email cũ thì nhắn Zalo. */}
+                                            <p className="text-[12.5px] leading-[1.5] text-moss">
+                                                Mã xác thực sẽ gửi tới email này.
+                                                Không vào được email? Nhắn Zalo
+                                                để shop hỗ trợ.
+                                            </p>
                                         </div>
                                     ) : (
                                         <div>

@@ -58,19 +58,26 @@ class AdminAccessTest extends TestCase
         Mail::assertQueued(OtpMail::class);
     }
 
-    /** @test */
-    public function verified_user_logs_in_without_otp(): void
+    /**
+     * ĐỔI HÀNH VI (bopcamping-bqsv): trước đây khách đã xác thực email thì gõ đúng email là
+     * vào thẳng, không OTP. Chính nhánh đó cho phép chiếm tài khoản — gõ đúng email của người
+     * khác (email đoán được, lộ được) là vào. Nay mọi đăng nhập đều phải qua OTP; khách quen
+     * không bị phiền vì cookie nhớ đăng nhập 60 ngày lo phần quay lại.
+     *
+     * @test
+     */
+    public function verified_user_must_still_pass_otp(): void
     {
-        $user = User::factory()->create([
+        User::factory()->create([
             'name' => 'Khách Cũ', 'phone' => '0912345678',
             'email' => 'cu@example.com', 'email_verified_at' => now(), 'is_admin' => false,
         ]);
 
         $this->post(route('guest.login'), [
             'name' => 'Khách Cũ', 'phone' => '0912345678', 'email' => 'cu@example.com',
-        ])->assertRedirect();
+        ])->assertSessionHas('otp_sent', true);
 
-        $this->assertAuthenticatedAs($user);
+        $this->assertGuest();
         $this->assertSame(1, User::where('phone', '0912345678')->count());
     }
 
@@ -78,15 +85,15 @@ class AdminAccessTest extends TestCase
     public function guest_login_allows_existing_phone_to_change_name(): void
     {
         // SĐT là khoá định danh; tên đổi tuỳ ý (không còn chặn "tên khác").
-        $user = User::factory()->create([
+        // Tên mới nằm chờ ở otp_pending, chỉ ghi vào DB sau khi xác thực OTP.
+        User::factory()->create([
             'name' => 'Tên A', 'phone' => '0912345678', 'email' => 'a@example.com',
             'email_verified_at' => now(), 'is_admin' => false,
         ]);
 
         $this->post(route('guest.login'), ['name' => 'Tên B', 'phone' => '0912345678', 'email' => 'a@example.com'])
-            ->assertRedirect()->assertSessionHasNoErrors();
+            ->assertSessionHas('otp_sent', true)->assertSessionHasNoErrors();
 
-        $this->assertAuthenticatedAs($user->fresh());
-        $this->assertSame('Tên B', $user->fresh()->name);
+        $this->assertSame('Tên B', session('otp_pending')['name']);
     }
 }
