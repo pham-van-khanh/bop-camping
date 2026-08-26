@@ -110,9 +110,14 @@ export default function LoginModal() {
     // Server chặn vì SĐT chưa gắn email. Cần nhánh này bên cạnh lookup(): khách vãng lai
     // (có đơn cũ, chưa có tài khoản) thì lookup cố tình trả exists:false để không lộ, nên
     // chỉ tới lúc bấm gửi mã mới biết.
+    //
+    // Phụ thuộc vào CẢ object `flash` chứ không riêng giá trị boolean: mỗi phản hồi từ server
+    // là một object mới, nên lần chặn thứ hai vẫn kích hoạt. Nếu chỉ để
+    // [flash?.login_needs_support] thì giá trị vẫn là true như lần trước → effect không chạy
+    // lại → nút "Tiếp tục" hiện ra sau khi khách sửa SĐT rồi gõ lại số cũ.
     useEffect(() => {
         if (flash?.login_needs_support) setNeedsSupport(true);
-    }, [flash?.login_needs_support]);
+    }, [flash]);
 
     // Server đã gửi OTP → chuyển sang bước nhập mã + bật đếm ngược gửi lại.
     useEffect(() => {
