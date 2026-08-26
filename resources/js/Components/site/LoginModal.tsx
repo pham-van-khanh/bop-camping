@@ -352,9 +352,9 @@ export default function LoginModal() {
                                                 chỉ được gửi tới hộp thư đã gắn với số này, nên nút đó nay chỉ
                                                 dẫn tới thông báo lỗi. Mất quyền vào email cũ thì nhắn Zalo. */}
                                             <p className="text-[12.5px] leading-[1.5] text-moss">
-                                                Mã xác thực sẽ gửi tới email này.
-                                                Không vào được email? Nhắn Zalo
-                                                để shop hỗ trợ.
+                                                Mã xác thực sẽ gửi tới email
+                                                này. Không vào được email? Nhắn
+                                                Zalo để shop hỗ trợ.
                                             </p>
                                         </div>
                                     ) : (
