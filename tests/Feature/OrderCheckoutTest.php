@@ -217,4 +217,77 @@ class OrderCheckoutTest extends TestCase
 
         $this->assertNull(Order::first()->customer_email);
     }
+
+    /**
+     * Khách đăng nhập bằng SĐT (email còn là bản tạm) mà điền email lúc checkout → email đó
+     * GẮN luôn vào tài khoản (bopcamping-kuhg). Thiếu bước này thì họ mãi là tài khoản "không
+     * hộp thư": hết cookie là mất quyền vào, chỉ còn đường nhắn Zalo.
+     *
+     * KHÔNG đánh dấu đã xác minh — email này chưa qua OTP bao giờ.
+     *
+     * @test
+     */
+    public function checkout_email_is_attached_to_a_phone_only_account(): void
+    {
+        $p = $this->product();
+        $buyer = User::create(['name' => 'Khách', 'phone' => '0912345678']);
+        $this->assertTrue($buyer->hasPlaceholderEmail());
+
+        $this->actingAs($buyer)->post(route('order.store'), [
+            'name' => 'Khách',
+            'phone' => '0912345678',
+            'email' => 'khach@gmail.com',
+            'items' => [['product_id' => $p->id, 'quantity' => 1, 'start' => '2030-07-01', 'end' => '2030-07-02']],
+        ])->assertSessionHas('order_code');
+
+        $buyer->refresh();
+        $this->assertSame('khach@gmail.com', $buyer->email);
+        $this->assertNull($buyer->email_verified_at);
+    }
+
+    /**
+     * Email checkout trùng tài khoản KHÁC → không gắn (users.email là UNIQUE, ghi vào là vỡ
+     * ràng buộc và trả 500). Đơn vẫn lưu email để còn gửi mail xác nhận.
+     *
+     * @test
+     */
+    public function checkout_email_already_used_by_another_account_is_not_attached(): void
+    {
+        $p = $this->product();
+        User::factory()->create(['phone' => '0900000009', 'email' => 'daco@gmail.com']);
+        $buyer = User::create(['name' => 'Khách', 'phone' => '0912345678']);
+        $placeholder = $buyer->email;
+
+        $this->actingAs($buyer)->post(route('order.store'), [
+            'name' => 'Khách',
+            'phone' => '0912345678',
+            'email' => 'daco@gmail.com',
+            'items' => [['product_id' => $p->id, 'quantity' => 1, 'start' => '2030-07-01', 'end' => '2030-07-02']],
+        ])->assertSessionHas('order_code');
+
+        $this->assertSame($placeholder, $buyer->fresh()->email);
+        $this->assertSame('daco@gmail.com', Order::first()->customer_email);
+    }
+
+    /**
+     * Tài khoản ĐÃ có email thật thì email gõ ở checkout chỉ dùng cho đơn, KHÔNG đè lên tài
+     * khoản — nếu không, đặt hộ người thân bằng email của họ là tự đá mình ra khỏi tài khoản.
+     *
+     * @test
+     */
+    public function checkout_email_does_not_overwrite_an_existing_real_account_email(): void
+    {
+        $p = $this->product();
+        $buyer = User::factory()->create(['phone' => '0912345678', 'email' => 'toi@gmail.com']);
+
+        $this->actingAs($buyer)->post(route('order.store'), [
+            'name' => 'Khách',
+            'phone' => '0912345678',
+            'email' => 'nguoithan@gmail.com',
+            'items' => [['product_id' => $p->id, 'quantity' => 1, 'start' => '2030-07-01', 'end' => '2030-07-02']],
+        ])->assertSessionHas('order_code');
+
+        $this->assertSame('toi@gmail.com', $buyer->fresh()->email);
+        $this->assertSame('nguoithan@gmail.com', Order::first()->customer_email);
+    }
 }

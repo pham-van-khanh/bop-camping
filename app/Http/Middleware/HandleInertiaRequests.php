@@ -65,6 +65,10 @@ class HandleInertiaRequests extends Middleware
                 // Đăng nhập OTP: tín hiệu cho LoginModal chuyển sang bước nhập mã.
                 'otp_sent' => session('otp_sent'),
                 'otp_email' => session('otp_email'),
+                // SĐT đã có chủ nhưng không hộp thư nào nhận được mã (bopcamping-kuhg) →
+                // LoginModal hiện nút Zalo. Cần flash riêng vì lookup() KHÔNG báo trước được
+                // ca khách vãng lai (có đơn, chưa có tài khoản) — cố tình không lộ ở đó.
+                'login_needs_support' => session('login_needs_support'),
             ],
             // Mã giới thiệu đang chờ (từ link ?ref= hoặc nhập tay) — để hiện popup + prefill.
             // Lazy: resolve khi render (SAU khi CaptureReferralCode lưu session) — nếu eager sẽ rỗng ở request đầu.

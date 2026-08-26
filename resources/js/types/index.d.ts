@@ -16,6 +16,8 @@ export interface Flash {
     success?: string;
     otp_sent?: boolean;
     otp_email?: string;
+    /** SĐT đã có chủ nhưng chưa gắn email → chỉ còn đường nhắn Zalo (bopcamping-kuhg). */
+    login_needs_support?: boolean;
 }
 
 export interface Referral {

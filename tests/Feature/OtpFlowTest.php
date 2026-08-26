@@ -114,29 +114,36 @@ class OtpFlowTest extends TestCase
         $this->assertGuest();
     }
 
-    /** @test */
-    public function old_phone_account_can_add_email_via_otp(): void
+    /**
+     * BỎ HẲN đường "tài khoản chỉ có SĐT tự gắn email ở màn đăng nhập" (bopcamping-kuhg).
+     *
+     * Trước đây gõ SĐT + một email bất kỳ là gắn được — tiện cho chủ tài khoản, nhưng người lạ
+     * biết SĐT cũng làm được y hệt, và không có cách nào phân biệt hai người đó vì SĐT chưa hề
+     * được xác thực (shop không gửi OTP SMS). Nay chặn cả hai, đẩy sang Zalo để người trực
+     * xác minh bằng thông tin đơn cũ.
+     *
+     * Chủ tài khoản thật vẫn còn một đường KHÔNG cần Zalo: cookie 400 ngày giữ họ đăng nhập,
+     * và điền email lúc checkout là email tự gắn vào tài khoản (OrderCheckoutTest).
+     *
+     * @test
+     */
+    public function a_phone_only_account_can_no_longer_attach_an_email_at_login(): void
     {
         Mail::fake();
-        // User cũ: tạo bằng SĐT, email tạm .local, chưa verify.
         $old = User::create(['name' => 'Khách Cũ', 'phone' => '0912345678']);
-        $this->assertStringEndsWith('@bopcamping.local', $old->email);
+        $placeholder = $old->email;
 
         $this->post(route('guest.login'), [
             'name' => 'Khách Cũ', 'phone' => '0912345678', 'email' => 'that@example.com',
-        ])->assertSessionHas('otp_sent', true);
+        ])->assertSessionHasErrors('phone')
+            ->assertSessionHas('login_needs_support', true);
 
-        $code = null;
-        Mail::assertQueued(OtpMail::class, function (OtpMail $m) use (&$code) {
-            $code = $m->code;
-
-            return true;
-        });
-        $this->post(route('guest.login.verify'), ['code' => $code])->assertRedirect();
-
-        $this->assertAuthenticatedAs($old->fresh());
-        $this->assertSame('that@example.com', $old->fresh()->email);
-        $this->assertNotNull($old->fresh()->email_verified_at);
+        $this->assertGuest();
+        Mail::assertNothingQueued();
+        // Tài khoản không bị đụng vào: cả email lẫn tên hiển thị đều nguyên vẹn.
+        $old->refresh();
+        $this->assertSame($placeholder, $old->email);
+        $this->assertSame('Khách Cũ', $old->name);
     }
 
     /** @test */
@@ -161,9 +168,10 @@ class OtpFlowTest extends TestCase
      *
      * @test
      */
-    public function remember_cookie_lasts_sixty_days(): void
+    public function remember_cookie_lasts_sixty_days_for_an_account_with_a_real_email(): void
     {
-        $response = $this->post(route('guest.login'), ['name' => 'Khách Mới', 'phone' => '0912345678']);
+        Mail::fake();
+        $response = $this->loginViaOtp('0912345678', 'ngoc@example.com');
 
         $cookie = $response->getCookie('remember_web_'.sha1(SessionGuard::class));
 
@@ -172,6 +180,29 @@ class OtpFlowTest extends TestCase
             now()->addDays(60)->getTimestamp(),
             $cookie->getExpiresTime(),
             300, // lệch vài phút là bình thường, cookie tính từ lúc tạo
+        );
+    }
+
+    /**
+     * Tài khoản CHỈ CÓ SĐT được cookie 400 ngày thay vì 60 (bopcamping-kuhg).
+     *
+     * Không phải ưu ái mà là bắt buộc: loại tài khoản này không có hộp thư nào nhận mã, nên
+     * hết cookie là mất hẳn quyền vào, chỉ còn đường nhắn Zalo. 400 ngày là trần cứng của
+     * Chrome cho tuổi cookie — đặt cao hơn cũng bị trình duyệt cắt về đây.
+     *
+     * @test
+     */
+    public function remember_cookie_lasts_four_hundred_days_for_a_phone_only_account(): void
+    {
+        $response = $this->post(route('guest.login'), ['name' => 'Khách Mới', 'phone' => '0912345678']);
+
+        $cookie = $response->getCookie('remember_web_'.sha1(SessionGuard::class));
+
+        $this->assertNotNull($cookie, 'Đăng nhập phải kèm cookie nhớ đăng nhập.');
+        $this->assertEqualsWithDelta(
+            now()->addDays(400)->getTimestamp(),
+            $cookie->getExpiresTime(),
+            300,
         );
     }
 
@@ -192,23 +223,102 @@ class OtpFlowTest extends TestCase
     }
 
     /**
-     * ĐỔI HÀNH VI (bopcamping-bqsv): khách cũ chỉ có email TẠM (@bopcamping.local) thì không
-     * có hộp thư nào để gửi OTP — nhưng cũng KHÔNG được cho vào thẳng bằng SĐT, vì đó chính
-     * là đường chiếm tài khoản. Buộc nhập email thật rồi xác thực.
+     * ĐỔI HÀNH VI (bopcamping-kuhg): tài khoản chỉ có email TẠM (@bopcamping.local) thì không
+     * hộp thư nào nhận được mã → KHÔNG cho đăng nhập, chỉ đường nhắn Zalo.
+     *
+     * Bản bqsv trước đó bảo "nhập email đi" — nghe thân thiện nhưng chính là lỗ hổng: gõ email
+     * nào cũng được thì kẻ lạ biết SĐT sẽ gõ email của chính mình vào (xem test dưới).
      *
      * @test
      */
-    public function returning_guest_without_a_real_email_is_asked_for_one_instead_of_being_let_in(): void
+    public function a_returning_phone_only_account_is_sent_to_zalo_instead_of_being_let_in(): void
     {
         Mail::fake();
         $old = User::create(['name' => 'Khách Cũ', 'phone' => '0912345678']);
 
         $this->post(route('guest.login'), ['name' => 'Khách Cũ', 'phone' => '0912345678'])
-            ->assertSessionHasErrors('email');
+            ->assertSessionHasErrors('phone')
+            ->assertSessionHas('login_needs_support', true);
 
         $this->assertGuest();
         Mail::assertNothingQueued();
         $this->assertNotNull($old->fresh());
+    }
+
+    /**
+     * LỖ HỔNG CÒN SÓT sau bqsv (bopcamping-kuhg), ca khách VÃNG LAI: chưa có tài khoản, nhưng
+     * đã đặt đơn mà bỏ trống email — email lúc checkout là TUỲ CHỌN nên đây là ca có thật.
+     * Trước kuhg, `$phoneIsClaimed` đếm theo email nên số này bị coi là vô chủ → tạo tài khoản
+     * mới bằng SĐT người khác là xem được đơn của họ.
+     *
+     * @test
+     */
+    public function a_phone_with_guest_orders_that_carry_no_email_cannot_be_claimed(): void
+    {
+        Mail::fake();
+        $order = $this->guestOrder();
+        $order->forceFill(['customer_email' => null])->save();
+
+        $this->post(route('guest.login'), [
+            'name' => 'Kẻ Lạ', 'phone' => '0912345678', 'email' => 'kela@evil.com',
+        ])->assertSessionHasErrors('phone');
+
+        // Và cả khi bỏ trống email — không được lách bằng cách không gõ gì.
+        $this->post(route('guest.login'), ['name' => 'Kẻ Lạ', 'phone' => '0912345678'])
+            ->assertSessionHasErrors('phone');
+
+        $this->assertGuest();
+        Mail::assertNothingQueued();
+        $this->assertSame(0, User::where('phone', '0912345678')->count());
+    }
+
+    /**
+     * lookup() và store() phải đọc CÙNG một nguồn (allowedEmailsFor). Ca dễ lệch nhất: tài
+     * khoản email tạm NHƯNG có đơn cũ kèm email thật — store() gửi mã được, nên lookup() không
+     * được báo needs_support, nếu không khách bị đẩy sang Zalo trong khi hệ thống vẫn chạy tốt.
+     *
+     * @test
+     */
+    public function lookup_follows_the_same_rule_as_login_for_a_placeholder_email_account(): void
+    {
+        $user = User::create(['name' => 'Chị Ngọc', 'phone' => '0912345678']);
+        $this->guestOrder(); // đơn cũ cùng SĐT, có email thật
+
+        $this->getJson(route('guest.lookup', ['phone' => '0912345678']))
+            ->assertJson([
+                'exists' => true,
+                'email_mask' => 'ng**@example.com',
+                'needs_support' => false,
+            ]);
+
+        $this->assertTrue($user->fresh()->hasPlaceholderEmail());
+    }
+
+    /** @test Tài khoản không có hộp thư nào → lookup báo needs_support để modal hiện nút Zalo. */
+    public function lookup_flags_an_account_with_no_reachable_mailbox(): void
+    {
+        User::create(['name' => 'Khách Cũ', 'phone' => '0912345678']);
+
+        $this->getJson(route('guest.lookup', ['phone' => '0912345678']))
+            ->assertJson([
+                'exists' => true,
+                'email_mask' => null,
+                'needs_support' => true,
+            ]);
+    }
+
+    /**
+     * lookup() KHÔNG được lộ "số này từng đặt đơn" cho số chưa có tài khoản — đó là thông tin
+     * của khách vãng lai, và lộ ra thì dò số là biết ai từng thuê đồ ở shop.
+     *
+     * @test
+     */
+    public function lookup_does_not_reveal_guest_orders_for_a_phone_without_an_account(): void
+    {
+        $this->guestOrder();
+
+        $this->getJson(route('guest.lookup', ['phone' => '0912345678']))
+            ->assertExactJson(['exists' => false]);
     }
 
     /**
@@ -321,6 +431,30 @@ class OtpFlowTest extends TestCase
 
         $this->assertSame('ng*****@gmail.com', session('otp_email'));
         $this->assertSame('ngocanh@gmail.com', session('otp_pending')['email']);
+    }
+
+    /**
+     * Chạy trọn luồng đăng nhập có email (gửi mã → nhập mã) và trả response của bước cuối —
+     * bước duy nhất mang cookie nhớ đăng nhập. Gọi Mail::fake() trước khi dùng.
+     */
+    private function loginViaOtp(string $phone, string $email): \Illuminate\Testing\TestResponse
+    {
+        User::factory()->create([
+            'phone' => $phone, 'email' => $email,
+            'email_verified_at' => now(), 'is_admin' => false,
+        ]);
+
+        $this->post(route('guest.login'), ['phone' => $phone, 'email' => $email])
+            ->assertSessionHas('otp_sent', true);
+
+        $code = null;
+        Mail::assertQueued(OtpMail::class, function (OtpMail $m) use (&$code) {
+            $code = $m->code;
+
+            return true;
+        });
+
+        return $this->post(route('guest.login.verify'), ['code' => $code]);
     }
 
     /** Đơn vãng lai của "Chị Ngọc" — SĐT 0912345678, email ngoc@example.com. */

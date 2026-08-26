@@ -169,9 +169,21 @@ class OrderController extends Controller
 
         // Email xác nhận: ưu tiên email khách nhập ở checkout; bỏ trống thì lấy email tài khoản (bỏ tạm .local).
         $customerEmail = $validated['email'] ?? null;
+        $buyer = Auth::user();
         if (! $customerEmail) {
-            $user = Auth::user();
-            $customerEmail = ($user && ! str_ends_with($user->email, '@bopcamping.local')) ? $user->email : null;
+            $customerEmail = ($buyer && ! $buyer->hasPlaceholderEmail()) ? $buyer->email : null;
+        } elseif ($buyer && $buyer->hasPlaceholderEmail()) {
+            // Khách đăng nhập bằng SĐT (email còn là bản tạm .local) mà điền email ở đây → GẮN
+            // luôn vào tài khoản (bopcamping-kuhg). Không có bước này thì họ vẫn là tài khoản
+            // "không hộp thư": hết cookie là mất quyền vào, phải nhắn Zalo.
+            //
+            // An toàn vì người đang gõ ĐÃ đăng nhập vào chính tài khoản đó — không phải người lạ.
+            // KHÔNG set email_verified_at: email này chưa qua OTP bao giờ, lần đăng nhập sau vẫn
+            // phải xác thực. Trùng email của tài khoản khác thì bỏ qua (users.email là UNIQUE,
+            // ghi vào sẽ vỡ ràng buộc) — đơn vẫn lưu email để gửi xác nhận.
+            if (! User::where('email', $customerEmail)->exists()) {
+                $buyer->forceFill(['email' => $customerEmail])->save();
+            }
         }
 
         $base = [

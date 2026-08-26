@@ -13,7 +13,8 @@ import { useEffect, useRef, useState } from 'react';
  * - Bước 2: nhập OTP 6 số → POST /dang-nhap/xac-thuc.
  */
 export default function LoginModal() {
-    const { referral, auth, flash, emailBonus } = usePage<PageProps>().props;
+    const { referral, auth, flash, emailBonus, site } =
+        usePage<PageProps>().props;
     const [open, setOpen] = useState(false);
     const [step, setStep] = useState<'form' | 'otp'>('form');
     const [resendIn, setResendIn] = useState(0);
@@ -33,6 +34,9 @@ export default function LoginModal() {
         name: string;
         emailMask: string;
     } | null>(null);
+    // SĐT đã có chủ nhưng chưa gắn hộp thư nào → không thể gửi mã, chỉ còn đường Zalo.
+    // Đặt từ lookup() lúc khách vừa gõ xong SĐT; server cũng trả flash cho ca lookup không biết.
+    const [needsSupport, setNeedsSupport] = useState(false);
     const autoFilledName = useRef('');
     const lastLookup = useRef('');
 
@@ -43,6 +47,7 @@ export default function LoginModal() {
         const phone = data.phone.trim();
         if (!/^0[0-9]{8,10}$/.test(phone)) {
             setAccount(null);
+            setNeedsSupport(false);
             return;
         }
         if (phone === lastLookup.current) return;
@@ -60,6 +65,7 @@ export default function LoginModal() {
                     exists: boolean;
                     name?: string | null;
                     email_mask?: string | null;
+                    needs_support?: boolean;
                 } = await res.json();
                 // Khách quen có email đã xác thực → đăng nhập nhanh bằng SĐT (email server tự dùng).
                 setAccount(
@@ -67,6 +73,7 @@ export default function LoginModal() {
                         ? { name: j.name ?? '', emailMask: j.email_mask }
                         : null,
                 );
+                setNeedsSupport(!!j.needs_support);
                 // Điền sẵn tên hiện tại (chỉ khi khách chưa tự gõ) để khách thấy & đổi nếu muốn.
                 if (j.exists && j.name) {
                     setData((prev) =>
@@ -99,6 +106,13 @@ export default function LoginModal() {
         sessionStorage.setItem(key, '1');
         setOpen(true);
     }, [referral?.code, auth.user]);
+
+    // Server chặn vì SĐT chưa gắn email. Cần nhánh này bên cạnh lookup(): khách vãng lai
+    // (có đơn cũ, chưa có tài khoản) thì lookup cố tình trả exists:false để không lộ, nên
+    // chỉ tới lúc bấm gửi mã mới biết.
+    useEffect(() => {
+        if (flash?.login_needs_support) setNeedsSupport(true);
+    }, [flash?.login_needs_support]);
 
     // Server đã gửi OTP → chuyển sang bước nhập mã + bật đếm ngược gửi lại.
     useEffect(() => {
@@ -150,6 +164,7 @@ export default function LoginModal() {
         autoFilledName.current = '';
         lastLookup.current = '';
         setAccount(null);
+        setNeedsSupport(false);
         if (referral?.code) setData('ref', referral.code);
     };
 
@@ -167,7 +182,9 @@ export default function LoginModal() {
     const phoneValid = /^0[0-9]{8,10}$/.test(data.phone.trim());
     const emailTyped = data.email.trim() !== '';
     const emailOk = !emailTyped || /\S+@\S+\.\S+/.test(data.email);
-    const formValid = phoneValid && (usingAccountEmail || emailOk);
+    // needsSupport → khoá nút: số này không có đường đăng nhập tự động, bấm chỉ nhận lại lỗi.
+    const formValid =
+        phoneValid && !needsSupport && (usingAccountEmail || emailOk);
     const codeValid = /^[0-9]{6}$/.test(data.code);
     const bonusText = emailBonus?.enabled
         ? emailBonus.type === 'percent'
@@ -270,7 +287,36 @@ export default function LoginModal() {
                                         error={errors.phone}
                                         autoFocus
                                     />
-                                    {usingAccountEmail ? (
+                                    {needsSupport ? (
+                                        <div
+                                            className="flex flex-col gap-2.5 rounded-[11px] px-3.5 py-3"
+                                            style={{
+                                                background: '#fdf3e7',
+                                                border: '1px solid #e6c9a3',
+                                            }}
+                                            role="alert"
+                                        >
+                                            <p className="text-[13px] leading-[1.55] text-ink">
+                                                Số này <strong>cần có email</strong>{' '}
+                                                mới đăng nhập được. Tài khoản chưa
+                                                gắn email nào nên shop không gửi
+                                                được mã xác thực.
+                                            </p>
+                                            {site?.zalo_oa && (
+                                                <a
+                                                    href={site.zalo_oa}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="grid h-11 w-full place-items-center rounded-control text-[15px] font-bold text-white transition hover:opacity-90"
+                                                    style={{
+                                                        background: '#0068ff',
+                                                    }}
+                                                >
+                                                    Nhắn Zalo để shop hỗ trợ
+                                                </a>
+                                            )}
+                                        </div>
+                                    ) : usingAccountEmail ? (
                                         <div className="flex flex-col gap-1.5">
                                             <div className="flex items-center gap-2 rounded-[11px] border border-cardBorder bg-white px-3.5 py-2.5">
                                                 <span aria-hidden>📧</span>
@@ -336,19 +382,26 @@ export default function LoginModal() {
                                         className="h-12 w-full rounded-[11px] border border-cardBorder bg-white px-3.5 font-mono text-[15px] uppercase tracking-[0.04em] text-ink outline-none focus:border-grass"
                                     />
                                 </div>
-                                <button
-                                    onClick={requestOtp}
-                                    disabled={!formValid || processing}
-                                    className="h-[50px] w-full rounded-control text-[16px] font-bold text-white transition disabled:cursor-not-allowed"
-                                    style={{
-                                        background:
-                                            formValid && !processing
-                                                ? '#557A2B'
-                                                : '#c4cfae',
-                                    }}
-                                >
-                                    {processing ? 'Đang xử lý…' : 'Tiếp tục'}
-                                </button>
+                                {/* Ẩn hẳn khi needsSupport: bấm cũng không đi đâu được, để lại
+                                    một nút xám chỉ khiến khách thử đi thử lại. Nút Zalo phía
+                                    trên mới là hành động duy nhất còn dùng được. */}
+                                {!needsSupport && (
+                                    <button
+                                        onClick={requestOtp}
+                                        disabled={!formValid || processing}
+                                        className="h-[50px] w-full rounded-control text-[16px] font-bold text-white transition disabled:cursor-not-allowed"
+                                        style={{
+                                            background:
+                                                formValid && !processing
+                                                    ? '#557A2B'
+                                                    : '#c4cfae',
+                                        }}
+                                    >
+                                        {processing
+                                            ? 'Đang xử lý…'
+                                            : 'Tiếp tục'}
+                                    </button>
+                                )}
                             </>
                         ) : (
                             <>
