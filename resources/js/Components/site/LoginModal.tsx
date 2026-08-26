@@ -150,7 +150,6 @@ export default function LoginModal() {
         autoFilledName.current = '';
         lastLookup.current = '';
         setAccount(null);
-        setUseOtherEmail(false);
         if (referral?.code) setData('ref', referral.code);
     };
 
