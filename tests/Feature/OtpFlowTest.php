@@ -297,6 +297,32 @@ class OtpFlowTest extends TestCase
         $this->assertSame('ngoc@example.com', User::where('phone', '0912345678')->first()->email);
     }
 
+    /**
+     * Gõ SĐT xong thì màn nhập mã hiện "đã gửi tới …" — chỗ đó PHẢI che email.
+     *
+     * Người gõ số chưa chắc là chủ số. Trả email đầy đủ về client nghĩa là ai cũng moi được
+     * email thật của người khác chỉ bằng số điện thoại — đúng thứ mà lookup() đã cố tình che.
+     * Đo được trên staging 26/08 (lộ nguyên `phamkhanhcntt@gmail.com`) rồi mới vá.
+     *
+     * Email trong SESSION vẫn phải là bản đầy đủ, nếu không bước xác thực mã sẽ hỏng.
+     *
+     * @test
+     */
+    public function the_email_shown_back_is_masked_but_the_session_keeps_the_real_one(): void
+    {
+        Mail::fake();
+        User::factory()->create([
+            'name' => 'Chị Ngọc', 'phone' => '0912345678',
+            'email' => 'ngocanh@gmail.com', 'email_verified_at' => now(), 'is_admin' => false,
+        ]);
+
+        $this->post(route('guest.login'), ['phone' => '0912345678'])
+            ->assertSessionHas('otp_sent', true);
+
+        $this->assertSame('ng*****@gmail.com', session('otp_email'));
+        $this->assertSame('ngocanh@gmail.com', session('otp_pending')['email']);
+    }
+
     /** Đơn vãng lai của "Chị Ngọc" — SĐT 0912345678, email ngoc@example.com. */
     private function guestOrder(): Order
     {

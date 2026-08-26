@@ -128,7 +128,11 @@ class GuestAuthController extends Controller
                     'email' => $target,
                 ]);
 
-                return back()->with('otp_sent', true)->with('otp_email', $target);
+                // CHE email khi trả về client (bopcamping-bqsv). Nhánh này chạy khi khách chỉ
+                // gõ SĐT — người gõ CHƯA CHẮC là chủ số. Trả email đầy đủ thì bất kỳ ai cũng
+                // moi được email thật của người khác chỉ bằng số điện thoại, đúng thứ mà
+                // lookup() đã cố tình che. Đo được trên staging 26/08 trước khi vá.
+                return back()->with('otp_sent', true)->with('otp_email', $this->maskEmail($target));
             }
 
             if ($existing) {
