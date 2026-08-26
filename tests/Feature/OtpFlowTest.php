@@ -197,7 +197,9 @@ class OtpFlowTest extends TestCase
         Mail::fake();
         $response = $this->loginViaOtp('0912345678', 'ngoc@example.com');
 
-        $cookie = $response->getCookie('remember_web_'.sha1(SessionGuard::class));
+        // decrypt: false — chỉ cần HẠN của cookie, không cần nội dung. Giải mã thêm là rước
+        // một đường hỏng không liên quan (EncryptCookies + CookieValuePrefix) vào bài test hạn.
+        $cookie = $response->getCookie('remember_web_'.sha1(SessionGuard::class), false);
 
         $this->assertNotNull($cookie, 'Đăng nhập phải kèm cookie nhớ đăng nhập.');
         $this->assertEqualsWithDelta(
@@ -220,7 +222,7 @@ class OtpFlowTest extends TestCase
     {
         $response = $this->post(route('guest.login'), ['name' => 'Khách Mới', 'phone' => '0912345678']);
 
-        $cookie = $response->getCookie('remember_web_'.sha1(SessionGuard::class));
+        $cookie = $response->getCookie('remember_web_'.sha1(SessionGuard::class), false);
 
         $this->assertNotNull($cookie, 'Đăng nhập phải kèm cookie nhớ đăng nhập.');
         $this->assertEqualsWithDelta(
