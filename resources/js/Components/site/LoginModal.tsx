@@ -18,6 +18,15 @@ export default function LoginModal() {
     const [open, setOpen] = useState(false);
     const [step, setStep] = useState<'form' | 'otp'>('form');
     const [resendIn, setResendIn] = useState(0);
+    // Hộp thư đã nhận mã, ĐÚNG DẠNG server muốn khách thấy: bản che khi khách mới chỉ gõ SĐT,
+    // bản đầy đủ khi chính khách vừa gõ email. Giữ ở state vì nó sống theo BƯỚC nhập mã —
+    // qua nhiều request (sai mã, gửi lại, sai tiếp) — trong khi `flash` chỉ sống một request.
+    // Đọc thẳng flash lúc render thì gõ sai mã một cái là câu thông báo cụt thành "gửi mã tới ."
+    //
+    // KHÔNG lấy email thật từ session ra phát lại ở nhánh lỗi để chữa: nhánh che tồn tại vì
+    // người đang gõ CHƯA CHẮC là chủ số (bopcamping-bqsv). Làm vậy là mở lại đúng lỗ hổng
+    // ca 3.6, chỉ khác đường vào — cố tình nhập sai một lần là moi được email thật.
+    const [otpEmail, setOtpEmail] = useState('');
     const timer = useRef<ReturnType<typeof setInterval> | null>(null);
 
     const { data, setData, post, processing, errors, reset, clearErrors } =
@@ -125,12 +134,25 @@ export default function LoginModal() {
     }, [flash]);
 
     // Server đã gửi OTP → chuyển sang bước nhập mã + bật đếm ngược gửi lại.
+    // Chốt luôn hộp thư nhận mã ở đây: đây là request DUY NHẤT mang nó về.
+    //
+    // Phụ thuộc cả object `flash`, cùng lý do đã ghi ở effect ngay trên. Để
+    // [flash?.otp_sent] thì lần gửi mã THỨ HAI không kích hoạt được: giá trị vẫn là true
+    // như lần trước. Gặp đúng khi khách bấm "← Sửa thông tin" (thuần client, không có
+    // request nào xen giữa để dọn cờ), đổi số rồi gửi lại — mã bay đi thật mà màn nhập mã
+    // không hiện ra, khách đứng lại ở bước nhập SĐT.
+    //
+    // Lấy thẳng `flash.otp_email`, KHÔNG fallback về `data.email` như bản cũ: server luôn gửi
+    // hai cờ này cùng nhau, nên fallback đó chưa bao giờ chạy đúng lúc — nó chỉ nhảy vào khi
+    // flash đã rụng, và ở nhánh che thì `data.email` rỗng (khách có gõ email đâu), đẻ ra đúng
+    // câu cụt "gửi mã tới .". Client chỉ hiện thứ server cố ý cho hiện, không tự chế.
     useEffect(() => {
         if (flash?.otp_sent) {
+            setOtpEmail(flash.otp_email ?? '');
             setStep('otp');
             startCooldown();
         }
-    }, [flash?.otp_sent]);
+    }, [flash]);
 
     // Đăng nhập xong (prop auth.user xuất hiện) → đóng modal.
     useEffect(() => {
@@ -169,6 +191,7 @@ export default function LoginModal() {
         setOpen(false);
         setStep('form');
         setResendIn(0);
+        setOtpEmail('');
         reset();
         clearErrors();
         autoFilledName.current = '';
@@ -425,7 +448,7 @@ export default function LoginModal() {
                                 <p className="mb-[14px] text-[14px] text-moss">
                                     Đã gửi mã 6 số tới{' '}
                                     <strong className="text-ink">
-                                        {flash?.otp_email || data.email}
+                                        {otpEmail}
                                     </strong>
                                     . Nhập mã để hoàn tất.
                                 </p>
@@ -474,6 +497,7 @@ export default function LoginModal() {
                                     <button
                                         onClick={() => {
                                             setStep('form');
+                                            setOtpEmail('');
                                             clearErrors();
                                         }}
                                         className="text-moss hover:text-ink"
