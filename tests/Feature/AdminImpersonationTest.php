@@ -149,6 +149,39 @@ class AdminImpersonationTest extends TestCase
         $this->assertAuthenticatedAs($customer);
     }
 
+    /**
+     * Đang xem hộ mà bấm "Đăng xuất" ở header KHÁCH → phải quay về admin, KHÔNG đăng xuất sạch.
+     *
+     * Thiếu chốt này thì `session()->invalidate()` trong destroy() xoá luôn `impersonator_id`:
+     * admin mất cả phiên quản trị chỉ vì bấm nhầm nút quen tay, phải đăng nhập lại từ đầu.
+     * Header khách không phân biệt được hai nút đó nên phải xử ở server.
+     *
+     * @test
+     */
+    public function logging_out_while_impersonating_returns_to_the_admin(): void
+    {
+        $admin = $this->admin();
+        $customer = $this->customer();
+
+        $this->actingAs($admin)->post(route('admin.users.impersonate', $customer->id));
+        $this->assertAuthenticatedAs($customer);
+
+        $this->post(route('guest.logout'))->assertRedirect(route('admin.users'));
+
+        $this->assertAuthenticatedAs($admin);
+        $this->assertNull(session('impersonator_id'));
+    }
+
+    /** Khách bình thường bấm đăng xuất thì vẫn đăng xuất thật. @test */
+    public function a_normal_customer_logging_out_is_still_logged_out(): void
+    {
+        $customer = $this->customer();
+
+        $this->actingAs($customer)->post(route('guest.logout'))->assertRedirect('/');
+
+        $this->assertGuest();
+    }
+
     /** Thanh nhắc "đang xem với tư cách…" phải hiện ở trang khách. @test */
     public function the_customer_pages_expose_the_impersonation_banner_prop(): void
     {
