@@ -454,6 +454,42 @@ class OtpFlowTest extends TestCase
     }
 
     /**
+     * Gõ SAI mã cũng không được làm lộ email thật.
+     *
+     * Đây là hàng rào cho một bản vá SAI rất dễ nghĩ ra. Trên màn nhập mã, câu "đã gửi mã
+     * tới ..." lấy email từ flash `otp_email` — mà flash chỉ sống một request, nên gõ sai mã
+     * một cái là nó rụng, còn trơ "gửi mã tới .". Cách chữa nghe hợp lý nhất là cho verifyOtp
+     * phát lại email từ session; nhưng session giữ email THẬT, trong khi nhánh này cố ý chỉ
+     * đưa bản che vì người đang gõ chưa chắc là chủ số (bopcamping-bqsv).
+     *
+     * Vá kiểu đó là mở lại đúng lỗ hổng ca 3.6 qua đường khác: gõ SĐT người lạ, cố tình nhập
+     * sai một lần, server tự khai địa chỉ thật. Nên chỗ hiển thị được giữ ở client (LoginModal
+     * nhớ lại đúng chuỗi server đã cố ý gửi), còn test này canh ranh giới phía server.
+     *
+     * @test
+     */
+    public function a_wrong_code_never_leaks_the_real_email(): void
+    {
+        Mail::fake();
+        User::factory()->create([
+            'name' => 'Chị Ngọc', 'phone' => '0912345678',
+            'email' => 'ngocanh@gmail.com', 'email_verified_at' => now(), 'is_admin' => false,
+        ]);
+
+        $this->post(route('guest.login'), ['phone' => '0912345678'])
+            ->assertSessionHas('otp_sent', true);
+
+        $response = $this->post(route('guest.login.verify'), ['code' => '000000'])
+            ->assertSessionHasErrors('code');
+
+        $this->assertGuest();
+        // Không nằm trong nội dung trả về...
+        $response->assertDontSee('ngocanh@gmail.com');
+        // ...và cũng không lén quay lại qua flash mà client sẽ render thẳng ra màn hình.
+        $this->assertNotSame('ngocanh@gmail.com', session('otp_email'));
+    }
+
+    /**
      * Chạy trọn luồng đăng nhập có email (gửi mã → nhập mã) và trả response của bước cuối —
      * bước duy nhất mang cookie nhớ đăng nhập. Gọi Mail::fake() trước khi dùng.
      */
