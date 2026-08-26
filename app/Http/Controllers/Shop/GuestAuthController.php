@@ -137,21 +137,29 @@ class GuestAuthController extends Controller
         $phoneIsClaimed = $existing !== null
             || Order::where('customer_phone', $data['phone'])->exists();
 
-        // Số đã có chủ NHƯNG không hộp thư nào nhận được mã → không có cách nào xác thực tự động.
-        // Chặn hẳn (cả khi bỏ trống lẫn khi gõ email lạ — nếu chỉ chặn nhánh bỏ trống thì gõ đại
-        // một email là lách được), chỉ đường sang Zalo để người trực xác minh thủ công.
+        // SĐT đã có chủ nhưng CHƯA gắn hộp thư nào (tài khoản email tạm, đơn cũ bỏ trống email).
         //
-        // Người trực PHẢI hỏi thông tin một đơn cũ (mã đơn / ngày thuê / địa chỉ giao) trước khi
-        // gắn email, nếu không thì kẻ tấn công chỉ việc nhắn Zalo là qua mặt được toàn bộ chốt này.
-        if ($phoneIsClaimed && $allowedEmails->isEmpty()) {
-            return back()
-                ->withErrors(['phone' => 'Số này cần có email mới đăng nhập được. Nhắn Zalo để shop hỗ trợ.'])
-                ->with('login_needs_support', true)
-                ->withInput();
-        }
+        // ⚠️ ĐÁNH ĐỔI CÓ CHỦ Ý — chủ shop chốt 26/08/2026. Ở đây khách được tự nhập một email
+        // MỚI rồi nhận mã về chính hộp thư đó, tức mã chỉ chứng minh "người này mở được hộp thư
+        // họ vừa gõ", KHÔNG chứng minh họ là chủ số. Người lạ biết SĐT vẫn chiếm được tài khoản
+        // và xem được lịch sử đơn (relatedOrders() khớp theo customer_phone).
+        //
+        // Bản trước chặn hẳn nhánh này và bắt liên hệ Zalo; chủ shop thấy quá nặng cho khách
+        // thật nên đổi: Zalo hạ xuống thành lối phụ cho người không có email.
+        // Xem artifacts/design_spec_phone_only_account_recovery.md §5 và bead bopcamping-kuhg.
+        $mailboxUnknown = $phoneIsClaimed && $allowedEmails->isEmpty();
 
         $email = trim((string) ($data['email'] ?? ''));
         if ($email === '') {
+            // Số đã có chủ nhưng chưa gắn hộp thư → không biết gửi mã đi đâu. BẮT nhập email.
+            // Cờ `login_needs_support` để LoginModal hiện thêm dòng liên hệ Zalo bên dưới ô
+            // email — lối phụ cho khách thật sự không có email, không phải lối duy nhất.
+            if ($mailboxUnknown) {
+                return back()->withErrors([
+                    'email' => 'Vui lòng nhập email để nhận mã xác thực.',
+                ])->with('login_needs_support', true)->withInput();
+            }
+
             // SĐT đã thuộc về ai đó → KHÔNG BAO GIỜ cho vào chỉ bằng SĐT. Số điện thoại chưa
             // hề được xác thực (không có OTP SMS) nên nó không phải bằng chứng danh tính.
             if ($phoneIsClaimed) {
@@ -162,11 +170,14 @@ class GuestAuthController extends Controller
                 // người thân). Đi tiếp thì verifyOtp tạo user mới trùng email → vỡ ràng buộc
                 // unique và trả 500. Dừng lại và chỉ đường liên hệ.
                 if ($this->emailBelongsToAnotherAccount($target, $existing)) {
-                    // Cũng là ngõ cụt như nhánh "không có hộp thư nào" → bật cùng cờ để
-                    // LoginModal hiện nút Zalo, thay vì để khách bấm gửi mã đi bấm lại.
+                    // KHÔNG bật `login_needs_support` ở đây: cờ đó nay có nghĩa "số chưa gắn
+                    // hộp thư nào → bắt nhập email". Số này CÓ hộp thư, chỉ là hộp thư đang
+                    // thuộc người khác — bật cờ sẽ hiện đúng câu sai ("chưa gắn email"), rồi
+                    // khách gõ email vào lại vướng chốt "email không khớp". Thông báo dưới đây
+                    // đã tự chỉ đường Zalo rồi.
                     return back()->withErrors([
                         'email' => 'Email gắn với số này đang dùng cho tài khoản khác. Nhắn Zalo để shop hỗ trợ.',
-                    ])->with('login_needs_support', true)->withInput();
+                    ])->withInput();
                 }
 
                 $otp->send($target);
@@ -184,8 +195,8 @@ class GuestAuthController extends Controller
             }
 
             // Số hoàn toàn mới: chưa tài khoản, chưa đơn nào → không có gì để chiếm.
-            // (Không còn nhánh "$existing nhưng chưa có email": tài khoản nào cũng làm
-            // $phoneIsClaimed = true, và trường hợp không có hộp thư đã bị chặn ở trên.)
+            // (Tài khoản cũ chưa gắn hộp thư đã rẽ ở nhánh $mailboxUnknown phía trên, nên tới
+            // đây chắc chắn $existing === null.)
             $user = new User(['phone' => $data['phone']]);
             $user->name = $this->resolveName($data['name'] ?? null, null, $data['phone']);
             $user->save();
@@ -205,8 +216,13 @@ class GuestAuthController extends Controller
             return back();
         }
 
-        // Gõ một email LẠ cho một SĐT đã có chủ → chính là kịch bản chiếm tài khoản ở trên.
-        if ($phoneIsClaimed && ! $allowedEmails->contains(Str::lower($email))) {
+        // Gõ một email LẠ cho SĐT ĐÃ CÓ hộp thư → chính là kịch bản chiếm tài khoản: mã sẽ về
+        // hộp thư kẻ gõ, không phải hộp thư chủ số. Chốt này vẫn giữ nguyên và là chốt chính.
+        //
+        // Điều kiện là `$allowedEmails->isNotEmpty()` chứ KHÔNG phải `$phoneIsClaimed`: số đã có
+        // chủ mà chưa gắn hộp thư nào ($mailboxUnknown) được cho gắn email mới — đánh đổi ở đầu
+        // hàm. Dùng nhầm $phoneIsClaimed ở đây là chặn luôn cả ca đó, trái ý chủ shop.
+        if ($allowedEmails->isNotEmpty() && ! $allowedEmails->contains(Str::lower($email))) {
             return back()->withErrors([
                 'email' => 'Email không khớp với số điện thoại này. Dùng email bạn đã đăng ký, hoặc nhắn Zalo để shop hỗ trợ.',
             ])->withInput();
