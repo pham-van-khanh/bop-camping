@@ -361,6 +361,76 @@ Không phải "sửa test cho xanh" — hành vi mà chúng mô tả chính là 
 
 ---
 
+## 8c. Lệnh phải chạy — giải thích từng lệnh
+
+Code đã nằm trên nhánh `feature/auth-hardening-impersonation` (đã commit + push). Việc còn
+lại là chạy các lệnh dưới đây; **chưa lệnh nào được chạy lần nào.**
+
+```bash
+git checkout feature/auth-hardening-impersonation
+
+# 1. Test PHP — QUAN TRỌNG NHẤT. Phải dùng MySQL, không dùng SQLite mặc định.
+DB_CONNECTION=mysql DB_DATABASE=bop_camping_test php artisan test
+```
+> **Cần gì:** container MySQL `bopcamping_db` phải đang chạy (`docker start bopcamping_db`),
+> và DB `bop_camping_test` phải tồn tại. Máy dev này thiếu `pdo_sqlite` nên chạy mặc định sẽ
+> lỗi `could not find driver`.
+>
+> **Kỳ vọng:** ~1030 test. Nhóm dễ đỏ nhất: `OtpFlowTest`, `LoginLookupRenameTest`,
+> `AdminAccessTest`, `AdminUserTest`, `AdminImpersonationTest` — đây đúng là những file đã
+> sửa. Đỏ ở đây là bình thường và cần đọc kỹ, KHÔNG sửa test cho xanh: 7 test cũ đã được
+> viết lại vì chúng khẳng định đúng hành vi lỗ hổng (xem §8b).
+
+```bash
+# 2. Test giao diện (jsdom)
+npx vitest run
+```
+> **Kỳ vọng:** 26 file / 212 test. Các test combo đều mock `SiteLayout` nên thanh "đang xem
+> với tư cách…" không ảnh hưởng. Nếu đỏ, nhiều khả năng do mock `@inertiajs/react` thiếu
+> hàm mới.
+
+```bash
+# 3. Kiểu TypeScript
+npx tsc --noEmit
+```
+> **Kỳ vọng:** im lặng. Rủi ro đã biết: prop `impersonating` mới thêm vào `PageProps`, đã để
+> optional (`?`) để không bắt mọi nơi phải khai.
+
+```bash
+# 4. Lint JS — CHỈ KIỂM, không sửa file
+npm run lint
+```
+> **Kỳ vọng:** `0 errors`, còn ~9 warning có sẵn từ trước. Rủi ro đã biết: `LoginModal.tsx`
+> vừa bị gỡ state `useOtherEmail`; nếu còn sót chỗ dùng, lint sẽ báo biến không tồn tại.
+> Lỗi định dạng thì chạy `npm run lint:fix` rồi **xem lại diff**.
+
+```bash
+# 5. Định dạng PHP
+./vendor/bin/pint --test
+```
+> **Kỳ vọng:** `passed`. Đỏ thì chạy `./vendor/bin/pint` để tự sửa.
+
+```bash
+# 6. Build production
+npm run build
+```
+> **Kỳ vọng:** `✓ built`. Đây là chốt chặn cuối bắt lỗi import/cú pháp mà tsc bỏ sót.
+
+**Chỉ khi cả 6 lệnh xanh** mới merge sang `develop` (staging) → kiểm thật trên staging →
+rồi mới merge `feat/scaffold-laravel` (production).
+
+**Sau khi production lên xong**, chạy nốt lệnh xoay token ở §7 — thiếu bước này thì kẻ đã
+khai thác vẫn giữ cookie còn hạn.
+
+### Kiểm tay trên staging (không lệnh nào thay được)
+
+1. Khách quen, máy lạ → phải hiện ô nhập OTP, mã về đúng hộp thư cũ.
+2. Gõ SĐT của khách khác + email của mình → phải bị từ chối.
+3. Gõ SĐT hotline admin ở modal khách → phải bị từ chối.
+4. `/admin/users` → bấm **"Đăng nhập"** → vào tài khoản khách, thấy thanh vàng, bấm **Thoát**
+   → quay lại đúng tài khoản admin.
+5. Đăng nhập rồi đóng trình duyệt, mở lại → vẫn đăng nhập (cookie 60 ngày còn hạn).
+
 ## 9. Thứ tự triển khai
 
 1. Nhánh mới từ `feat/scaffold-laravel`.
