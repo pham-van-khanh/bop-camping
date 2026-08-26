@@ -269,6 +269,24 @@ phải nằm ở server, và nó nằm đúng chỗ.
 **Dữ liệu test còn trên staging:** `0912000111` (tài khoản bị khoá vĩnh viễn — cố ý, để
 kiểm chứng), `0912000222` + đơn `BOP-3D2054`.
 
+## 7c. Đo lại trên staging — ĐỢT 2, bản BẮT NHẬP EMAIL (26/08/2026)
+
+| # | Kịch bản | Kết quả |
+|---|---|---|
+| A | Số chưa gắn email + **gõ email** | ✅ gửi mã tới email đó, chưa cho vào (`user: null`) |
+| B | Số **đã có** hộp thư + email lạ | ✅ **vẫn chặn** — *"Email không khớp với số điện thoại này"* |
+| C | Số đã có hộp thư + bỏ trống email | ✅ gửi mã tới hộp thư cũ, email trả về **đã che** (`kh***********@example.com`) |
+| D | Số chưa gắn email + bỏ trống | ✅ lỗi ở ô **email** *"Vui lòng nhập email…"* + `login_needs_support: true` |
+| E | Tài khoản sau khi gửi mã mà **chưa xác thực** | ✅ chưa bị đổi email, `needs_support` vẫn `true` |
+| F | Giao diện | ✅ placeholder *"Email (bắt buộc)"*, dòng *"Chưa có email? Nhắn Zalo để shop hỗ trợ"* + link OA, nút "Tiếp tục" hiện nhưng **khoá** cho tới khi có email hợp lệ |
+
+**Ca B là ca quan trọng nhất của đợt này.** Nới luật 2 rất dễ vô tình mở luôn chốt chính (chỉ
+cần đổi `$allowedEmails->isNotEmpty()` thành điều kiện khác là vỡ). Đo trực tiếp cho thấy khách
+**đã có email** vẫn được bảo vệ nguyên vẹn.
+
+**Chưa đo được:** nút "Đăng nhập thay khách" và bản vá đăng-xuất-lúc-xem-hộ (§7d.1) — cần tài
+khoản admin trên staging.
+
 ## 7d. Đợt soi thủ công toàn bộ mặt phẳng đăng nhập (26/08/2026)
 
 Soi cả phần `bopcamping-bqsv` (impersonation) vì hai nhánh xếp chồng, lên production cùng lúc.
