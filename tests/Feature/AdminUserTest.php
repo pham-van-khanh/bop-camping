@@ -148,11 +148,13 @@ class AdminUserTest extends TestCase
 
         $created = User::where('phone', '0912345678')->first();
 
-        // Khách vào bằng SĐT: KHÔNG có OTP chờ, đăng nhập thẳng.
+        // Khách vào bằng SĐT: OTP gửi tới ĐÚNG email admin đã điền hộ, khách không phải gõ
+        // lại email của chính mình (bopcamping-bqsv). Chưa xác thực thì chưa vào được.
         $this->post(route('guest.login'), ['phone' => '0912345678'])
-            ->assertSessionMissing('otp_pending')
+            ->assertSessionHas('otp_sent', true)
             ->assertSessionHasNoErrors();
-        $this->assertAuthenticatedAs($created);
+        $this->assertGuest();
+        $this->assertSame($created->email, session('otp_pending')['email']);
     }
 
     /** @test */
