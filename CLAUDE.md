@@ -155,9 +155,25 @@ Push **nhánh feature** thì luôn được, không cần hỏi — nó không d
 
 Không commit trực tiếp vào `main`/`feat/scaffold-laravel`/`develop` (ngoại lệ: chore nhỏ như docs, beads-sync vào nhánh chính). Khi `develop` bẩn/lệch, reset về `feat/scaffold-laravel` (force-push) — mọi thứ trên đó đều đã có ở feature branch gốc.
 
-**Sổ nhánh: [BRANCHES.md](BRANCHES.md)** — nhánh nào đang ở Production, nhánh nào mới ở
-Staging, kèm chức năng và ngày triển khai. **Mỗi lần merge lên staging hoặc production
-thì thêm/chuyển một dòng ở đó**, đừng để sổ lạc hậu.
+### 📓 Sổ deploy — cập nhật MỖI LẦN deploy
+
+Nguồn duy nhất: **[artifacts/pages/so_deploy.html](artifacts/pages/so_deploy.html)**, publish
+thành artifact để chủ shop mở bằng link. Hai bảng tách riêng — Production và Staging — mỗi
+dòng: *tên chức năng · mô tả ngắn · branch · ngày deploy · commit revert*.
+
+**Deploy xong là phải ghi vào đó, coi như một phần của việc deploy chứ không phải việc phụ.**
+Cụ thể:
+
+1. Thêm một dòng vào bảng đúng môi trường, **mới nhất lên đầu** (thứ tự bảng = thứ tự revert).
+2. Điền **commit revert** = SHA của merge commit vừa tạo. Vì vậy luôn merge bằng `--no-ff`:
+   merge fast-forward không sinh commit nào để revert, cột đó đành bỏ trống (xem hai dòng
+   `feature/dia-chi-cua-hang-map` và `feature/hinh-thuc-giao-nhan` trong sổ).
+3. Lên production rồi thì **chuyển dòng** từ bảng Staging sang Production và đổi ngày — đừng
+   để một nhánh nằm ở cả hai bảng.
+4. Publish lại artifact (cùng `url` để giữ nguyên link) — xem
+   [artifacts/pages/INDEX.md](artifacts/pages/INDEX.md).
+
+Sửa xong sổ thì mới coi là deploy xong.
 
 ### Đợt đang chạy trên production — có thể phải revert
 
