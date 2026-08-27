@@ -111,6 +111,18 @@
   .note { flex: 1 1 240px; min-width: 0; font-family: var(--sans); font-size: 13.5px; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface-2); color: var(--ink); }
   .note::placeholder { color: var(--faint); }
 
+  /* bảng tra nhanh */
+  .rule { font-size: 15.5px; color: var(--ink-soft); background: var(--surface); border: 1px solid var(--line); border-left: 3px solid var(--pass); border-radius: var(--radius); padding: 14px 17px; max-width: none; }
+  .rule b { color: var(--ink); }
+  .ref-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
+  table.ref { border-collapse: collapse; width: 100%; min-width: 520px; font-size: 14.5px; }
+  table.ref th { text-align: left; font-size: 11.5px; font-family: var(--mono); font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--faint); background: var(--surface-2); padding: 11px 16px; border-bottom: 1px solid var(--line); }
+  table.ref td { padding: 12px 16px; border-top: 1px solid var(--line); color: var(--muted); vertical-align: top; }
+  table.ref tr:first-child td { border-top: 0; }
+  table.ref td:first-child { color: var(--ink-soft); width: 42%; }
+  table.ref td b { color: var(--ink); font-weight: 600; }
+  table.ref .no { color: var(--fail); font-weight: 600; }
+
   footer { border-top: 1px solid var(--line); padding-top: 20px; font-size: 13.5px; color: var(--faint); display: flex; flex-direction: column; gap: 6px; }
   code { font-family: var(--mono); font-size: .88em; background: var(--surface-2); border: 1px solid var(--line); border-radius: 5px; padding: 1px 5px; color: var(--ink-soft); }
 
@@ -220,10 +232,27 @@
     h += '<div class="eyebrow">Bốp Camping · test tay trên staging</div>';
     h += '<h1>Sổ tích đợt siết đăng nhập</h1>';
     h += '<p class="lede">Tích từng ca khi bạn test. Tích xong là trang tự lưu — đóng đi mở lại vẫn còn, và tôi đọc lại được kết quả. Bấm lại nút đang chọn để bỏ tích. Ô ghi chú dùng khi “không đạt” hoặc “chưa hài lòng”.</p>';
-    h += '<p class="lede" style="font-size:15px"><b>Luật duy nhất cần nhớ:</b> mã xác thực chỉ gửi tới hộp thư đã gắn với số đó, và email chỉ thành email đăng nhập <u>sau khi nhập đúng mã</u>. Mục A đi qua sáu tình trạng một số có thể ở; <b>B1</b> là ca quan trọng nhất.</p>';
+    h += '<p class="lede" style="font-size:15px">Mục A đi qua sáu tình huống trong bảng dưới; <b>B1</b> là ca quan trọng nhất.</p>';
     h += '<div class="meta"><span><b>Staging</b> <a href="https://staging.bopcamping.cloud" target="_blank" rel="noopener">staging.bopcamping.cloud</a></span><span><b>Bead</b> bopcamping-bqsv + bopcamping-kuhg</span><span><b>Nhánh</b> develop</span></div>';
     h += '<div class="ro">Bạn đang xem ở chế độ chỉ đọc nên trang không lưu được tích. Nhờ chủ sở hữu artifact mở quyền sửa.</div>';
     h += '</header>';
+
+    // Bảng tra nhanh: hệ thống hiện hoạt động thế nào. Đọc cái này trước khi tích.
+    h += '<section><div class="sec-head"><span class="n">Tra nhanh</span><h2>Hiện tại hoạt động thế nào</h2></div>';
+    h += '<p class="rule"><b>Một luật duy nhất:</b> mã xác thực chỉ gửi tới hộp thư <b>đã gắn</b> với số đó. Email chỉ thành email đăng nhập <b>sau khi nhập đúng mã</b>.</p>';
+    h += '<div class="ref-wrap"><table class="ref">';
+    h += '<thead><tr><th>Tình huống của số điện thoại</th><th>Đăng nhập ra sao</th></tr></thead><tbody>';
+    [
+      ['Số <b>mới tinh</b>, bỏ trống email', 'Vào thẳng, không cần mã'],
+      ['Số <b>mới tinh</b>, có gõ email', 'Mã về email vừa gõ → nhập mã → vào'],
+      ['Đã có tài khoản <b>kèm email</b>', 'Luôn phải nhập mã. Mã về email đó (hiện dạng che). Gõ email khác → <span class="no">chặn</span>'],
+      ['Đã có tài khoản <b>chỉ có SĐT</b>', 'Bắt nhập email, gõ email nào cũng được, phải qua mã'],
+      ['Chưa có tài khoản, nhưng <b>đã có đơn cũ bạn đã xác nhận</b>', 'Mã về email trên đơn đó'],
+      ['Chưa có tài khoản, đơn còn <b>chờ xác nhận</b>', 'Coi như chưa gắn email → bắt tự nhập']
+    ].forEach(function (r) { h += '<tr><td>' + r[0] + '</td><td>' + r[1] + '</td></tr>'; });
+    h += '</tbody></table></div>';
+    h += '<p class="rule" style="border-left-color:var(--line-strong)"><b>Đặt đơn:</b> email gõ lúc checkout <b>chỉ để gửi mail cho đơn đó</b>, không bao giờ đụng tới đăng nhập — dù đã đăng nhập hay chưa.</p>';
+    h += '</section>';
 
     h += '<div class="bar-wrap"><div class="tally">';
     h += '<span class="pill">' + c.done + '/' + c.total + ' đã tích</span>';
