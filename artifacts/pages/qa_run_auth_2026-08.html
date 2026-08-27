@@ -1,0 +1,403 @@
+<title>QA đợt siết đăng nhập</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+
+<style>
+  :root {
+    --ground: #F7F9F1; --surface: #FFFFFF; --surface-2: #FBFCF7;
+    --ink: #18230F; --ink-soft: #2C3D22; --muted: #5C6E47; --faint: #8A9B75;
+    --line: #E3E8D6; --line-strong: #CFD8BE;
+    --accent: #557A2B; --accent-soft: #EDF3E1;
+    --warn: #B26A28; --warn-soft: #FBEEDF;
+    --radius: 14px;
+    --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    --sans: "Be Vietnam Pro", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #12180D; --surface: #1B2315; --surface-2: #202A19;
+      --ink: #EAEFE1; --ink-soft: #D2DCC2; --muted: #9CAA88; --faint: #77855F;
+      --line: #2C3722; --line-strong: #3B4930;
+      --accent: #8FB65C; --accent-soft: #23301A;
+      --warn: #D89258; --warn-soft: #33240F;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #12180D; --surface: #1B2315; --surface-2: #202A19;
+    --ink: #EAEFE1; --ink-soft: #D2DCC2; --muted: #9CAA88; --faint: #77855F;
+    --line: #2C3722; --line-strong: #3B4930;
+    --accent: #8FB65C; --accent-soft: #23301A;
+    --warn: #D89258; --warn-soft: #33240F;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--ground); color: var(--ink);
+    font-family: var(--sans); font-size: 16px; line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 860px; margin: 0 auto; padding: 56px 24px 96px; display: flex; flex-direction: column; gap: 48px; }
+
+  .eyebrow { font-family: var(--mono); font-size: 11.5px; font-weight: 500; letter-spacing: .14em; text-transform: uppercase; color: var(--faint); }
+  h1 { font-size: clamp(30px, 5.2vw, 42px); font-weight: 800; letter-spacing: -.028em; line-height: 1.12; margin: 10px 0 0; text-wrap: balance; }
+  h2 { font-size: 19px; font-weight: 700; letter-spacing: -.015em; margin: 0; text-wrap: balance; }
+  h3 { font-size: 15.5px; font-weight: 700; letter-spacing: -.01em; margin: 0; text-wrap: balance; }
+  p { margin: 0; max-width: 66ch; }
+  .lede { color: var(--muted); font-size: 17px; margin-top: 14px; }
+
+  header.masthead { border-bottom: 1px solid var(--line); padding-bottom: 34px; }
+  .meta { margin-top: 20px; display: flex; flex-wrap: wrap; gap: 8px 18px; font-family: var(--mono); font-size: 12px; color: var(--faint); }
+  .meta b { color: var(--muted); font-weight: 500; }
+
+  .scores { margin-top: 30px; display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+  .score { background: var(--surface); padding: 20px 22px; display: flex; flex-direction: column; gap: 4px; }
+  .score .n { font-family: var(--mono); font-size: 30px; font-weight: 600; letter-spacing: -.03em; font-variant-numeric: tabular-nums; color: var(--accent); line-height: 1.1; }
+  .score .n.warnish { color: var(--warn); }
+  .score .k { font-size: 13px; color: var(--muted); }
+
+  section { display: flex; flex-direction: column; gap: 18px; }
+  .sec-head { display: flex; flex-direction: column; gap: 7px; }
+
+  .gates { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+  .gate { background: var(--surface); padding: 14px 16px; display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+  .gate .cmd { font-family: var(--mono); font-size: 12.5px; color: var(--ink-soft); }
+  .gate .res { font-family: var(--mono); font-size: 12px; font-variant-numeric: tabular-nums; color: var(--accent); white-space: nowrap; }
+
+  .block { border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); overflow: hidden; }
+  .block-head { padding: 13px 18px; background: var(--surface-2); border-bottom: 1px solid var(--line); display: flex; align-items: baseline; justify-content: space-between; gap: 14px; }
+  .block-head .t { font-size: 14.5px; font-weight: 700; letter-spacing: -.01em; }
+  .block-head .c { font-family: var(--mono); font-size: 11.5px; color: var(--faint); white-space: nowrap; }
+
+  ul.cases { list-style: none; margin: 0; padding: 0; }
+  ul.cases > li { display: grid; grid-template-columns: 46px 1fr auto; gap: 14px; align-items: baseline; padding: 11px 18px; border-top: 1px solid var(--line); font-size: 14.5px; }
+  ul.cases > li:first-child { border-top: 0; }
+  .cid { font-family: var(--mono); font-size: 12.5px; font-weight: 500; color: var(--faint); font-variant-numeric: tabular-nums; }
+  .what { color: var(--ink-soft); }
+  .what em { font-style: normal; font-family: var(--mono); font-size: 12.5px; color: var(--muted); }
+
+  .chip { font-family: var(--mono); font-size: 10.5px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; padding: 3px 9px; border-radius: 999px; white-space: nowrap; background: var(--accent-soft); color: var(--accent); }
+  .chip.warn { background: var(--warn-soft); color: var(--warn); }
+  .chip.none { background: transparent; color: var(--faint); border: 1px solid var(--line-strong); }
+
+  .finding { border: 1px solid var(--line); border-left: 3px solid var(--accent); border-radius: var(--radius); background: var(--surface); padding: 18px 20px; display: flex; flex-direction: column; gap: 9px; }
+  .finding.open { border-left-color: var(--warn); }
+  .finding.calm { border-left-color: var(--line-strong); }
+  .finding .top { display: flex; align-items: baseline; gap: 11px; flex-wrap: wrap; }
+  .finding p { font-size: 14.5px; color: var(--muted); }
+  .finding p b { color: var(--ink-soft); font-weight: 600; }
+
+  code { font-family: var(--mono); font-size: .88em; background: var(--surface-2); border: 1px solid var(--line); border-radius: 5px; padding: 1px 5px; color: var(--ink-soft); }
+  .quote { font-family: var(--mono); font-size: 12.5px; background: var(--surface-2); border: 1px solid var(--line); border-radius: 9px; padding: 10px 13px; color: var(--ink-soft); overflow-x: auto; white-space: pre; }
+
+  .files { display: flex; flex-direction: column; gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+  .file { background: var(--surface); padding: 12px 17px; display: flex; justify-content: space-between; gap: 14px; align-items: baseline; flex-wrap: wrap; }
+  .file .p { font-family: var(--mono); font-size: 12.5px; color: var(--ink-soft); }
+  .file .n { font-size: 13px; color: var(--muted); }
+
+  footer { border-top: 1px solid var(--line); padding-top: 22px; font-size: 13px; color: var(--faint); display: flex; flex-direction: column; gap: 6px; }
+
+  @media (max-width: 560px) {
+    .wrap { padding: 40px 17px 72px; gap: 40px; }
+    ul.cases > li { grid-template-columns: 40px 1fr; row-gap: 6px; }
+    ul.cases > li .chip { grid-column: 2; justify-self: start; }
+  }
+</style>
+
+<div class="wrap">
+
+  <header class="masthead">
+    <div class="eyebrow">Bốp Camping · chạy thử trước khi bạn test</div>
+    <h1>Đợt siết đăng nhập qua sạch, và lộ ra hai lỗi ở màn nhập mã</h1>
+    <p class="lede">
+      Chạy mục 0 của checklist, rồi tự đi lại các ca trên trình duyệt local. Mọi ca đo được đều đạt,
+      kể cả mục 4 — phần checklist ghi là “chưa ai đo được”. Ngoài lề đó tìm ra hai lỗi ở màn nhập mã;
+      cả hai đã sửa, có test canh, và đã lên staging.
+    </p>
+    <div class="meta">
+      <span><b>Nhánh</b> develop ← feature/phone-only-account-recovery</span>
+      <span><b>Bead</b> bopcamping-bqsv + bopcamping-kuhg</span>
+      <span><b>Đo trên</b> localhost:8000 · MySQL 8</span>
+      <span><b>Cập nhật</b> 26/08/2026</span>
+    </div>
+
+    <div class="scores">
+      <div class="score">
+        <span class="n">1293</span>
+        <span class="k">test tự động đạt<br>1065 PHPUnit · 228 Vitest</span>
+      </div>
+      <div class="score">
+        <span class="n">32</span>
+        <span class="k">ca checklist tự đo<br>tất cả đều đạt</span>
+      </div>
+      <div class="score">
+        <span class="n">2</span>
+        <span class="k">lỗi tìm ra và đã sửa<br>đều ở màn nhập mã</span>
+      </div>
+      <div class="score">
+        <span class="n warnish">2</span>
+        <span class="k">điểm còn chờ bạn quyết<br>không phải lỗ hổng</span>
+      </div>
+    </div>
+  </header>
+
+  <section>
+    <div class="sec-head">
+      <div class="eyebrow">Mục 0 · quality gate</div>
+      <h2>Sáu cổng đều xanh</h2>
+      <p class="lede" style="font-size:15px">
+        Lần chạy đầu có một test đỏ và hai lỗi format. Con số dưới đây là lần chạy sau khi đã xử lý
+        và đã thêm test cho hai lỗi mới.
+      </p>
+    </div>
+    <div class="gates">
+      <div class="gate"><span class="cmd">php artisan test</span><span class="res">1065 ✓ · 7390 assert</span></div>
+      <div class="gate"><span class="cmd">npm test</span><span class="res">228 ✓ · 29 file</span></div>
+      <div class="gate"><span class="cmd">npx tsc --noEmit</span><span class="res">sạch</span></div>
+      <div class="gate"><span class="cmd">npm run lint</span><span class="res">0 lỗi</span></div>
+      <div class="gate"><span class="cmd">pint --test</span><span class="res">passed</span></div>
+      <div class="gate"><span class="cmd">npm run build</span><span class="res">OK</span></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head">
+      <div class="eyebrow">Hai lỗi tìm ra ngoài checklist</div>
+      <h2>Đều nằm ở màn nhập mã, đều đã sửa</h2>
+    </div>
+
+    <div class="finding">
+      <div class="top"><h3>Nhập sai mã xong thì email rụng khỏi câu thông báo</h3><span class="chip">đã sửa</span></div>
+      <p>
+        Màn nhập mã ban đầu hiện đúng <b>“Đã gửi mã 6 số tới te************@example.com.”</b>
+        Vừa nhập sai một lần là câu đó cụt còn:
+      </p>
+      <div class="quote">Đã gửi mã 6 số tới . Nhập mã để hoàn tất.</div>
+      <p>
+        Chuỗi này đi bằng <b>flash</b> — thứ chỉ sống một request — trong khi nó cần sống theo cả
+        <b>bước</b> nhập mã, vốn kéo dài qua nhiều request: sai mã, gửi lại, sai tiếp. Cất sai chỗ nên
+        rụng là tất yếu. Sửa bằng cách chốt chuỗi đó vào state React ngay khi vào bước OTP.
+      </p>
+      <p>
+        <b>Không</b> chữa bằng cách cho server phát lại email từ session — dù đó là cách nghĩ ra đầu tiên.
+        Session giữ email <b>thật</b>, còn nhánh “khách chỉ gõ SĐT” cố ý chỉ đưa bản <b>che</b> vì người
+        đang gõ chưa chắc là chủ số. Vá kiểu đó là mở lại đúng lỗ hổng ca 3.6 qua đường khác: gõ SĐT
+        người lạ, cố tình sai một lần, server tự khai địa chỉ thật.
+      </p>
+      <p>
+        Bỏ luôn fallback <code>|| data.email</code> ở chỗ hiển thị: server luôn gửi <code>otp_sent</code>
+        kèm <code>otp_email</code> nên fallback đó chưa bao giờ chạy đúng lúc — nó chỉ nhảy vào khi flash
+        đã rụng, và ở nhánh che thì <code>data.email</code> rỗng. Chính nó đẻ ra dấu chấm trơ trọi.
+      </p>
+    </div>
+
+    <div class="finding">
+      <div class="top"><h3>Lần gửi mã thứ hai không mở được màn nhập mã</h3><span class="chip">đã sửa</span></div>
+      <p>
+        Lỗi này <b>lòi ra khi viết test cho lỗi trên</b>, không ai báo. Effect nghe
+        <code>[flash?.otp_sent]</code> — chỉ là giá trị boolean — nên lần gửi mã thứ hai không kích hoạt
+        được: giá trị vẫn là <code>true</code> như lần trước.
+      </p>
+      <p>
+        Gặp đúng khi khách bấm <b>“← Sửa thông tin”</b> (thuần client, không có request nào xen giữa để
+        dọn cờ), đổi số rồi gửi lại: <b>mã bay đi thật nhưng màn nhập mã không hiện ra</b>, khách đứng
+        lại ở bước nhập SĐT, tưởng mình bấm hụt.
+      </p>
+      <p>
+        Đáng nói là effect ngay phía trên đã từng dính y hệt lỗi này và được sửa rồi, kèm hẳn comment
+        giải thích — chỉ là effect bên dưới bị bỏ sót. Nay cả hai cùng nghe object <code>flash</code>.
+      </p>
+    </div>
+
+    <div class="finding">
+      <div class="top"><h3>Test canh lỗ hổng đã được thử cho đỏ</h3><span class="chip">đã kiểm</span></div>
+      <p>
+        <code>a_wrong_code_never_leaks_the_real_email</code> chỉ có giá trị nếu nó thật sự bắt được bản
+        vá sai. Tôi <b>áp thử đúng bản vá sai</b> (cho server phát lại email thật từ session) và xác nhận
+        nó đỏ, rồi khôi phục lại code và kiểm <code>git diff</code> sạch. Test canh lỗ hổng mà không bao
+        giờ đỏ được thì chỉ là trang trí.
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head">
+      <div class="eyebrow">Mục 3 · chống chiếm tài khoản</div>
+      <h2>Cả sáu đường tấn công đều bị chặn</h2>
+      <p class="lede" style="font-size:15px">
+        Ca 3.1 phải gọi thẳng vào server vì giao diện đã ẩn hẳn ô email khi số đã có chủ — tức kẻ tấn
+        công không có đường bấm chuột nào để thử.
+      </p>
+    </div>
+    <div class="block">
+      <div class="block-head"><span class="t">Chống chiếm tài khoản</span><span class="c">6/6 đạt</span></div>
+      <ul class="cases">
+        <li><span class="cid">3.1</span><span class="what">SĐT khách + email kẻ lạ → chặn, và <em>không mã nào</em> bay tới hộp thư kẻ lạ</span><span class="chip">đạt</span></li>
+        <li><span class="cid">3.2</span><span class="what">Bỏ trống email → mã về đúng hộp thư khách, người gõ không vào được</span><span class="chip">đạt</span></li>
+        <li><span class="cid">3.3</span><span class="what">Sau hai đòn trên: tên, email khách nguyên vẹn, không đẻ tài khoản mới</span><span class="chip">đạt</span></li>
+        <li><span class="cid">3.4</span><span class="what">Hotline shop ở cửa khách → <em>“Số điện thoại này không dùng để đăng nhập khách.”</em></span><span class="chip">đạt</span></li>
+        <li><span class="cid">3.5</span><span class="what">Gõ hotline rồi chờ → API tra cứu trả <em>{"exists":false}</em>, không lộ gì</span><span class="chip">đạt</span></li>
+        <li><span class="cid">3.6</span><span class="what">Email luôn hiện dạng che <em>te************@example.com</em>, cả ở màn nhập mã</span><span class="chip">đạt</span></li>
+      </ul>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head">
+      <div class="eyebrow">Mục 4 · đăng nhập thay khách</div>
+      <h2>Phần “chưa ai đo được” giờ đã đo đủ 8/8</h2>
+      <p class="lede" style="font-size:15px">
+        Tôi tạo một tài khoản admin tạm trên máy local để đo, rồi xoá đi sau khi xong.
+      </p>
+    </div>
+    <div class="block">
+      <div class="block-head"><span class="t">Đăng nhập thay khách</span><span class="c">8/8 đạt</span></div>
+      <ul class="cases">
+        <li><span class="cid">4.1</span><span class="what">Bấm “Đăng nhập” ở tab Khách hàng → vào thẳng, không hỏi mã</span><span class="chip">đạt</span></li>
+        <li><span class="cid">4.2</span><span class="what">Thanh vàng <em>“Bạn đang xem với tư cách …”</em> + nút Thoát</span><span class="chip">đạt</span></li>
+        <li><span class="cid">4.3</span><span class="what">Bấm Thoát → về /admin/users, là admin trở lại</span><span class="chip">đạt</span></li>
+        <li><span class="cid">4.4</span><span class="what">Bấm “Đăng xuất” của khách → vẫn về /admin/users là admin, không bị đá ra</span><span class="chip">đạt</span></li>
+        <li><span class="cid">4.5</span><span class="what">Tab Quản trị viên: không có nút “Đăng nhập” nào</span><span class="chip">đạt</span></li>
+        <li><span class="cid">4.6</span><span class="what">Đang xem hộ mà mở /admin/users → đẩy về /admin/login</span><span class="chip">đạt</span></li>
+        <li><span class="cid">4.7</span><span class="what">Phiên xem hộ không đặt cookie nhớ; mở lại trình duyệt khôi phục thành <em>admin</em>, không phải khách</span><span class="chip">đạt</span></li>
+        <li><span class="cid">4.8</span><span class="what">Log ghi <em>actor_id · target_id · ip</em>, không có số điện thoại</span><span class="chip">đạt</span></li>
+      </ul>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head">
+      <div class="eyebrow">Mục 1, 2, 6, 7</div>
+      <h2>Luồng khách, tài khoản chỉ có SĐT, cookie</h2>
+    </div>
+
+    <div class="block">
+      <div class="block-head"><span class="t">Đăng nhập khách — luồng thường</span><span class="c">6 ca</span></div>
+      <ul class="cases">
+        <li><span class="cid">1.1</span><span class="what">SĐT mới, bỏ trống email → vào thẳng, không cần mã</span><span class="chip">đạt</span></li>
+        <li><span class="cid">1.3</span><span class="what">Mã sai → báo đúng câu, không vào được, <em>và email che vẫn còn</em> (sau khi sửa)</span><span class="chip">đạt</span></li>
+        <li><span class="cid">1.4</span><span class="what">Gửi lại mã → mã cũ hết hiệu lực ngay</span><span class="chip">đạt</span></li>
+        <li><span class="cid">1.5</span><span class="what">Khách quen bỏ trống email → hiện bản che, ô email biến mất hẳn</span><span class="chip">đạt</span></li>
+        <li><span class="cid">1.6</span><span class="what">Đổi tên lúc đăng nhập → tên chỉ đổi <em>sau khi</em> nhập đúng mã</span><span class="chip">đạt</span></li>
+        <li><span class="cid">1.7</span><span class="what">Gửi mã lần thứ hai sau “Sửa thông tin” → màn nhập mã mở lại (ca mới)</span><span class="chip">đạt</span></li>
+      </ul>
+    </div>
+
+    <div class="block">
+      <div class="block-head"><span class="t">Tài khoản chỉ có SĐT</span><span class="c">6/6 đạt</span></div>
+      <ul class="cases">
+        <li><span class="cid">2.1</span><span class="what">Quay lại: ô đổi thành <em>“Email (bắt buộc)”</em> + dòng gợi ý nhắn Zalo</span><span class="chip">đạt</span></li>
+        <li><span class="cid">2.2</span><span class="what">Chưa gõ email → nút “Tiếp tục” xám, bấm không được</span><span class="chip">đạt</span></li>
+        <li><span class="cid">2.3</span><span class="what">Gõ email hợp lệ → nút mở khoá, nhận mã, vào được</span><span class="chip">đạt</span></li>
+        <li><span class="cid">2.4</span><span class="what">Link Zalo trỏ đúng OA của shop</span><span class="chip">đạt</span></li>
+        <li><span class="cid">2.5</span><span class="what">Đăng xuất, vào lại chỉ bằng SĐT → mã về email vừa gắn, hiện bản che</span><span class="chip">đạt</span></li>
+        <li><span class="cid">2.6</span><span class="what">Trên khung 390px: chữ không tràn, nút Zalo bấm trúng</span><span class="chip">đạt</span></li>
+      </ul>
+    </div>
+
+    <div class="block">
+      <div class="block-head"><span class="t">Cookie nhớ đăng nhập &amp; regression</span><span class="c">6 ca</span></div>
+      <ul class="cases">
+        <li><span class="cid">6.1</span><span class="what">Tài khoản chỉ-SĐT → cookie <em>~399 ngày</em></span><span class="chip">đạt</span></li>
+        <li><span class="cid">6.2</span><span class="what">Đăng nhập bằng OTP email → cookie <em>~59 ngày</em></span><span class="chip">đạt</span></li>
+        <li><span class="cid">6.4</span><span class="what">Đăng xuất → cookie nhớ bị xoá, không tự vào lại</span><span class="chip">đạt</span></li>
+        <li><span class="cid">7.5</span><span class="what">Tra cứu đơn bằng mã + SĐT → ra đúng đơn</span><span class="chip">đạt</span></li>
+        <li><span class="cid">7.6</span><span class="what">Admin đăng nhập bằng SĐT + mật khẩu ở <em>/admin/login</em></span><span class="chip">đạt</span></li>
+        <li><span class="cid">7.7</span><span class="what">Trang đăng nhập shipper ở <em>/shipper/dang-nhap</em></span><span class="chip">đạt</span></li>
+      </ul>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head">
+      <div class="eyebrow">Còn chờ bạn quyết</div>
+      <h2>Hai điểm, không phải lỗ hổng</h2>
+    </div>
+
+    <div class="finding open">
+      <div class="top"><h3>Còn một cửa đăng nhập thứ hai cho admin</h3><span class="chip warn">nên cân nhắc</span></div>
+      <p>
+        <code>/admin/login</code> nhận SĐT + mật khẩu, có <code>throttle:10,1</code> và câu từ chối riêng
+        cho tài khoản không phải admin — đúng như checklist mô tả. Nhưng route Breeze mặc định
+        <code>/login</code> vẫn còn mở và nhận <b>email + mật khẩu</b>: tôi đăng nhập bằng đường đó,
+        vào thẳng <code>/dashboard</code>, rồi mở <code>/admin/users</code> bình thường.
+      </p>
+      <p>
+        Vẫn phải có mật khẩu đúng mới vào được, và Breeze có bộ đếm chặn thử sai riêng, nên đây không
+        phải lỗ hổng. Chỉ là một cửa thừa còn sót từ scaffold, trên một site mà khách hoàn toàn không
+        dùng mật khẩu. Đóng lại hoặc chuyển hướng về <code>/admin/login</code> thì gọn hơn.
+      </p>
+    </div>
+
+    <div class="finding calm">
+      <div class="top"><h3>Tra SĐT vẫn trả về tên chủ số</h3><span class="chip none">đã biết</span></div>
+      <p>
+        Email thì che kỹ, nhưng gõ một SĐT bất kỳ là ô “Tên hiển thị” tự điền tên thật của chủ số.
+        Đây là chủ ý thiết kế để khách quen khỏi gõ lại, và mục 3.6 của checklist chỉ nói về email —
+        nên không tính là lỗi. Ghi ra để bạn biết là người lạ biết SĐT thì cũng biết tên.
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head">
+      <div class="eyebrow">Trung thực về phạm vi</div>
+      <h2>Những ca tôi chưa tự đo</h2>
+      <p class="lede" style="font-size:15px">
+        Cần đặt đơn thật hoặc mở đóng trình duyệt bằng tay. Hầu hết đã có test tự động phủ, nhưng test
+        tự động không thay được mắt người.
+      </p>
+    </div>
+    <div class="block">
+      <div class="block-head"><span class="t">Còn lại cho bạn</span><span class="c">chưa đo</span></div>
+      <ul class="cases">
+        <li><span class="cid">5.1–5.4</span><span class="what">Gắn email từ checkout — <em>OrderCheckoutTest</em> phủ cả bốn ca, nhưng chưa đặt đơn thật qua giao diện</span><span class="chip none">chưa đo</span></li>
+        <li><span class="cid">1.2</span><span class="what">SĐT mới kèm email — tương đương ca 2.3 đã đạt, chưa chạy riêng</span><span class="chip none">chưa đo</span></li>
+        <li><span class="cid">6.3</span><span class="what">Đóng hẳn trình duyệt rồi mở lại — tôi mô phỏng bằng cookie, chưa đóng thật</span><span class="chip none">chưa đo</span></li>
+        <li><span class="cid">7.1</span><span class="what">Đặt đơn khách vãng lai — mới kiểm trang giỏ/thiết bị tải được</span><span class="chip none">một phần</span></li>
+        <li><span class="cid">7.2–7.4</span><span class="what">Lịch sử đơn, voucher, link mời đánh giá</span><span class="chip none">chưa đo</span></li>
+      </ul>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head">
+      <div class="eyebrow">Đã commit và đẩy lên</div>
+      <h2>Hai commit, bảy file</h2>
+    </div>
+    <div class="files">
+      <div class="file">
+        <span class="p">resources/js/Components/site/LoginModal.tsx</span>
+        <span class="n">Chốt hộp thư vào state; effect nghe cả object <code>flash</code>; bỏ fallback <code>|| data.email</code>.</span>
+      </div>
+      <div class="file">
+        <span class="p">tests/js/LoginModalOtpEmail.test.tsx</span>
+        <span class="n">Mới — 6 ca canh cả hai lỗi, gồm ca “không để lại câu cụt <em>tới .</em>”.</span>
+      </div>
+      <div class="file">
+        <span class="p">tests/Feature/OtpFlowTest.php</span>
+        <span class="n">Thêm <code>a_wrong_code_never_leaks_the_real_email</code> — hàng rào chặn bản vá sai.</span>
+      </div>
+      <div class="file">
+        <span class="p">tests/Feature/AdminUserTest.php</span>
+        <span class="n">Test đỏ duy nhất của mục 0: <code>actingAs($admin)</code> giữ phiên admin suốt test nên <code>assertGuest()</code> luôn đỏ dù code khách đúng. Đổi tên test cho khớp nội dung.</span>
+      </div>
+      <div class="file">
+        <span class="p">LoginModal.tsx · SiteLayout.tsx · OtpFlowTest.php</span>
+        <span class="n">Format: prettier xuống dòng, pint gom import.</span>
+      </div>
+    </div>
+    <p style="font-size:14.5px;color:var(--muted)">
+      Không có test nào bị sửa cho xanh. Test đỏ ở mục 0 là lỗi của chính bài test, không phải hành vi
+      production — đã đọc <code>GuestAuthController::store()</code> xác nhận nhánh OTP không đăng nhập
+      ai, trước khi đụng vào test.
+    </p>
+  </section>
+
+  <footer>
+    <span>Đã đo lại trên trình duyệt thật sau khi sửa: email che nằm nguyên sau khi gõ sai mã, và lần gửi mã thứ hai mở được màn nhập mã.</span>
+    <span>Trên staging mới xác nhận deploy đã lên (bundle đổi) — chưa tự chạy repro vì ca này bắt buộc bắn mã vào hộp thư của một số đã có chủ.</span>
+    <span>Dữ liệu test local đã dọn: 5 tài khoản tạm (kể cả admin tạm) đã xoá, tên khách 0911222333 đã khôi phục.</span>
+  </footer>
+
+</div>
