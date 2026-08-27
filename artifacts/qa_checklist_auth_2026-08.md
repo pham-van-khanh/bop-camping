@@ -84,7 +84,7 @@ Test đỏ ngoài ba nhóm này thì **là lỗi thật** — báo lại, đừn
 | 3.6 | Gõ SĐT bất kỳ rồi xem màn nhập mã | Email hiện ra phải **luôn che** — không được lộ nguyên địa chỉ | ☐ |
 
 **3.6 là ca đã bắt được lỗi thật lần trước** — bản vá đầu vô tình trả nguyên
-`phamkhanhcntt@gmail.com` chỉ từ một số điện thoại.
+địa chỉ email thật của chủ số, chỉ từ một số điện thoại.
 
 ## 4. Đăng nhập thay khách từ admin (`bopcamping-bqsv`) — **chưa ai đo được**
 
