@@ -197,18 +197,18 @@
         ex: 'A bị đưa về trang đăng nhập admin, còn <b>C vẫn đang đăng nhập bình thường</b> trên máy của họ',
         flag: '<b>Vừa vá, khó dựng nhưng đáng.</b> Trước đó thao tác này cycle cookie nhớ <b>của khách</b> — đá một người vô can ra khỏi mọi thiết bị. Với khách chỉ-có-SĐT thì cookie đó là thứ duy nhất giữ tài khoản: mất luôn.' }
     ]},
-    { n: '5', title: 'Gắn email từ checkout', note: '⚠️ CHỨC NĂNG NÀY SẮP BỎ — đọc ca 5.5 trước khi test cả mục', cases: [
+    { n: '5', title: 'Email lúc checkout', note: '🚧 ĐÃ GỠ CHỨC NĂNG GẮN EMAIL — code đã sửa nhưng CHƯA lên staging, đừng test mục này vội', cases: [
+      { id: '5.0', do: '<b>Đọc trước khi test cả mục.</b> Chức năng “điền email lúc checkout thì gắn luôn vào tài khoản” đã được gỡ khỏi code.',
+        ex: 'Từ nay email gõ ở checkout <b>chỉ dùng để gửi mail cho đơn đó</b>, không bao giờ đổi email đăng nhập',
+        flag: '<b>Vì sao gỡ:</b> chốt bảo vệ cũ chỉ che cho người <u>đã có</u> email thật — người chưa có, đúng nhóm tính năng sinh ra để phục vụ, thì không được che gì. Bác khách chỉ có SĐT đặt đồ hộ đứa cháu, điền email của cháu để nó nhận mail, thế là email đăng nhập của bác thành email đứa cháu. Gốc rễ: <b>đổi danh tính đăng nhập không được là tác dụng phụ của việc đặt đơn.</b> Chỗ đúng để gắn email là luồng đăng nhập (mục 2) — nơi khách chủ động làm việc đó và có OTP chứng minh họ mở được hộp thư.' },
       { id: '5.1', do: 'Đăng nhập chỉ bằng SĐT (số mới) → đặt một đơn, <b>có điền email</b>', ex: 'Đơn tạo được, mail xác nhận về đúng email đó' },
-      { id: '5.2', do: 'Sau 5.1, đăng xuất rồi gõ lại SĐT đó', ex: 'Không còn đòi nhập email; hiện email <b>đã che</b> và gửi mã tới đó' },
-      { id: '5.3', do: 'Khách <b>đã có</b> email thật, checkout điền email <b>người thân</b>', ex: 'Mail đơn về email người thân, <b>tài khoản giữ nguyên email cũ</b>',
-        flag: '<b>Quan trọng nhất mục này:</b> đặt hộ người thân mà bị đổi email tài khoản là tự đá mình ra ngoài.' },
+      { id: '5.2', do: 'Sau 5.1, đăng xuất rồi gõ lại SĐT đó', ex: '⚠️ <b>Vẫn hiện “Email (bắt buộc)”</b> — vì tài khoản chưa gắn email bao giờ',
+        flag: '<b>Đây là ca đổi hành vi, và là cái giá của việc gỡ.</b> Trước đây checkout tự gắn nên lần sau vào thẳng. Nay khách phải gõ email thêm một lần ở màn đăng nhập — đổi lại email đăng nhập chỉ đổi khi họ chủ động đổi và có OTP xác minh. Bạn xem có chấp nhận được không.' },
+      { id: '5.3', do: 'Khách <b>đã có</b> email thật, checkout điền email <b>người thân</b>', ex: 'Mail đơn về email người thân, <b>tài khoản giữ nguyên email cũ</b>' },
       { id: '5.4', do: 'Checkout điền email đang dùng cho tài khoản khác', ex: 'Đơn vẫn tạo được, tài khoản <b>không</b> bị đổi email' },
-      { id: '5.5', do: 'Đăng nhập bằng tài khoản <b>chỉ có SĐT</b> (chưa gắn email bao giờ) → đặt đơn <b>hộ người thân</b>, điền email của người thân để họ nhận mail. Rồi đăng xuất và đăng nhập lại bằng SĐT của mình.',
-        ex: '❌ <b>Hiện tại sẽ SAI:</b> mã xác thực bay vào hộp thư <b>người thân</b>, vì email đăng nhập của bạn đã bị đổi thành email họ',
-        flag: '<b>Đây là lỗi tôi tìm ra khi bàn với bạn, CHƯA vá.</b> Chốt bảo vệ hiện có chỉ che cho người <b>đã có</b> email thật (ca 5.3) — người chưa có, tức đúng nhóm mà tính năng này sinh ra để phục vụ, thì không được che gì. Bạn đã chốt <b>bỏ hẳn</b> chức năng gắn email lúc checkout; khi bỏ xong thì cả mục 5 sẽ viết lại và ca này biến mất.' },
-      { id: '5.6', local: 'dat', do: 'Đặt đơn mà đơn bị lỗi giữa chừng (khó dựng bằng tay — đã có test tự động phủ)',
-        ex: 'Email tài khoản <b>không</b> bị đổi khi đơn không tạo được',
-        flag: '<b>Vừa vá.</b> Trước đó email ghi vào tài khoản trước cả khi tạo đơn và nằm ngoài transaction — đơn hỏng thì khách thấy trang lỗi mà email đăng nhập đã đổi vĩnh viễn, im lặng.' }
+      { id: '5.5', do: 'Tài khoản <b>chỉ có SĐT</b> đặt đơn <b>hộ người thân</b>, điền email của người thân. Rồi đăng xuất, đăng nhập lại bằng SĐT của mình.',
+        ex: '✅ Tài khoản <b>không</b> bị đổi email — vẫn là tài khoản chỉ-có-SĐT như trước khi đặt đơn',
+        flag: '<b>Chính là lỗi khiến chức năng bị gỡ.</b> Trước đây ca này SAI: mã xác thực bay vào hộp thư người thân.' }
     ]},
     { n: '6', title: 'Cookie nhớ đăng nhập', cases: [
       { id: '6.1', local: 'dat', do: 'DevTools → Application → Cookies sau khi tạo tài khoản chỉ-SĐT', ex: '<code>remember_web_*</code> hết hạn <b>~400 ngày</b>' },
