@@ -136,105 +136,43 @@
   var TITLE = 'Sổ tích test đăng nhập';
 
   var SECTIONS = [
-    { n: '1', title: 'Đăng nhập khách — luồng thường', cases: [
-      { id: '1.1', local: 'dat', do: 'SĐT hoàn toàn mới, bỏ trống email', ex: 'Vào thẳng, <b>không cần mã</b>' },
-      { id: '1.2', do: 'SĐT mới + email', ex: 'Gửi mã tới email đó, nhập mã xong mới vào' },
-      { id: '1.3', local: 'dat', do: 'Nhập sai mã 6 số', ex: 'Báo <b>“Mã không đúng hoặc đã hết hạn”</b>, không vào được — và <b>email vẫn còn</b> trong câu “Đã gửi mã 6 số tới …”',
-        flag: '<b>Vừa sửa.</b> Trước đó nhập sai một cái là câu thông báo rụng mất email, còn trơ “gửi mã tới <b>.</b>” — đúng lúc khách cần biết mở hộp thư nào. Ca này giờ kiểm cả hai thứ: báo lỗi đúng, <b>và</b> email che vẫn nằm nguyên đó.' },
-      { id: '1.7', local: 'dat', do: 'Ở màn nhập mã, bấm <b>“← Sửa thông tin”</b>, đổi sang số khác rồi bấm Tiếp tục lần nữa', ex: 'Màn nhập mã <b>mở ra lại</b>, hiện đúng hộp thư của số mới',
-        flag: '<b>Ca mới, lỗi thứ hai vừa sửa.</b> Trước đó lần gửi mã <b>thứ hai</b> không mở được màn nhập mã: mã bay đi thật nhưng khách đứng lại ở bước nhập SĐT, tưởng bấm hụt. Tôi tìm ra lỗi này nhờ viết test cho lỗi 1.3.' },
-      { id: '1.4', local: 'dat', do: 'Bấm “Gửi lại mã”', ex: 'Mã cũ hết hiệu lực, chỉ mã mới nhất dùng được' },
-      { id: '1.5', local: 'dat', do: 'Khách quen (có email) gõ SĐT, bỏ trống email', ex: 'Hiện email <b>đã che</b> (ng***@gmail.com), gửi mã tới đó' },
-      { id: '1.6', local: 'dat', do: 'Đổi tên hiển thị lúc đăng nhập', ex: 'Tên chỉ đổi <b>sau khi</b> nhập đúng mã' }
+    { n: 'A', title: 'Đăng nhập theo tình trạng số điện thoại', note: 'sáu tình trạng một số có thể ở — mỗi ca một tình trạng', cases: [
+      { id: 'A1', local: 'dat', do: 'Số <b>mới tinh</b>, bỏ trống email', ex: 'Vào thẳng, không cần mã' },
+      { id: 'A2', local: 'dat', do: 'Số <b>mới tinh</b>, có gõ email', ex: 'Mã về email vừa gõ → nhập mã → vào' },
+      { id: 'A3', local: 'dat', do: 'Số <b>đã có tài khoản kèm email</b>, bỏ trống email', ex: 'Mã về email đó, màn hình hiện bản <b>che</b> (ng***@gmail.com)' },
+      { id: 'A4', local: 'dat', do: 'Số <b>đã có tài khoản kèm email</b>, gõ một email <b>khác</b>', ex: '❌ <b>Chặn</b> — “Email không khớp với số điện thoại này”',
+        flag: 'Giao diện đã ẩn hẳn ô email khi số có chủ, nên bạn sẽ không thấy chỗ nào để gõ — đó chính là kết quả đúng. Muốn thử thì phải gọi thẳng API.' },
+      { id: 'A5', local: 'dat', do: 'Số <b>chỉ có SĐT</b> (chưa gắn email bao giờ)', ex: 'Ô email đổi thành <b>“Email (bắt buộc)”</b> + dòng nhắn Zalo; gõ email của mình → nhận mã → vào' },
+      { id: 'A6', do: 'Số <b>chưa có tài khoản</b> nhưng đã có <b>đơn cũ bạn đã xác nhận</b>', ex: 'Mã về email trên đơn đó (hiện dạng che)' }
     ]},
-    { n: '2', title: 'Tài khoản chỉ có SĐT', note: 'bopcamping-kuhg', cases: [
-      { id: '2.1', local: 'dat', do: 'Tạo tài khoản chỉ bằng SĐT, đăng xuất, đăng nhập lại', ex: 'Ô email đổi thành <b>“Email (bắt buộc)”</b>, dưới có dòng “Chưa có email? Nhắn Zalo…”' },
-      { id: '2.2', local: 'dat', do: 'Ở màn hình 2.1, chưa gõ email', ex: 'Nút “Tiếp tục” <b>xám, không bấm được</b>' },
-      { id: '2.3', local: 'dat', do: 'Gõ email hợp lệ', ex: 'Nút mở khoá, bấm → nhận mã → vào được' },
-      { id: '2.4', local: 'dat', do: 'Bấm link Zalo ở 2.1', ex: 'Mở đúng Zalo OA của shop' },
-      { id: '2.5', local: 'dat', do: 'Sau 2.3, đăng xuất rồi vào lại chỉ bằng SĐT', ex: 'Gửi mã tới email vừa gắn, hiện bản <b>che</b>' },
-      { id: '2.6', local: 'dat', do: 'Trên điện thoại — lặp lại 2.1', ex: 'Chữ không tràn, nút Zalo bấm trúng',
-        flag: 'Tôi mới đo trên khung giả lập 390px. Máy thật vẫn nên xem lại.' }
+    { n: 'B', title: 'Chống chiếm tài khoản', note: 'hai ca quan trọng nhất — làm ở cửa sổ ẩn danh', cases: [
+      { id: 'B1', local: 'dat', do: '<b>Tự đặt một đơn</b> (không đăng nhập) điền SĐT của khách A + email <b>của bạn</b>, để nguyên <i>Chờ xác nhận</i>. Rồi đăng nhập bằng SĐT của A + email vừa điền.',
+        ex: '❌ <b>Chặn</b>, không mã nào về hộp thư bạn',
+        flag: '<b>Ca quan trọng nhất.</b> Trước bản vá, đúng ba bước này là chiếm được tài khoản A và email thật của A bị ghi đè mất. Thứ chặn nó là <b>cú gọi xác nhận đơn của bạn</b> — nếu bạn xác nhận đơn đó thì email kia được chấp nhận (cố ý), nên đừng bấm xác nhận hàng loạt mà không gọi.' },
+      { id: 'B2', local: 'dat', do: 'Gõ SĐT <b>hotline shop</b> (0976544370) ở cửa đăng nhập khách', ex: '❌ Chặn — “Số điện thoại này không dùng để đăng nhập khách”; cũng không hiện tên/email admin' }
     ]},
-    { n: '3', title: 'Chống chiếm tài khoản', note: 'phần quan trọng nhất — làm ở cửa sổ ẩn danh', cases: [
-      { id: '3.1', local: 'dat', do: 'Gõ SĐT của khách <b>đã có email</b> + email <b>của bạn</b>', ex: '❌ <b>Chặn</b> — “Email không khớp với số điện thoại này”',
-        flag: 'Giao diện đã ẩn hẳn ô email khi số đã có chủ, nên bạn sẽ <b>không thấy chỗ nào để gõ</b> — đó chính là kết quả đúng.' },
-      { id: '3.2', local: 'dat', do: 'Gõ SĐT khách đã có email, bỏ trống', ex: 'Mã về hộp thư <b>của khách đó</b>, bạn không vào được' },
-      { id: '3.3', local: 'dat', do: 'Sau 3.1 và 3.2, hỏi lại khách', ex: 'Tên và email của họ <b>không bị đổi gì</b>' },
-      { id: '3.4', local: 'dat', do: 'Gõ SĐT hotline shop (0976544370) ở cửa đăng nhập khách', ex: '❌ Chặn — “Số điện thoại này không dùng để đăng nhập khách”' },
-      { id: '3.5', local: 'dat', do: 'Gõ hotline vào ô SĐT rồi chờ 1 giây', ex: 'Không hiện tên/email admin, không gợi ý gì' },
-      { id: '3.6', local: 'dat', do: 'Gõ SĐT bất kỳ rồi xem màn nhập mã', ex: 'Email hiện ra phải <b>luôn che</b> — không được lộ nguyên địa chỉ',
-        flag: '<b>Ca này từng bắt được lỗi thật.</b> Bản vá đầu vô tình trả nguyên địa chỉ email thật của chủ số, chỉ từ một số điện thoại.' },
-      { id: '3.7', local: 'dat', do: '<b>Đặt một đơn</b> (không đăng nhập) điền SĐT của khách A + email <b>của bạn</b>, để đơn nguyên trạng thái <i>Chờ xác nhận</i>. Rồi mở cửa sổ ẩn danh, đăng nhập bằng SĐT của A + chính email vừa điền.',
-        ex: '❌ <b>Chặn</b> — “Email không khớp với số điện thoại này”. Không mã nào về hộp thư bạn.',
-        flag: '<b>Đây là lỗ hổng vừa vá, ca quan trọng nhất đợt này.</b> Trước bản vá, đúng ba bước trên là chiếm được tài khoản A: mã về hộp thư bạn, nhập xong là vào, và email thật của A bị ghi đè mất. Chốt cũ chỉ hỏi “email có nằm trong danh sách được phép không” — mà tự đặt đơn là tự thêm mình vào danh sách đó.' },
-      { id: '3.8', local: 'dat', do: 'Vào admin <b>xác nhận</b> đúng đơn ở ca 3.7 (chuyển sang <i>Đã xác nhận</i>), rồi thử đăng nhập lại như 3.7',
-        ex: 'Bây giờ email đó <b>mới</b> được chấp nhận và nhận được mã',
-        flag: 'Đây là hành vi <b>cố ý</b>, không phải lỗi — kiểm để chắc cơ chế chạy đúng cả hai chiều. Thứ chặn kẻ lạ chính là <b>cú gọi điện của bạn</b>: xác nhận đơn nghĩa là đã gọi vào chính số đó và nghe đúng người. Nếu có ngày ai đó bấm xác nhận hàng loạt cho nhanh mà không gọi, lớp bảo vệ này mất tác dụng.' },
-      { id: '3.9', local: 'dat', do: 'Lặp 3.7 nhưng lần này vào admin <b>huỷ</b> đơn đó, rồi thử đăng nhập',
-        ex: '❌ Vẫn chặn — đơn đã huỷ không còn là bằng chứng gì' },
-      { id: '3.10', do: 'Khách thật A có <b>đúng một</b> đơn đang <i>Chờ xác nhận</i> (chưa có đơn cũ nào khác), tự đăng nhập bằng SĐT + email họ đã điền trên đơn đó',
-        ex: '⚠️ Bị đòi nhập email / báo không khớp — <b>đúng như thiết kế</b>, chưa xác nhận đơn thì email đó chưa tính',
-        flag: '<b>Đây là cái giá của bản vá</b>, cần bạn xem có chấp nhận được không. Khách chỉ cần đợi bạn xác nhận đơn là vào được bình thường. Nếu thấy phiền quá thì báo tôi, có hướng khác nhưng phức tạp hơn.' }
+    { n: 'C', title: 'Đặt đơn không đụng tới đăng nhập', cases: [
+      { id: 'C1', local: 'dat', do: 'Tài khoản <b>chỉ có SĐT</b> đặt đơn <b>hộ người thân</b>, điền email người thân. Rồi <b>xác nhận đơn đó</b> và đăng nhập lại bằng SĐT của mình.',
+        ex: '✅ Tài khoản không đổi email, và đăng nhập vẫn <b>bắt tự nhập email của mình</b> — mã <b>không</b> bay vào hộp thư người thân',
+        flag: 'Ca này từng sai theo hai cách khác nhau, đã vá cả hai. Email gõ lúc đặt đơn nay chỉ dùng để gửi mail cho đơn đó.' },
+      { id: 'C2', do: 'Đặt đơn khi <b>chưa đăng nhập</b>, rồi tra cứu đơn bằng mã + SĐT', ex: 'Vẫn đặt và tra được như cũ' }
     ]},
-    { n: '4', title: 'Đăng nhập thay khách từ admin', note: 'bopcamping-bqsv', cases: [
-      { id: '4.1', local: 'dat', do: '/admin/users → tab Khách hàng → bấm “Đăng nhập”', ex: 'Vào thẳng tài khoản khách, <b>không</b> hỏi mã' },
-      { id: '4.2', local: 'dat', do: 'Nhìn đầu trang sau 4.1', ex: 'Có thanh vàng “Bạn đang xem với tư cách …” + nút <b>Thoát</b>' },
-      { id: '4.3', local: 'dat', do: 'Bấm <b>Thoát</b> ở thanh vàng', ex: 'Quay về /admin/users, là admin trở lại' },
-      { id: '4.4', local: 'dat', do: 'Lặp 4.1 rồi bấm nút <b>“Đăng xuất”</b> ở header khách (nút ↩, KHÔNG phải Thoát)', ex: '⚠️ Vẫn phải quay về /admin/users là admin — <b>không</b> bị đá ra ngoài',
-        flag: '<b>Lỗi vừa sửa trong đợt này.</b> Trước đó bấm “Đăng xuất” quen tay là mất luôn phiên admin, phải đăng nhập lại từ đầu.' },
-      { id: '4.5', local: 'dat', do: 'Ở tab Quản trị viên, tìm nút “Đăng nhập” cho một admin khác', ex: 'Không có nút đó' },
-      { id: '4.6', local: 'dat', do: 'Đang xem hộ khách, mở /admin/users ở tab khác', ex: 'Bị đẩy về trang đăng nhập admin (đang là khách, đúng)' },
-      { id: '4.7', local: 'dat', do: 'Sau 4.1, đóng trình duyệt rồi mở lại', ex: '<b>Không</b> tự đăng nhập lại vào tài khoản khách',
-        flag: 'Local mở lại ra <b>admin</b>, không phải khách — đúng thiết kế. Ca này kiểm phiên xem hộ không được cấp cookie nhớ 60 ngày.' },
-      { id: '4.8', local: 'dat', do: 'Xem storage/logs/laravel.log sau 4.1', ex: 'Có dòng <code>admin.user.impersonated</code> với actor_id + target_id, <b>không có số điện thoại</b>' },
-      { id: '4.9', local: 'dat', do: 'Ở tab <b>Shipper</b> trong /admin/users, tìm nút “Đăng nhập”', ex: 'Không có nút đó cho shipper nào',
-        flag: '<b>Vừa vá.</b> Trước đó giao diện có ẩn nút, nhưng route vẫn cho mạo danh shipper nếu gọi thẳng — mà mạo danh shipper thì thu tiền thuê, thu cọc, hoàn cọc đều ghi tên shipper, xoá sạch dấu vết kiểm toán tiền mặt. Nay chặn ở server, gọi thẳng cũng trả 403.' },
-      { id: '4.10', local: 'dat', do: 'Đang xem hộ khách → mở một link <code>/admin/…</code> đã bookmark → bị đẩy ra trang đăng nhập admin → <b>đăng nhập lại</b>. Xem thanh vàng, rồi mở trang khách và bấm <b>“Đăng xuất”</b>.',
-        ex: 'Thanh vàng <b>biến mất</b> sau khi đăng nhập lại; bấm “Đăng xuất” là <b>đăng xuất thật</b>',
-        flag: '<b>Vừa vá.</b> Trước đó cờ “đang xem hộ” sống sót qua lần đăng nhập lại: thanh vàng hiện tên chính bạn, và bấm “Đăng xuất” lại <b>đăng nhập lại</b> admin — bấm xong tưởng đã ra, thực tế vẫn vào đầy đủ. Máy dùng chung là người sau thừa hưởng phiên admin.' },
-      { id: '4.11', do: 'Cần 2 admin. Admin A xem hộ khách C (C đang đăng nhập sẵn trên một máy/điện thoại khác). Admin B vào /admin/users <b>hạ quyền</b> A. A bấm <b>Thoát</b>. Sang máy của C xem.',
-        ex: 'A bị đưa về trang đăng nhập admin, còn <b>C vẫn đang đăng nhập bình thường</b> trên máy của họ',
-        flag: '<b>Vừa vá, khó dựng nhưng đáng.</b> Trước đó thao tác này cycle cookie nhớ <b>của khách</b> — đá một người vô can ra khỏi mọi thiết bị. Với khách chỉ-có-SĐT thì cookie đó là thứ duy nhất giữ tài khoản: mất luôn.' }
+    { n: 'D', title: 'Đăng nhập thay khách (admin)', cases: [
+      { id: 'D1', local: 'dat', do: '/admin/users → tab Khách hàng → bấm <b>“Đăng nhập”</b>, xem thanh vàng, rồi bấm <b>Thoát</b>',
+        ex: 'Vào thẳng tài khoản khách không hỏi mã; có thanh vàng “Bạn đang xem với tư cách …”; bấm Thoát là về /admin/users, là admin trở lại' },
+      { id: 'D2', local: 'dat', do: 'Lặp D1 nhưng bấm nút <b>“Đăng xuất”</b> ở header khách (nút ↩, KHÔNG phải Thoát)',
+        ex: '⚠️ Vẫn phải về /admin/users là admin — <b>không</b> bị đá ra ngoài',
+        flag: 'Lỗi đã sửa: trước đó bấm quen tay là mất luôn phiên admin, phải đăng nhập lại từ đầu.' }
     ]},
-    { n: '5', title: 'Email lúc checkout', note: '🚧 ĐÃ GỠ CHỨC NĂNG GẮN EMAIL — code đã sửa nhưng CHƯA lên staging, đừng test mục này vội', cases: [
-      { id: '5.0', do: '<b>Đọc trước khi test cả mục.</b> Chức năng “điền email lúc checkout thì gắn luôn vào tài khoản” đã được gỡ khỏi code.',
-        ex: 'Từ nay email gõ ở checkout <b>chỉ dùng để gửi mail cho đơn đó</b>, không bao giờ đổi email đăng nhập',
-        flag: '<b>Vì sao gỡ:</b> chốt bảo vệ cũ chỉ che cho người <u>đã có</u> email thật — người chưa có, đúng nhóm tính năng sinh ra để phục vụ, thì không được che gì. Bác khách chỉ có SĐT đặt đồ hộ đứa cháu, điền email của cháu để nó nhận mail, thế là email đăng nhập của bác thành email đứa cháu. Gốc rễ: <b>đổi danh tính đăng nhập không được là tác dụng phụ của việc đặt đơn.</b> Chỗ đúng để gắn email là luồng đăng nhập (mục 2) — nơi khách chủ động làm việc đó và có OTP chứng minh họ mở được hộp thư.' },
-      { id: '5.1', do: 'Đăng nhập chỉ bằng SĐT (số mới) → đặt một đơn, <b>có điền email</b>', ex: 'Đơn tạo được, mail xác nhận về đúng email đó' },
-      { id: '5.2', do: 'Sau 5.1, đăng xuất rồi gõ lại SĐT đó', ex: '⚠️ <b>Vẫn hiện “Email (bắt buộc)”</b> — vì tài khoản chưa gắn email bao giờ',
-        flag: '<b>Đây là ca đổi hành vi, và là cái giá của việc gỡ.</b> Trước đây checkout tự gắn nên lần sau vào thẳng. Nay khách phải gõ email thêm một lần ở màn đăng nhập — đổi lại email đăng nhập chỉ đổi khi họ chủ động đổi và có OTP xác minh. Bạn xem có chấp nhận được không.' },
-      { id: '5.3', do: 'Khách <b>đã có</b> email thật, checkout điền email <b>người thân</b>', ex: 'Mail đơn về email người thân, <b>tài khoản giữ nguyên email cũ</b>' },
-      { id: '5.4', do: 'Checkout điền email đang dùng cho tài khoản khác', ex: 'Đơn vẫn tạo được, tài khoản <b>không</b> bị đổi email' },
-      { id: '5.5', local: 'dat', do: 'Tài khoản <b>chỉ có SĐT</b> đặt đơn <b>hộ người thân</b>, điền email của người thân. Rồi đăng xuất, đăng nhập lại bằng SĐT của mình.',
-        ex: '✅ Tài khoản <b>không</b> bị đổi email — vẫn là tài khoản chỉ-có-SĐT như trước khi đặt đơn',
-        flag: '<b>Chính là lỗi khiến chức năng bị gỡ.</b> Trước đây ca này SAI: mã xác thực bay vào hộp thư người thân.' },
-      { id: '5.6', local: 'dat', do: 'Tiếp ca 5.5 — <b>vào admin xác nhận đúng cái đơn đặt hộ đó</b>, rồi bác lại đăng nhập bằng SĐT của mình',
-        ex: '✅ Được yêu cầu <b>tự nhập email</b> (“Vui lòng nhập email để nhận mã xác thực”) — <b>KHÔNG</b> gửi mã vào hộp thư người thân',
-        flag: '<b>Đo trên local 27/08, và gỡ chức năng ở checkout VẪN CHƯA đủ để chữa ca này</b> — nó chỉ dời vấn đề tới lúc đơn được xác nhận. Trước bản vá thứ hai, xác nhận đơn xong là mã đăng nhập của bác bay vào hộp thư đứa cháu; không có cháu thì bác không vào được tài khoản của chính mình. Nay chỉ đơn đặt lúc <u>chưa đăng nhập</u> mới tính là bằng chứng sở hữu.' }
-    ]},
-    { n: '6', title: 'Cookie nhớ đăng nhập', cases: [
-      { id: '6.1', local: 'dat', do: 'DevTools → Application → Cookies sau khi tạo tài khoản chỉ-SĐT', ex: '<code>remember_web_*</code> hết hạn <b>~400 ngày</b>' },
-      { id: '6.2', local: 'dat', do: 'Tương tự sau khi đăng nhập bằng OTP email', ex: 'Hết hạn <b>~60 ngày</b>' },
-      { id: '6.3', do: 'Đóng hẳn trình duyệt rồi mở lại', ex: 'Vẫn đang đăng nhập' },
-      { id: '6.4', local: 'dat', do: 'Bấm “Đăng xuất” rồi mở lại', ex: 'Đã đăng xuất thật, không tự vào lại' }
-    ]},
-    { n: '7', title: 'Không làm hỏng thứ khác', note: 'đợt này đụng vào đăng nhập — thứ mọi tính năng khác đều dựa vào', cases: [
-      { id: '7.1', do: 'Đặt đơn khi <b>chưa</b> đăng nhập (khách vãng lai)', ex: 'Vẫn đặt được như cũ' },
-      { id: '7.2', do: 'Trang Tài khoản → lịch sử đơn', ex: 'Hiện đủ đơn, kể cả đơn đặt lúc chưa đăng nhập cùng SĐT' },
-      { id: '7.3', do: 'Áp voucher / mã giới thiệu khi đặt đơn', ex: 'Vẫn chạy' },
-      { id: '7.4', do: 'Link mời đánh giá trong mail', ex: 'Mở và gửi được đánh giá' },
-      { id: '7.5', local: 'dat', do: 'Tra cứu đơn bằng mã + SĐT', ex: 'Vẫn chạy' },
-      { id: '7.6', local: 'dat', do: 'Đăng nhập admin bằng SĐT + mật khẩu', ex: 'Vẫn chạy bình thường',
-        flag: 'Cửa đúng là <code>/admin/login</code> (SĐT + mật khẩu). Route Breeze <code>/login</code> vẫn còn mở và nhận <b>email</b> + mật khẩu — cửa thừa từ scaffold, nên đóng.' },
-      { id: '7.7', local: 'dat', do: 'Đăng nhập shipper', ex: 'Vẫn chạy bình thường — cửa ở <code>/shipper/dang-nhap</code>' }
-    ]},
-    { n: '8', title: 'Trước khi merge lên production', note: 'việc cần làm, không phải ca test', cases: [
-      { id: '8.1', do: 'Đếm số khách sẽ gặp bước nhập email lạ', ex: 'Chạy câu SQL đếm user có email <code>@bopcamping.local</code> và không có đơn nào kèm email' },
-      { id: '8.2', do: 'Dặn người trực Zalo', ex: 'Khách nhắn xin gắn email thì <b>phải hỏi thông tin một đơn cũ</b> trước khi làm',
+    { n: 'E', title: 'Trước khi lên production', note: 'việc cần làm, không phải ca test', cases: [
+      { id: 'E1', do: 'Dặn người trực đơn: <b>xác nhận đơn = đã gọi và nghe đúng người</b>',
+        ex: 'Ghi vào quy trình, không chỉ dặn miệng',
+        flag: 'Cú gọi đó nay là một phần của bảo mật, không còn chỉ là vận hành. Bấm xác nhận hàng loạt cho nhanh là lớp bảo vệ ở ca B1 mất tác dụng.' },
+      { id: 'E2', do: 'Dặn người trực Zalo: khách xin gắn email thì <b>phải hỏi thông tin một đơn cũ</b> trước',
+        ex: 'Mã đơn / ngày thuê / địa chỉ giao',
         flag: 'Không có bước này thì kẻ lạ chỉ việc nhắn Zalo là qua mặt toàn bộ phần vừa siết.' },
-      { id: '8.3', do: 'Sau khi deploy production, chạy force-logout mọi phiên cũ', ex: '<code>UPDATE users SET remember_token = NULL WHERE is_admin = 0</code> + xoá session' },
-      { id: '8.4', do: 'Dọn dữ liệu test trên staging', ex: 'Các SĐT test bạn vừa dùng (không bắt buộc)' }
+      { id: 'E3', do: 'Sau khi deploy production, đăng xuất mọi phiên khách cũ',
+        ex: '<code>UPDATE users SET remember_token = NULL WHERE is_admin = 0</code> + xoá session' }
     ]}
   ];
 
@@ -282,7 +220,7 @@
     h += '<div class="eyebrow">Bốp Camping · test tay trên staging</div>';
     h += '<h1>Sổ tích đợt siết đăng nhập</h1>';
     h += '<p class="lede">Tích từng ca khi bạn test. Tích xong là trang tự lưu — đóng đi mở lại vẫn còn, và tôi đọc lại được kết quả. Bấm lại nút đang chọn để bỏ tích. Ô ghi chú dùng khi “không đạt” hoặc “chưa hài lòng”.</p>';
-    h += '<p class="lede" style="font-size:15px"><b>Ưu tiên:</b> ca <b>3.7</b> là lỗ hổng chiếm tài khoản vừa vá — quan trọng nhất đợt này. Sau đó tới <b>3.8</b>, <b>3.10</b> (cái giá phải trả của bản vá), <b>4.9–4.11</b> và <b>1.3</b>, <b>1.7</b>. Ca <b>5.5</b> là lỗi <u>chưa vá</u>, ghi ra để bạn biết chứ không cần tích.</p>';
+    h += '<p class="lede" style="font-size:15px"><b>Luật duy nhất cần nhớ:</b> mã xác thực chỉ gửi tới hộp thư đã gắn với số đó, và email chỉ thành email đăng nhập <u>sau khi nhập đúng mã</u>. Mục A đi qua sáu tình trạng một số có thể ở; <b>B1</b> là ca quan trọng nhất.</p>';
     h += '<div class="meta"><span><b>Staging</b> <a href="https://staging.bopcamping.cloud" target="_blank" rel="noopener">staging.bopcamping.cloud</a></span><span><b>Bead</b> bopcamping-bqsv + bopcamping-kuhg</span><span><b>Nhánh</b> develop</span></div>';
     h += '<div class="ro">Bạn đang xem ở chế độ chỉ đọc nên trang không lưu được tích. Nhờ chủ sở hữu artifact mở quyền sửa.</div>';
     h += '</header>';
