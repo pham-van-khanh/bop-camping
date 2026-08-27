@@ -1,0 +1,398 @@
+<title>Sổ tích test đăng nhập</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+
+<style id="css">
+  :root {
+    --ground: #F7F9F1; --surface: #FFFFFF; --surface-2: #FBFCF7;
+    --ink: #18230F; --ink-soft: #2C3D22; --muted: #5C6E47; --faint: #8A9B75;
+    --line: #E3E8D6; --line-strong: #CFD8BE;
+    --pass: #4E7526; --pass-soft: #E8F1DA;
+    --fail: #A33C2A; --fail-soft: #FAE7E2;
+    --meh:  #B07721; --meh-soft:  #FBF0DC;
+    --radius: 14px;
+    --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    --sans: "Be Vietnam Pro", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #12180D; --surface: #1B2315; --surface-2: #202A19;
+      --ink: #EAEFE1; --ink-soft: #D2DCC2; --muted: #9CAA88; --faint: #77855F;
+      --line: #2C3722; --line-strong: #3B4930;
+      --pass: #8FB65C; --pass-soft: #26331B;
+      --fail: #E08A72; --fail-soft: #3A211A;
+      --meh:  #DFA75A; --meh-soft:  #362708;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #12180D; --surface: #1B2315; --surface-2: #202A19;
+    --ink: #EAEFE1; --ink-soft: #D2DCC2; --muted: #9CAA88; --faint: #77855F;
+    --line: #2C3722; --line-strong: #3B4930;
+    --pass: #8FB65C; --pass-soft: #26331B;
+    --fail: #E08A72; --fail-soft: #3A211A;
+    --meh:  #DFA75A; --meh-soft:  #362708;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--ground); color: var(--ink);
+    font-family: var(--sans); font-size: 16px; line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 880px; margin: 0 auto; padding: 48px 22px 110px; display: flex; flex-direction: column; gap: 34px; }
+
+  .eyebrow { font-family: var(--mono); font-size: 11.5px; font-weight: 500; letter-spacing: .14em; text-transform: uppercase; color: var(--faint); }
+  h1 { font-size: clamp(27px, 4.6vw, 36px); font-weight: 800; letter-spacing: -.028em; line-height: 1.14; margin: 9px 0 0; text-wrap: balance; }
+  h2 { font-size: 17px; font-weight: 700; letter-spacing: -.015em; margin: 0; }
+  p { margin: 0; max-width: 66ch; }
+  .lede { color: var(--muted); font-size: 16px; margin-top: 12px; }
+  a { color: var(--pass); }
+
+  header.top { border-bottom: 1px solid var(--line); padding-bottom: 26px; }
+  .meta { margin-top: 16px; display: flex; flex-wrap: wrap; gap: 6px 16px; font-family: var(--mono); font-size: 12px; color: var(--faint); }
+  .meta b { color: var(--muted); font-weight: 500; }
+
+  /* progress */
+  .bar-wrap { position: sticky; top: 0; z-index: 20; background: var(--ground); padding: 12px 0 13px; border-bottom: 1px solid var(--line); margin-bottom: -8px; }
+  .tally { display: flex; flex-wrap: wrap; align-items: center; gap: 7px 9px; }
+  .pill { font-family: var(--mono); font-size: 11.5px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--line-strong); color: var(--muted); background: var(--surface); font-variant-numeric: tabular-nums; }
+  .pill.p { background: var(--pass-soft); color: var(--pass); border-color: transparent; }
+  .pill.f { background: var(--fail-soft); color: var(--fail); border-color: transparent; }
+  .pill.m { background: var(--meh-soft); color: var(--meh); border-color: transparent; }
+  .pill.save { margin-left: auto; border-style: dashed; }
+  .bar { margin-top: 10px; height: 5px; border-radius: 999px; background: var(--line); overflow: hidden; display: flex; }
+  .bar i { display: block; height: 100%; }
+  .bar i.p { background: var(--pass); } .bar i.f { background: var(--fail); } .bar i.m { background: var(--meh); }
+
+  .tools { margin-top: 11px; display: flex; flex-wrap: wrap; gap: 8px; }
+  .tbtn { font-family: var(--mono); font-size: 11.5px; font-weight: 500; padding: 5px 11px; border-radius: 999px; border: 1px solid var(--line-strong); background: var(--surface); color: var(--muted); cursor: pointer; }
+  .tbtn[aria-pressed="true"] { background: var(--ink-soft); color: var(--ground); border-color: transparent; }
+  .tbtn:focus-visible, .seg button:focus-visible, .note:focus-visible { outline: 2px solid var(--pass); outline-offset: 2px; }
+
+  /* sections */
+  section { display: flex; flex-direction: column; gap: 13px; }
+  .sec-head { display: flex; align-items: baseline; gap: 11px; flex-wrap: wrap; }
+  .sec-head .n { font-family: var(--mono); font-size: 12px; color: var(--faint); }
+  .sec-note { font-size: 14px; color: var(--muted); border-left: 2px solid var(--line-strong); padding-left: 12px; }
+
+  .card { border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); overflow: hidden; }
+  .row { border-top: 1px solid var(--line); padding: 14px 17px; display: flex; flex-direction: column; gap: 9px; }
+  .row:first-child { border-top: 0; }
+  .row[data-hide="1"] { display: none; }
+  .row.done { background: var(--surface-2); }
+
+  .row-top { display: flex; gap: 12px; align-items: baseline; }
+  .cid { font-family: var(--mono); font-size: 12.5px; font-weight: 600; color: var(--faint); font-variant-numeric: tabular-nums; min-width: 34px; }
+  .row.st-dat .cid { color: var(--pass); }
+  .row.st-khong .cid { color: var(--fail); }
+  .row.st-meh .cid { color: var(--meh); }
+  .texts { display: flex; flex-direction: column; gap: 3px; }
+  .do { font-size: 15px; font-weight: 600; color: var(--ink); letter-spacing: -.005em; }
+  .expect { font-size: 14.5px; color: var(--muted); }
+  .expect b { color: var(--ink-soft); font-weight: 600; }
+  .flag { margin-top: 5px; font-size: 13.5px; color: var(--muted); background: var(--surface-2); border: 1px solid var(--line); border-radius: 9px; padding: 8px 11px; }
+  .flag b { color: var(--ink-soft); }
+  .row.done .flag { background: var(--surface); }
+
+  .badge { font-family: var(--mono); font-size: 10px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; padding: 2px 7px; border-radius: 999px; background: var(--pass-soft); color: var(--pass); white-space: nowrap; align-self: center; }
+  .badge.none { background: transparent; color: var(--faint); border: 1px solid var(--line-strong); }
+
+  .controls { display: flex; flex-wrap: wrap; gap: 9px; padding-left: 46px; }
+  .seg { display: inline-flex; border: 1px solid var(--line-strong); border-radius: 999px; overflow: hidden; background: var(--surface); }
+  .seg button { font-family: var(--sans); font-size: 13px; font-weight: 600; padding: 6px 15px; border: 0; border-left: 1px solid var(--line); background: transparent; color: var(--muted); cursor: pointer; white-space: nowrap; }
+  .seg button:first-child { border-left: 0; }
+  .seg button:hover { color: var(--ink); }
+  .seg button[aria-pressed="true"][data-v="dat"] { background: var(--pass); color: #fff; }
+  .seg button[aria-pressed="true"][data-v="khong"] { background: var(--fail); color: #fff; }
+  .seg button[aria-pressed="true"][data-v="meh"] { background: var(--meh); color: #fff; }
+  :root[data-theme="dark"] .seg button[aria-pressed="true"], :root:not([data-theme="light"]) .seg button[aria-pressed="true"] { color: #12180D; }
+
+  .note { flex: 1 1 240px; min-width: 0; font-family: var(--sans); font-size: 13.5px; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface-2); color: var(--ink); }
+  .note::placeholder { color: var(--faint); }
+
+  footer { border-top: 1px solid var(--line); padding-top: 20px; font-size: 13.5px; color: var(--faint); display: flex; flex-direction: column; gap: 6px; }
+  code { font-family: var(--mono); font-size: .88em; background: var(--surface-2); border: 1px solid var(--line); border-radius: 5px; padding: 1px 5px; color: var(--ink-soft); }
+
+  .ro { display: none; font-size: 13.5px; color: var(--meh); background: var(--meh-soft); border-radius: 9px; padding: 9px 13px; }
+  body[data-ro="1"] .ro { display: block; }
+  body[data-ro="1"] .seg button, body[data-ro="1"] .note { pointer-events: none; opacity: .55; }
+
+  @media (max-width: 620px) {
+    .wrap { padding: 36px 15px 90px; }
+    .controls { padding-left: 0; }
+    .cid { min-width: 30px; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+
+<div class="wrap" id="root"></div>
+
+<script type="application/json" id="state">{"v":1,"cases":{},"updated":null}</script>
+
+<script id="app">
+(function () {
+  var FONTS = 'https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap';
+  var TITLE = 'Sổ tích test đăng nhập';
+
+  var SECTIONS = [
+    { n: '1', title: 'Đăng nhập khách — luồng thường', cases: [
+      { id: '1.1', local: 'dat', do: 'SĐT hoàn toàn mới, bỏ trống email', ex: 'Vào thẳng, <b>không cần mã</b>' },
+      { id: '1.2', do: 'SĐT mới + email', ex: 'Gửi mã tới email đó, nhập mã xong mới vào' },
+      { id: '1.3', local: 'dat', do: 'Nhập sai mã 6 số', ex: 'Báo <b>“Mã không đúng hoặc đã hết hạn”</b>, không vào được — và <b>email vẫn còn</b> trong câu “Đã gửi mã 6 số tới …”',
+        flag: '<b>Vừa sửa.</b> Trước đó nhập sai một cái là câu thông báo rụng mất email, còn trơ “gửi mã tới <b>.</b>” — đúng lúc khách cần biết mở hộp thư nào. Ca này giờ kiểm cả hai thứ: báo lỗi đúng, <b>và</b> email che vẫn nằm nguyên đó.' },
+      { id: '1.7', local: 'dat', do: 'Ở màn nhập mã, bấm <b>“← Sửa thông tin”</b>, đổi sang số khác rồi bấm Tiếp tục lần nữa', ex: 'Màn nhập mã <b>mở ra lại</b>, hiện đúng hộp thư của số mới',
+        flag: '<b>Ca mới, lỗi thứ hai vừa sửa.</b> Trước đó lần gửi mã <b>thứ hai</b> không mở được màn nhập mã: mã bay đi thật nhưng khách đứng lại ở bước nhập SĐT, tưởng bấm hụt. Tôi tìm ra lỗi này nhờ viết test cho lỗi 1.3.' },
+      { id: '1.4', local: 'dat', do: 'Bấm “Gửi lại mã”', ex: 'Mã cũ hết hiệu lực, chỉ mã mới nhất dùng được' },
+      { id: '1.5', local: 'dat', do: 'Khách quen (có email) gõ SĐT, bỏ trống email', ex: 'Hiện email <b>đã che</b> (ng***@gmail.com), gửi mã tới đó' },
+      { id: '1.6', local: 'dat', do: 'Đổi tên hiển thị lúc đăng nhập', ex: 'Tên chỉ đổi <b>sau khi</b> nhập đúng mã' }
+    ]},
+    { n: '2', title: 'Tài khoản chỉ có SĐT', note: 'bopcamping-kuhg', cases: [
+      { id: '2.1', local: 'dat', do: 'Tạo tài khoản chỉ bằng SĐT, đăng xuất, đăng nhập lại', ex: 'Ô email đổi thành <b>“Email (bắt buộc)”</b>, dưới có dòng “Chưa có email? Nhắn Zalo…”' },
+      { id: '2.2', local: 'dat', do: 'Ở màn hình 2.1, chưa gõ email', ex: 'Nút “Tiếp tục” <b>xám, không bấm được</b>' },
+      { id: '2.3', local: 'dat', do: 'Gõ email hợp lệ', ex: 'Nút mở khoá, bấm → nhận mã → vào được' },
+      { id: '2.4', local: 'dat', do: 'Bấm link Zalo ở 2.1', ex: 'Mở đúng Zalo OA của shop' },
+      { id: '2.5', local: 'dat', do: 'Sau 2.3, đăng xuất rồi vào lại chỉ bằng SĐT', ex: 'Gửi mã tới email vừa gắn, hiện bản <b>che</b>' },
+      { id: '2.6', local: 'dat', do: 'Trên điện thoại — lặp lại 2.1', ex: 'Chữ không tràn, nút Zalo bấm trúng',
+        flag: 'Tôi mới đo trên khung giả lập 390px. Máy thật vẫn nên xem lại.' }
+    ]},
+    { n: '3', title: 'Chống chiếm tài khoản', note: 'phần quan trọng nhất — làm ở cửa sổ ẩn danh', cases: [
+      { id: '3.1', local: 'dat', do: 'Gõ SĐT của khách <b>đã có email</b> + email <b>của bạn</b>', ex: '❌ <b>Chặn</b> — “Email không khớp với số điện thoại này”',
+        flag: 'Giao diện đã ẩn hẳn ô email khi số đã có chủ, nên bạn sẽ <b>không thấy chỗ nào để gõ</b> — đó chính là kết quả đúng.' },
+      { id: '3.2', local: 'dat', do: 'Gõ SĐT khách đã có email, bỏ trống', ex: 'Mã về hộp thư <b>của khách đó</b>, bạn không vào được' },
+      { id: '3.3', local: 'dat', do: 'Sau 3.1 và 3.2, hỏi lại khách', ex: 'Tên và email của họ <b>không bị đổi gì</b>' },
+      { id: '3.4', local: 'dat', do: 'Gõ SĐT hotline shop (0976544370) ở cửa đăng nhập khách', ex: '❌ Chặn — “Số điện thoại này không dùng để đăng nhập khách”' },
+      { id: '3.5', local: 'dat', do: 'Gõ hotline vào ô SĐT rồi chờ 1 giây', ex: 'Không hiện tên/email admin, không gợi ý gì' },
+      { id: '3.6', local: 'dat', do: 'Gõ SĐT bất kỳ rồi xem màn nhập mã', ex: 'Email hiện ra phải <b>luôn che</b> — không được lộ nguyên địa chỉ',
+        flag: '<b>Ca này từng bắt được lỗi thật.</b> Bản vá đầu vô tình trả nguyên <code>phamkhanhcntt@gmail.com</code> chỉ từ một số điện thoại.' }
+    ]},
+    { n: '4', title: 'Đăng nhập thay khách từ admin', note: 'bopcamping-bqsv', cases: [
+      { id: '4.1', local: 'dat', do: '/admin/users → tab Khách hàng → bấm “Đăng nhập”', ex: 'Vào thẳng tài khoản khách, <b>không</b> hỏi mã' },
+      { id: '4.2', local: 'dat', do: 'Nhìn đầu trang sau 4.1', ex: 'Có thanh vàng “Bạn đang xem với tư cách …” + nút <b>Thoát</b>' },
+      { id: '4.3', local: 'dat', do: 'Bấm <b>Thoát</b> ở thanh vàng', ex: 'Quay về /admin/users, là admin trở lại' },
+      { id: '4.4', local: 'dat', do: 'Lặp 4.1 rồi bấm nút <b>“Đăng xuất”</b> ở header khách (nút ↩, KHÔNG phải Thoát)', ex: '⚠️ Vẫn phải quay về /admin/users là admin — <b>không</b> bị đá ra ngoài',
+        flag: '<b>Lỗi vừa sửa trong đợt này.</b> Trước đó bấm “Đăng xuất” quen tay là mất luôn phiên admin, phải đăng nhập lại từ đầu.' },
+      { id: '4.5', local: 'dat', do: 'Ở tab Quản trị viên, tìm nút “Đăng nhập” cho một admin khác', ex: 'Không có nút đó' },
+      { id: '4.6', local: 'dat', do: 'Đang xem hộ khách, mở /admin/users ở tab khác', ex: 'Bị đẩy về trang đăng nhập admin (đang là khách, đúng)' },
+      { id: '4.7', local: 'dat', do: 'Sau 4.1, đóng trình duyệt rồi mở lại', ex: '<b>Không</b> tự đăng nhập lại vào tài khoản khách',
+        flag: 'Local mở lại ra <b>admin</b>, không phải khách — đúng thiết kế. Ca này kiểm phiên xem hộ không được cấp cookie nhớ 60 ngày.' },
+      { id: '4.8', local: 'dat', do: 'Xem storage/logs/laravel.log sau 4.1', ex: 'Có dòng <code>admin.user.impersonated</code> với actor_id + target_id, <b>không có số điện thoại</b>' }
+    ]},
+    { n: '5', title: 'Gắn email từ checkout', note: 'tôi CHƯA tự đo được — cần đặt đơn thật', cases: [
+      { id: '5.1', do: 'Đăng nhập chỉ bằng SĐT (số mới) → đặt một đơn, <b>có điền email</b>', ex: 'Đơn tạo được, mail xác nhận về đúng email đó' },
+      { id: '5.2', do: 'Sau 5.1, đăng xuất rồi gõ lại SĐT đó', ex: 'Không còn đòi nhập email; hiện email <b>đã che</b> và gửi mã tới đó' },
+      { id: '5.3', do: 'Khách <b>đã có</b> email thật, checkout điền email <b>người thân</b>', ex: 'Mail đơn về email người thân, <b>tài khoản giữ nguyên email cũ</b>',
+        flag: '<b>Quan trọng nhất mục này:</b> đặt hộ người thân mà bị đổi email tài khoản là tự đá mình ra ngoài.' },
+      { id: '5.4', do: 'Checkout điền email đang dùng cho tài khoản khác', ex: 'Đơn vẫn tạo được, tài khoản <b>không</b> bị đổi email' }
+    ]},
+    { n: '6', title: 'Cookie nhớ đăng nhập', cases: [
+      { id: '6.1', local: 'dat', do: 'DevTools → Application → Cookies sau khi tạo tài khoản chỉ-SĐT', ex: '<code>remember_web_*</code> hết hạn <b>~400 ngày</b>' },
+      { id: '6.2', local: 'dat', do: 'Tương tự sau khi đăng nhập bằng OTP email', ex: 'Hết hạn <b>~60 ngày</b>' },
+      { id: '6.3', do: 'Đóng hẳn trình duyệt rồi mở lại', ex: 'Vẫn đang đăng nhập' },
+      { id: '6.4', local: 'dat', do: 'Bấm “Đăng xuất” rồi mở lại', ex: 'Đã đăng xuất thật, không tự vào lại' }
+    ]},
+    { n: '7', title: 'Không làm hỏng thứ khác', note: 'đợt này đụng vào đăng nhập — thứ mọi tính năng khác đều dựa vào', cases: [
+      { id: '7.1', do: 'Đặt đơn khi <b>chưa</b> đăng nhập (khách vãng lai)', ex: 'Vẫn đặt được như cũ' },
+      { id: '7.2', do: 'Trang Tài khoản → lịch sử đơn', ex: 'Hiện đủ đơn, kể cả đơn đặt lúc chưa đăng nhập cùng SĐT' },
+      { id: '7.3', do: 'Áp voucher / mã giới thiệu khi đặt đơn', ex: 'Vẫn chạy' },
+      { id: '7.4', do: 'Link mời đánh giá trong mail', ex: 'Mở và gửi được đánh giá' },
+      { id: '7.5', local: 'dat', do: 'Tra cứu đơn bằng mã + SĐT', ex: 'Vẫn chạy' },
+      { id: '7.6', local: 'dat', do: 'Đăng nhập admin bằng SĐT + mật khẩu', ex: 'Vẫn chạy bình thường',
+        flag: 'Cửa đúng là <code>/admin/login</code> (SĐT + mật khẩu). Route Breeze <code>/login</code> vẫn còn mở và nhận <b>email</b> + mật khẩu — cửa thừa từ scaffold, nên đóng.' },
+      { id: '7.7', local: 'dat', do: 'Đăng nhập shipper', ex: 'Vẫn chạy bình thường — cửa ở <code>/shipper/dang-nhap</code>' }
+    ]},
+    { n: '8', title: 'Trước khi merge lên production', note: 'việc cần làm, không phải ca test', cases: [
+      { id: '8.1', do: 'Đếm số khách sẽ gặp bước nhập email lạ', ex: 'Chạy câu SQL đếm user có email <code>@bopcamping.local</code> và không có đơn nào kèm email' },
+      { id: '8.2', do: 'Dặn người trực Zalo', ex: 'Khách nhắn xin gắn email thì <b>phải hỏi thông tin một đơn cũ</b> trước khi làm',
+        flag: 'Không có bước này thì kẻ lạ chỉ việc nhắn Zalo là qua mặt toàn bộ phần vừa siết.' },
+      { id: '8.3', do: 'Sau khi deploy production, chạy force-logout mọi phiên cũ', ex: '<code>UPDATE users SET remember_token = NULL WHERE is_admin = 0</code> + xoá session' },
+      { id: '8.4', do: 'Dọn dữ liệu test trên staging', ex: 'Các SĐT test bạn vừa dùng (không bắt buộc)' }
+    ]}
+  ];
+
+  var LABEL = { dat: 'Đạt', khong: 'Không đạt', meh: 'Chưa hài lòng' };
+  var ORDER = ['dat', 'khong', 'meh'];
+
+  var stateEl = document.getElementById('state');
+  var state;
+  try { state = JSON.parse(stateEl.textContent); } catch (e) { state = { v: 1, cases: {}, updated: null }; }
+  if (!state || typeof state !== 'object') state = { v: 1, cases: {}, updated: null };
+  if (!state.cases) state.cases = {};
+
+  var api = null, readOnly = false, saveTimer = null, dirty = false;
+  var LS = 'bop-qa-dangnhap-v1';
+
+  // Bản dự phòng khi trang không tự lưu được (mở ngoài viewer chẳng hạn).
+  function lsLoad() {
+    try { var r = localStorage.getItem(LS); if (r) { var o = JSON.parse(r); if (o && o.cases) return o; } } catch (e) {}
+    return null;
+  }
+  function lsSave() { try { localStorage.setItem(LS, JSON.stringify(state)); } catch (e) {} }
+
+  function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+
+  function counts() {
+    var c = { dat: 0, khong: 0, meh: 0, total: 0 };
+    SECTIONS.forEach(function (s) {
+      s.cases.forEach(function (k) {
+        c.total++;
+        var st = state.cases[k.id] && state.cases[k.id].s;
+        if (st && c[st] !== undefined) c[st]++;
+      });
+    });
+    c.done = c.dat + c.khong + c.meh;
+    return c;
+  }
+
+  function render() {
+    var root = document.getElementById('root');
+    var c = counts();
+    var onlyLeft = sessionStorage.getItem('bop-only-left') === '1';
+    var h = '';
+
+    h += '<header class="top">';
+    h += '<div class="eyebrow">Bốp Camping · test tay trên staging</div>';
+    h += '<h1>Sổ tích đợt siết đăng nhập</h1>';
+    h += '<p class="lede">Tích từng ca khi bạn test. Tích xong là trang tự lưu — đóng đi mở lại vẫn còn, và tôi đọc lại được kết quả. Bấm lại nút đang chọn để bỏ tích. Ô ghi chú dùng khi “không đạt” hoặc “chưa hài lòng”.</p>';
+    h += '<p class="lede" style="font-size:15px">Hai ca đáng để ý trước: <b>1.3</b> và <b>1.7</b> — hai lỗi vừa sửa ở màn nhập mã, chưa ai xem trên staging.</p>';
+    h += '<div class="meta"><span><b>Staging</b> <a href="https://staging.bopcamping.cloud" target="_blank" rel="noopener">staging.bopcamping.cloud</a></span><span><b>Bead</b> bopcamping-bqsv + bopcamping-kuhg</span><span><b>Nhánh</b> develop</span></div>';
+    h += '<div class="ro">Bạn đang xem ở chế độ chỉ đọc nên trang không lưu được tích. Nhờ chủ sở hữu artifact mở quyền sửa.</div>';
+    h += '</header>';
+
+    h += '<div class="bar-wrap"><div class="tally">';
+    h += '<span class="pill">' + c.done + '/' + c.total + ' đã tích</span>';
+    h += '<span class="pill p">' + c.dat + ' đạt</span>';
+    h += '<span class="pill f">' + c.khong + ' không đạt</span>';
+    h += '<span class="pill m">' + c.meh + ' chưa hài lòng</span>';
+    h += '<span class="pill save" id="savechip">' + (dirty ? 'đang lưu…' : (state.updated ? 'đã lưu' : 'chưa tích gì')) + '</span>';
+    h += '</div><div class="bar">';
+    h += '<i class="p" style="width:' + (c.dat / c.total * 100) + '%"></i>';
+    h += '<i class="f" style="width:' + (c.khong / c.total * 100) + '%"></i>';
+    h += '<i class="m" style="width:' + (c.meh / c.total * 100) + '%"></i>';
+    h += '</div><div class="tools"><button class="tbtn" id="onlyleft" aria-pressed="' + (onlyLeft ? 'true' : 'false') + '">Chỉ hiện ca chưa tích</button></div></div>';
+
+    SECTIONS.forEach(function (s) {
+      h += '<section><div class="sec-head"><span class="n">Mục ' + s.n + '</span><h2>' + s.title + '</h2></div>';
+      if (s.note) h += '<p class="sec-note">' + s.note + '</p>';
+      h += '<div class="card">';
+      s.cases.forEach(function (k) {
+        var rec = state.cases[k.id] || {};
+        var st = rec.s || '';
+        var hide = onlyLeft && st ? ' data-hide="1"' : '';
+        h += '<div class="row' + (st ? ' done st-' + st : '') + '"' + hide + ' data-row="' + k.id + '">';
+        h += '<div class="row-top"><span class="cid">' + k.id + '</span><div class="texts">';
+        h += '<span class="do">' + k.do + '</span>';
+        h += '<span class="expect">' + k.ex + '</span>';
+        if (k.flag) h += '<span class="flag">' + k.flag + '</span>';
+        h += '</div>';
+        h += k.local === 'dat'
+          ? '<span class="badge" title="Tôi đã chạy ca này trên máy local và nó đạt">local ✓</span>'
+          : '<span class="badge none" title="Tôi chưa tự đo được ca này">chưa đo</span>';
+        h += '</div>';
+        h += '<div class="controls"><div class="seg" role="group" aria-label="Kết quả ca ' + k.id + '">';
+        ORDER.forEach(function (v) {
+          h += '<button type="button" data-set="' + k.id + '" data-v="' + v + '" aria-pressed="' + (st === v ? 'true' : 'false') + '">' + LABEL[v] + '</button>';
+        });
+        h += '</div>';
+        h += '<input class="note" type="text" data-note="' + k.id + '" placeholder="ghi chú (tuỳ ý)…" value="' + esc(rec.n || '') + '">';
+        h += '</div></div>';
+      });
+      h += '</div></section>';
+    });
+
+    h += '<footer><span>Rủi ro đã chấp nhận: với tài khoản <b>chưa gắn email nào</b>, người lạ biết SĐT vẫn chiếm được — mã gửi tới hộp thư họ vừa gõ chỉ chứng minh họ mở được hộp thư đó. Shop không có OTP SMS nên số điện thoại chưa bao giờ được xác thực. Hướng siết lại ghi ở bead <code>bopcamping-4j3z</code>.</span>';
+    h += '<span>Khách <b>đã có email</b> không nằm trong diện này — ca 3.1 kiểm đúng chỗ đó.</span></footer>';
+
+    root.innerHTML = h;
+    document.body.setAttribute('data-ro', readOnly ? '1' : '0');
+  }
+
+  function chip(text) { var el = document.getElementById('savechip'); if (el) el.textContent = text; }
+
+  function scheduleSave() {
+    dirty = true;
+    chip('đang lưu…');
+    lsSave();
+    if (saveTimer) clearTimeout(saveTimer);
+    saveTimer = setTimeout(commit, 1600);
+  }
+
+  function commit() {
+    if (!api || readOnly) { dirty = false; chip(api ? 'chỉ đọc' : 'lưu trên máy này'); return; }
+    state.updated = new Date().toISOString();
+    var html = buildDoc();
+    api.publish(html).then(function () {
+      dirty = false; // view sẽ tự tải lại
+    }).catch(function (err) {
+      var code = err && err.code;
+      if (code === 'conflict') { chip('có bản mới hơn'); return; }
+      if (code === 'not_writer' || code === 'not_granted' || code === 'not_declared' || code === 'capability_disabled' || code === 'consent_required') {
+        readOnly = true; document.body.setAttribute('data-ro', '1'); chip('chỉ đọc'); return;
+      }
+      if (code === 'rate_limited') { chip('lưu chậm lại…'); if (saveTimer) clearTimeout(saveTimer); saveTimer = setTimeout(commit, 6000); return; }
+      chip('lưu lỗi — thử lại');
+      if (saveTimer) clearTimeout(saveTimer); saveTimer = setTimeout(commit, 4000);
+    });
+  }
+
+  function buildDoc() {
+    var css = document.getElementById('css').textContent;
+    var js = document.getElementById('app').textContent;
+    var json = JSON.stringify(state).replace(/</g, '\\u003c');
+    return '<!doctype html>\n<html lang="vi">\n<head>\n<meta charset="utf-8">\n'
+      + '<meta name="viewport" content="width=device-width, initial-scale=1">\n'
+      + '<title>' + TITLE + '</title>\n'
+      + '<link rel="preconnect" href="https://fonts.googleapis.com">\n'
+      + '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>\n'
+      + '<link rel="stylesheet" href="' + FONTS + '">\n'
+      + '<style id="css">' + css + '</style>\n</head>\n<body>\n'
+      + '<div class="wrap" id="root"></div>\n'
+      + '<script type="application/json" id="state">' + json + '<\/script>\n'
+      + '<script id="app">' + js + '<\/script>\n'
+      + '</body>\n</html>';
+  }
+
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-set]');
+    if (b) {
+      if (readOnly) return;
+      var id = b.getAttribute('data-set'), v = b.getAttribute('data-v');
+      var rec = state.cases[id] || {};
+      rec.s = (rec.s === v) ? '' : v;
+      if (!rec.s && !rec.n) delete state.cases[id]; else state.cases[id] = rec;
+      render(); scheduleSave();
+      return;
+    }
+    var t = e.target.closest('#onlyleft');
+    if (t) {
+      var cur = sessionStorage.getItem('bop-only-left') === '1';
+      try { sessionStorage.setItem('bop-only-left', cur ? '0' : '1'); } catch (err) {}
+      render();
+    }
+  });
+
+  document.addEventListener('change', function (e) {
+    var n = e.target.closest('[data-note]');
+    if (!n || readOnly) return;
+    var id = n.getAttribute('data-note');
+    var rec = state.cases[id] || {};
+    rec.n = n.value.trim();
+    if (!rec.s && !rec.n) delete state.cases[id]; else state.cases[id] = rec;
+    scheduleSave();
+  });
+
+  var local = lsLoad();
+  if (local && Object.keys(local.cases).length && !Object.keys(state.cases).length) state = local;
+  render();
+
+  if (window.claude && window.claude.use) {
+    window.claude.use('artifact').then(function (a) {
+      api = a;
+      if (!a) { chip('lưu trên máy này'); }
+      else if (dirty) { commit(); } else { chip(state.updated ? 'đã lưu' : 'chưa tích gì'); }
+    }).catch(function () { chip('lưu trên máy này'); });
+  } else {
+    chip('lưu trên máy này');
+  }
+})();
+</script>
