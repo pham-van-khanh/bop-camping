@@ -446,6 +446,50 @@ class OtpFlowTest extends TestCase
         $this->assertSame('ngoc@example.com', $victim->fresh()->email);
     }
 
+    /**
+     * ĐẶT HỘ NGƯỜI THÂN KHÔNG ĐƯỢC CƯỚP MẤT TÀI KHOẢN CỦA MÌNH.
+     *
+     * Đo trên local 27/08 sau khi đã gỡ chức năng gắn email ở checkout — hoá ra gỡ vẫn CHƯA đủ,
+     * nó chỉ dời vấn đề tới lúc đơn được xác nhận:
+     *
+     *   Bác khách chỉ-có-SĐT đăng nhập rồi đặt đồ hộ đứa cháu, điền email của cháu để nó nhận
+     *   mail. Tài khoản bác không đổi (đúng). Nhưng shop gọi xác nhận đơn xong thì email của
+     *   cháu thành "hộp thư đã gắn" với SĐT của bác — bác đăng nhập là mã bay vào hộp thư cháu,
+     *   không có cháu thì không vào được tài khoản của chính mình.
+     *
+     * Chốt: chỉ đơn đặt lúc CHƯA đăng nhập (user_id NULL) mới là bằng chứng sở hữu. Mục đích của
+     * việc tính email trên đơn là để khách VÃNG LAI sau này nhận lại số của mình; người đã đăng
+     * nhập thì đã có tài khoản, đơn của họ không được định nghĩa lại danh tính của chính họ.
+     *
+     * @test
+     */
+    public function an_order_placed_while_logged_in_is_not_proof_of_owning_the_phone(): void
+    {
+        Mail::fake();
+        $bac = User::create(['name' => 'Bác Chỉ Có SĐT', 'phone' => '0912345678']);
+        $this->assertTrue($bac->hasPlaceholderEmail());
+
+        // Đơn bác đặt hộ cháu, LÚC ĐANG ĐĂNG NHẬP, và shop đã xác nhận.
+        Order::create([
+            'user_id' => $bac->id,
+            'customer_name' => 'Bác Chỉ Có SĐT', 'customer_phone' => '0912345678',
+            'customer_email' => 'chau-toi@example.com', 'customer_address' => 'x',
+            'start_date' => '2026-09-01', 'end_date' => '2026-09-02',
+            'total_price' => 100000, 'deposit_total' => 0, 'status' => 'confirmed',
+        ]);
+
+        // Bác quay lại, gõ SĐT của mình: KHÔNG được gửi mã vào hộp thư cháu.
+        $this->post(route('guest.login'), ['phone' => '0912345678'])
+            ->assertSessionHas('login_needs_support', true)
+            ->assertSessionHasErrors('email');
+
+        Mail::assertNothingQueued();
+        $this->assertGuest();
+
+        // Bác vẫn là tài khoản "chưa gắn hộp thư" → được tự nhập email CỦA MÌNH.
+        $this->assertTrue($bac->fresh()->hasPlaceholderEmail());
+    }
+
     /** Đơn bịa bị shop HUỶ cũng phải mất hiệu lực làm bằng chứng sở hữu. @test */
     public function a_cancelled_order_is_not_proof_of_owning_the_phone(): void
     {
