@@ -167,25 +167,26 @@ class OrderController extends Controller
             }
         }
 
-        // Email xác nhận: ưu tiên email khách nhập ở checkout; bỏ trống thì lấy email tài khoản (bỏ tạm .local).
+        // Email xác nhận đơn: ưu tiên email khách nhập ở checkout; bỏ trống thì lấy email tài
+        // khoản (bỏ email tạm .local). Email này chỉ dùng để GỬI MAIL CHO ĐƠN NÀY.
+        //
+        // Checkout KHÔNG còn gắn email vào tài khoản (gỡ 27/08/2026, thay cho bopcamping-kuhg).
+        // Đổi email đăng nhập không được là tác dụng phụ của một hành động khác: khách gõ email
+        // ở đây là để nhận mail xác nhận đơn, không phải để đổi cách mình đăng nhập.
+        //
+        // Bản cũ gắn cho tài khoản chỉ-có-SĐT, và chốt duy nhất là hasPlaceholderEmail() — tức
+        // chỉ che cho người ĐÃ có email thật. Người CHƯA có, đúng nhóm mà tính năng sinh ra để
+        // phục vụ, thì không được che gì: bác khách chỉ có SĐT đặt đồ hộ đứa cháu và điền email
+        // của cháu để nó nhận mail, thế là email đăng nhập của bác thành email đứa cháu — lần
+        // sau mã xác thực bay vào hộp thư của cháu. Đúng cảnh mục 5.3 checklist cảnh báo.
+        //
+        // Không ai bị kẹt vì bỏ: luồng đăng nhập đã có sẵn bước "Email (bắt buộc)" + OTP cho tài
+        // khoản chỉ-có-SĐT (bopcamping-kuhg). Đó mới là chỗ đúng để gắn — khách đang chủ động
+        // làm việc đó, và có OTP chứng minh họ mở được hộp thư.
         $customerEmail = $validated['email'] ?? null;
         $buyer = Auth::user();
-        $attachEmailToBuyer = false;
         if (! $customerEmail) {
             $customerEmail = ($buyer && ! $buyer->hasPlaceholderEmail()) ? $buyer->email : null;
-        } elseif ($buyer && $buyer->hasPlaceholderEmail()) {
-            // Khách đăng nhập bằng SĐT (email còn là bản tạm .local) mà điền email ở đây → GẮN
-            // luôn vào tài khoản (bopcamping-kuhg). Không có bước này thì họ vẫn là tài khoản
-            // "không hộp thư": hết cookie là mất quyền vào, phải nhắn Zalo.
-            //
-            // An toàn vì người đang gõ ĐÃ đăng nhập vào chính tài khoản đó — không phải người lạ.
-            // KHÔNG set email_verified_at: email này chưa qua OTP bao giờ, lần đăng nhập sau vẫn
-            // phải xác thực. Trùng email của tài khoản khác thì bỏ qua (users.email là UNIQUE,
-            // ghi vào sẽ vỡ ràng buộc) — đơn vẫn lưu email để gửi xác nhận.
-            //
-            // Chỉ ĐÁNH DẤU ở đây, ghi thật nằm trong transaction tạo đơn bên dưới: đây là thứ
-            // đổi luôn danh tính đăng nhập của khách, không được phép sống sót khi đơn hỏng.
-            $attachEmailToBuyer = ! User::where('email', $customerEmail)->exists();
         }
 
         $base = [
@@ -205,20 +206,7 @@ class OrderController extends Controller
         ];
 
         // Tách đơn theo khoảng ngày (bopcamping-wtuv): 1 khoảng → đơn thường; ≥2 → cha + con.
-        //
-        // Gắn email vào tài khoản nằm TRONG cùng transaction: nó đổi danh tính đăng nhập của
-        // khách, nên đơn hỏng (deadlock, hụt tồn kho, splitter lỗi) thì nó phải cuốn theo. Ghi
-        // trước và ngoài transaction như bản cũ thì khách thấy trang lỗi mà email tài khoản đã
-        // đổi vĩnh viễn — gõ nhầm một ký tự là lần sau OTP bay vào hộp thư không tồn tại, mà
-        // hasPlaceholderEmail() nay false nên cũng không còn nhánh cứu hộ bắt nhập lại email.
-        $order = DB::transaction(function () use ($base, $itemLines, $comboLines, $productsById, $combos, $attachEmailToBuyer, $buyer, $customerEmail) {
-            if ($attachEmailToBuyer) {
-                $buyer->email = $customerEmail;
-                $buyer->save();
-            }
-
-            return $this->splitter->create($base, $itemLines, $comboLines, $productsById, $combos);
-        });
+        $order = DB::transaction(fn () => $this->splitter->create($base, $itemLines, $comboLines, $productsById, $combos));
 
         // Khuyến mãi (chỉ khách đăng nhập). Đơn cha (bopcamping-wtuv T3): áp trên TỔNG cha
         // rồi PHÂN BỔ xuống con ∝ tiền thuê; đơn thường: áp trực tiếp như cũ.

@@ -6,7 +6,6 @@ use App\Models\Category;
 use App\Models\Order;
 use App\Models\Product;
 use App\Models\User;
-use App\Services\OrderSplitter;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -220,80 +219,43 @@ class OrderCheckoutTest extends TestCase
     }
 
     /**
-     * Khách đăng nhập bằng SĐT (email còn là bản tạm) mà điền email lúc checkout → email đó
-     * GẮN luôn vào tài khoản (bopcamping-kuhg). Thiếu bước này thì họ mãi là tài khoản "không
-     * hộp thư": hết cookie là mất quyền vào, chỉ còn đường nhắn Zalo.
+     * CHECKOUT KHÔNG BAO GIỜ ĐỔI EMAIL ĐĂNG NHẬP — kể cả tài khoản chỉ có SĐT.
      *
-     * KHÔNG đánh dấu đã xác minh — email này chưa qua OTP bao giờ.
+     * Bản cũ gắn email vào tài khoản chỉ-có-SĐT (bopcamping-kuhg), gỡ 27/08/2026. Chốt duy nhất
+     * của nó là hasPlaceholderEmail(), tức chỉ che cho người ĐÃ có email thật; người CHƯA có —
+     * đúng nhóm tính năng sinh ra để phục vụ — thì không được che gì: bác khách chỉ có SĐT đặt
+     * đồ hộ đứa cháu, điền email của cháu để nó nhận mail, thế là email đăng nhập của bác thành
+     * email đứa cháu và lần sau mã bay vào hộp thư của cháu.
+     *
+     * Gốc rễ: đổi danh tính đăng nhập không được là tác dụng phụ của việc đặt đơn. Chỗ đúng để
+     * gắn email là luồng đăng nhập ("Email (bắt buộc)" + OTP), nơi khách chủ động làm việc đó và
+     * có OTP chứng minh họ mở được hộp thư — xem OtpFlowTest::a_phone_only_account_can_attach_an_email_at_login.
      *
      * @test
      */
-    public function checkout_email_is_attached_to_a_phone_only_account(): void
+    public function checkout_never_changes_the_account_email(): void
     {
         $p = $this->product();
         $buyer = User::create(['name' => 'Khách', 'phone' => '0912345678']);
+        $placeholder = $buyer->email;
         $this->assertTrue($buyer->hasPlaceholderEmail());
 
         $this->actingAs($buyer)->post(route('order.store'), [
             'name' => 'Khách',
             'phone' => '0912345678',
-            'email' => 'khach@gmail.com',
+            'email' => 'chau-toi@gmail.com',
             'items' => [['product_id' => $p->id, 'quantity' => 1, 'start' => '2030-07-01', 'end' => '2030-07-02']],
         ])->assertSessionHas('order_code');
 
         $buyer->refresh();
-        $this->assertSame('khach@gmail.com', $buyer->email);
-        $this->assertNull($buyer->email_verified_at);
+        // Tài khoản không suy suyển: vẫn là tài khoản chỉ-có-SĐT, vẫn vào được bằng luồng cũ.
+        $this->assertSame($placeholder, $buyer->email);
+        $this->assertTrue($buyer->hasPlaceholderEmail());
+        // Nhưng đơn vẫn giữ email để gửi mail xác nhận cho đúng người.
+        $this->assertSame('chau-toi@gmail.com', Order::first()->customer_email);
     }
 
-    /**
-     * Đơn hỏng thì email tài khoản phải cuốn theo.
-     *
-     * Bản cũ ghi email vào tài khoản NGAY và NGOÀI transaction tạo đơn. Đơn lỗi (hụt tồn kho,
-     * deadlock, splitter ném) là khách thấy trang lỗi mà danh tính đăng nhập của họ đã đổi vĩnh
-     * viễn, im lặng. Gõ nhầm một ký tự thì lần sau OTP bay vào hộp thư không tồn tại — mà
-     * hasPlaceholderEmail() nay false nên nhánh cứu hộ "bắt nhập lại email" cũng không mở ra.
-     *
-     * Phải ép hỏng TỪ BÊN TRONG transaction mới đo được đúng thứ cần đo. Hụt tồn kho không
-     * dùng được: nó bị chặn ở bước kiểm availability phía trên, tức trả về trước cả đoạn xử lý
-     * email — bài test kiểu đó xanh với cả code cũ lẫn code mới nên chẳng chứng minh gì.
-     * Cho splitter ném ngay trong transaction là đúng đường rollback.
-     *
-     * @test
-     */
-    public function a_failed_order_does_not_change_the_account_email(): void
-    {
-        $p = $this->product();
-        $buyer = User::create(['name' => 'Khách', 'phone' => '0912345678']);
-        $this->assertTrue($buyer->hasPlaceholderEmail());
-
-        $this->mock(OrderSplitter::class, function ($mock) {
-            $mock->shouldReceive('create')->andThrow(new \RuntimeException('đơn hỏng giữa chừng'));
-        });
-
-        try {
-            $this->actingAs($buyer)->post(route('order.store'), [
-                'name' => 'Khách',
-                'phone' => '0912345678',
-                'email' => 'khach@gmail.com',
-                'items' => [['product_id' => $p->id, 'quantity' => 1, 'start' => '2030-07-01', 'end' => '2030-07-02']],
-            ]);
-        } catch (\RuntimeException $e) {
-            // Đúng như dàn dựng — cái cần đo là trạng thái DB sau khi nó nổ.
-        }
-
-        $buyer->refresh();
-        $this->assertTrue($buyer->hasPlaceholderEmail());
-        $this->assertNotSame('khach@gmail.com', $buyer->email);
-        $this->assertSame(0, Order::where('customer_phone', '0912345678')->count());
-    }
-
-    /**
-     * Email checkout trùng tài khoản KHÁC → không gắn (users.email là UNIQUE, ghi vào là vỡ
-     * ràng buộc và trả 500). Đơn vẫn lưu email để còn gửi mail xác nhận.
-     *
-     * @test
-     */
+    /** Email checkout trùng tài khoản KHÁC cũng không đụng gì tới tài khoản đang đăng nhập. @test */
     public function checkout_email_already_used_by_another_account_is_not_attached(): void
     {
         $p = $this->product();
