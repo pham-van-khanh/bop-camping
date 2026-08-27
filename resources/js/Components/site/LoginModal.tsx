@@ -13,10 +13,20 @@ import { useEffect, useRef, useState } from 'react';
  * - Bước 2: nhập OTP 6 số → POST /dang-nhap/xac-thuc.
  */
 export default function LoginModal() {
-    const { referral, auth, flash, emailBonus } = usePage<PageProps>().props;
+    const { referral, auth, flash, emailBonus, site } =
+        usePage<PageProps>().props;
     const [open, setOpen] = useState(false);
     const [step, setStep] = useState<'form' | 'otp'>('form');
     const [resendIn, setResendIn] = useState(0);
+    // Hộp thư đã nhận mã, ĐÚNG DẠNG server muốn khách thấy: bản che khi khách mới chỉ gõ SĐT,
+    // bản đầy đủ khi chính khách vừa gõ email. Giữ ở state vì nó sống theo BƯỚC nhập mã —
+    // qua nhiều request (sai mã, gửi lại, sai tiếp) — trong khi `flash` chỉ sống một request.
+    // Đọc thẳng flash lúc render thì gõ sai mã một cái là câu thông báo cụt thành "gửi mã tới ."
+    //
+    // KHÔNG lấy email thật từ session ra phát lại ở nhánh lỗi để chữa: nhánh che tồn tại vì
+    // người đang gõ CHƯA CHẮC là chủ số (bopcamping-bqsv). Làm vậy là mở lại đúng lỗ hổng
+    // ca 3.6, chỉ khác đường vào — cố tình nhập sai một lần là moi được email thật.
+    const [otpEmail, setOtpEmail] = useState('');
     const timer = useRef<ReturnType<typeof setInterval> | null>(null);
 
     const { data, setData, post, processing, errors, reset, clearErrors } =
@@ -33,7 +43,9 @@ export default function LoginModal() {
         name: string;
         emailMask: string;
     } | null>(null);
-    const [useOtherEmail, setUseOtherEmail] = useState(false);
+    // SĐT đã có chủ nhưng chưa gắn hộp thư nào → không thể gửi mã, chỉ còn đường Zalo.
+    // Đặt từ lookup() lúc khách vừa gõ xong SĐT; server cũng trả flash cho ca lookup không biết.
+    const [needsSupport, setNeedsSupport] = useState(false);
     const autoFilledName = useRef('');
     const lastLookup = useRef('');
 
@@ -44,6 +56,7 @@ export default function LoginModal() {
         const phone = data.phone.trim();
         if (!/^0[0-9]{8,10}$/.test(phone)) {
             setAccount(null);
+            setNeedsSupport(false);
             return;
         }
         if (phone === lastLookup.current) return;
@@ -61,14 +74,20 @@ export default function LoginModal() {
                     exists: boolean;
                     name?: string | null;
                     email_mask?: string | null;
+                    needs_support?: boolean;
                 } = await res.json();
+                // Phản hồi CŨ về muộn thì bỏ qua. Gõ số A (đợi 450ms, bắn request A) rồi gõ
+                // tiếp thành số B: hai request cùng bay, A về sau B sẽ ghi đè trạng thái của B.
+                // Từ khi lookup điều khiển cả needsSupport, ghi đè nhầm nghĩa là bắt nhập email
+                // cho một số không cần, hoặc bỏ bắt cho số cần.
+                if (phone !== lastLookup.current) return;
                 // Khách quen có email đã xác thực → đăng nhập nhanh bằng SĐT (email server tự dùng).
                 setAccount(
                     j.exists && j.email_mask
                         ? { name: j.name ?? '', emailMask: j.email_mask }
                         : null,
                 );
-                if (j.exists) setUseOtherEmail(false);
+                setNeedsSupport(!!j.needs_support);
                 // Điền sẵn tên hiện tại (chỉ khi khách chưa tự gõ) để khách thấy & đổi nếu muốn.
                 if (j.exists && j.name) {
                     setData((prev) =>
@@ -86,7 +105,7 @@ export default function LoginModal() {
     }, [data.phone]);
 
     // Dùng email tài khoản (đã che) khi có account & khách không chọn nhập email khác.
-    const usingAccountEmail = !!account && !useOtherEmail;
+    const usingAccountEmail = !!account;
 
     // Prefill mã giới thiệu từ link (?ref=) khi có.
     useEffect(() => {
@@ -102,13 +121,38 @@ export default function LoginModal() {
         setOpen(true);
     }, [referral?.code, auth.user]);
 
+    // Server chặn vì SĐT chưa gắn email. Cần nhánh này bên cạnh lookup(): khách vãng lai
+    // (có đơn cũ, chưa có tài khoản) thì lookup cố tình trả exists:false để không lộ, nên
+    // chỉ tới lúc bấm gửi mã mới biết.
+    //
+    // Phụ thuộc vào CẢ object `flash` chứ không riêng giá trị boolean: mỗi phản hồi từ server
+    // là một object mới, nên lần chặn thứ hai vẫn kích hoạt. Nếu chỉ để
+    // [flash?.login_needs_support] thì giá trị vẫn là true như lần trước → effect không chạy
+    // lại → nút "Tiếp tục" hiện ra sau khi khách sửa SĐT rồi gõ lại số cũ.
+    useEffect(() => {
+        if (flash?.login_needs_support) setNeedsSupport(true);
+    }, [flash]);
+
     // Server đã gửi OTP → chuyển sang bước nhập mã + bật đếm ngược gửi lại.
+    // Chốt luôn hộp thư nhận mã ở đây: đây là request DUY NHẤT mang nó về.
+    //
+    // Phụ thuộc cả object `flash`, cùng lý do đã ghi ở effect ngay trên. Để
+    // [flash?.otp_sent] thì lần gửi mã THỨ HAI không kích hoạt được: giá trị vẫn là true
+    // như lần trước. Gặp đúng khi khách bấm "← Sửa thông tin" (thuần client, không có
+    // request nào xen giữa để dọn cờ), đổi số rồi gửi lại — mã bay đi thật mà màn nhập mã
+    // không hiện ra, khách đứng lại ở bước nhập SĐT.
+    //
+    // Lấy thẳng `flash.otp_email`, KHÔNG fallback về `data.email` như bản cũ: server luôn gửi
+    // hai cờ này cùng nhau, nên fallback đó chưa bao giờ chạy đúng lúc — nó chỉ nhảy vào khi
+    // flash đã rụng, và ở nhánh che thì `data.email` rỗng (khách có gõ email đâu), đẻ ra đúng
+    // câu cụt "gửi mã tới .". Client chỉ hiện thứ server cố ý cho hiện, không tự chế.
     useEffect(() => {
         if (flash?.otp_sent) {
+            setOtpEmail(flash.otp_email ?? '');
             setStep('otp');
             startCooldown();
         }
-    }, [flash?.otp_sent]);
+    }, [flash]);
 
     // Đăng nhập xong (prop auth.user xuất hiện) → đóng modal.
     useEffect(() => {
@@ -147,12 +191,13 @@ export default function LoginModal() {
         setOpen(false);
         setStep('form');
         setResendIn(0);
+        setOtpEmail('');
         reset();
         clearErrors();
         autoFilledName.current = '';
         lastLookup.current = '';
         setAccount(null);
-        setUseOtherEmail(false);
+        setNeedsSupport(false);
         if (referral?.code) setData('ref', referral.code);
     };
 
@@ -165,11 +210,16 @@ export default function LoginModal() {
         post(route('guest.login.verify'), { preserveScroll: true });
 
     // Tên & email không bắt buộc — SĐT là khoá định danh duy nhất. Nếu có nhập email thì phải
-    // đúng định dạng (còn để trống thì bỏ qua, khách vào thẳng không cần OTP).
+    // đúng định dạng. Bỏ trống: số đã có chủ thì server gửi OTP tới hộp thư đã lưu, số hoàn
+    // toàn mới thì vào thẳng (bopcamping-bqsv).
     const phoneValid = /^0[0-9]{8,10}$/.test(data.phone.trim());
     const emailTyped = data.email.trim() !== '';
     const emailOk = !emailTyped || /\S+@\S+\.\S+/.test(data.email);
-    const formValid = phoneValid && (usingAccountEmail || emailOk);
+    // needsSupport → email thành BẮT BUỘC: số này chưa gắn hộp thư nào, không nhập thì server
+    // không biết gửi mã đi đâu. Khoá nút thay vì để khách bấm rồi nhận lỗi.
+    const formValid =
+        phoneValid &&
+        (usingAccountEmail || (emailOk && (!needsSupport || emailTyped)));
     const codeValid = /^[0-9]{6}$/.test(data.code);
     const bonusText = emailBonus?.enabled
         ? emailBonus.type === 'percent'
@@ -272,7 +322,48 @@ export default function LoginModal() {
                                         error={errors.phone}
                                         autoFocus
                                     />
-                                    {usingAccountEmail ? (
+                                    {needsSupport ? (
+                                        // Vẫn là ô email cũ, chỉ khác: BẮT BUỘC nhập (nút
+                                        // "Tiếp tục" khoá tới khi có email hợp lệ), kèm dòng
+                                        // Zalo bên dưới làm LỐI PHỤ cho khách không có email —
+                                        // không phải lối duy nhất như bản trước.
+                                        <div>
+                                            <Field
+                                                value={data.email}
+                                                onChange={(v) =>
+                                                    setData('email', v)
+                                                }
+                                                onEnter={() =>
+                                                    formValid &&
+                                                    !processing &&
+                                                    requestOtp()
+                                                }
+                                                placeholder="Email (bắt buộc)"
+                                                inputMode="email"
+                                                error={errors.email}
+                                            />
+                                            <p className="mt-1.5 text-[12.5px] leading-[1.5] text-moss">
+                                                Số này chưa gắn email nên cần
+                                                nhập email để nhận mã xác thực.
+                                                {site?.zalo_oa && (
+                                                    <>
+                                                        {' '}
+                                                        Chưa có email?{' '}
+                                                        <a
+                                                            href={site.zalo_oa}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="font-semibold text-grass underline underline-offset-2"
+                                                        >
+                                                            Nhắn Zalo để shop hỗ
+                                                            trợ
+                                                        </a>
+                                                        .
+                                                    </>
+                                                )}
+                                            </p>
+                                        </div>
+                                    ) : usingAccountEmail ? (
                                         <div className="flex flex-col gap-1.5">
                                             <div className="flex items-center gap-2 rounded-[11px] border border-cardBorder bg-white px-3.5 py-2.5">
                                                 <span aria-hidden>📧</span>
@@ -280,16 +371,14 @@ export default function LoginModal() {
                                                     {account?.emailMask}
                                                 </span>
                                             </div>
-                                            <button
-                                                type="button"
-                                                onClick={() => {
-                                                    setUseOtherEmail(true);
-                                                    setData('email', '');
-                                                }}
-                                                className="self-start text-[13px] font-semibold text-grass hover:text-pine"
-                                            >
-                                                Dùng email khác
-                                            </button>
+                                            {/* KHÔNG còn nút "Dùng email khác" (bopcamping-bqsv): mã xác thực
+                                                chỉ được gửi tới hộp thư đã gắn với số này, nên nút đó nay chỉ
+                                                dẫn tới thông báo lỗi. Mất quyền vào email cũ thì nhắn Zalo. */}
+                                            <p className="text-[12.5px] leading-[1.5] text-moss">
+                                                Mã xác thực sẽ gửi tới email
+                                                này. Không vào được email? Nhắn
+                                                Zalo để shop hỗ trợ.
+                                            </p>
                                         </div>
                                     ) : (
                                         <div>
@@ -359,7 +448,7 @@ export default function LoginModal() {
                                 <p className="mb-[14px] text-[14px] text-moss">
                                     Đã gửi mã 6 số tới{' '}
                                     <strong className="text-ink">
-                                        {flash?.otp_email || data.email}
+                                        {otpEmail}
                                     </strong>
                                     . Nhập mã để hoàn tất.
                                 </p>
@@ -408,6 +497,7 @@ export default function LoginModal() {
                                     <button
                                         onClick={() => {
                                             setStep('form');
+                                            setOtpEmail('');
                                             clearErrors();
                                         }}
                                         className="text-moss hover:text-ink"

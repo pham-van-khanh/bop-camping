@@ -1,0 +1,1064 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sổ Kiểm Đăng Nhập</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Newsreader:opsz,wght@6..72,500;6..72,600&display=swap">
+
+<style>
+  :root {
+    --ground: #f6f7f1;
+    --surface: #ffffff;
+    --surface-2: #ecefe3;
+    --line: #dde2d2;
+    --line-soft: #e9ecdf;
+    --ink: #1b2612;
+    --ink-2: #57624b;
+    --ink-3: #7b8570;
+    --accent: #4d7226;
+    --accent-ink: #3b5a1c;
+    --accent-soft: #e7efd8;
+    --crit: #9c3b28;
+    --crit-soft: #f8e6e1;
+    --warn: #8f6b1c;
+    --warn-soft: #f7eed6;
+    --ok: #3d6f31;
+    --ok-soft: #e4f0dd;
+    --shadow: 0 1px 2px rgba(27, 38, 18, .05), 0 12px 28px -20px rgba(27, 38, 18, .28);
+
+    --f-display: "Newsreader", Georgia, "Times New Roman", serif;
+    --f-body: "Be Vietnam Pro", "Segoe UI", system-ui, -apple-system, sans-serif;
+    --f-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #12150e;
+      --surface: #1a1e15;
+      --surface-2: #232819;
+      --line: #313825;
+      --line-soft: #272d1d;
+      --ink: #e9ede1;
+      --ink-2: #9ca989;
+      --ink-3: #7d8a6c;
+      --accent: #9cc162;
+      --accent-ink: #b3d381;
+      --accent-soft: #232f18;
+      --crit: #e59480;
+      --crit-soft: #33201b;
+      --crit-soft: #341f1a;
+      --warn: #d9ae60;
+      --warn-soft: #2f2715;
+      --ok: #8fc27a;
+      --ok-soft: #1f2b1a;
+      --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 14px 30px -20px rgba(0, 0, 0, .8);
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --ground: #12150e;
+    --surface: #1a1e15;
+    --surface-2: #232819;
+    --line: #313825;
+    --line-soft: #272d1d;
+    --ink: #e9ede1;
+    --ink-2: #9ca989;
+    --ink-3: #7d8a6c;
+    --accent: #9cc162;
+    --accent-ink: #b3d381;
+    --accent-soft: #232f18;
+    --crit: #e59480;
+    --crit-soft: #341f1a;
+    --warn: #d9ae60;
+    --warn-soft: #2f2715;
+    --ok: #8fc27a;
+    --ok-soft: #1f2b1a;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 14px 30px -20px rgba(0, 0, 0, .8);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--f-body);
+    font-size: 16px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap {
+    max-width: 1040px;
+    margin: 0 auto;
+    padding: 0 22px 96px;
+  }
+
+  /* ── sticky progress ─────────────────────────────────────────── */
+  .rail {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    background: color-mix(in srgb, var(--ground) 88%, transparent);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--line);
+  }
+  .rail-in {
+    max-width: 1040px;
+    margin: 0 auto;
+    padding: 9px 22px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    font-size: 12.5px;
+    color: var(--ink-2);
+  }
+  .rail-name {
+    font-weight: 600;
+    color: var(--ink);
+    letter-spacing: .01em;
+    white-space: nowrap;
+  }
+  .rail-bar {
+    flex: 1;
+    height: 5px;
+    min-width: 70px;
+    border-radius: 99px;
+    background: var(--surface-2);
+    overflow: hidden;
+  }
+  .rail-fill {
+    height: 100%;
+    width: 0%;
+    border-radius: 99px;
+    background: var(--accent);
+    transition: width .28s ease;
+  }
+  .rail-num {
+    font-family: var(--f-mono);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+  .rail-reset {
+    font: inherit;
+    font-size: 12px;
+    color: var(--ink-3);
+    background: none;
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    padding: 3px 9px;
+    cursor: pointer;
+  }
+  .rail-reset:hover { color: var(--ink); border-color: var(--ink-3); }
+
+  /* ── header ──────────────────────────────────────────────────── */
+  header.top { padding: 52px 0 6px; }
+  .eyebrow {
+    font-size: 11.5px;
+    font-weight: 600;
+    letter-spacing: .13em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    font-family: var(--f-mono);
+  }
+  h1 {
+    font-family: var(--f-display);
+    font-weight: 600;
+    font-size: clamp(36px, 6vw, 55px);
+    line-height: 1.04;
+    letter-spacing: -.015em;
+    margin: 14px 0 0;
+    text-wrap: balance;
+  }
+  .lede {
+    margin: 16px 0 0;
+    max-width: 60ch;
+    font-size: 17px;
+    color: var(--ink-2);
+  }
+  .lede b { color: var(--ink); font-weight: 600; }
+
+  /* ── status tiles ────────────────────────────────────────────── */
+  .tiles {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(215px, 1fr));
+    gap: 12px;
+    margin: 34px 0 0;
+  }
+  .tile {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 15px 16px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    box-shadow: var(--shadow);
+  }
+  .tile-k {
+    font-size: 11.5px;
+    font-weight: 600;
+    letter-spacing: .09em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+  }
+  .tile-v {
+    font-family: var(--f-display);
+    font-size: 25px;
+    line-height: 1.1;
+    font-weight: 600;
+    letter-spacing: -.01em;
+  }
+  .tile-n { font-size: 13px; color: var(--ink-2); line-height: 1.45; }
+  .tile--crit { border-color: color-mix(in srgb, var(--crit) 42%, var(--line)); }
+  .tile--crit .tile-v { color: var(--crit); }
+  .tile--ok .tile-v { color: var(--ok); }
+  .tile--warn .tile-v { color: var(--warn); }
+
+  /* ── sections ────────────────────────────────────────────────── */
+  section { margin: 54px 0 0; }
+  .sec-head {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    flex-wrap: wrap;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--line);
+  }
+  h2 {
+    font-family: var(--f-display);
+    font-weight: 600;
+    font-size: clamp(23px, 3vw, 30px);
+    line-height: 1.15;
+    letter-spacing: -.012em;
+    margin: 0;
+    text-wrap: balance;
+  }
+  .sec-count {
+    font-family: var(--f-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 12.5px;
+    color: var(--ink-3);
+    margin-left: auto;
+    white-space: nowrap;
+  }
+  .sec-count.done { color: var(--ok); font-weight: 500; }
+  p { margin: 14px 0 0; max-width: 68ch; }
+  p.tight { max-width: 74ch; }
+  .muted { color: var(--ink-2); }
+  h3 {
+    font-family: var(--f-body);
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: .01em;
+    margin: 30px 0 0;
+    color: var(--ink);
+  }
+
+  /* ── callouts ────────────────────────────────────────────────── */
+  .call {
+    margin: 22px 0 0;
+    border-radius: 12px;
+    padding: 17px 19px;
+    border: 1px solid var(--line);
+    background: var(--surface);
+  }
+  .call-t {
+    font-weight: 600;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    letter-spacing: .01em;
+  }
+  .call p { margin: 9px 0 0; font-size: 14.5px; max-width: 72ch; }
+  .call--crit { background: var(--crit-soft); border-color: color-mix(in srgb, var(--crit) 34%, transparent); }
+  .call--crit .call-t { color: var(--crit); }
+  .call--warn { background: var(--warn-soft); border-color: color-mix(in srgb, var(--warn) 34%, transparent); }
+  .call--warn .call-t { color: var(--warn); }
+  .call--ok { background: var(--ok-soft); border-color: color-mix(in srgb, var(--ok) 30%, transparent); }
+  .call--ok .call-t { color: var(--ok); }
+
+  /* ── code ────────────────────────────────────────────────────── */
+  .code {
+    margin: 16px 0 0;
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .code-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 7px 11px;
+    border-bottom: 1px solid var(--line);
+    font-size: 11.5px;
+    color: var(--ink-3);
+    font-family: var(--f-mono);
+  }
+  .code-copy {
+    font: inherit;
+    margin-left: auto;
+    background: none;
+    border: 1px solid var(--line);
+    color: var(--ink-2);
+    border-radius: 6px;
+    padding: 2px 8px;
+    cursor: pointer;
+  }
+  .code-copy:hover { color: var(--ink); border-color: var(--ink-3); }
+  .code pre {
+    margin: 0;
+    padding: 12px 13px;
+    overflow-x: auto;
+    font-family: var(--f-mono);
+    font-size: 12.8px;
+    line-height: 1.65;
+    color: var(--ink);
+    tab-size: 2;
+  }
+  code.inl {
+    font-family: var(--f-mono);
+    font-size: .88em;
+    overflow-wrap: anywhere;
+    background: var(--surface-2);
+    border: 1px solid var(--line-soft);
+    border-radius: 5px;
+    padding: .08em .34em;
+  }
+
+  /* ── tables ──────────────────────────────────────────────────── */
+  .tbl-scroll { overflow-x: auto; margin: 20px 0 0; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14.5px;
+    min-width: 480px;
+  }
+  th, td {
+    text-align: left;
+    padding: 10px 13px;
+    border-bottom: 1px solid var(--line-soft);
+    vertical-align: top;
+  }
+  th {
+    font-size: 11.5px;
+    font-weight: 600;
+    letter-spacing: .09em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    border-bottom: 1px solid var(--line);
+    white-space: nowrap;
+  }
+  tbody tr:last-child td { border-bottom: none; }
+  td.verdict { white-space: nowrap; font-weight: 500; }
+  td.verdict.ok { color: var(--ok); }
+  td.verdict.fix { color: var(--warn); }
+
+  /* ── checklist ───────────────────────────────────────────────── */
+  ul.cases { list-style: none; margin: 20px 0 0; padding: 0; display: flex; flex-direction: column; gap: 7px; }
+  li.case {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    transition: border-color .16s ease, background .16s ease;
+  }
+  li.case:hover { border-color: var(--ink-3); }
+  li.case label {
+    display: grid;
+    grid-template-columns: 22px 34px 1fr;
+    gap: 12px;
+    align-items: start;
+    padding: 12px 15px;
+    cursor: pointer;
+  }
+  li.case input {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 19px;
+    height: 19px;
+    margin: 2px 0 0;
+    border: 1.5px solid var(--ink-3);
+    border-radius: 5px;
+    background: transparent;
+    cursor: pointer;
+    display: grid;
+    place-content: center;
+    flex: none;
+  }
+  li.case input::after {
+    content: "";
+    width: 10px;
+    height: 6px;
+    border-left: 2px solid var(--ground);
+    border-bottom: 2px solid var(--ground);
+    transform: rotate(-45deg) translateY(-1px) scale(.4);
+    opacity: 0;
+    transition: opacity .13s ease, transform .13s ease;
+  }
+  li.case input:checked { background: var(--accent); border-color: var(--accent); }
+  li.case input:checked::after { opacity: 1; transform: rotate(-45deg) translateY(-1px) scale(1); }
+  li.case input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .case-num {
+    font-family: var(--f-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 12.5px;
+    color: var(--ink-3);
+    padding-top: 3px;
+    font-weight: 500;
+  }
+  .case-body { display: flex; flex-direction: column; gap: 3px; }
+  .case-do { font-weight: 500; line-height: 1.45; }
+  .case-exp { font-size: 14px; color: var(--ink-2); line-height: 1.45; }
+  li.case input:checked ~ .case-body .case-do { color: var(--ink-3); text-decoration: line-through; text-decoration-thickness: 1px; }
+  li.case input:checked ~ .case-body .case-exp { color: var(--ink-3); }
+  li.case:has(input:checked) { background: var(--surface-2); border-color: var(--line-soft); }
+
+  li.case.flag { border-left: 3px solid var(--warn); }
+  .flag-note {
+    grid-column: 3;
+    margin: 6px 0 0;
+    font-size: 13.5px;
+    line-height: 1.5;
+    color: var(--warn);
+    background: var(--warn-soft);
+    border-radius: 8px;
+    padding: 8px 11px;
+  }
+  .chip {
+    display: inline-block;
+    font-family: var(--f-mono);
+    font-size: 10.5px;
+    letter-spacing: .07em;
+    text-transform: uppercase;
+    padding: 2px 6px;
+    border-radius: 5px;
+    vertical-align: 2px;
+    margin-left: 7px;
+    font-weight: 500;
+  }
+  .chip--warn { background: var(--warn-soft); color: var(--warn); border: 1px solid color-mix(in srgb, var(--warn) 30%, transparent); }
+  .chip--crit { background: var(--crit-soft); color: var(--crit); border: 1px solid color-mix(in srgb, var(--crit) 30%, transparent); }
+
+  ul.plain { margin: 14px 0 0; padding-left: 20px; }
+  ul.plain li { margin: 6px 0 0; color: var(--ink-2); max-width: 66ch; }
+  ul.plain li b { color: var(--ink); font-weight: 600; }
+
+  footer {
+    margin: 66px 0 0;
+    padding-top: 20px;
+    border-top: 1px solid var(--line);
+    font-size: 13px;
+    color: var(--ink-3);
+  }
+  footer a { color: var(--accent-ink); }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; animation: none !important; }
+  }
+  @media (max-width: 560px) {
+    li.case label { grid-template-columns: 20px 30px 1fr; gap: 9px; padding: 11px 12px; }
+    .rail-name { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="rail">
+  <div class="rail-in">
+    <span class="rail-name">Sổ kiểm đăng nhập</span>
+    <span class="rail-bar"><span class="rail-fill" id="railFill"></span></span>
+    <span class="rail-num" id="railNum">0/56</span>
+    <button class="rail-reset" id="reset" type="button">Xoá dấu</button>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <header class="top">
+    <div class="eyebrow">BỐP CAMPING · bopcamping-bqsv + bopcamping-kuhg</div>
+    <h1>Sổ kiểm đăng nhập</h1>
+    <p class="lede">
+      Đợt siết luồng đăng nhập khách tháng 8/2026 — hai bead nằm trên <b>một nhánh</b>,
+      chưa lên production. Trang này là cổng chất lượng: <b>11 lệnh gate</b>,
+      <b>41 ca test staging</b>, <b>4 việc</b> trước và sau khi merge.
+    </p>
+
+    <div class="tiles">
+      <div class="tile tile--crit">
+        <div class="tile-k">Test tự động</div>
+        <div class="tile-v">Chưa chạy</div>
+        <div class="tile-n">Chưa lần nào, kể từ khi viết. CI chỉ chạy <code class="inl">tsc</code> + build.</div>
+      </div>
+      <div class="tile tile--ok">
+        <div class="tile-k">Rà tĩnh</div>
+        <div class="tile-v">7 điểm</div>
+        <div class="tile-n">Đối chiếu tay với schema, route và code thật. Sửa 1 chỗ mong manh.</div>
+      </div>
+      <div class="tile tile--ok">
+        <div class="tile-k">Đo trên staging</div>
+        <div class="tile-v">13 ca</div>
+        <div class="tile-n">Bằng trình duyệt, gồm cả đường bỏ qua giao diện. Tất cả đúng.</div>
+      </div>
+      <div class="tile tile--warn">
+        <div class="tile-k">Chưa ai đo</div>
+        <div class="tile-v">Xem hộ khách</div>
+        <div class="tile-n">Cả 8 ca nhóm 4 — cần tài khoản admin trên staging.</div>
+      </div>
+    </div>
+  </header>
+
+  <section>
+    <div class="sec-head"><h2>Vì sao test chưa chạy</h2></div>
+    <p>
+      Bộ lọc an toàn của môi trường làm việc chặn <b>mọi lệnh thực thi</b> trong phiên vừa rồi —
+      <code class="inl">php artisan test</code>, <code class="inl">php -l</code>,
+      <code class="inl">npm test</code>. Nó phản ứng với nội dung hội thoại trước đó chứ không phải
+      với từng lệnh, nên thử lại cũng vô ích.
+    </p>
+    <p class="muted">
+      Chạy được bằng cách mở <b>phiên làm việc mới</b>, hoặc chuyển khỏi auto mode
+      về chế độ quyền mặc định.
+    </p>
+    <div class="call call--crit">
+      <div class="call-t">Đừng merge lên production trước khi nhóm 0 xanh</div>
+      <p>
+        Đợt này sửa đúng phần đăng nhập — thứ mà gần như mọi tính năng khác đều dựa vào.
+        Toàn bộ test của hai bead này chưa chạy lần nào, và CI không chạy test PHP,
+        nên hiện chưa có gì bảo đảm ngoài phần rà tay và 13 ca đo trên staging.
+      </p>
+    </div>
+  </section>
+
+  <section data-group="g0">
+    <div class="sec-head">
+      <h2>0 · Cổng tự động</h2>
+      <span class="sec-count" data-count="g0">0/11</span>
+    </div>
+    <p>
+      Máy này thiếu <code class="inl">pdo_sqlite</code> nên phải trỏ sang MySQL với DB test riêng.
+      Biến môi trường đặt trước lệnh sẽ thắng <code class="inl">phpunit.xml</code>.
+    </p>
+
+    <div class="code">
+      <div class="code-bar"><span>tạo DB test — một lần</span><button class="code-copy" type="button">Chép</button></div>
+      <pre>docker exec bopcamping_db mysql -uroot -p'&lt;mật-khẩu&gt;' \
+  -e "CREATE DATABASE IF NOT EXISTS bop_camping_test"</pre>
+    </div>
+
+    <ul class="cases">
+      <li class="case" data-id="g0-1"><label><input type="checkbox">
+        <span class="case-num">0.1</span>
+        <span class="case-body"><span class="case-do">Test luồng OTP</span>
+        <span class="case-exp"><code class="inl">php artisan test --filter=OtpFlowTest</code></span></span></label></li>
+
+      <li class="case" data-id="g0-2"><label><input type="checkbox">
+        <span class="case-num">0.2</span>
+        <span class="case-body"><span class="case-do">Test đăng nhập thay khách</span>
+        <span class="case-exp"><code class="inl">--filter=AdminImpersonationTest</code></span></span></label></li>
+
+      <li class="case" data-id="g0-3"><label><input type="checkbox">
+        <span class="case-num">0.3</span>
+        <span class="case-body"><span class="case-do">Test đặt đơn (gắn email từ checkout)</span>
+        <span class="case-exp"><code class="inl">--filter=OrderCheckoutTest</code></span></span></label></li>
+
+      <li class="case" data-id="g0-4"><label><input type="checkbox">
+        <span class="case-num">0.4</span>
+        <span class="case-body"><span class="case-do">Test tra SĐT + đổi tên</span>
+        <span class="case-exp"><code class="inl">--filter=LoginLookupRenameTest</code></span></span></label></li>
+
+      <li class="case" data-id="g0-5"><label><input type="checkbox">
+        <span class="case-num">0.5</span>
+        <span class="case-body"><span class="case-do">Test quản lý người dùng</span>
+        <span class="case-exp"><code class="inl">--filter=AdminUserTest</code></span></span></label></li>
+
+      <li class="case flag" data-id="g0-6"><label><input type="checkbox">
+        <span class="case-num">0.6</span>
+        <span class="case-body"><span class="case-do">Toàn bộ test PHP<span class="chip chip--warn">quan trọng nhất</span></span>
+        <span class="case-exp"><code class="inl">php artisan test</code></span></span>
+        <span class="flag-note">Quan trọng hơn cả 5 lệnh trên. Đợt này đụng vào đăng nhập, nên lỗi dễ hiện ra ở test của tính năng khác chứ không phải ở test đăng nhập.</span></label></li>
+
+      <li class="case" data-id="g0-7"><label><input type="checkbox">
+        <span class="case-num">0.7</span>
+        <span class="case-body"><span class="case-do">Test component React</span>
+        <span class="case-exp"><code class="inl">npm test</code></span></span></label></li>
+
+      <li class="case" data-id="g0-8"><label><input type="checkbox">
+        <span class="case-num">0.8</span>
+        <span class="case-body"><span class="case-do">Kiểu TypeScript</span>
+        <span class="case-exp"><code class="inl">npx tsc --noEmit</code></span></span></label></li>
+
+      <li class="case" data-id="g0-9"><label><input type="checkbox">
+        <span class="case-num">0.9</span>
+        <span class="case-body"><span class="case-do">Lint JS/TS</span>
+        <span class="case-exp"><code class="inl">npm run lint</code> — chỉ kiểm, không sửa file</span></span></label></li>
+
+      <li class="case" data-id="g0-10"><label><input type="checkbox">
+        <span class="case-num">0.10</span>
+        <span class="case-body"><span class="case-do">Định dạng PHP</span>
+        <span class="case-exp"><code class="inl">./vendor/bin/pint --test</code></span></span></label></li>
+
+      <li class="case" data-id="g0-11"><label><input type="checkbox">
+        <span class="case-num">0.11</span>
+        <span class="case-body"><span class="case-do">Build production</span>
+        <span class="case-exp"><code class="inl">npm run build</code></span></span></label></li>
+    </ul>
+
+    <div class="code">
+      <div class="code-bar"><span>5 lệnh test PHP — dán một lần</span><button class="code-copy" type="button">Chép</button></div>
+      <pre>export DB_CONNECTION=mysql DB_DATABASE=bop_camping_test
+php artisan test --filter=OtpFlowTest
+php artisan test --filter=AdminImpersonationTest
+php artisan test --filter=OrderCheckoutTest
+php artisan test --filter=LoginLookupRenameTest
+php artisan test --filter=AdminUserTest
+php artisan test</pre>
+    </div>
+
+    <div class="call call--warn">
+      <div class="call-t">Nếu có test đỏ — đọc bảng này trước khi sửa</div>
+      <p>
+        Đợt này <b>đổi hành vi có chủ ý</b>. Test đỏ có thể là test cũ đang khẳng định
+        hành vi đã bỏ, chứ không phải code sai.
+      </p>
+      <div class="tbl-scroll">
+        <table>
+          <thead><tr><th>Hành vi cũ</th><th>Hành vi mới</th></tr></thead>
+          <tbody>
+            <tr><td>Gõ đúng SĐT của tài khoản đã xác thực → vào thẳng</td><td>Luôn qua mã OTP</td></tr>
+            <tr><td>Gõ đúng email đã xác thực → vào thẳng</td><td>Luôn qua mã OTP</td></tr>
+            <tr><td>Cookie nhớ đăng nhập 400 ngày cho mọi người</td><td>60 ngày; riêng tài khoản chỉ-có-SĐT vẫn 400</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>
+        Test đỏ <b>ngoài</b> ba nhóm này là lỗi thật — báo lại, đừng sửa test cho xanh.
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head"><h2>Rà tĩnh thay cho chạy thật</h2></div>
+    <p>
+      Không chạy được thì rà tay từng test, đối chiếu với schema migration, tên route và code thật.
+      Đây là những chỗ dễ đỏ nhất, đã kiểm hết:
+    </p>
+    <div class="tbl-scroll">
+      <table>
+        <thead><tr><th>Điểm nghi ngờ</th><th>Kết luận</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>Helper <code class="inl">guestOrder()</code> không set <code class="inl">code</code>, mà cột đó NOT NULL + UNIQUE</td>
+            <td class="verdict ok">An toàn — <code class="inl">Order::booted()</code> tự sinh mã</td>
+          </tr>
+          <tr>
+            <td>Throttle <code class="inl">10,1</code> ở <code class="inl">guest.login</code>, test gọi 2 lần liên tiếp</td>
+            <td class="verdict ok">An toàn — <code class="inl">CACHE_STORE=array</code>, reset mỗi test</td>
+          </tr>
+          <tr>
+            <td><code class="inl">Mail::assertQueued(OtpMail)</code> — mail có thật sự vào hàng đợi?</td>
+            <td class="verdict ok">Có — <code class="inl">implements ShouldQueue</code>, có <code class="inl">public $code</code></td>
+          </tr>
+          <tr>
+            <td>Assertion <code class="inl">'ng**@example.com'</code> có khớp <code class="inl">maskEmail()</code> thật?</td>
+            <td class="verdict ok">Khớp</td>
+          </tr>
+          <tr>
+            <td>Session có sống qua 2 request trong cùng một test?</td>
+            <td class="verdict ok">Có — test cũ <code class="inl">full_flow_first_login…</code> đã dựa vào từ trước</td>
+          </tr>
+          <tr>
+            <td>Inject <code class="inl">ImpersonationController</code> vào <code class="inl">destroy()</code></td>
+            <td class="verdict ok">Được — lớp <code class="inl">Controller</code> không có constructor</td>
+          </tr>
+          <tr>
+            <td>Hai test cookie gọi <code class="inl">getCookie()</code> mặc định <b>giải mã</b> cookie</td>
+            <td class="verdict fix">Đã sửa → <code class="inl">getCookie(…, false)</code></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="muted tight">
+      Dòng cuối là chỗ mong manh thật: bài test chỉ cần <code class="inl">getExpiresTime()</code>,
+      nên giải mã thêm là kéo cả <code class="inl">EncryptCookies</code> và
+      <code class="inl">CookieValuePrefix</code> vào một bài test về <i>hạn</i> cookie — hỏng ở đó
+      sẽ báo sai chỗ.
+    </p>
+    <p class="muted tight">
+      Cũng kiểm chéo toàn bộ <code class="inl">tests/</code> xem còn test nào khẳng định hành vi cũ:
+      8 chỗ <code class="inl">assertSessionHasErrors('phone')</code> còn lại đều thuộc luồng khác
+      (chặn SĐT admin, validate admin, shipper, góp ý) — không đụng.
+    </p>
+  </section>
+
+  <section data-group="g1">
+    <div class="sec-head">
+      <h2>1 · Đăng nhập khách, luồng thường</h2>
+      <span class="sec-count" data-count="g1">0/6</span>
+    </div>
+    <ul class="cases">
+      <li class="case" data-id="g1-1"><label><input type="checkbox"><span class="case-num">1.1</span>
+        <span class="case-body"><span class="case-do">SĐT hoàn toàn mới, bỏ trống email</span>
+        <span class="case-exp">Vào thẳng, không cần mã</span></span></label></li>
+      <li class="case" data-id="g1-2"><label><input type="checkbox"><span class="case-num">1.2</span>
+        <span class="case-body"><span class="case-do">SĐT mới, có điền email</span>
+        <span class="case-exp">Gửi mã tới email đó; nhập mã xong mới vào</span></span></label></li>
+      <li class="case" data-id="g1-3"><label><input type="checkbox"><span class="case-num">1.3</span>
+        <span class="case-body"><span class="case-do">Nhập sai mã 6 số</span>
+        <span class="case-exp">Báo “Mã không đúng hoặc đã hết hạn”, không vào được</span></span></label></li>
+      <li class="case" data-id="g1-4"><label><input type="checkbox"><span class="case-num">1.4</span>
+        <span class="case-body"><span class="case-do">Bấm “Gửi lại mã”</span>
+        <span class="case-exp">Mã cũ hết hiệu lực, chỉ mã mới nhất dùng được</span></span></label></li>
+      <li class="case" data-id="g1-5"><label><input type="checkbox"><span class="case-num">1.5</span>
+        <span class="case-body"><span class="case-do">Khách quen (đã có email) gõ SĐT, bỏ trống email</span>
+        <span class="case-exp">Hiện email đã che, gửi mã tới đó</span></span></label></li>
+      <li class="case" data-id="g1-6"><label><input type="checkbox"><span class="case-num">1.6</span>
+        <span class="case-body"><span class="case-do">Đổi tên hiển thị lúc đăng nhập</span>
+        <span class="case-exp">Tên chỉ đổi <i>sau khi</i> nhập đúng mã</span></span></label></li>
+    </ul>
+  </section>
+
+  <section data-group="g2">
+    <div class="sec-head">
+      <h2>2 · Tài khoản chỉ có số điện thoại</h2>
+      <span class="sec-count" data-count="g2">0/6</span>
+    </div>
+    <p class="muted">Phần vừa đổi: ô email thành bắt buộc, Zalo là lối phụ.</p>
+    <ul class="cases">
+      <li class="case" data-id="g2-1"><label><input type="checkbox"><span class="case-num">2.1</span>
+        <span class="case-body"><span class="case-do">Tạo tài khoản chỉ bằng SĐT → đăng xuất → đăng nhập lại</span>
+        <span class="case-exp">Ô email thành “Email (bắt buộc)”, dưới có dòng “Chưa có email? Nhắn Zalo…”</span></span></label></li>
+      <li class="case" data-id="g2-2"><label><input type="checkbox"><span class="case-num">2.2</span>
+        <span class="case-body"><span class="case-do">Ở màn hình 2.1, chưa gõ email</span>
+        <span class="case-exp">Nút “Tiếp tục” xám, không bấm được</span></span></label></li>
+      <li class="case" data-id="g2-3"><label><input type="checkbox"><span class="case-num">2.3</span>
+        <span class="case-body"><span class="case-do">Gõ email hợp lệ</span>
+        <span class="case-exp">Nút mở khoá → nhận mã → vào được</span></span></label></li>
+      <li class="case" data-id="g2-4"><label><input type="checkbox"><span class="case-num">2.4</span>
+        <span class="case-body"><span class="case-do">Bấm link Zalo ở 2.1</span>
+        <span class="case-exp">Mở đúng Zalo OA của shop</span></span></label></li>
+      <li class="case" data-id="g2-5"><label><input type="checkbox"><span class="case-num">2.5</span>
+        <span class="case-body"><span class="case-do">Sau 2.3, đăng xuất rồi vào lại chỉ bằng SĐT</span>
+        <span class="case-exp">Gửi mã tới email vừa gắn, hiện bản che</span></span></label></li>
+      <li class="case" data-id="g2-6"><label><input type="checkbox"><span class="case-num">2.6</span>
+        <span class="case-body"><span class="case-do">Lặp lại 2.1 <b>trên điện thoại</b></span>
+        <span class="case-exp">Chữ không tràn, link Zalo bấm trúng</span></span></label></li>
+    </ul>
+  </section>
+
+  <section data-group="g3">
+    <div class="sec-head">
+      <h2>3 · Chống chiếm tài khoản</h2>
+      <span class="sec-count" data-count="g3">0/6</span>
+    </div>
+    <p>Nhóm quan trọng nhất. Làm ở <b>cửa sổ ẩn danh</b> để không dính phiên đang đăng nhập.</p>
+    <ul class="cases">
+      <li class="case" data-id="g3-1"><label><input type="checkbox"><span class="case-num">3.1</span>
+        <span class="case-body"><span class="case-do">Gõ SĐT của khách <b>đã có email</b> + email <b>của bạn</b></span>
+        <span class="case-exp">Chặn — “Email không khớp với số điện thoại này”</span></span></label></li>
+      <li class="case" data-id="g3-2"><label><input type="checkbox"><span class="case-num">3.2</span>
+        <span class="case-body"><span class="case-do">Gõ SĐT khách đã có email, bỏ trống email</span>
+        <span class="case-exp">Mã về hộp thư của khách đó; bạn không vào được</span></span></label></li>
+      <li class="case" data-id="g3-3"><label><input type="checkbox"><span class="case-num">3.3</span>
+        <span class="case-body"><span class="case-do">Sau 3.1 và 3.2, hỏi lại khách</span>
+        <span class="case-exp">Tên và email của họ không bị đổi gì</span></span></label></li>
+      <li class="case" data-id="g3-4"><label><input type="checkbox"><span class="case-num">3.4</span>
+        <span class="case-body"><span class="case-do">Gõ SĐT hotline shop (0976544370) ở cửa đăng nhập khách</span>
+        <span class="case-exp">Chặn — “Số điện thoại này không dùng để đăng nhập khách”</span></span></label></li>
+      <li class="case" data-id="g3-5"><label><input type="checkbox"><span class="case-num">3.5</span>
+        <span class="case-body"><span class="case-do">Gõ hotline vào ô SĐT rồi chờ một giây</span>
+        <span class="case-exp">Không hiện tên hay email admin, không gợi ý gì</span></span></label></li>
+      <li class="case flag" data-id="g3-6"><label><input type="checkbox"><span class="case-num">3.6</span>
+        <span class="case-body"><span class="case-do">Gõ SĐT bất kỳ rồi xem màn nhập mã<span class="chip chip--crit">đã từng hỏng</span></span>
+        <span class="case-exp">Email hiện ra phải luôn che — không được lộ nguyên địa chỉ</span></span>
+        <span class="flag-note">Ca này đã bắt được lỗi thật: bản vá đầu trả nguyên địa chỉ email thật của chủ số, chỉ từ một số điện thoại. Đọc code không thấy, phải chạy thật mới lộ.</span></label></li>
+    </ul>
+  </section>
+
+  <section data-group="g4">
+    <div class="sec-head">
+      <h2>4 · Đăng nhập thay khách từ admin</h2>
+      <span class="sec-count" data-count="g4">0/8</span>
+    </div>
+    <div class="call call--warn">
+      <div class="call-t">Cả nhóm này chưa ai đo được</div>
+      <p>Cần tài khoản admin trên staging. Đây là phần rủi ro cao nhất còn lại của đợt.</p>
+    </div>
+    <ul class="cases">
+      <li class="case" data-id="g4-1"><label><input type="checkbox"><span class="case-num">4.1</span>
+        <span class="case-body"><span class="case-do"><code class="inl">/admin/users</code> → tab Khách hàng → bấm “Đăng nhập”</span>
+        <span class="case-exp">Vào thẳng tài khoản khách, không hỏi mã</span></span></label></li>
+      <li class="case" data-id="g4-2"><label><input type="checkbox"><span class="case-num">4.2</span>
+        <span class="case-body"><span class="case-do">Nhìn đầu trang sau 4.1</span>
+        <span class="case-exp">Có thanh vàng “Bạn đang xem với tư cách …” kèm nút Thoát</span></span></label></li>
+      <li class="case" data-id="g4-3"><label><input type="checkbox"><span class="case-num">4.3</span>
+        <span class="case-body"><span class="case-do">Bấm <b>Thoát</b></span>
+        <span class="case-exp">Quay về <code class="inl">/admin/users</code>, là admin trở lại</span></span></label></li>
+      <li class="case flag" data-id="g4-4"><label><input type="checkbox"><span class="case-num">4.4</span>
+        <span class="case-body"><span class="case-do">Lặp 4.1 rồi bấm <b>“Đăng xuất”</b> ở menu khách — không phải Thoát<span class="chip chip--warn">lỗi vừa sửa</span></span>
+        <span class="case-exp">Vẫn phải quay về <code class="inl">/admin/users</code> là admin, không bị đá ra ngoài</span></span>
+        <span class="flag-note">Trước đợt này, bấm “Đăng xuất” quen tay là mất luôn phiên admin, phải đăng nhập lại từ đầu. Header khách không phân biệt được hai nút nên phải xử ở server.</span></label></li>
+      <li class="case" data-id="g4-5"><label><input type="checkbox"><span class="case-num">4.5</span>
+        <span class="case-body"><span class="case-do">Ở tab Quản trị viên, tìm nút “Đăng nhập” cho một admin khác</span>
+        <span class="case-exp">Không có nút đó</span></span></label></li>
+      <li class="case" data-id="g4-6"><label><input type="checkbox"><span class="case-num">4.6</span>
+        <span class="case-body"><span class="case-do">Đang xem hộ khách, mở <code class="inl">/admin/users</code> ở tab khác</span>
+        <span class="case-exp">Bị đẩy về trang đăng nhập admin — đúng, vì phiên đang là khách</span></span></label></li>
+      <li class="case flag" data-id="g4-7"><label><input type="checkbox"><span class="case-num">4.7</span>
+        <span class="case-body"><span class="case-do">Sau 4.1, đóng hẳn trình duyệt rồi mở lại</span>
+        <span class="case-exp">Không tự đăng nhập lại vào tài khoản khách</span></span>
+        <span class="flag-note">Kiểm rằng phiên xem hộ không được cấp cookie nhớ đăng nhập. Nếu có, admin vô tình để lại một đường vào tài khoản khách sống 60 ngày.</span></label></li>
+      <li class="case" data-id="g4-8"><label><input type="checkbox"><span class="case-num">4.8</span>
+        <span class="case-body"><span class="case-do">Xem <code class="inl">storage/logs/laravel.log</code> sau 4.1</span>
+        <span class="case-exp">Có dòng <code class="inl">admin.user.impersonated</code> với <code class="inl">actor_id</code> + <code class="inl">target_id</code>, <b>không có</b> số điện thoại</span></span></label></li>
+    </ul>
+  </section>
+
+  <section data-group="g5">
+    <div class="sec-head">
+      <h2>5 · Gắn email từ lúc đặt đơn</h2>
+      <span class="sec-count" data-count="g5">0/4</span>
+    </div>
+    <ul class="cases">
+      <li class="case" data-id="g5-1"><label><input type="checkbox"><span class="case-num">5.1</span>
+        <span class="case-body"><span class="case-do">Đăng nhập chỉ bằng SĐT (số mới) → đặt một đơn, có điền email</span>
+        <span class="case-exp">Đơn tạo được, mail xác nhận về đúng email đó</span></span></label></li>
+      <li class="case" data-id="g5-2"><label><input type="checkbox"><span class="case-num">5.2</span>
+        <span class="case-body"><span class="case-do">Sau 5.1, đăng xuất rồi gõ lại SĐT đó</span>
+        <span class="case-exp">Không còn đòi nhập email; hiện email đã che và gửi mã tới đó</span></span></label></li>
+      <li class="case flag" data-id="g5-3"><label><input type="checkbox"><span class="case-num">5.3</span>
+        <span class="case-body"><span class="case-do">Khách <b>đã có</b> email thật, lúc đặt đơn điền email <b>người thân</b></span>
+        <span class="case-exp">Mail đơn về email người thân, tài khoản giữ nguyên email cũ</span></span>
+        <span class="flag-note">Đặt hộ người thân mà bị đổi email tài khoản là tự đá mình ra ngoài — lần sau mã xác thực sẽ về hộp thư người khác.</span></label></li>
+      <li class="case" data-id="g5-4"><label><input type="checkbox"><span class="case-num">5.4</span>
+        <span class="case-body"><span class="case-do">Lúc đặt đơn điền email đang dùng cho tài khoản khác</span>
+        <span class="case-exp">Đơn vẫn tạo được, tài khoản không bị đổi email</span></span></label></li>
+    </ul>
+  </section>
+
+  <section data-group="g6">
+    <div class="sec-head">
+      <h2>6 · Cookie nhớ đăng nhập</h2>
+      <span class="sec-count" data-count="g6">0/4</span>
+    </div>
+    <p class="muted">DevTools → Application → Cookies. Tìm <code class="inl">remember_web_…</code></p>
+    <ul class="cases">
+      <li class="case" data-id="g6-1"><label><input type="checkbox"><span class="case-num">6.1</span>
+        <span class="case-body"><span class="case-do">Sau khi tạo tài khoản chỉ bằng SĐT</span>
+        <span class="case-exp">Hết hạn khoảng <b>400 ngày</b></span></span></label></li>
+      <li class="case" data-id="g6-2"><label><input type="checkbox"><span class="case-num">6.2</span>
+        <span class="case-body"><span class="case-do">Sau khi đăng nhập bằng mã qua email</span>
+        <span class="case-exp">Hết hạn khoảng <b>60 ngày</b></span></span></label></li>
+      <li class="case" data-id="g6-3"><label><input type="checkbox"><span class="case-num">6.3</span>
+        <span class="case-body"><span class="case-do">Đóng hẳn trình duyệt rồi mở lại</span>
+        <span class="case-exp">Vẫn đang đăng nhập</span></span></label></li>
+      <li class="case" data-id="g6-4"><label><input type="checkbox"><span class="case-num">6.4</span>
+        <span class="case-body"><span class="case-do">Bấm “Đăng xuất” rồi mở lại</span>
+        <span class="case-exp">Đã đăng xuất thật, không tự vào lại</span></span></label></li>
+    </ul>
+  </section>
+
+  <section data-group="g7">
+    <div class="sec-head">
+      <h2>7 · Không làm hỏng thứ khác</h2>
+      <span class="sec-count" data-count="g7">0/7</span>
+    </div>
+    <p>Đăng nhập là thứ mọi tính năng khác đều dựa vào, nên nhóm này không được bỏ.</p>
+    <ul class="cases">
+      <li class="case" data-id="g7-1"><label><input type="checkbox"><span class="case-num">7.1</span>
+        <span class="case-body"><span class="case-do">Đặt đơn khi <b>chưa</b> đăng nhập (khách vãng lai)</span>
+        <span class="case-exp">Vẫn đặt được như cũ</span></span></label></li>
+      <li class="case" data-id="g7-2"><label><input type="checkbox"><span class="case-num">7.2</span>
+        <span class="case-body"><span class="case-do">Trang Tài khoản → lịch sử đơn</span>
+        <span class="case-exp">Hiện đủ đơn, kể cả đơn đặt lúc chưa đăng nhập cùng SĐT</span></span></label></li>
+      <li class="case" data-id="g7-3"><label><input type="checkbox"><span class="case-num">7.3</span>
+        <span class="case-body"><span class="case-do">Áp voucher và mã giới thiệu khi đặt đơn</span>
+        <span class="case-exp">Vẫn chạy</span></span></label></li>
+      <li class="case" data-id="g7-4"><label><input type="checkbox"><span class="case-num">7.4</span>
+        <span class="case-body"><span class="case-do">Link mời đánh giá trong mail</span>
+        <span class="case-exp">Mở và gửi được đánh giá</span></span></label></li>
+      <li class="case" data-id="g7-5"><label><input type="checkbox"><span class="case-num">7.5</span>
+        <span class="case-body"><span class="case-do">Tra cứu đơn bằng mã đơn + SĐT</span>
+        <span class="case-exp">Vẫn chạy</span></span></label></li>
+      <li class="case" data-id="g7-6"><label><input type="checkbox"><span class="case-num">7.6</span>
+        <span class="case-body"><span class="case-do">Đăng nhập admin bằng SĐT + mật khẩu</span>
+        <span class="case-exp">Vẫn chạy bình thường</span></span></label></li>
+      <li class="case" data-id="g7-7"><label><input type="checkbox"><span class="case-num">7.7</span>
+        <span class="case-body"><span class="case-do">Đăng nhập shipper</span>
+        <span class="case-exp">Vẫn chạy bình thường</span></span></label></li>
+    </ul>
+  </section>
+
+  <section data-group="g8">
+    <div class="sec-head">
+      <h2>8 · Trước và sau khi merge production</h2>
+      <span class="sec-count" data-count="g8">0/4</span>
+    </div>
+    <ul class="cases">
+      <li class="case" data-id="g8-1"><label><input type="checkbox"><span class="case-num">8.1</span>
+        <span class="case-body"><span class="case-do">Đếm số khách sẽ gặp bước nhập email lạ</span>
+        <span class="case-exp">Cũng chính là số tài khoản đang chịu rủi ro ở phần dưới cùng trang này</span></span></label></li>
+      <li class="case" data-id="g8-2"><label><input type="checkbox"><span class="case-num">8.2</span>
+        <span class="case-body"><span class="case-do">Dặn người trực Zalo quy tắc xác minh</span>
+        <span class="case-exp">Phải hỏi thông tin một đơn cũ trước khi gắn email cho khách</span></span></label></li>
+      <li class="case" data-id="g8-3"><label><input type="checkbox"><span class="case-num">8.3</span>
+        <span class="case-body"><span class="case-do">Sau khi deploy: đá hết phiên cũ</span>
+        <span class="case-exp">Quyết định đã chốt ở <code class="inl">bopcamping-bqsv</code></span></span></label></li>
+      <li class="case" data-id="g8-4"><label><input type="checkbox"><span class="case-num">8.4</span>
+        <span class="case-body"><span class="case-do">Dọn dữ liệu test trên staging</span>
+        <span class="case-exp">Không bắt buộc — <code class="inl">0912000111</code>, <code class="inl">0912000222</code>, đơn <code class="inl">BOP-3D2054</code></span></span></label></li>
+    </ul>
+
+    <div class="code">
+      <div class="code-bar"><span>8.1 — đếm tài khoản chưa gắn hộp thư nào</span><button class="code-copy" type="button">Chép</button></div>
+      <pre>SELECT COUNT(*) FROM users u
+WHERE u.is_admin = 0
+  AND u.email LIKE '%@bopcamping.local'
+  AND NOT EXISTS (
+    SELECT 1 FROM orders o
+    WHERE o.customer_phone = u.phone AND o.customer_email IS NOT NULL
+  );</pre>
+    </div>
+
+    <div class="code">
+      <div class="code-bar"><span>8.3 — đá hết phiên cũ, chạy SAU khi deploy</span><button class="code-copy" type="button">Chép</button></div>
+      <pre>UPDATE users SET remember_token = NULL WHERE is_admin = 0;
+# rồi xoá phiên đang mở, tuỳ driver:
+php artisan session:flush</pre>
+    </div>
+
+    <p class="muted tight">
+      Con số ở 8.1 nhỏ thì deploy thẳng. Lớn thì cân nhắc làm
+      <code class="inl">bopcamping-4j3z</code> trước — hỏi thêm mã đơn cũ — vì đó chính là số tài
+      khoản đang chiếm được chỉ bằng số điện thoại.
+    </p>
+  </section>
+
+  <section>
+    <div class="sec-head"><h2>Rủi ro đã biết và đã chấp nhận</h2></div>
+    <div class="call call--crit">
+      <div class="call-t">Tài khoản chưa gắn email nào vẫn chiếm được bằng số điện thoại</div>
+      <p>
+        Mã gửi tới hộp thư khách <i>vừa gõ</i> chỉ chứng minh họ mở được hộp thư đó,
+        <b>không</b> chứng minh họ là chủ số — shop không có OTP qua SMS nên số điện thoại
+        chưa bao giờ được xác thực.
+      </p>
+      <p>
+        Người lạ biết SĐT của tài khoản diện này sẽ gắn được email của họ vào, rồi xem trọn
+        lịch sử đơn: tên, địa chỉ giao, số điện thoại.
+      </p>
+    </div>
+    <p>
+      Khách <b>đã có email</b> không nằm trong diện này — ca 3.1 kiểm đúng chỗ đó.
+      Đây là đánh đổi đã chốt để khách thật không bị kẹt ngoài cửa; hướng siết lại ghi ở bead
+      <code class="inl">bopcamping-4j3z</code>.
+    </p>
+  </section>
+
+  <footer>
+    Nguồn trong repo: <code class="inl">artifacts/qa_checklist_auth_2026-08.md</code> ·
+    <code class="inl">artifacts/design_spec_phone_only_account_recovery.md</code> ·
+    <code class="inl">artifacts/design_spec_auth_hardening_impersonation.md</code><br>
+    Nhánh <code class="inl">feature/phone-only-account-recovery</code> (đã chứa
+    <code class="inl">feature/auth-hardening-impersonation</code>) — đang ở staging, chưa lên production.
+    Dấu tích lưu trên máy bạn, không gửi đi đâu.
+  </footer>
+
+</div>
+
+<script>
+  (function () {
+    var KEY = 'bop-qa-auth-2026-08';
+    var boxes = Array.prototype.slice.call(document.querySelectorAll('li.case input[type=checkbox]'));
+    var fill = document.getElementById('railFill');
+    var num = document.getElementById('railNum');
+    var counts = Array.prototype.slice.call(document.querySelectorAll('[data-count]'));
+
+    function read() {
+      try {
+        var raw = localStorage.getItem(KEY);
+        return raw ? JSON.parse(raw) : {};
+      } catch (e) { return {}; }
+    }
+    function write(state) {
+      try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) { /* chế độ riêng tư */ }
+    }
+
+    function idOf(input) {
+      var li = input.closest('li.case');
+      return li ? li.getAttribute('data-id') : null;
+    }
+
+    function render() {
+      var done = boxes.filter(function (b) { return b.checked; }).length;
+      var pct = boxes.length ? Math.round((done / boxes.length) * 100) : 0;
+      fill.style.width = pct + '%';
+      num.textContent = done + '/' + boxes.length;
+
+      counts.forEach(function (el) {
+        var g = el.getAttribute('data-count');
+        var sec = document.querySelector('section[data-group="' + g + '"]');
+        if (!sec) return;
+        var inSec = Array.prototype.slice.call(sec.querySelectorAll('input[type=checkbox]'));
+        var d = inSec.filter(function (b) { return b.checked; }).length;
+        el.textContent = d + '/' + inSec.length;
+        el.classList.toggle('done', d === inSec.length && inSec.length > 0);
+      });
+    }
+
+    var state = read();
+    boxes.forEach(function (b) {
+      var id = idOf(b);
+      if (id && state[id]) b.checked = true;
+      b.addEventListener('change', function () {
+        var s = read();
+        var k = idOf(b);
+        if (!k) return;
+        if (b.checked) { s[k] = 1; } else { delete s[k]; }
+        write(s);
+        render();
+      });
+    });
+    render();
+
+    document.getElementById('reset').addEventListener('click', function () {
+      boxes.forEach(function (b) { b.checked = false; });
+      write({});
+      render();
+    });
+
+    Array.prototype.slice.call(document.querySelectorAll('.code-copy')).forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var pre = btn.closest('.code').querySelector('pre');
+        if (!pre) return;
+        var label = btn.textContent;
+        function ok(msg) {
+          btn.textContent = msg;
+          setTimeout(function () { btn.textContent = label; }, 1800);
+        }
+        function selectIt() {
+          try {
+            var r = document.createRange();
+            r.selectNodeContents(pre);
+            var sel = window.getSelection();
+            sel.removeAllRanges();
+            sel.addRange(r);
+            ok('Đã chọn — Ctrl+C');
+          } catch (e) { ok('Chép tay giúp mình'); }
+        }
+        try {
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(pre.textContent).then(function () { ok('Đã chép'); }, selectIt);
+          } else { selectIt(); }
+        } catch (e) { selectIt(); }
+      });
+    });
+  })();
+</script>
+
+</body>
+</html>

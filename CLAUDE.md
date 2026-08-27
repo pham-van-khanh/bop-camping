@@ -138,6 +138,11 @@ Không commit trực tiếp vào `main`/`feat/scaffold-laravel`/`develop` (ngo�
 | Security Audit | `security_audit_[date].md` | `security_audit_2025-01.md` |
 | Post-Mortem | `postmortem_[incident-id].md` | `postmortem_inc-2025-001.md` |
 
+**Trang Artifact** (`./artifacts/pages/`) — mã nguồn HTML của các trang đã publish lên
+claude.ai, kèm **URL** của từng trang trong [artifacts/pages/INDEX.md](artifacts/pages/INDEX.md).
+Đọc file đó TRƯỚC khi publish lại một trang: publish thiếu `url` là đẻ ra artifact mới link khác,
+còn trang tích tay thì phải lấy state đang publish ra trước kẻo xoá mất cái người dùng đã tích.
+
 **Beads** (issue tracking — CLI saves 98% tokens vs MCP):
 
 ```bash

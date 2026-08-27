@@ -1,0 +1,365 @@
+<title>Vá lỗ hổng chiếm tài khoản</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+
+<style>
+  :root {
+    --ground: #F7F9F1; --surface: #FFFFFF; --surface-2: #FBFCF7;
+    --ink: #18230F; --ink-soft: #2C3D22; --muted: #5C6E47; --faint: #8A9B75;
+    --line: #E3E8D6; --line-strong: #CFD8BE;
+    --accent: #557A2B; --accent-soft: #EDF3E1;
+    --warn: #B26A28; --warn-soft: #FBEEDF;
+    --bad: #A33C2A; --bad-soft: #FAE7E2;
+    --radius: 14px;
+    --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    --sans: "Be Vietnam Pro", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #12180D; --surface: #1B2315; --surface-2: #202A19;
+      --ink: #EAEFE1; --ink-soft: #D2DCC2; --muted: #9CAA88; --faint: #77855F;
+      --line: #2C3722; --line-strong: #3B4930;
+      --accent: #8FB65C; --accent-soft: #23301A;
+      --warn: #D89258; --warn-soft: #33240F;
+      --bad: #E08A72; --bad-soft: #3A211A;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #12180D; --surface: #1B2315; --surface-2: #202A19;
+    --ink: #EAEFE1; --ink-soft: #D2DCC2; --muted: #9CAA88; --faint: #77855F;
+    --line: #2C3722; --line-strong: #3B4930;
+    --accent: #8FB65C; --accent-soft: #23301A;
+    --warn: #D89258; --warn-soft: #33240F;
+    --bad: #E08A72; --bad-soft: #3A211A;
+  }
+
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--ground); color: var(--ink); font-family: var(--sans); font-size: 16px; line-height: 1.6; -webkit-font-smoothing: antialiased; }
+  .wrap { max-width: 900px; margin: 0 auto; padding: 56px 24px 96px; display: flex; flex-direction: column; gap: 46px; }
+
+  .eyebrow { font-family: var(--mono); font-size: 11.5px; font-weight: 500; letter-spacing: .14em; text-transform: uppercase; color: var(--faint); }
+  h1 { font-size: clamp(29px, 5vw, 40px); font-weight: 800; letter-spacing: -.028em; line-height: 1.12; margin: 10px 0 0; text-wrap: balance; }
+  h2 { font-size: 19px; font-weight: 700; letter-spacing: -.015em; margin: 0; text-wrap: balance; }
+  h3 { font-size: 16px; font-weight: 700; letter-spacing: -.01em; margin: 0; text-wrap: balance; }
+  p { margin: 0; max-width: 68ch; }
+  .lede { color: var(--muted); font-size: 17px; margin-top: 14px; }
+
+  header.masthead { border-bottom: 1px solid var(--line); padding-bottom: 32px; }
+  .meta { margin-top: 18px; display: flex; flex-wrap: wrap; gap: 8px 18px; font-family: var(--mono); font-size: 12px; color: var(--faint); }
+  .meta b { color: var(--muted); font-weight: 500; }
+
+  .scores { margin-top: 28px; display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+  .score { background: var(--surface); padding: 18px 20px; display: flex; flex-direction: column; gap: 3px; }
+  .score .n { font-family: var(--mono); font-size: 28px; font-weight: 600; letter-spacing: -.03em; font-variant-numeric: tabular-nums; color: var(--accent); line-height: 1.1; }
+  .score .k { font-size: 13px; color: var(--muted); }
+
+  section { display: flex; flex-direction: column; gap: 18px; }
+  .sec-head { display: flex; flex-direction: column; gap: 7px; }
+
+  /* proof block */
+  .proof { border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; background: var(--surface); }
+  .proof-head { padding: 12px 18px; background: var(--surface-2); border-bottom: 1px solid var(--line); font-size: 14px; font-weight: 700; }
+  .proof-body { padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--line); }
+  .proof-col { background: var(--surface); padding: 15px 18px; display: flex; flex-direction: column; gap: 9px; }
+  .proof-col .tag { font-family: var(--mono); font-size: 10.5px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; align-self: flex-start; padding: 3px 9px; border-radius: 999px; }
+  .proof-col.before .tag { background: var(--bad-soft); color: var(--bad); }
+  .proof-col.after .tag { background: var(--accent-soft); color: var(--accent); }
+  pre { font-family: var(--mono); font-size: 12px; line-height: 1.65; margin: 0; white-space: pre-wrap; word-break: break-word; color: var(--ink-soft); }
+  @media (max-width: 640px) { .proof-body { grid-template-columns: 1fr; } }
+
+  /* fix cards */
+  .fix { border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); overflow: hidden; }
+  .fix-head { padding: 15px 20px; border-bottom: 1px solid var(--line); display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px 12px; }
+  .fix-head .num { font-family: var(--mono); font-size: 12.5px; font-weight: 600; color: var(--faint); }
+  .chip { font-family: var(--mono); font-size: 10.5px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; padding: 3px 9px; border-radius: 999px; white-space: nowrap; background: var(--accent-soft); color: var(--accent); }
+  .chip.sec { background: var(--bad-soft); color: var(--bad); }
+  .chip.warn { background: var(--warn-soft); color: var(--warn); }
+
+  dl { margin: 0; display: grid; grid-template-columns: 128px 1fr; }
+  dt { font-family: var(--mono); font-size: 11.5px; font-weight: 500; letter-spacing: .06em; text-transform: uppercase; color: var(--faint); padding: 12px 0 12px 20px; border-top: 1px solid var(--line); }
+  dd { margin: 0; font-size: 14.5px; color: var(--ink-soft); padding: 12px 20px 12px 14px; border-top: 1px solid var(--line); }
+  dl > dt:first-of-type, dl > dt:first-of-type + dd { border-top: 0; }
+  dd b { font-weight: 600; color: var(--ink); }
+  dd .out { display: block; font-family: var(--mono); font-size: 12.5px; background: var(--surface-2); border: 1px solid var(--line); border-radius: 9px; padding: 9px 12px; margin-top: 7px; color: var(--ink-soft); overflow-x: auto; }
+  @media (max-width: 620px) { dl { grid-template-columns: 1fr; } dt { padding: 12px 20px 0; border-top: 1px solid var(--line); } dd { padding: 4px 20px 13px; border-top: 0; } dl > dt:first-of-type + dd { border-top: 0; } }
+
+  code { font-family: var(--mono); font-size: .88em; background: var(--surface-2); border: 1px solid var(--line); border-radius: 5px; padding: 1px 5px; color: var(--ink-soft); }
+
+  .gates { display: grid; grid-template-columns: repeat(auto-fit, minmax(215px, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+  .gate { background: var(--surface); padding: 13px 16px; display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+  .gate .cmd { font-family: var(--mono); font-size: 12.5px; color: var(--ink-soft); }
+  .gate .res { font-family: var(--mono); font-size: 12px; font-variant-numeric: tabular-nums; color: var(--accent); white-space: nowrap; }
+  .gate .res.skip { color: var(--warn); }
+
+  .note { border: 1px solid var(--line); border-left: 3px solid var(--warn); border-radius: var(--radius); background: var(--surface); padding: 17px 20px; display: flex; flex-direction: column; gap: 8px; }
+  .note p { font-size: 14.5px; color: var(--muted); }
+  .note p b { color: var(--ink-soft); font-weight: 600; }
+
+  footer { border-top: 1px solid var(--line); padding-top: 22px; font-size: 13.5px; color: var(--faint); display: flex; flex-direction: column; gap: 6px; }
+
+  @media (max-width: 560px) { .wrap { padding: 40px 17px 72px; gap: 38px; } }
+</style>
+
+<div class="wrap">
+
+  <header class="masthead">
+    <div class="eyebrow">Bốp Camping · đợt vá sau soát lại</div>
+    <h1>Chốt chính của đợt siết đăng nhập từng có một cửa sau</h1>
+    <p class="lede">
+      Soát lại toàn bộ đợt phát triển thì tìm ra một lỗ hổng phá đúng thứ đợt này sinh ra để chặn:
+      kẻ lạ <b>tự đặt một đơn</b> mang số điện thoại nạn nhân là tự cấp cho mình quyền nhận mã.
+      Cùng bốn chỗ nhỏ hơn. Tất cả đã vá, mỗi chỗ có test canh.
+    </p>
+    <div class="meta">
+      <span><b>Nhánh</b> feature/phone-only-account-recovery</span>
+      <span><b>Bead</b> bopcamping-bqsv + bopcamping-kuhg</span>
+      <span><b>Ngày</b> 27/08/2026</span>
+      <span><b>Trạng thái</b> chưa commit</span>
+    </div>
+
+    <div class="scores">
+      <div class="score"><span class="n">5</span><span class="k">chỗ đã vá<br>1 lỗ hổng · 4 lỗi</span></div>
+      <div class="score"><span class="n">7</span><span class="k">test mới<br>canh từng chỗ</span></div>
+      <div class="score"><span class="n">1072</span><span class="k">PHPUnit đạt<br>0 đỏ</span></div>
+      <div class="score"><span class="n">228</span><span class="k">Vitest đạt<br>0 đỏ</span></div>
+    </div>
+  </header>
+
+  <section>
+    <div class="sec-head">
+      <div class="eyebrow">Bằng chứng</div>
+      <h2>Cùng một đòn tấn công, trước và sau khi vá</h2>
+      <p class="lede" style="font-size:15px">
+        Tôi dựng đúng kịch bản thành một bài chạy được: đặt đơn vãng lai mang số nạn nhân kèm email
+        của kẻ tấn công, rồi đăng nhập bằng chính cặp đó. Đây là output thật của nó.
+      </p>
+    </div>
+    <div class="proof">
+      <div class="proof-head">Kẻ lạ đặt đơn với SĐT 0912345678 (của nạn nhân) + email evil@attacker.test</div>
+      <div class="proof-body">
+        <div class="proof-col before">
+          <span class="tag">trước khi vá</span>
+<pre>đơn đã tạo?     CÓ
+email trên đơn: evil@attacker.test
+lỗi trả về:     (không có)
+otp_sent:       true
+OTP gửi tới:    evil@attacker.test
+→ nhập mã là vào được tài khoản
+→ email nạn nhân bị ghi đè</pre>
+        </div>
+        <div class="proof-col after">
+          <span class="tag">sau khi vá</span>
+<pre>đơn đã tạo?     CÓ
+email trên đơn: evil@attacker.test
+lỗi trả về:     "Email không khớp với số
+                điện thoại này…"
+otp_sent:       NULL
+OTP gửi tới:    null
+→ không mã nào rời hệ thống
+→ email nạn nhân nguyên vẹn</pre>
+        </div>
+      </div>
+    </div>
+    <p style="font-size:14.5px;color:var(--muted)">
+      Kẻ lạ vẫn đặt được đơn — đó là tính năng, khách vãng lai phải đặt được. Cái đổi là đơn đó
+      <b>không còn là bằng chứng sở hữu số điện thoại</b> cho tới khi shop gọi xác nhận.
+    </p>
+  </section>
+
+  <section>
+    <div class="sec-head">
+      <div class="eyebrow">Năm chỗ đã vá</div>
+      <h2>Hạng mục, chức năng, và hành vi mới</h2>
+    </div>
+
+    <div class="fix">
+      <div class="fix-head">
+        <span class="num">01</span>
+        <h3>Kẻ lạ tự cấp cho mình email nhận mã</h3>
+        <span class="chip sec">bảo mật · chiếm tài khoản</span>
+      </div>
+      <dl>
+        <dt>Chức năng</dt>
+        <dd>Đăng nhập khách bằng SĐT — quyết định “mã xác thực được gửi đi đâu”.</dd>
+        <dt>Ở đâu</dt>
+        <dd><code>GuestAuthController::allowedEmailsFor()</code> + hằng mới <code>OWNERSHIP_PROOF_STATUSES</code></dd>
+        <dt>Cũ sai gì</dt>
+        <dd>Gộp email của <b>mọi</b> đơn mang số đó. Mà <code>POST /dat-hang</code> không cần đăng nhập và nhận SĐT + email tuỳ ý, nên kẻ lạ tự tạo được một email “được phép” cho bất kỳ số nào.</dd>
+        <dt>Nay thế nào</dt>
+        <dd>Chỉ tính đơn ở trạng thái <code>confirmed</code>, <code>renting</code>, <code>returned</code>. Đơn <code>pending</code> không tính vì kẻ lạ tự tạo được; <code>cancelled</code> không tính vì đơn bịa bị shop huỷ phải mất hiệu lực.</dd>
+        <dt>Output</dt>
+        <dd>Đăng nhập bằng email tự cấp bị chặn tại chỗ, không mã nào được gửi:
+          <span class="out">Email không khớp với số điện thoại này. Dùng email bạn đã đăng ký, hoặc nhắn Zalo để shop hỗ trợ.</span>
+        </dd>
+        <dt>Test canh</dt>
+        <dd><code>a_stranger_cannot_mint_an_allowed_email_by_placing_an_order</code><br><code>a_cancelled_order_is_not_proof_of_owning_the_phone</code><br><code>lookup_ignores_the_email_on_an_unconfirmed_order</code></dd>
+        <dt>Đánh đổi</dt>
+        <dd>Khách mà đơn duy nhất còn đang chờ xác nhận thì chưa dùng email trên đơn đó để nhận mã được — phải đợi shop xác nhận, hoặc nhắn Zalo.</dd>
+      </dl>
+    </div>
+
+    <div class="fix">
+      <div class="fix-head">
+        <span class="num">02</span>
+        <h3>Thoát lúc admin vừa bị gỡ quyền lại đá nhầm khách</h3>
+        <span class="chip sec">bảo vệ dữ liệu khách</span>
+      </div>
+      <dl>
+        <dt>Chức năng</dt>
+        <dd>Nút <b>Thoát</b> ở thanh vàng khi admin đang xem hộ khách.</dd>
+        <dt>Ở đâu</dt>
+        <dd><code>ImpersonationController::stop()</code> — nhánh admin không còn quyền</dd>
+        <dt>Cũ sai gì</dt>
+        <dd>Gọi <code>Auth::logout()</code> trần, mà lúc đó người đang đăng nhập là <b>khách</b> — Laravel cycle <code>remember_token</code> của khách, đá một người vô can ra khỏi mọi thiết bị của họ. Khách chỉ-có-SĐT thì cookie đó là credential duy nhất: mất tài khoản.</dd>
+        <dt>Nay thế nào</dt>
+        <dd>Nhắm đúng cựu-admin trước rồi mới logout, nên chỉ phiên và cookie <b>của họ</b> bị huỷ.</dd>
+        <dt>Output</dt>
+        <dd>Cựu-admin bị đưa về <code>/admin/login</code> như cũ, nhưng <code>remember_token</code> của khách <b>giữ nguyên</b> — khách không hề bị đăng xuất ở đâu cả.</dd>
+        <dt>Test canh</dt>
+        <dd><code>stopping_after_the_admin_role_was_revoked_leaves_the_customer_credential_alone</code></dd>
+      </dl>
+    </div>
+
+    <div class="fix">
+      <div class="fix-head">
+        <span class="num">03</span>
+        <h3>Nút Đăng xuất không đăng xuất</h3>
+        <span class="chip warn">phiên đăng nhập</span>
+      </div>
+      <dl>
+        <dt>Chức năng</dt>
+        <dd>Nút <b>Đăng xuất</b> ở header khách, sau khi admin đăng nhập lại giữa lúc đang xem hộ.</dd>
+        <dt>Ở đâu</dt>
+        <dd><code>AppServiceProvider::boot()</code> — listener sự kiện <code>Login</code></dd>
+        <dt>Cũ sai gì</dt>
+        <dd><code>session()->regenerate()</code> chỉ đổi id phiên chứ giữ nguyên dữ liệu, nên cờ <code>impersonator_id</code> sống sót qua lần đăng nhập lại. Phiên vừa là admin vừa còn cờ, nên bấm “Đăng xuất” lại rơi vào nhánh thoát-mạo-danh và <b>đăng nhập lại</b> admin. Bấm xong tưởng đã ra, thực tế vẫn vào đầy đủ.</dd>
+        <dt>Nay thế nào</dt>
+        <dd>Mọi lần đăng nhập mới đều xoá cờ. Đặt ở listener thay vì rải <code>forget()</code> vào từng controller, để cả đường đăng nhập viết sau này cũng được phủ.</dd>
+        <dt>Output</dt>
+        <dd>Thanh vàng không còn hiện sai tên chính mình; “Đăng xuất” đăng xuất thật.</dd>
+        <dt>Test canh</dt>
+        <dd><code>logging_in_again_clears_a_stale_impersonation_flag</code></dd>
+      </dl>
+    </div>
+
+    <div class="fix">
+      <div class="fix-head">
+        <span class="num">04</span>
+        <h3>Chặn mạo danh admin nhưng quên chặn shipper</h3>
+        <span class="chip sec">phân quyền</span>
+      </div>
+      <dl>
+        <dt>Chức năng</dt>
+        <dd>Nút <b>Đăng nhập</b> thay khách ở <code>/admin/users</code>.</dd>
+        <dt>Ở đâu</dt>
+        <dd><code>Admin\UserController::impersonate()</code></dd>
+        <dt>Cũ sai gì</dt>
+        <dd>Chỉ chặn <code>is_admin</code>. Giao diện có ẩn nút cho shipper, nhưng route bind theo id nên POST thẳng là vào được. Mạo danh shipper thì thu tiền thuê, thu cọc, hoàn cọc đều ghi tên shipper — xoá sạch dấu vết kiểm toán tiền mặt.</dd>
+        <dt>Nay thế nào</dt>
+        <dd>Chặn cả <code>is_shipper</code>. Giao diện ẩn nút không được tính là chốt chặn.</dd>
+        <dt>Output</dt>
+        <dd>POST thẳng vào route trả <b>HTTP 403</b>:
+          <span class="out">Chỉ đăng nhập thay được tài khoản khách hàng.</span>
+        </dd>
+        <dt>Test canh</dt>
+        <dd><code>an_admin_cannot_impersonate_a_shipper</code></dd>
+      </dl>
+    </div>
+
+    <div class="fix">
+      <div class="fix-head">
+        <span class="num">05</span>
+        <h3>Đơn hỏng nhưng email tài khoản vẫn bị đổi</h3>
+        <span class="chip warn">toàn vẹn dữ liệu</span>
+      </div>
+      <dl>
+        <dt>Chức năng</dt>
+        <dd>Gắn email vào tài khoản khi khách chỉ-có-SĐT điền email lúc đặt đơn.</dd>
+        <dt>Ở đâu</dt>
+        <dd><code>Shop\OrderController::store()</code></dd>
+        <dt>Cũ sai gì</dt>
+        <dd>Ghi email vào tài khoản ngay và <b>ngoài</b> transaction tạo đơn. Đơn lỗi thì khách thấy trang lỗi mà danh tính đăng nhập đã đổi vĩnh viễn, im lặng. Gõ nhầm một ký tự là lần sau mã bay vào hộp thư không tồn tại — mà nhánh cứu hộ “bắt nhập lại email” cũng không còn mở ra.</dd>
+        <dt>Nay thế nào</dt>
+        <dd>Ghi nằm trong cùng <code>DB::transaction</code> với việc tạo đơn, nên đơn hỏng thì nó cuốn theo. Bỏ luôn <code>forceFill</code> — <code>email</code> vốn nằm trong <code>$fillable</code>, dùng nó chỉ làm người đọc tưởng đang phá rào.</dd>
+        <dt>Output</dt>
+        <dd>Đơn hỏng giữa chừng → tài khoản giữ nguyên email tạm, vẫn còn nhánh cứu hộ ở lần đăng nhập sau.</dd>
+        <dt>Test canh</dt>
+        <dd><code>a_failed_order_does_not_change_the_account_email</code></dd>
+      </dl>
+    </div>
+
+    <div class="fix">
+      <div class="fix-head">
+        <span class="num">06</span>
+        <h3>Email cá nhân thật nằm trong repo</h3>
+        <span class="chip warn">quyền riêng tư</span>
+      </div>
+      <dl>
+        <dt>Chức năng</dt>
+        <dd>Tài liệu QA — không phải code chạy.</dd>
+        <dt>Ở đâu</dt>
+        <dd>4 file: checklist <code>.md</code>, hai trang HTML trong <code>artifacts/pages/</code>, và một docblock trong <code>OtpFlowTest.php</code></dd>
+        <dt>Cũ sai gì</dt>
+        <dd>Một địa chỉ Gmail thật nằm nguyên văn, trong đó có hai file là nguồn của trang Artifact chia sẻ được. Trớ trêu là chính câu chứa nó đang mô tả một lỗi mà cốt lõi là “địa chỉ này không được lộ ra từ số điện thoại”.</dd>
+        <dt>Nay thế nào</dt>
+        <dd>Thay bằng mô tả chung. Trang checklist đã publish cần publish lại mới thật sự sạch.</dd>
+        <dt>Output</dt>
+        <dd>Không còn địa chỉ thật nào trong repo.</dd>
+      </dl>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head">
+      <div class="eyebrow">Quality gate</div>
+      <h2>Bốn chạy được, hai bị chặn</h2>
+    </div>
+    <div class="gates">
+      <div class="gate"><span class="cmd">php artisan test</span><span class="res">1072 ✓ · 7421 assert</span></div>
+      <div class="gate"><span class="cmd">npm test</span><span class="res">228 ✓ · 29 file</span></div>
+      <div class="gate"><span class="cmd">pint --test</span><span class="res">passed</span></div>
+      <div class="gate"><span class="cmd">npx tsc --noEmit</span><span class="res skip">chưa chạy được</span></div>
+      <div class="gate"><span class="cmd">npm run lint</span><span class="res skip">chưa chạy được</span></div>
+      <div class="gate"><span class="cmd">npm run build</span><span class="res skip">chưa chạy được</span></div>
+    </div>
+    <div class="note">
+      <p>
+        <b>Vì sao hai gate cuối chưa chạy:</b> bộ lọc an toàn của phiên làm việc chặn một số lệnh
+        sau khi hội thoại bàn quá lâu về kịch bản tấn công. Nó chặn theo ngữ cảnh tích luỹ chứ không
+        theo từng lệnh, nên lúc được lúc không.
+      </p>
+      <p>
+        Đợt vá này <b>không đụng file TS/TSX nào</b> — đã kiểm bằng <code>git status</code>, phần
+        <code>resources/js</code> và <code>tests/js</code> hoàn toàn trống. Nên kết quả xanh của
+        <code>tsc</code>, <code>lint</code>, <code>build</code> ở lần chạy trước vẫn còn giá trị cho
+        đúng phần frontend đó. Dù vậy vẫn nên chạy đủ sáu lệnh trước khi merge.
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head">
+      <div class="eyebrow">Cách bài test được kiểm lại</div>
+      <h2>Một bài tôi viết hỏng và phải viết lại</h2>
+    </div>
+    <div class="note" style="border-left-color: var(--line-strong)">
+      <p>
+        Bản đầu của <code>a_failed_order_does_not_change_the_account_email</code> ép đơn hỏng bằng
+        cách cho hụt tồn kho. Đọc lại mới thấy đường đó bị chặn ở bước kiểm tồn kho <b>phía trên</b>,
+        tức trả về trước cả đoạn xử lý email — nên bài đó xanh với cả code cũ lẫn code mới, chẳng
+        chứng minh được gì.
+      </p>
+      <p>
+        Viết lại cho <code>OrderSplitter</code> ném lỗi ngay trong transaction, đúng đường rollback
+        cần đo. Test không thể đỏ được thì không phải là test.
+      </p>
+    </div>
+  </section>
+
+  <footer>
+    <span>15 file thay đổi, chưa commit: 5 file code, 3 file test, 4 file tài liệu, 3 file dọn dữ liệu cá nhân.</span>
+    <span>Bài dò tấn công dùng để đo trước/sau đã xoá — nó cố ý được viết để quan sát một cuộc chiếm tài khoản thành công, nên nay luôn đỏ.</span>
+  </footer>
+
+</div>

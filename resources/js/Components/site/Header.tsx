@@ -1,7 +1,7 @@
 import Logo from '@/Components/Logo';
 import { emit, EVENTS } from '@/lib/bus';
 import { Link, useForm, usePage } from '@inertiajs/react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 const NAV = [
     { label: 'Trang chủ', href: '/' },
@@ -25,6 +25,10 @@ export default function Header({
     const url = usePage().url;
     const { post, processing } = useForm({});
     const [menuOpen, setMenuOpen] = useState(false);
+    // Menu tài khoản. Trước đây bấm vào tên là ĐĂNG XUẤT LUÔN — không hỏi gì, không có
+    // đường lùi, mà cái tên trông chẳng giống nút đăng xuất. Nay nó mở menu.
+    const [userMenuOpen, setUserMenuOpen] = useState(false);
+    const userMenuRef = useRef<HTMLDivElement>(null);
 
     // Đăng nhập: tra cứu đơn nằm trong "Tài khoản" (bopcamping-7w8) — không hiện mục riêng.
     // Khách vãng lai: giữ "Tra cứu đơn" ở nav vì không vào được trang tài khoản.
@@ -32,22 +36,48 @@ export default function Header({
         ? [...NAV, { label: 'Tài khoản', href: '/tai-khoan' }]
         : [...NAV, { label: 'Tra cứu đơn', href: '/tra-cuu' }];
 
-    // Đóng menu mobile khi đổi trang / nhấn Esc.
-    useEffect(() => setMenuOpen(false), [url]);
+    // Đóng menu khi đổi trang / nhấn Esc.
     useEffect(() => {
-        const onKey = (e: KeyboardEvent) =>
-            e.key === 'Escape' && setMenuOpen(false);
+        setMenuOpen(false);
+        setUserMenuOpen(false);
+    }, [url]);
+    useEffect(() => {
+        const onKey = (e: KeyboardEvent) => {
+            if (e.key !== 'Escape') return;
+            setMenuOpen(false);
+            setUserMenuOpen(false);
+        };
         window.addEventListener('keydown', onKey);
         return () => window.removeEventListener('keydown', onKey);
     }, []);
 
+    // Bấm ra ngoài thì đóng menu tài khoản. Dùng mousedown chứ không phải click: click nổ
+    // SAU khi React đã xử lý nút bên trong, nên bấm lại chính cái nút sẽ đóng rồi mở lại
+    // ngay — nhìn như menu không đóng được.
+    useEffect(() => {
+        if (!userMenuOpen) return;
+        const onDown = (e: MouseEvent) => {
+            if (!userMenuRef.current?.contains(e.target as Node)) {
+                setUserMenuOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', onDown);
+        return () => document.removeEventListener('mousedown', onDown);
+    }, [userMenuOpen]);
+
     const handleUserClick = () => {
         if (userName) {
-            // Đăng xuất nếu đang đăng nhập
-            post(route('guest.logout'));
+            setUserMenuOpen((v) => !v);
         } else {
             emit(EVENTS.openLogin);
         }
+    };
+
+    // Đang XEM HỘ khách thì đây không phải đăng xuất của khách mà là kết thúc phiên xem hộ —
+    // server tự phân biệt ở GuestAuthController::destroy(), client không cần biết.
+    const handleLogout = () => {
+        setUserMenuOpen(false);
+        post(route('guest.logout'));
     };
 
     return (
@@ -130,46 +160,95 @@ export default function Header({
                     </button>
 
                     {/* Đăng nhập / tài khoản */}
-                    <button
-                        onClick={handleUserClick}
-                        disabled={processing}
-                        title={
-                            userName ? `Đăng xuất (${userName})` : 'Đăng nhập'
-                        }
-                        aria-label={
-                            userName ? `Đăng xuất (${userName})` : 'Đăng nhập'
-                        }
-                        className="flex h-10 w-10 items-center justify-center gap-2 rounded-control border border-cardBorder bg-card text-sm font-semibold text-pine transition hover:border-grass disabled:opacity-60 md:w-auto md:px-3"
-                    >
-                        {userName ? (
-                            <span className="grid h-6 w-6 place-items-center rounded-full bg-grass/15 text-xs font-bold text-grass">
-                                {userName.trim().charAt(0).toUpperCase()}
+                    <div className="relative" ref={userMenuRef}>
+                        <button
+                            onClick={handleUserClick}
+                            disabled={processing}
+                            title={
+                                userName
+                                    ? `Tài khoản (${userName})`
+                                    : 'Đăng nhập'
+                            }
+                            aria-label={
+                                userName
+                                    ? `Tài khoản (${userName})`
+                                    : 'Đăng nhập'
+                            }
+                            aria-haspopup={userName ? 'menu' : undefined}
+                            aria-expanded={userName ? userMenuOpen : undefined}
+                            className="flex h-10 w-10 items-center justify-center gap-2 rounded-control border border-cardBorder bg-card text-sm font-semibold text-pine transition hover:border-grass disabled:opacity-60 md:w-auto md:px-3"
+                        >
+                            {userName ? (
+                                <span className="grid h-6 w-6 place-items-center rounded-full bg-grass/15 text-xs font-bold text-grass">
+                                    {userName.trim().charAt(0).toUpperCase()}
+                                </span>
+                            ) : (
+                                <svg
+                                    width="19"
+                                    height="19"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth="1.8"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                >
+                                    <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" />
+                                    <path d="m10 17 5-5-5-5" />
+                                    <path d="M15 12H3" />
+                                </svg>
+                            )}
+                            <span className="hidden max-w-[120px] truncate md:inline">
+                                {userName ? userName : 'Đăng nhập'}
                             </span>
-                        ) : (
-                            <svg
-                                width="19"
-                                height="19"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="1.8"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
+                            {userName && (
+                                <svg
+                                    className={`hidden text-moss transition-transform md:inline ${userMenuOpen ? 'rotate-180' : ''}`}
+                                    width="12"
+                                    height="12"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth="2.5"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    aria-hidden
+                                >
+                                    <path d="m6 9 6 6 6-6" />
+                                </svg>
+                            )}
+                        </button>
+
+                        {userName && userMenuOpen && (
+                            <div
+                                role="menu"
+                                aria-label="Menu tài khoản"
+                                className="absolute right-0 top-[calc(100%+8px)] z-50 w-[210px] overflow-hidden rounded-card border border-cardBorder bg-card shadow-cardhover"
                             >
-                                <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" />
-                                <path d="m10 17 5-5-5-5" />
-                                <path d="M15 12H3" />
-                            </svg>
+                                <div className="border-b border-cardBorder px-4 py-2.5">
+                                    <p className="truncate text-[13px] font-bold text-ink">
+                                        {userName}
+                                    </p>
+                                </div>
+                                <Link
+                                    href="/tai-khoan"
+                                    role="menuitem"
+                                    onClick={() => setUserMenuOpen(false)}
+                                    className="block px-4 py-2.5 text-[14px] font-semibold text-pine transition hover:bg-grass/10"
+                                >
+                                    Thông tin tài khoản
+                                </Link>
+                                <button
+                                    role="menuitem"
+                                    onClick={handleLogout}
+                                    disabled={processing}
+                                    className="block w-full border-t border-cardBorder px-4 py-2.5 text-left text-[14px] font-semibold text-campfire transition hover:bg-campfire/10 disabled:opacity-60"
+                                >
+                                    {processing ? 'Đang xử lý…' : 'Đăng xuất'}
+                                </button>
+                            </div>
                         )}
-                        <span className="hidden max-w-[120px] truncate md:inline">
-                            {userName ? userName : 'Đăng nhập'}
-                        </span>
-                        {userName && (
-                            <span className="hidden text-[11px] text-moss md:inline">
-                                ↩
-                            </span>
-                        )}
-                    </button>
+                    </div>
 
                     {/* Giỏ thuê */}
                     <Link

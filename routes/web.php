@@ -24,6 +24,7 @@ use App\Http\Controllers\Admin\StaticPageController as AdminStaticPageController
 use App\Http\Controllers\Admin\StatsController as AdminStatsController;
 use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\Admin\VoucherController as AdminVoucherController;
+use App\Http\Controllers\ImpersonationController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\Shipper\AuthController as ShipperAuthController;
 use App\Http\Controllers\Shipper\ScheduleController as ShipperScheduleController;
@@ -204,6 +205,8 @@ Route::middleware(['admin'])->prefix('admin')->name('admin.')->group(function ()
     Route::put('/users/{user}', [AdminUserController::class, 'update'])->name('users.update')->middleware('throttle:30,1');
     Route::patch('/users/{user}/role', [AdminUserController::class, 'updateRole'])->name('users.role')->middleware('throttle:30,1');
     Route::delete('/users/{user}', [AdminUserController::class, 'destroy'])->name('users.destroy')->middleware('throttle:30,1');
+    // Đăng nhập THAY khách để hỗ trợ (bopcamping-bqsv) — nút "Đăng nhập" ở màn Người dùng.
+    Route::post('/users/{user}/dang-nhap-thay', [AdminUserController::class, 'impersonate'])->name('users.impersonate')->middleware('throttle:30,1');
 
     // Khuyến mãi: cấu hình + voucher + giới thiệu
     Route::get('/promotion', [AdminPromotionController::class, 'index'])->name('promotion');
@@ -263,6 +266,11 @@ Route::middleware(['admin'])->prefix('admin')->name('admin.')->group(function ()
 Route::get('/dashboard', function () {
     return Inertia::render('Dashboard');
 })->middleware(['auth', 'verified'])->name('dashboard');
+
+// Thoát "đăng nhập thay khách" — CỐ Ý nằm ngoài nhóm `admin`: lúc đang mạo danh thì phiên
+// là KHÁCH, không qua nổi EnsureAdmin (bopcamping-bqsv).
+Route::post('/thoat-dang-nhap-thay', [ImpersonationController::class, 'stop'])
+    ->name('impersonate.stop')->middleware(['auth', 'throttle:30,1']);
 
 Route::middleware('auth')->group(function () {
     // Tài khoản của tôi (khách) — thống kê đơn + mã giới thiệu
