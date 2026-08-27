@@ -122,6 +122,10 @@ Full details in `.claude/rules/` (auto-loaded).
 
 Không commit trực tiếp vào `main`/`feat/scaffold-laravel`/`develop` (ngoại lệ: chore nhỏ như docs, beads-sync vào nhánh chính). Khi `develop` bẩn/lệch, reset về `feat/scaffold-laravel` (force-push) — mọi thứ trên đó đều đã có ở feature branch gốc.
 
+**Sổ nhánh: [BRANCHES.md](BRANCHES.md)** — nhánh nào đang ở Production, nhánh nào mới ở
+Staging, kèm chức năng và ngày triển khai. **Mỗi lần merge lên staging hoặc production
+thì thêm/chuyển một dòng ở đó**, đừng để sổ lạc hậu.
+
 ### Đợt đang chạy trên production — có thể phải revert
 
 **Đợt siết đăng nhập (27/08/2026)** — gom vào **một merge commit duy nhất** trên
