@@ -1,0 +1,208 @@
+<title>Sổ deploy BopCamping</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+
+<style id="css">
+  :root {
+    --ground: #F7F9F1; --surface: #FFFFFF; --surface-2: #FBFCF7;
+    --ink: #18230F; --ink-soft: #2C3D22; --muted: #5C6E47; --faint: #8A9B75;
+    --line: #E3E8D6; --line-strong: #CFD8BE;
+    --prod: #A33C2A; --prod-soft: #FAE7E2;
+    --stg: #4E7526; --stg-soft: #E8F1DA;
+    --radius: 14px;
+    --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    --sans: "Be Vietnam Pro", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #12180D; --surface: #1B2315; --surface-2: #202A19;
+      --ink: #EAEFE1; --ink-soft: #D2DCC2; --muted: #9CAA88; --faint: #77855F;
+      --line: #2C3722; --line-strong: #3B4930;
+      --prod: #E08A72; --prod-soft: #3A211A;
+      --stg: #8FB65C; --stg-soft: #26331B;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #12180D; --surface: #1B2315; --surface-2: #202A19;
+    --ink: #EAEFE1; --ink-soft: #D2DCC2; --muted: #9CAA88; --faint: #77855F;
+    --line: #2C3722; --line-strong: #3B4930;
+    --prod: #E08A72; --prod-soft: #3A211A;
+    --stg: #8FB65C; --stg-soft: #26331B;
+  }
+
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--ground); color: var(--ink); font-family: var(--sans); font-size: 16px; line-height: 1.6; -webkit-font-smoothing: antialiased; }
+  .wrap { max-width: 1000px; margin: 0 auto; padding: 48px 22px 110px; display: flex; flex-direction: column; gap: 34px; }
+
+  .eyebrow { font-family: var(--mono); font-size: 11.5px; font-weight: 500; letter-spacing: .14em; text-transform: uppercase; color: var(--faint); }
+  h1 { font-size: clamp(27px, 4.6vw, 36px); font-weight: 800; letter-spacing: -.028em; line-height: 1.14; margin: 9px 0 0; }
+  h2 { font-size: 18px; font-weight: 700; letter-spacing: -.015em; margin: 0; }
+  p { margin: 0; max-width: 68ch; }
+  .lede { color: var(--muted); font-size: 15.5px; margin-top: 12px; }
+
+  header.top { border-bottom: 1px solid var(--line); padding-bottom: 24px; }
+
+  section { display: flex; flex-direction: column; gap: 13px; }
+  .sec-head { display: flex; align-items: baseline; gap: 11px; flex-wrap: wrap; }
+  .tag { font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; padding: 3px 10px; border-radius: 999px; }
+  .tag.prod { background: var(--prod-soft); color: var(--prod); }
+  .tag.stg { background: var(--stg-soft); color: var(--stg); }
+  .sec-head .site { font-family: var(--mono); font-size: 12px; color: var(--faint); }
+
+  .tbl-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
+  table { border-collapse: collapse; width: 100%; min-width: 760px; font-size: 14px; }
+  th { text-align: left; font-family: var(--mono); font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--faint); background: var(--surface-2); padding: 11px 16px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  td { padding: 13px 16px; border-top: 1px solid var(--line); color: var(--muted); vertical-align: top; }
+  tbody tr:first-child td { border-top: 0; }
+  td.feature { color: var(--ink); font-weight: 600; width: 20%; }
+  td.desc { width: 44%; }
+  td.branch code { font-family: var(--mono); font-size: 12px; background: var(--surface-2); border: 1px solid var(--line); border-radius: 6px; padding: 2px 7px; color: var(--ink-soft); white-space: nowrap; }
+  td.date { font-family: var(--mono); font-size: 13px; color: var(--ink-soft); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  td.sha code { font-family: var(--mono); font-size: 12.5px; font-weight: 600; background: var(--prod-soft); border: 0; border-radius: 6px; padding: 3px 8px; color: var(--prod); white-space: nowrap; }
+  td.sha.none { font-size: 13px; color: var(--faint); white-space: nowrap; }
+  td.sha sup { font-size: 10px; }
+
+  .revert-note { max-width: none; font-size: 13.5px; color: var(--muted); background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 13px 17px; }
+  .revert-note b { color: var(--ink-soft); }
+  .revert-note sup { color: var(--faint); }
+
+  .empty { padding: 30px 16px; text-align: center; color: var(--faint); font-size: 14px; }
+
+  .note { border: 1px solid var(--line); border-left: 3px solid var(--line-strong); border-radius: var(--radius); background: var(--surface); padding: 15px 18px; display: flex; flex-direction: column; gap: 8px; }
+  .note p { font-size: 14px; color: var(--muted); }
+  .note b { color: var(--ink-soft); }
+  code { font-family: var(--mono); font-size: .88em; background: var(--surface-2); border: 1px solid var(--line); border-radius: 5px; padding: 1px 5px; color: var(--ink-soft); }
+
+  footer { border-top: 1px solid var(--line); padding-top: 20px; font-size: 13px; color: var(--faint); display: flex; flex-direction: column; gap: 6px; }
+</style>
+
+<div class="wrap">
+
+  <header class="top">
+    <div class="eyebrow">Bốp Camping</div>
+    <h1>Sổ deploy</h1>
+    <p class="lede">
+      Nhánh nào đang chạy ở đâu. Hai môi trường tách riêng: một nhánh chỉ nằm ở bảng nó
+      thật sự đã lên. Lên production rồi thì <b>chuyển dòng</b> từ Staging sang Production
+      và đổi ngày, đừng để một nhánh nằm ở cả hai bảng.
+    </p>
+  </header>
+
+  <section>
+    <div class="sec-head">
+      <span class="tag prod">Production</span>
+      <h2>Đang chạy thật</h2>
+      <span class="site">bopcamping.com</span>
+    </div>
+    <div class="tbl-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Tên chức năng</th>
+            <th>Mô tả ngắn</th>
+            <th>Branch</th>
+            <th>Ngày deploy</th>
+            <th>Commit revert</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="feature">Dọn ô nhập mã</td>
+            <td class="desc">Gõ sai mã, gửi lại mã, hoặc bấm “Sửa thông tin” thì ô mã được dọn để khách biết mà gõ lại. Bổ sung cho đợt dưới, cùng nhánh gộp.</td>
+            <td class="branch"><code>release/auth-hardening-2026-08</code></td>
+            <td class="date">27/08/2026</td>
+            <td class="sha"><code>e988721</code></td>
+          </tr>
+          <tr>
+            <td class="feature">Siết đăng nhập</td>
+            <td class="desc">Chặn chiếm tài khoản bằng SĐT; đăng nhập thay khách cho admin; tài khoản chỉ-có-SĐT; email lúc checkout không còn đổi email đăng nhập; menu tài khoản ở header. Gộp từ <code>feature/auth-hardening-impersonation</code> + <code>feature/phone-only-account-recovery</code>.</td>
+            <td class="branch"><code>release/auth-hardening-2026-08</code></td>
+            <td class="date">27/08/2026</td>
+            <td class="sha"><code>b10eda9</code></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="revert-note">
+      <b>Gỡ một dòng:</b> <code>git revert -m 1 &lt;commit&gt;</code> rồi <code>git push</code>.
+      Gỡ nhiều dòng thì làm <b>từ trên xuống</b> — bảng xếp mới nhất trước, revert ngược thứ tự
+      là dính xung đột. Revert code <b>không gỡ</b> thứ đã nằm ở database (cookie nhớ 60 ngày,
+      email khách đã gắn qua OTP).
+    </p>
+  </section>
+
+  <section>
+    <div class="sec-head">
+      <span class="tag stg">Staging</span>
+      <h2>Đã test được, chưa lên production</h2>
+      <span class="site">staging.bopcamping.cloud</span>
+    </div>
+    <div class="tbl-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Tên chức năng</th>
+            <th>Mô tả ngắn</th>
+            <th>Branch</th>
+            <th>Ngày deploy</th>
+            <th>Commit revert</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="feature">Địa chỉ cơ sở + bản đồ</td>
+            <td class="desc">Địa chỉ và link Google Maps cho từng cơ sở, hiện khi khách chọn tự đến lấy đồ.</td>
+            <td class="branch"><code>feature/dia-chi-cua-hang-map</code></td>
+            <td class="date">06/08/2026</td>
+            <td class="sha none">không có<sup>*</sup></td>
+          </tr>
+          <tr>
+            <td class="feature">Hình thức giao nhận</td>
+            <td class="desc">Khách chọn giao tận nơi hay tự đến lấy ngay ở bước đặt đơn.</td>
+            <td class="branch"><code>feature/hinh-thuc-giao-nhan</code></td>
+            <td class="date">06/08/2026</td>
+            <td class="sha none">không có<sup>*</sup></td>
+          </tr>
+          <tr>
+            <td class="feature">Ảnh sản phẩm nét</td>
+            <td class="desc">Ảnh sản phẩm hiển thị nét hơn.</td>
+            <td class="branch"><code>feature/anh-san-pham-net</code></td>
+            <td class="date">04/08/2026</td>
+            <td class="sha"><code>55f13ea</code></td>
+          </tr>
+          <tr>
+            <td class="feature">Deploy cần chỉ thị</td>
+            <td class="desc">Quy trình: chỉ deploy khi chủ shop bảo. Mới ở nhánh, <b>chưa</b> lên staging.</td>
+            <td class="branch"><code>chore/deploy-needs-order</code></td>
+            <td class="date">—</td>
+            <td class="sha none">—</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="revert-note">
+      <sup>*</sup> Hai nhánh này vào <code>develop</code> mà <b>không sinh merge commit</b>
+      (fast-forward), nên không có một điểm để revert — phải gỡ từng commit
+      (<code>72bfcf8</code>, <code>bade965</code> và các commit trước đó của nhánh). Cách gọn
+      hơn: reset <code>develop</code> về nhánh production rồi merge lại những nhánh còn muốn giữ.
+    </p>
+    <div class="note" style="border-left-color: var(--prod)">
+      <p>
+        <b>⚠️ Một fix đang mắc kẹt, không nhánh nào giữ.</b> Commit <code>4f3a3d9</code> —
+        <i>QR đòi đúng số còn thiếu + siết bảo mật trang tra cứu</i> (bopcamping-pew1) — làm
+        thẳng trên <code>develop</code> từ <b>15/08/2026</b>, chưa lên production.
+      </p>
+      <p>
+        Theo quy ước của dự án, khi <code>develop</code> lệch thì reset về nhánh production —
+        <b>reset là mất luôn fix đó</b>. Nên tách ra một nhánh riêng, hoặc chốt là bỏ.
+      </p>
+    </div>
+  </section>
+
+  <footer>
+    <span>Cập nhật lần cuối: 27/08/2026. Đây là bản ghi tay — sửa file nguồn <code>artifacts/pages/so_deploy.html</code> trong repo rồi publish lại là trang này đổi theo, giữ nguyên link.</span>
+    <span>Tra lại nếu nghi sổ lạc hậu: <code>git branch -r --merged origin/develop --no-merged origin/feat/scaffold-laravel</code></span>
+  </footer>
+
+</div>

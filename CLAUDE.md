@@ -8,7 +8,9 @@ Web cho thuê thiết bị cắm trại của **một shop duy nhất**. Khách 
 
 Đã triển khai: shop (danh sách/chi tiết sản phẩm, giỏ hàng, checkout/đơn hàng, tra cứu đơn, đăng nhập khách qua OTP email, review + review-invite, voucher/khuyến mãi, referral, địa điểm phục vụ/camping spot) và trang quản trị admin (dashboard, sản phẩm, danh mục, đơn hàng, banner, user, voucher, review, referral, promotion, service location) — xem `app/Http/Controllers/{Shop,Admin}` và `resources/js/Pages/{*,Admin}`. Xem `bd ready` để biết việc tiếp theo.
 
-> **Git/Beads:** repo đã có remote (`origin` → GitHub). Các bước "git push" trong phần Session Completion phía dưới **áp dụng như bình thường**.
+> **Git/Beads:** repo đã có remote (`origin` → GitHub). Push **nhánh feature** thì cứ làm.
+> Nhưng `develop` và `feat/scaffold-laravel` **tự động deploy** ra staging/production, nên
+> chỉ đụng vào khi chủ shop bảo — xem [⛔ Deploy chỉ khi được bảo](#-deploy-chỉ-khi-được-bảo).
 
 ## Tech Stack (đã chốt)
 
@@ -104,8 +106,10 @@ Single responsibility, no premature abstraction, delete dead code, avoid `any` t
 ### 5. Don't Repeat Yourself
 Check `.claude/skills/` before generating ad-hoc solutions; maintain a single source of truth for business logic.
 
-### 6. Ship It
-Work on a branch, commit iteratively, and push to remote — work isn't done until `git push` succeeds.
+### 6. Ship It — nhưng deploy thì phải được bảo
+Work on a branch, commit iteratively, và push **nhánh feature** lên remote để việc không mắc
+kẹt ở máy. Nhưng đưa lên `develop` (staging) hay `feat/scaffold-laravel` (production) là
+**deploy** — chỉ làm khi chủ shop bảo. Xem *Deploy chỉ khi được bảo* ở mục Workflow.
 
 ### 7. Leave a Trail
 Artifacts in `./artifacts/`, track work with Beads (`bd` CLI), document decisions in ADRs, name things clearly.
@@ -117,14 +121,59 @@ Full details in `.claude/rules/` (auto-loaded).
 **Branching (quy ước từ 04/07/2026)** — `feat/scaffold-laravel` là **nhánh chính** (tích hợp); `develop` là **nhánh stg** để test. `main` hiện KHÔNG dùng làm nhánh tích hợp. Luồng chuẩn cho mỗi tính năng:
 
 1. Tạo feature branch **từ `feat/scaffold-laravel`** (vd `feature/<ten-viec>`).
-2. Merge feature branch vào `develop` rồi push — user test trên stg.
-3. Test OK → merge **feature branch** (KHÔNG merge `develop` — trên đó có thể còn feature khác đang test dở) vào `feat/scaffold-laravel` rồi push.
+2. Làm việc, commit, **push nhánh feature**. Tới đây là hết phần tự làm.
+3. **Dừng lại và hỏi.** Merge vào `develop` (staging) hay `feat/scaffold-laravel`
+   (production) đều là DEPLOY — chỉ làm khi chủ shop bảo. Xem ngay dưới.
+4. Được bảo deploy staging → merge feature branch vào `develop`, push.
+5. Được bảo deploy production → merge **feature branch** (KHÔNG merge `develop` — trên đó
+   có thể còn feature khác đang test dở) vào `feat/scaffold-laravel`, push.
+
+### ⛔ Deploy chỉ khi được bảo
+
+Push vào `develop` hay `feat/scaffold-laravel` là **tự động deploy** ra staging /
+production (xem `.github/workflows/deploy.yml`). Đó là việc đưa thứ gì đó tới tay khách
+thật, nên nó là quyết định của chủ shop, không phải của agent.
+
+**Luật:** không merge, không push vào hai nhánh đó nếu chủ shop chưa nói rõ. Sửa xong thì
+báo "đã xong, đang ở nhánh X, có deploy không?" rồi **đợi**.
+
+Cái gì tính là chỉ thị, cái gì không:
+
+| ✅ Là chỉ thị | ❌ KHÔNG phải chỉ thị |
+|---|---|
+| "deploy đi", "deploy lên staging/production" | "oke", "hợp lý", "đồng ý" — mới là duyệt cách làm |
+| "đẩy lên staging cho tôi test" | "sửa giúp tôi X", "tôi cần update thêm Y" |
+| "bạn tự làm đi" *(khi đang bàn đúng việc deploy)* | "tôi sẽ test trên production" — nói ý định, không phải lệnh |
+| "merge lên production nhé" | Việc mới có vẻ liên quan đợt đã deploy trước đó |
+
+**Đã sai một lần, 27/08/2026:** chủ shop bảo "tôi cần update... hãy reset mã trên màn
+hình". Agent sửa xong rồi tự deploy luôn lên production (`e988721`), tự biện minh là
+"phải đi qua nhánh gộp để điểm revert khỏi vỡ" — lý do đó trả lời *deploy thế nào*, không
+trả lời *có deploy hay không*. Hai câu hỏi khác nhau, đừng trộn.
+
+Push **nhánh feature** thì luôn được, không cần hỏi — nó không deploy gì cả.
 
 Không commit trực tiếp vào `main`/`feat/scaffold-laravel`/`develop` (ngoại lệ: chore nhỏ như docs, beads-sync vào nhánh chính). Khi `develop` bẩn/lệch, reset về `feat/scaffold-laravel` (force-push) — mọi thứ trên đó đều đã có ở feature branch gốc.
 
-**Sổ nhánh: [BRANCHES.md](BRANCHES.md)** — nhánh nào đang ở Production, nhánh nào mới ở
-Staging, kèm chức năng và ngày triển khai. **Mỗi lần merge lên staging hoặc production
-thì thêm/chuyển một dòng ở đó**, đừng để sổ lạc hậu.
+### 📓 Sổ deploy — cập nhật MỖI LẦN deploy
+
+Nguồn duy nhất: **[artifacts/pages/so_deploy.html](artifacts/pages/so_deploy.html)**, publish
+thành artifact để chủ shop mở bằng link. Hai bảng tách riêng — Production và Staging — mỗi
+dòng: *tên chức năng · mô tả ngắn · branch · ngày deploy · commit revert*.
+
+**Deploy xong là phải ghi vào đó, coi như một phần của việc deploy chứ không phải việc phụ.**
+Cụ thể:
+
+1. Thêm một dòng vào bảng đúng môi trường, **mới nhất lên đầu** (thứ tự bảng = thứ tự revert).
+2. Điền **commit revert** = SHA của merge commit vừa tạo. Vì vậy luôn merge bằng `--no-ff`:
+   merge fast-forward không sinh commit nào để revert, cột đó đành bỏ trống (xem hai dòng
+   `feature/dia-chi-cua-hang-map` và `feature/hinh-thuc-giao-nhan` trong sổ).
+3. Lên production rồi thì **chuyển dòng** từ bảng Staging sang Production và đổi ngày — đừng
+   để một nhánh nằm ở cả hai bảng.
+4. Publish lại artifact (cùng `url` để giữ nguyên link) — xem
+   [artifacts/pages/INDEX.md](artifacts/pages/INDEX.md).
+
+Sửa xong sổ thì mới coi là deploy xong.
 
 ### Đợt đang chạy trên production — có thể phải revert
 
@@ -255,26 +304,23 @@ bd close <id>         # Complete work
 
 ## Session Completion
 
-**When ending a work session**, you MUST complete ALL steps below. Work is NOT complete until `git push` succeeds.
+**When ending a work session**, you MUST complete ALL steps below.
 
 **MANDATORY WORKFLOW:**
 
 1. **File issues for remaining work** - Create issues for anything that needs follow-up
 2. **Run quality gates** (if code changed) - Tests, linters, builds
 3. **Update issue status** - Close finished work, update in-progress items
-4. **PUSH TO REMOTE** - This is MANDATORY:
-   ```bash
-   git pull --rebase
-   git push
-   git status  # MUST show "up to date with origin"
-   ```
-5. **Clean up** - Clear stashes, prune remote branches
-6. **Verify** - All changes committed AND pushed
+4. **PUSH FEATURE BRANCH** - `git push origin <feature-branch>` để công việc không mắc kẹt ở máy.
+   Push nhánh feature KHÔNG deploy gì cả — an toàn, cứ làm.
+5. **KHÔNG tự push `develop` hay `feat/scaffold-laravel`** — xem *Deploy chỉ khi được bảo* ở trên.
+   Nếu chưa có chỉ thị: nói rõ việc đã xong, đang nằm ở nhánh nào, và hỏi có deploy không.
+6. **Clean up** - Clear stashes, prune remote branches
 7. **Hand off** - Provide context for next session
 
 **CRITICAL RULES:**
-- Work is NOT complete until `git push` succeeds
-- NEVER stop before pushing - that leaves work stranded locally
-- NEVER say "ready to push when you are" - YOU must push
+- Công việc chưa an toàn cho tới khi **nhánh feature** đã push
+- KHÔNG bao giờ tự merge/push vào `develop` hoặc `feat/scaffold-laravel` — đó là deploy,
+  và deploy cần chủ shop bảo. Dừng lại mà hỏi ở đây là ĐÚNG, không phải bỏ việc giữa chừng.
 - If push fails, resolve and retry until it succeeds
 <!-- END BEADS INTEGRATION -->
