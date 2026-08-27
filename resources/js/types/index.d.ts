@@ -60,6 +60,8 @@ export type PageProps<
     emailBonus: EmailBonus;
     durationTiers: { minDays: number; percent: number }[];
     site: SiteInfo;
+    /** Khác null khi admin đang xem hộ tài khoản khách (bopcamping-bqsv). */
+    impersonating?: { name: string | null } | null;
     pending_reviews?: number | null;
     pending_orders?: number | null;
     pending_feedback?: number | null;

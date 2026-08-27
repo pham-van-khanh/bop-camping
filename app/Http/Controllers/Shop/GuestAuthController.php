@@ -3,12 +3,14 @@
 namespace App\Http\Controllers\Shop;
 
 use App\Http\Controllers\Controller;
+use App\Models\Order;
 use App\Models\User;
 use App\Services\Auth\OtpService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Str;
 
 class GuestAuthController extends Controller
 {
@@ -29,21 +31,24 @@ class GuestAuthController extends Controller
             return response()->json(['exists' => false]);
         }
 
-        // Chỉ có email đã xác thực mới cho đăng nhập nhanh bằng SĐT (email tạm/chưa verify → null).
-        $hasVerifiedEmail = $user->email_verified_at && ! $user->hasPlaceholderEmail();
+        // Có hộp thư THẬT là đủ để nhận OTP — không đòi `email_verified_at` nữa, cho khớp luật
+        // ở store() (bopcamping-bqsv): khách do admin tạo hộ có email thật nhưng chưa xác thực,
+        // bắt họ gõ lại email của chính mình là phiền vô ích. Email tạm → null như cũ.
+        $hasRealEmail = ! $user->hasPlaceholderEmail();
 
         return response()->json([
             'exists' => true,
             'name' => $user->name,
-            'email_mask' => $hasVerifiedEmail ? $this->maskEmail($user->email) : null,
+            'email_mask' => $hasRealEmail ? $this->maskEmail($user->email) : null,
         ]);
     }
 
     /**
      * Bước 1 — Đăng nhập bằng SĐT (+ tên tuỳ ý, + email TUỲ CHỌN).
      * - SĐT là khoá định danh duy nhất; KHÔNG ràng buộc tên — khách đổi tên thoải mái.
-     * - Email không bắt buộc: bỏ trống → vào thẳng bằng SĐT, không cần OTP.
-     * - Có nhập email mới/chưa verify → gửi OTP qua email, chờ bước 2. Email ĐÃ verify → vào thẳng.
+     * - SĐT đã gắn với tài khoản/đơn nào đó → LUÔN qua OTP. Số điện thoại chưa hề được xác
+     *   thực nên không dùng nó làm bằng chứng danh tính được (bopcamping-bqsv).
+     * - Số hoàn toàn mới (chưa tài khoản, chưa đơn) → tạo và vào thẳng, không có gì để chiếm.
      */
     public function store(Request $request, OtpService $otp): RedirectResponse
     {
@@ -63,51 +68,111 @@ class GuestAuthController extends Controller
             $request->session()->put('referral_ref', (string) $ref);
         }
 
-        $existing = User::where('phone', $data['phone'])->first();
+        // SĐT thuộc tài khoản ADMIN → không phục vụ ở luồng khách (bopcamping-bqsv).
+        // Trước đây `$existing` không lọc `is_admin` nên gõ đúng SĐT admin là đăng nhập thẳng
+        // vào tài khoản admin — mà số đó in công khai ở footer dưới dạng hotline. Chặn hẳn ở
+        // đây (thay vì chỉ lọc) để không đẻ thêm tài khoản khách trùng SĐT với admin.
+        if (User::where('phone', $data['phone'])->where('is_admin', true)->exists()) {
+            return back()->withErrors([
+                'phone' => 'Số điện thoại này không dùng để đăng nhập khách.',
+            ])->withInput();
+        }
 
-        // Email KHÔNG bắt buộc — SĐT là khoá định danh duy nhất. Để trống:
-        // - khách quen (đã có email thật + verify) → server tự dùng email đã lưu (đăng nhập thẳng, không đi qua client).
-        // - khách chưa từng có email thật (mới hoặc cũ) → tạo/đăng nhập thẳng bằng SĐT, KHÔNG cần OTP
-        //   (không có email thật để xác thực). Khách có thể bổ sung email sau để nhận ưu đãi đơn đầu.
+        $existing = User::where('phone', $data['phone'])->where('is_admin', false)->first();
+
+        // Những hộp thư ĐƯỢC PHÉP nhận OTP cho SĐT này = email thật của tài khoản + email
+        // trên các đơn cũ của chính SĐT đó.
+        //
+        // Đây là chốt chặn quan trọng nhất. Nếu chỉ bắt "phải qua OTP" mà KHÔNG giới hạn gửi
+        // đi đâu, thì kẻ lạ gõ SĐT nạn nhân kèm email CỦA CHÍNH MÌNH sẽ nhận mã trong hộp thư
+        // mình, và verifyOtp (tìm tài khoản theo SĐT) sẽ gắn email đó vào tài khoản nạn nhân
+        // rồi đăng nhập — chiếm trọn tài khoản. Bắt buộc mã phải về đúng hộp thư đã gắn sẵn
+        // với số này từ trước.
+        //
+        // Đơn vãng lai chỉ có `customer_phone` (không có user_id) nhưng `relatedOrders()` khớp
+        // theo SĐT, nên email trên đơn cũ cũng là bằng chứng sở hữu hợp lệ.
+        $allowedEmails = collect([
+            $existing && ! $existing->hasPlaceholderEmail() ? $existing->email : null,
+        ])
+            ->merge(Order::where('customer_phone', $data['phone'])->pluck('customer_email'))
+            ->filter()
+            ->map(fn (string $e) => Str::lower(trim($e)))
+            ->unique()
+            ->values();
+
+        // SĐT đã có "chủ" = đã có hộp thư nào đó gắn với nó. Tài khoản chỉ có email TẠM và
+        // chưa từng đặt đơn thì chưa có gì để chiếm — vẫn cho gắn email mới như trước.
+        $phoneIsClaimed = $allowedEmails->isNotEmpty();
+
         $email = trim((string) ($data['email'] ?? ''));
         if ($email === '') {
-            if ($existing && $existing->email_verified_at && ! $existing->hasPlaceholderEmail()) {
-                $email = $existing->email;
-            } else {
-                $name = $this->resolveName($data['name'] ?? null, $existing, $data['phone']);
-                $user = $existing ?? new User(['phone' => $data['phone']]);
-                $user->name = $name;
-                $user->save();
+            // SĐT đã thuộc về ai đó → KHÔNG BAO GIỜ cho vào chỉ bằng SĐT. Số điện thoại chưa
+            // hề được xác thực (không có OTP SMS) nên nó không phải bằng chứng danh tính.
+            if ($phoneIsClaimed) {
+                // Gửi tới hộp thư đã gắn sẵn (ưu tiên email tài khoản — nó đứng đầu danh sách).
+                $target = $allowedEmails->first();
 
-                Auth::login($user, remember: true);
-                $request->session()->regenerate();
+                // Hộp thư đó đang thuộc về một TÀI KHOẢN KHÁC (vd khách từng đặt hộ bằng email
+                // người thân). Đi tiếp thì verifyOtp tạo user mới trùng email → vỡ ràng buộc
+                // unique và trả 500. Dừng lại và chỉ đường liên hệ.
+                if ($this->emailBelongsToAnotherAccount($target, $existing)) {
+                    return back()->withErrors([
+                        'email' => 'Email gắn với số này đang dùng cho tài khoản khác. Nhắn Zalo để shop hỗ trợ.',
+                    ])->withInput();
+                }
 
-                return back();
+                $otp->send($target);
+                $request->session()->put('otp_pending', [
+                    'name' => $this->resolveName($data['name'] ?? null, $existing, $data['phone']),
+                    'phone' => $data['phone'],
+                    'email' => $target,
+                ]);
+
+                // CHE email khi trả về client (bopcamping-bqsv). Nhánh này chạy khi khách chỉ
+                // gõ SĐT — người gõ CHƯA CHẮC là chủ số. Trả email đầy đủ thì bất kỳ ai cũng
+                // moi được email thật của người khác chỉ bằng số điện thoại, đúng thứ mà
+                // lookup() đã cố tình che. Đo được trên staging 26/08 trước khi vá.
+                return back()->with('otp_sent', true)->with('otp_email', $this->maskEmail($target));
             }
+
+            if ($existing) {
+                // Tài khoản chỉ có email tạm và chưa có đơn → không có hộp thư nào để gửi.
+                return back()->withErrors([
+                    'email' => 'Vui lòng nhập email để nhận mã xác thực.',
+                ])->withInput();
+            }
+
+            // Số hoàn toàn mới: chưa tài khoản, chưa đơn nào → không có gì để chiếm.
+            $user = new User(['phone' => $data['phone']]);
+            $user->name = $this->resolveName($data['name'] ?? null, null, $data['phone']);
+            $user->save();
+
+            Auth::login($user, remember: true);
+            $request->session()->regenerate();
+
+            return back();
+        }
+
+        // Gõ một email LẠ cho một SĐT đã có chủ → chính là kịch bản chiếm tài khoản ở trên.
+        if ($phoneIsClaimed && ! $allowedEmails->contains(Str::lower($email))) {
+            return back()->withErrors([
+                'email' => 'Email không khớp với số điện thoại này. Dùng email bạn đã đăng ký, hoặc nhắn Zalo để shop hỗ trợ.',
+            ])->withInput();
         }
 
         // Email đã thuộc tài khoản KHÁC → chặn.
-        $emailOwner = User::where('email', $email)->first();
-        if ($emailOwner && (! $existing || $emailOwner->id !== $existing->id)) {
+        if ($this->emailBelongsToAnotherAccount($email, $existing)) {
             return back()->withErrors(['email' => 'Email đã dùng cho tài khoản khác.'])->withInput();
         }
 
         // Tên hiển thị: nhập gì lấy nấy; bỏ trống thì giữ tên cũ, hoặc lấy SĐT cho user mới.
         $name = $this->resolveName($data['name'] ?? null, $existing, $data['phone']);
 
-        // Đã verify email này rồi → đăng nhập thẳng (chỉ OTP lần đầu); cập nhật tên nếu đổi.
-        if ($existing && $existing->email_verified_at && $existing->email === $email) {
-            if ($existing->name !== $name) {
-                $existing->name = $name;
-                $existing->save();
-            }
-            Auth::login($existing, remember: true);
-            $request->session()->regenerate();
+        // KHÔNG còn nhánh "email đã verify → vào thẳng" (bopcamping-bqsv): gõ đúng email cũng
+        // không phải bằng chứng danh tính (email đoán được, lộ được). Mọi đường đều qua OTP;
+        // khách quen không bị phiền vì cookie nhớ đăng nhập 60 ngày lo phần quay lại.
 
-            return back();
-        }
-
-        // Còn lại: gửi OTP, giữ thông tin chờ ở session cho bước 2.
+        // Gửi OTP, giữ thông tin chờ ở session cho bước 2.
         $otp->send($email);
         $request->session()->put('otp_pending', [
             'name' => $name,
@@ -116,6 +181,19 @@ class GuestAuthController extends Controller
         ]);
 
         return back()->with('otp_sent', true)->with('otp_email', $email);
+    }
+
+    /**
+     * Email này đang thuộc về một tài khoản KHÁC (không phải tài khoản của SĐT đang đăng nhập)?
+     *
+     * `users.email` là UNIQUE, nên đi tiếp mà không kiểm sẽ vỡ ràng buộc lúc verifyOtp tạo
+     * user — trả 500 thay vì một thông báo đọc được.
+     */
+    private function emailBelongsToAnotherAccount(string $email, ?User $existing): bool
+    {
+        $owner = User::where('email', $email)->first();
+
+        return $owner && (! $existing || $owner->id !== $existing->id);
     }
 
     /** Tên hiển thị hiệu lực: ưu tiên tên vừa nhập, rồi tên cũ, cuối cùng là SĐT. */
@@ -161,7 +239,10 @@ class GuestAuthController extends Controller
         }
 
         // Set trực tiếp vì email_verified_at không nằm trong $fillable (tránh mass-assign).
-        $user = User::where('phone', $pending['phone'])->first() ?? new User(['phone' => $pending['phone']]);
+        // Lọc `is_admin` ở đây nữa (phòng thủ nhiều lớp): store() đã chặn SĐT admin từ đầu nên
+        // otp_pending không thể mang SĐT admin, nhưng không dựa vào một chốt chặn duy nhất.
+        $user = User::where('phone', $pending['phone'])->where('is_admin', false)->first()
+            ?? new User(['phone' => $pending['phone']]);
         $user->name = $pending['name'];
         $user->email = $pending['email'];
         $user->email_verified_at = now();
