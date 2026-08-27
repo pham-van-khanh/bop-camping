@@ -151,6 +151,10 @@ export default function LoginModal() {
             setOtpEmail(flash.otp_email ?? '');
             setStep('otp');
             startCooldown();
+            // Dọn ô mã mỗi lần server gửi mã MỚI (kể cả bấm "Gửi lại mã"): mã cũ vừa bị vô
+            // hiệu hoá, để nguyên trên màn hình thì khách tưởng còn dùng được và bấm Xác nhận
+            // lần nữa — lại sai, lại không hiểu vì sao.
+            setData('code', '');
         }
     }, [flash]);
 
@@ -206,8 +210,15 @@ export default function LoginModal() {
         post(route('guest.login'), { preserveScroll: true });
 
     // Bước 2: xác thực OTP.
+    //
+    // Mã sai thì DỌN ô nhập. Để nguyên 6 số sai trên màn hình là ô nhìn vẫn "đầy", khách
+    // không biết phải xoá đi gõ lại — mà nút Xác nhận vẫn sáng vì đủ 6 số, bấm lại thì lại
+    // sai. Dọn ô là cách nói "gõ lại đi" rõ nhất, không cần thêm chữ nào.
     const verifyOtp = () =>
-        post(route('guest.login.verify'), { preserveScroll: true });
+        post(route('guest.login.verify'), {
+            preserveScroll: true,
+            onError: () => setData('code', ''),
+        });
 
     // Tên & email không bắt buộc — SĐT là khoá định danh duy nhất. Nếu có nhập email thì phải
     // đúng định dạng. Bỏ trống: số đã có chủ thì server gửi OTP tới hộp thư đã lưu, số hoàn
@@ -498,6 +509,7 @@ export default function LoginModal() {
                                         onClick={() => {
                                             setStep('form');
                                             setOtpEmail('');
+                                            setData('code', '');
                                             clearErrors();
                                         }}
                                         className="text-moss hover:text-ink"

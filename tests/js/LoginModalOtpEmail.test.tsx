@@ -26,6 +26,8 @@ const state = vi.hoisted(() => ({
         code: '',
     } as Record<string, string>,
     errors: {} as Record<string, string>,
+    // Ghi lại các lần post để test tự kích hoạt onError như server trả lỗi.
+    posts: [] as { url: string; opts?: { onError?: () => void } }[],
 }));
 
 vi.mock('@inertiajs/react', () => ({
@@ -43,7 +45,9 @@ vi.mock('@inertiajs/react', () => ({
         setData: (k: string, v: string) => {
             state.form[k] = v;
         },
-        post: () => {},
+        post: (url: string, opts?: { onError?: () => void }) => {
+            state.posts.push({ url, opts });
+        },
         processing: false,
         errors: state.errors,
         reset: () => {},
@@ -87,7 +91,51 @@ function replyWithCodeError(view: { rerender: (ui: React.ReactNode) => void }) {
 beforeEach(() => {
     state.flash = {};
     state.errors = {};
+    state.posts = [];
     state.form = { name: '', phone: '', email: '', ref: '', code: '' };
+});
+
+describe('màn nhập mã — dọn ô mã', () => {
+    it('gõ sai mã thì ô mã được dọn để biết mà gõ lại', () => {
+        const view = openAtOtpStep(MASK);
+        state.form.code = '000000';
+        view.rerender(<LoginModal />); // để nút Xác nhận mở khoá (đủ 6 số)
+
+        act(() => {
+            screen.getByRole('button', { name: /Xác nhận/ }).click();
+        });
+        expect(state.posts.at(-1)?.url).toContain('guest.login.verify');
+
+        // Server trả lỗi → Inertia gọi onError.
+        act(() => {
+            state.posts.at(-1)?.opts?.onError?.();
+        });
+        replyWithCodeError(view);
+
+        expect(state.form.code).toBe('');
+    });
+
+    it('bấm "Gửi lại mã" thì ô mã cũng được dọn', () => {
+        const view = openAtOtpStep(MASK);
+        state.form.code = '111111';
+
+        // Server gửi mã MỚI → flash mới, mã cũ vừa bị vô hiệu hoá.
+        state.flash = { otp_sent: true, otp_email: MASK };
+        view.rerender(<LoginModal />);
+
+        expect(state.form.code).toBe('');
+    });
+
+    it('bấm "Sửa thông tin" thì ô mã được dọn', () => {
+        openAtOtpStep(MASK);
+        state.form.code = '222222';
+
+        act(() => {
+            screen.getByRole('button', { name: /Sửa thông tin/ }).click();
+        });
+
+        expect(state.form.code).toBe('');
+    });
 });
 
 describe('màn nhập mã — hộp thư nhận mã', () => {

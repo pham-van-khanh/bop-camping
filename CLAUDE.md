@@ -122,6 +122,32 @@ Full details in `.claude/rules/` (auto-loaded).
 
 Không commit trực tiếp vào `main`/`feat/scaffold-laravel`/`develop` (ngoại lệ: chore nhỏ như docs, beads-sync vào nhánh chính). Khi `develop` bẩn/lệch, reset về `feat/scaffold-laravel` (force-push) — mọi thứ trên đó đều đã có ở feature branch gốc.
 
+### Đợt đang chạy trên production — có thể phải revert
+
+**Đợt siết đăng nhập (27/08/2026)** — gom vào **một merge commit duy nhất** trên
+`feat/scaffold-laravel` để gỡ được bằng một lệnh:
+
+| | |
+|---|---|
+| Điểm revert | **`b10eda9`** (merge commit, 2 cha: `497db63` = production trước đợt này, `ddd3132` = nhánh gộp) |
+| Nhánh gộp | `release/auth-hardening-2026-08` |
+| Hai nhánh nguồn | `feature/auth-hardening-impersonation` (bopcamping-bqsv)<br>`feature/phone-only-account-recovery` (bopcamping-kuhg) — đã chứa trọn nhánh trên |
+
+Gỡ toàn bộ đợt:
+
+```bash
+git checkout feat/scaffold-laravel && git pull
+git revert -m 1 b10eda9      # -m 1 = giữ nhánh production, bỏ nhánh gộp
+git push
+```
+
+⚠️ **Revert xong phải nhớ:** khách đăng nhập trong lúc đợt này chạy đã có cookie nhớ
+60 ngày và một số tài khoản đã gắn email qua OTP — revert code KHÔNG gỡ những thứ đó
+khỏi DB. Không cần dọn, nhưng đừng ngạc nhiên khi thấy chúng.
+
+Chi tiết đã sửa những gì: [artifacts/pages/fix_auth_takeover_2026-08.html](artifacts/pages/fix_auth_takeover_2026-08.html).
+Checklist test tay: [artifacts/pages/qa_checklist_auth_staging_2026-08.html](artifacts/pages/qa_checklist_auth_staging_2026-08.html).
+
 **Planning flow**: PR-FAQ → PRD → ADR → Design Spec → Plan → Implementation Beads
 
 **Artifacts**: All planning docs stored in `./artifacts/`:
