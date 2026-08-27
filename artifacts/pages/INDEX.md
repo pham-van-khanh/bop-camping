@@ -16,6 +16,12 @@ là danh sách của **riêng dự án này**, đi theo repo.
 | [qa_run_auth_2026-08.html](qa_run_auth_2026-08.html) | Kết quả chạy quality gate + tự test đợt siết đăng nhập (bopcamping-bqsv, bopcamping-kuhg). Chỉ đọc. | https://claude.ai/code/artifact/a67ab4d6-13a7-40de-b14c-ad15905a004e |
 | [qa_checklist_auth_staging_2026-08.html](qa_checklist_auth_staging_2026-08.html) | Checklist 46 ca **tích tay** khi test staging: đạt / không đạt / chưa hài lòng + ghi chú. Trang tự lưu phiên bản mới mỗi lần tích. | https://claude.ai/code/artifact/de5ee57c-35a3-4137-b64a-425c048c6392 |
 
+## Chưa publish
+
+| File | Là gì | URL |
+|---|---|---|
+| [fix_auth_takeover_2026-08.html](fix_auth_takeover_2026-08.html) | Mô tả 5 chỗ đã vá sau khi soát lại đợt siết đăng nhập: hạng mục, chức năng, hành vi mới, test canh từng chỗ. Kèm output thật của đòn tấn công trước/sau khi vá. | *chưa publish — bộ lọc an toàn chặn lệnh publish ở phiên 27/08* |
+
 ## Đã thay thế
 
 | File | Ghi chú |

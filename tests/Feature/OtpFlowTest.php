@@ -405,6 +405,86 @@ class OtpFlowTest extends TestCase
         $this->assertSame(0, User::where('phone', '0912345678')->count());
     }
 
+    /**
+     * KẺ LẠ TỰ ĐẶT ĐƠN ĐỂ TỰ CẤP CHO MÌNH MỘT EMAIL "ĐƯỢC PHÉP".
+     *
+     * Lỗ hổng đo được 27/08/2026, sót lại sau cả hai lần vá trước. Chốt "email phải khớp"
+     * chỉ hỏi *email có nằm trong allowedEmailsFor() không* — mà danh sách đó gộp email trên
+     * MỌI đơn mang số ấy. POST /dat-hang lại không cần đăng nhập và nhận `phone`+`email` tuỳ ý
+     * (OrderController lưu thẳng vào customer_phone/customer_email). Nên kẻ lạ chỉ việc tự đặt
+     * một đơn mang SĐT nạn nhân kèm email của mình là chốt tự mở, mã bay về hộp thư hắn, rồi
+     * verifyOtp ghi đè email nạn nhân và đăng nhập. Chiếm được cả tài khoản ĐÃ có email —
+     * tức phá đúng thứ bopcamping-bqsv sinh ra để chặn.
+     *
+     * Chặn bằng con người: đơn chỉ rời 'pending' sau khi shop GỌI vào chính số đó xác nhận.
+     * Vì vậy điều kiện phải là OWNERSHIP_PROOF_STATUSES, KHÔNG phải "mọi đơn".
+     *
+     * @test
+     */
+    public function a_stranger_cannot_mint_an_allowed_email_by_placing_an_order(): void
+    {
+        Mail::fake();
+        $victim = User::factory()->create([
+            'name' => 'Chị Ngọc', 'phone' => '0912345678',
+            'email' => 'ngoc@example.com', 'email_verified_at' => now(), 'is_admin' => false,
+        ]);
+
+        // Đơn do kẻ lạ tự đặt: mang SĐT nạn nhân, email của hắn, và CHƯA được shop xác nhận.
+        Order::create([
+            'customer_name' => 'Kẻ Lạ', 'customer_phone' => '0912345678',
+            'customer_email' => 'kela@evil.com', 'customer_address' => 'x',
+            'start_date' => '2026-09-01', 'end_date' => '2026-09-02',
+            'total_price' => 100000, 'deposit_total' => 0, 'status' => 'pending',
+        ]);
+
+        $this->post(route('guest.login'), [
+            'name' => 'Kẻ Lạ', 'phone' => '0912345678', 'email' => 'kela@evil.com',
+        ])->assertSessionHasErrors('email');
+
+        $this->assertGuest();
+        Mail::assertNothingQueued();
+        $this->assertSame('ngoc@example.com', $victim->fresh()->email);
+    }
+
+    /** Đơn bịa bị shop HUỶ cũng phải mất hiệu lực làm bằng chứng sở hữu. @test */
+    public function a_cancelled_order_is_not_proof_of_owning_the_phone(): void
+    {
+        Mail::fake();
+        Order::create([
+            'customer_name' => 'Kẻ Lạ', 'customer_phone' => '0912345678',
+            'customer_email' => 'kela@evil.com', 'customer_address' => 'x',
+            'start_date' => '2026-09-01', 'end_date' => '2026-09-02',
+            'total_price' => 100000, 'deposit_total' => 0, 'status' => 'cancelled',
+        ]);
+        User::factory()->create([
+            'phone' => '0912345678', 'email' => 'ngoc@example.com',
+            'email_verified_at' => now(), 'is_admin' => false,
+        ]);
+
+        $this->post(route('guest.login'), [
+            'phone' => '0912345678', 'email' => 'kela@evil.com',
+        ])->assertSessionHasErrors('email');
+
+        $this->assertGuest();
+        Mail::assertNothingQueued();
+    }
+
+    /** lookup() đọc chung allowedEmailsFor() nên cũng không được lộ email trên đơn chưa xác nhận. @test */
+    public function lookup_ignores_the_email_on_an_unconfirmed_order(): void
+    {
+        User::create(['name' => 'Khách Cũ', 'phone' => '0912345678']);
+        Order::create([
+            'customer_name' => 'Kẻ Lạ', 'customer_phone' => '0912345678',
+            'customer_email' => 'kela@evil.com', 'customer_address' => 'x',
+            'start_date' => '2026-09-01', 'end_date' => '2026-09-02',
+            'total_price' => 100000, 'deposit_total' => 0, 'status' => 'pending',
+        ]);
+
+        // Vẫn là tài khoản "không hộp thư nào" — đơn pending không nâng nó lên được.
+        $this->getJson(route('guest.lookup', ['phone' => '0912345678']))
+            ->assertJson(['exists' => true, 'email_mask' => null, 'needs_support' => true]);
+    }
+
     /** Chính chủ dùng đúng email trên đơn cũ thì nhận tài khoản được bình thường. @test */
     public function the_real_owner_can_claim_their_phone_with_the_email_used_on_the_order(): void
     {
@@ -432,7 +512,7 @@ class OtpFlowTest extends TestCase
      *
      * Người gõ số chưa chắc là chủ số. Trả email đầy đủ về client nghĩa là ai cũng moi được
      * email thật của người khác chỉ bằng số điện thoại — đúng thứ mà lookup() đã cố tình che.
-     * Đo được trên staging 26/08 (lộ nguyên `phamkhanhcntt@gmail.com`) rồi mới vá.
+     * Đo được trên staging 26/08 (lộ nguyên địa chỉ email thật của chủ số) rồi mới vá.
      *
      * Email trong SESSION vẫn phải là bản đầy đủ, nếu không bước xác thực mã sẽ hỏng.
      *

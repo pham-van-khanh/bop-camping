@@ -28,6 +28,26 @@ class GuestAuthController extends Controller
     private const REMEMBER_MINUTES_PHONE_ONLY = 400 * 24 * 60;
 
     /**
+     * Trạng thái đơn được coi là BẰNG CHỨNG SỞ HỮU số điện thoại.
+     *
+     * ⚠️ ĐỪNG nới danh sách này ra thành "mọi đơn". Đó chính là lỗ hổng đã đo được:
+     * POST /dat-hang không cần đăng nhập và nhận `phone` + `email` tuỳ ý (OrderController
+     * lưu thẳng vào customer_phone/customer_email, không ràng buộc gì với Auth::user()).
+     * Nếu mọi đơn đều tính, kẻ lạ chỉ việc tự đặt một đơn mang SĐT nạn nhân kèm email CỦA
+     * MÌNH — email đó lọt vào allowedEmailsFor(), chốt "email không khớp" cho qua, mã bay về
+     * hộp thư hắn, rồi verifyOtp ghi đè email nạn nhân và đăng nhập. Chiếm trọn tài khoản
+     * của cả khách ĐÃ có email, tức phá đúng chốt chính của bopcamping-bqsv.
+     *
+     * Cái chặn nó là con người: đơn chỉ rời 'pending' sau khi shop GỌI vào chính số đó để
+     * xác nhận — kẻ lạ không tự làm được bước ấy, còn chủ số thật thì nghe máy. 'cancelled'
+     * cũng không tính: đơn bịa bị shop huỷ phải mất luôn hiệu lực làm bằng chứng.
+     *
+     * Đánh đổi đã biết: khách mà đơn duy nhất còn đang chờ xác nhận thì chưa dùng email trên
+     * đơn đó để nhận mã được — phải đợi shop xác nhận, hoặc nhắn Zalo.
+     */
+    private const OWNERSHIP_PROOF_STATUSES = ['confirmed', 'renting', 'returned'];
+
+    /**
      * Tra thông tin theo SĐT khi đăng nhập. SĐT là khoá định danh; tên để khách đổi tuỳ ý.
      * KHÔNG trả email thật ra client (tránh dò số gom email) — chỉ trả bản CHE để khách
      * nhận ra tài khoản; khi đăng nhập, server tự dùng email đã lưu. Admin không lộ qua đây.
@@ -74,7 +94,8 @@ class GuestAuthController extends Controller
      * email đó vào tài khoản nạn nhân và đăng nhập — chiếm trọn tài khoản.
      *
      * Đơn vãng lai chỉ có `customer_phone` (không có user_id) nhưng `relatedOrders()` khớp theo
-     * SĐT, nên email trên đơn cũ cũng là bằng chứng sở hữu hợp lệ.
+     * SĐT, nên email trên đơn cũ cũng là bằng chứng sở hữu hợp lệ — NHƯNG chỉ khi đơn đó đã
+     * được shop xác nhận. Xem `OWNERSHIP_PROOF_STATUSES` ngay dưới.
      *
      * @return Collection<int, string>
      */
@@ -83,7 +104,11 @@ class GuestAuthController extends Controller
         return collect([
             $existing && ! $existing->hasPlaceholderEmail() ? $existing->email : null,
         ])
-            ->merge(Order::where('customer_phone', $phone)->pluck('customer_email'))
+            ->merge(
+                Order::where('customer_phone', $phone)
+                    ->whereIn('status', self::OWNERSHIP_PROOF_STATUSES)
+                    ->pluck('customer_email')
+            )
             ->filter()
             ->map(fn (string $e) => Str::lower(trim($e)))
             ->unique()

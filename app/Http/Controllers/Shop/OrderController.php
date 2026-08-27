@@ -170,6 +170,7 @@ class OrderController extends Controller
         // Email xác nhận: ưu tiên email khách nhập ở checkout; bỏ trống thì lấy email tài khoản (bỏ tạm .local).
         $customerEmail = $validated['email'] ?? null;
         $buyer = Auth::user();
+        $attachEmailToBuyer = false;
         if (! $customerEmail) {
             $customerEmail = ($buyer && ! $buyer->hasPlaceholderEmail()) ? $buyer->email : null;
         } elseif ($buyer && $buyer->hasPlaceholderEmail()) {
@@ -181,9 +182,10 @@ class OrderController extends Controller
             // KHÔNG set email_verified_at: email này chưa qua OTP bao giờ, lần đăng nhập sau vẫn
             // phải xác thực. Trùng email của tài khoản khác thì bỏ qua (users.email là UNIQUE,
             // ghi vào sẽ vỡ ràng buộc) — đơn vẫn lưu email để gửi xác nhận.
-            if (! User::where('email', $customerEmail)->exists()) {
-                $buyer->forceFill(['email' => $customerEmail])->save();
-            }
+            //
+            // Chỉ ĐÁNH DẤU ở đây, ghi thật nằm trong transaction tạo đơn bên dưới: đây là thứ
+            // đổi luôn danh tính đăng nhập của khách, không được phép sống sót khi đơn hỏng.
+            $attachEmailToBuyer = ! User::where('email', $customerEmail)->exists();
         }
 
         $base = [
@@ -203,7 +205,20 @@ class OrderController extends Controller
         ];
 
         // Tách đơn theo khoảng ngày (bopcamping-wtuv): 1 khoảng → đơn thường; ≥2 → cha + con.
-        $order = DB::transaction(fn () => $this->splitter->create($base, $itemLines, $comboLines, $productsById, $combos));
+        //
+        // Gắn email vào tài khoản nằm TRONG cùng transaction: nó đổi danh tính đăng nhập của
+        // khách, nên đơn hỏng (deadlock, hụt tồn kho, splitter lỗi) thì nó phải cuốn theo. Ghi
+        // trước và ngoài transaction như bản cũ thì khách thấy trang lỗi mà email tài khoản đã
+        // đổi vĩnh viễn — gõ nhầm một ký tự là lần sau OTP bay vào hộp thư không tồn tại, mà
+        // hasPlaceholderEmail() nay false nên cũng không còn nhánh cứu hộ bắt nhập lại email.
+        $order = DB::transaction(function () use ($base, $itemLines, $comboLines, $productsById, $combos, $attachEmailToBuyer, $buyer, $customerEmail) {
+            if ($attachEmailToBuyer) {
+                $buyer->email = $customerEmail;
+                $buyer->save();
+            }
+
+            return $this->splitter->create($base, $itemLines, $comboLines, $productsById, $combos);
+        });
 
         // Khuyến mãi (chỉ khách đăng nhập). Đơn cha (bopcamping-wtuv T3): áp trên TỔNG cha
         // rồi PHÂN BỔ xuống con ∝ tiền thuê; đơn thường: áp trực tiếp như cũ.
