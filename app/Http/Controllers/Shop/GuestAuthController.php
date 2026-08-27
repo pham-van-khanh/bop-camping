@@ -44,6 +44,9 @@ class GuestAuthController extends Controller
      *
      * Đánh đổi đã biết: khách mà đơn duy nhất còn đang chờ xác nhận thì chưa dùng email trên
      * đơn đó để nhận mã được — phải đợi shop xác nhận, hoặc nhắn Zalo.
+     *
+     * Trạng thái mới là MỘT trong hai điều kiện; điều kiện kia là `user_id IS NULL` — xem
+     * allowedEmailsFor(). Thiếu vế nào cũng hở.
      */
     private const OWNERSHIP_PROOF_STATUSES = ['confirmed', 'renting', 'returned'];
 
@@ -107,6 +110,15 @@ class GuestAuthController extends Controller
             ->merge(
                 Order::where('customer_phone', $phone)
                     ->whereIn('status', self::OWNERSHIP_PROOF_STATUSES)
+                    // CHỈ đơn đặt lúc CHƯA đăng nhập (user_id NULL). Đơn của người đang đăng
+                    // nhập không được định nghĩa lại danh tính của chính họ — họ đã có tài khoản,
+                    // muốn gắn email thì làm ở màn đăng nhập, có OTP xác minh.
+                    //
+                    // Đo được 27/08: bác khách chỉ-có-SĐT đặt đồ hộ đứa cháu, điền email của cháu.
+                    // Shop xác nhận đơn xong là mã đăng nhập của BÁC bay vào hộp thư CHÁU — bác
+                    // không vào được tài khoản mình nếu không có cháu. Gỡ chức năng gắn email ở
+                    // checkout không chữa được ca này, chỉ dời nó tới lúc đơn được xác nhận.
+                    ->whereNull('user_id')
                     ->pluck('customer_email')
             )
             ->filter()

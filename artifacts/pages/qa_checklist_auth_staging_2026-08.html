@@ -206,9 +206,12 @@
         flag: '<b>Đây là ca đổi hành vi, và là cái giá của việc gỡ.</b> Trước đây checkout tự gắn nên lần sau vào thẳng. Nay khách phải gõ email thêm một lần ở màn đăng nhập — đổi lại email đăng nhập chỉ đổi khi họ chủ động đổi và có OTP xác minh. Bạn xem có chấp nhận được không.' },
       { id: '5.3', do: 'Khách <b>đã có</b> email thật, checkout điền email <b>người thân</b>', ex: 'Mail đơn về email người thân, <b>tài khoản giữ nguyên email cũ</b>' },
       { id: '5.4', do: 'Checkout điền email đang dùng cho tài khoản khác', ex: 'Đơn vẫn tạo được, tài khoản <b>không</b> bị đổi email' },
-      { id: '5.5', do: 'Tài khoản <b>chỉ có SĐT</b> đặt đơn <b>hộ người thân</b>, điền email của người thân. Rồi đăng xuất, đăng nhập lại bằng SĐT của mình.',
+      { id: '5.5', local: 'dat', do: 'Tài khoản <b>chỉ có SĐT</b> đặt đơn <b>hộ người thân</b>, điền email của người thân. Rồi đăng xuất, đăng nhập lại bằng SĐT của mình.',
         ex: '✅ Tài khoản <b>không</b> bị đổi email — vẫn là tài khoản chỉ-có-SĐT như trước khi đặt đơn',
-        flag: '<b>Chính là lỗi khiến chức năng bị gỡ.</b> Trước đây ca này SAI: mã xác thực bay vào hộp thư người thân.' }
+        flag: '<b>Chính là lỗi khiến chức năng bị gỡ.</b> Trước đây ca này SAI: mã xác thực bay vào hộp thư người thân.' },
+      { id: '5.6', local: 'dat', do: 'Tiếp ca 5.5 — <b>vào admin xác nhận đúng cái đơn đặt hộ đó</b>, rồi bác lại đăng nhập bằng SĐT của mình',
+        ex: '✅ Được yêu cầu <b>tự nhập email</b> (“Vui lòng nhập email để nhận mã xác thực”) — <b>KHÔNG</b> gửi mã vào hộp thư người thân',
+        flag: '<b>Đo trên local 27/08, và gỡ chức năng ở checkout VẪN CHƯA đủ để chữa ca này</b> — nó chỉ dời vấn đề tới lúc đơn được xác nhận. Trước bản vá thứ hai, xác nhận đơn xong là mã đăng nhập của bác bay vào hộp thư đứa cháu; không có cháu thì bác không vào được tài khoản của chính mình. Nay chỉ đơn đặt lúc <u>chưa đăng nhập</u> mới tính là bằng chứng sở hữu.' }
     ]},
     { n: '6', title: 'Cookie nhớ đăng nhập', cases: [
       { id: '6.1', local: 'dat', do: 'DevTools → Application → Cookies sau khi tạo tài khoản chỉ-SĐT', ex: '<code>remember_web_*</code> hết hạn <b>~400 ngày</b>' },
