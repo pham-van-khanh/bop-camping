@@ -1,0 +1,393 @@
+<title>Sổ tích test đăng nhập</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+
+<style id="css">
+  :root {
+    --ground: #F7F9F1; --surface: #FFFFFF; --surface-2: #FBFCF7;
+    --ink: #18230F; --ink-soft: #2C3D22; --muted: #5C6E47; --faint: #8A9B75;
+    --line: #E3E8D6; --line-strong: #CFD8BE;
+    --pass: #4E7526; --pass-soft: #E8F1DA;
+    --fail: #A33C2A; --fail-soft: #FAE7E2;
+    --meh:  #B07721; --meh-soft:  #FBF0DC;
+    --radius: 14px;
+    --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    --sans: "Be Vietnam Pro", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #12180D; --surface: #1B2315; --surface-2: #202A19;
+      --ink: #EAEFE1; --ink-soft: #D2DCC2; --muted: #9CAA88; --faint: #77855F;
+      --line: #2C3722; --line-strong: #3B4930;
+      --pass: #8FB65C; --pass-soft: #26331B;
+      --fail: #E08A72; --fail-soft: #3A211A;
+      --meh:  #DFA75A; --meh-soft:  #362708;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #12180D; --surface: #1B2315; --surface-2: #202A19;
+    --ink: #EAEFE1; --ink-soft: #D2DCC2; --muted: #9CAA88; --faint: #77855F;
+    --line: #2C3722; --line-strong: #3B4930;
+    --pass: #8FB65C; --pass-soft: #26331B;
+    --fail: #E08A72; --fail-soft: #3A211A;
+    --meh:  #DFA75A; --meh-soft:  #362708;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--ground); color: var(--ink);
+    font-family: var(--sans); font-size: 16px; line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 880px; margin: 0 auto; padding: 48px 22px 110px; display: flex; flex-direction: column; gap: 34px; }
+
+  .eyebrow { font-family: var(--mono); font-size: 11.5px; font-weight: 500; letter-spacing: .14em; text-transform: uppercase; color: var(--faint); }
+  h1 { font-size: clamp(27px, 4.6vw, 36px); font-weight: 800; letter-spacing: -.028em; line-height: 1.14; margin: 9px 0 0; text-wrap: balance; }
+  h2 { font-size: 17px; font-weight: 700; letter-spacing: -.015em; margin: 0; }
+  p { margin: 0; max-width: 66ch; }
+  .lede { color: var(--muted); font-size: 16px; margin-top: 12px; }
+  a { color: var(--pass); }
+
+  header.top { border-bottom: 1px solid var(--line); padding-bottom: 26px; }
+  .meta { margin-top: 16px; display: flex; flex-wrap: wrap; gap: 6px 16px; font-family: var(--mono); font-size: 12px; color: var(--faint); }
+  .meta b { color: var(--muted); font-weight: 500; }
+
+  /* progress */
+  .bar-wrap { position: sticky; top: 0; z-index: 20; background: var(--ground); padding: 12px 0 13px; border-bottom: 1px solid var(--line); margin-bottom: -8px; }
+  .tally { display: flex; flex-wrap: wrap; align-items: center; gap: 7px 9px; }
+  .pill { font-family: var(--mono); font-size: 11.5px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--line-strong); color: var(--muted); background: var(--surface); font-variant-numeric: tabular-nums; }
+  .pill.p { background: var(--pass-soft); color: var(--pass); border-color: transparent; }
+  .pill.f { background: var(--fail-soft); color: var(--fail); border-color: transparent; }
+  .pill.m { background: var(--meh-soft); color: var(--meh); border-color: transparent; }
+  .pill.save { margin-left: auto; border-style: dashed; }
+  .bar { margin-top: 10px; height: 5px; border-radius: 999px; background: var(--line); overflow: hidden; display: flex; }
+  .bar i { display: block; height: 100%; }
+  .bar i.p { background: var(--pass); } .bar i.f { background: var(--fail); } .bar i.m { background: var(--meh); }
+
+  .tools { margin-top: 11px; display: flex; flex-wrap: wrap; gap: 8px; }
+  .tbtn { font-family: var(--mono); font-size: 11.5px; font-weight: 500; padding: 5px 11px; border-radius: 999px; border: 1px solid var(--line-strong); background: var(--surface); color: var(--muted); cursor: pointer; }
+  .tbtn[aria-pressed="true"] { background: var(--ink-soft); color: var(--ground); border-color: transparent; }
+  .tbtn:focus-visible, .seg button:focus-visible, .note:focus-visible { outline: 2px solid var(--pass); outline-offset: 2px; }
+
+  /* sections */
+  section { display: flex; flex-direction: column; gap: 13px; }
+  .sec-head { display: flex; align-items: baseline; gap: 11px; flex-wrap: wrap; }
+  .sec-head .n { font-family: var(--mono); font-size: 12px; color: var(--faint); }
+  .sec-note { font-size: 14px; color: var(--muted); border-left: 2px solid var(--line-strong); padding-left: 12px; }
+
+  .card { border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); overflow: hidden; }
+  .row { border-top: 1px solid var(--line); padding: 14px 17px; display: flex; flex-direction: column; gap: 9px; }
+  .row:first-child { border-top: 0; }
+  .row[data-hide="1"] { display: none; }
+  .row.done { background: var(--surface-2); }
+
+  .row-top { display: flex; gap: 12px; align-items: baseline; }
+  .cid { font-family: var(--mono); font-size: 12.5px; font-weight: 600; color: var(--faint); font-variant-numeric: tabular-nums; min-width: 34px; }
+  .row.st-dat .cid { color: var(--pass); }
+  .row.st-khong .cid { color: var(--fail); }
+  .row.st-meh .cid { color: var(--meh); }
+  .texts { display: flex; flex-direction: column; gap: 3px; }
+  .do { font-size: 15px; font-weight: 600; color: var(--ink); letter-spacing: -.005em; }
+  .expect { font-size: 14.5px; color: var(--muted); }
+  .expect b { color: var(--ink-soft); font-weight: 600; }
+  .flag { margin-top: 5px; font-size: 13.5px; color: var(--muted); background: var(--surface-2); border: 1px solid var(--line); border-radius: 9px; padding: 8px 11px; }
+  .flag b { color: var(--ink-soft); }
+  .row.done .flag { background: var(--surface); }
+
+  .badge { font-family: var(--mono); font-size: 10px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; padding: 2px 7px; border-radius: 999px; background: var(--pass-soft); color: var(--pass); white-space: nowrap; align-self: center; }
+  .badge.none { background: transparent; color: var(--faint); border: 1px solid var(--line-strong); }
+
+  .controls { display: flex; flex-wrap: wrap; gap: 9px; padding-left: 46px; }
+  .seg { display: inline-flex; border: 1px solid var(--line-strong); border-radius: 999px; overflow: hidden; background: var(--surface); }
+  .seg button { font-family: var(--sans); font-size: 13px; font-weight: 600; padding: 6px 15px; border: 0; border-left: 1px solid var(--line); background: transparent; color: var(--muted); cursor: pointer; white-space: nowrap; }
+  .seg button:first-child { border-left: 0; }
+  .seg button:hover { color: var(--ink); }
+  .seg button[aria-pressed="true"][data-v="dat"] { background: var(--pass); color: #fff; }
+  .seg button[aria-pressed="true"][data-v="khong"] { background: var(--fail); color: #fff; }
+  .seg button[aria-pressed="true"][data-v="meh"] { background: var(--meh); color: #fff; }
+  :root[data-theme="dark"] .seg button[aria-pressed="true"], :root:not([data-theme="light"]) .seg button[aria-pressed="true"] { color: #12180D; }
+
+  .note { flex: 1 1 240px; min-width: 0; font-family: var(--sans); font-size: 13.5px; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface-2); color: var(--ink); }
+  .note::placeholder { color: var(--faint); }
+
+  /* bảng tra nhanh */
+  .rule { font-size: 15.5px; color: var(--ink-soft); background: var(--surface); border: 1px solid var(--line); border-left: 3px solid var(--pass); border-radius: var(--radius); padding: 14px 17px; max-width: none; }
+  .rule b { color: var(--ink); }
+  .ref-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
+  table.ref { border-collapse: collapse; width: 100%; min-width: 520px; font-size: 14.5px; }
+  table.ref th { text-align: left; font-size: 11.5px; font-family: var(--mono); font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--faint); background: var(--surface-2); padding: 11px 16px; border-bottom: 1px solid var(--line); }
+  table.ref td { padding: 12px 16px; border-top: 1px solid var(--line); color: var(--muted); vertical-align: top; }
+  table.ref tr:first-child td { border-top: 0; }
+  table.ref td:first-child { color: var(--ink-soft); width: 42%; }
+  table.ref td b { color: var(--ink); font-weight: 600; }
+  table.ref .no { color: var(--fail); font-weight: 600; }
+
+  footer { border-top: 1px solid var(--line); padding-top: 20px; font-size: 13.5px; color: var(--faint); display: flex; flex-direction: column; gap: 6px; }
+  code { font-family: var(--mono); font-size: .88em; background: var(--surface-2); border: 1px solid var(--line); border-radius: 5px; padding: 1px 5px; color: var(--ink-soft); }
+
+  .ro { display: none; font-size: 13.5px; color: var(--meh); background: var(--meh-soft); border-radius: 9px; padding: 9px 13px; }
+  body[data-ro="1"] .ro { display: block; }
+  body[data-ro="1"] .seg button, body[data-ro="1"] .note { pointer-events: none; opacity: .55; }
+
+  @media (max-width: 620px) {
+    .wrap { padding: 36px 15px 90px; }
+    .controls { padding-left: 0; }
+    .cid { min-width: 30px; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+
+<div class="wrap" id="root"></div>
+
+<script type="application/json" id="state">{"v":1,"cases":{},"updated":null}</script>
+
+<script id="app">
+(function () {
+  var FONTS = 'https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap';
+  var TITLE = 'Sổ tích test đăng nhập';
+
+  var SECTIONS = [
+    { n: 'A', title: 'Đăng nhập theo tình trạng số điện thoại', note: 'sáu tình trạng một số có thể ở — mỗi ca một tình trạng', cases: [
+      { id: 'A1', local: 'dat', do: 'Số <b>mới tinh</b>, bỏ trống email', ex: 'Vào thẳng, không cần mã' },
+      { id: 'A2', local: 'dat', do: 'Số <b>mới tinh</b>, có gõ email', ex: 'Mã về email vừa gõ → nhập mã → vào' },
+      { id: 'A3', local: 'dat', do: 'Số <b>đã có tài khoản kèm email</b>, bỏ trống email', ex: 'Mã về email đó, màn hình hiện bản <b>che</b> (ng***@gmail.com)' },
+      { id: 'A4', local: 'dat', do: 'Số <b>đã có tài khoản kèm email</b>, gõ một email <b>khác</b>', ex: '❌ <b>Chặn</b> — “Email không khớp với số điện thoại này”',
+        flag: 'Giao diện đã ẩn hẳn ô email khi số có chủ, nên bạn sẽ không thấy chỗ nào để gõ — đó chính là kết quả đúng. Muốn thử thì phải gọi thẳng API.' },
+      { id: 'A5', local: 'dat', do: 'Số <b>chỉ có SĐT</b> (chưa gắn email bao giờ)', ex: 'Ô email đổi thành <b>“Email (bắt buộc)”</b> + dòng nhắn Zalo; gõ email của mình → nhận mã → vào' },
+      { id: 'A6', do: 'Số <b>chưa có tài khoản</b> nhưng đã có <b>đơn cũ bạn đã xác nhận</b>', ex: 'Mã về email trên đơn đó (hiện dạng che)' }
+    ]},
+    { n: 'B', title: 'Chống chiếm tài khoản', note: 'hai ca quan trọng nhất — làm ở cửa sổ ẩn danh', cases: [
+      { id: 'B1', local: 'dat', do: '<b>Tự đặt một đơn</b> (không đăng nhập) điền SĐT của khách A + email <b>của bạn</b>, để nguyên <i>Chờ xác nhận</i>. Rồi đăng nhập bằng SĐT của A + email vừa điền.',
+        ex: '❌ <b>Chặn</b>, không mã nào về hộp thư bạn',
+        flag: '<b>Ca quan trọng nhất.</b> Trước bản vá, đúng ba bước này là chiếm được tài khoản A và email thật của A bị ghi đè mất. Thứ chặn nó là <b>cú gọi xác nhận đơn của bạn</b> — nếu bạn xác nhận đơn đó thì email kia được chấp nhận (cố ý), nên đừng bấm xác nhận hàng loạt mà không gọi.' },
+      { id: 'B2', local: 'dat', do: 'Gõ SĐT <b>hotline shop</b> (0976544370) ở cửa đăng nhập khách', ex: '❌ Chặn — “Số điện thoại này không dùng để đăng nhập khách”; cũng không hiện tên/email admin' }
+    ]},
+    { n: 'C', title: 'Đặt đơn không đụng tới đăng nhập', cases: [
+      { id: 'C1', local: 'dat', do: 'Tài khoản <b>chỉ có SĐT</b> đặt đơn <b>hộ người thân</b>, điền email người thân. Rồi <b>xác nhận đơn đó</b> và đăng nhập lại bằng SĐT của mình.',
+        ex: '✅ Tài khoản không đổi email, và đăng nhập vẫn <b>bắt tự nhập email của mình</b> — mã <b>không</b> bay vào hộp thư người thân',
+        flag: 'Ca này từng sai theo hai cách khác nhau, đã vá cả hai. Email gõ lúc đặt đơn nay chỉ dùng để gửi mail cho đơn đó.' },
+      { id: 'C2', do: 'Đặt đơn khi <b>chưa đăng nhập</b>, rồi tra cứu đơn bằng mã + SĐT', ex: 'Vẫn đặt và tra được như cũ' }
+    ]},
+    { n: 'D', title: 'Đăng nhập thay khách (admin)', cases: [
+      { id: 'D1', local: 'dat', do: '/admin/users → tab Khách hàng → bấm <b>“Đăng nhập”</b>, xem thanh vàng, rồi bấm <b>Thoát</b>',
+        ex: 'Vào thẳng tài khoản khách không hỏi mã; có thanh vàng “Bạn đang xem với tư cách …”; bấm Thoát là về /admin/users, là admin trở lại' },
+      { id: 'D2', local: 'dat', do: 'Lặp D1 nhưng bấm nút <b>“Đăng xuất”</b> ở header khách (nút ↩, KHÔNG phải Thoát)',
+        ex: '⚠️ Vẫn phải về /admin/users là admin — <b>không</b> bị đá ra ngoài',
+        flag: 'Lỗi đã sửa: trước đó bấm quen tay là mất luôn phiên admin, phải đăng nhập lại từ đầu.' }
+    ]},
+    { n: 'E', title: 'Trước khi lên production', note: 'việc cần làm, không phải ca test', cases: [
+      { id: 'E1', do: 'Dặn người trực đơn: <b>xác nhận đơn = đã gọi và nghe đúng người</b>',
+        ex: 'Ghi vào quy trình, không chỉ dặn miệng',
+        flag: 'Cú gọi đó nay là một phần của bảo mật, không còn chỉ là vận hành. Bấm xác nhận hàng loạt cho nhanh là lớp bảo vệ ở ca B1 mất tác dụng.' },
+      { id: 'E2', do: 'Dặn người trực Zalo: khách xin gắn email thì <b>phải hỏi thông tin một đơn cũ</b> trước',
+        ex: 'Mã đơn / ngày thuê / địa chỉ giao',
+        flag: 'Không có bước này thì kẻ lạ chỉ việc nhắn Zalo là qua mặt toàn bộ phần vừa siết.' },
+      { id: 'E3', do: 'Sau khi deploy production, đăng xuất mọi phiên khách cũ',
+        ex: '<code>UPDATE users SET remember_token = NULL WHERE is_admin = 0</code> + xoá session' }
+    ]}
+  ];
+
+  var LABEL = { dat: 'Đạt', khong: 'Không đạt', meh: 'Chưa hài lòng' };
+  var ORDER = ['dat', 'khong', 'meh'];
+
+  var stateEl = document.getElementById('state');
+  var state;
+  try { state = JSON.parse(stateEl.textContent); } catch (e) { state = { v: 1, cases: {}, updated: null }; }
+  if (!state || typeof state !== 'object') state = { v: 1, cases: {}, updated: null };
+  if (!state.cases) state.cases = {};
+
+  var api = null, readOnly = false, saveTimer = null, dirty = false;
+  var LS = 'bop-qa-dangnhap-v1';
+
+  // Bản dự phòng khi trang không tự lưu được (mở ngoài viewer chẳng hạn).
+  function lsLoad() {
+    try { var r = localStorage.getItem(LS); if (r) { var o = JSON.parse(r); if (o && o.cases) return o; } } catch (e) {}
+    return null;
+  }
+  function lsSave() { try { localStorage.setItem(LS, JSON.stringify(state)); } catch (e) {} }
+
+  function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+
+  function counts() {
+    var c = { dat: 0, khong: 0, meh: 0, total: 0 };
+    SECTIONS.forEach(function (s) {
+      s.cases.forEach(function (k) {
+        c.total++;
+        var st = state.cases[k.id] && state.cases[k.id].s;
+        if (st && c[st] !== undefined) c[st]++;
+      });
+    });
+    c.done = c.dat + c.khong + c.meh;
+    return c;
+  }
+
+  function render() {
+    var root = document.getElementById('root');
+    var c = counts();
+    var onlyLeft = sessionStorage.getItem('bop-only-left') === '1';
+    var h = '';
+
+    h += '<header class="top">';
+    h += '<div class="eyebrow">Bốp Camping · test tay trên staging</div>';
+    h += '<h1>Sổ tích đợt siết đăng nhập</h1>';
+    h += '<p class="lede">Tích từng ca khi bạn test. Tích xong là trang tự lưu — đóng đi mở lại vẫn còn, và tôi đọc lại được kết quả. Bấm lại nút đang chọn để bỏ tích. Ô ghi chú dùng khi “không đạt” hoặc “chưa hài lòng”.</p>';
+    h += '<p class="lede" style="font-size:15px">Mục A đi qua sáu tình huống trong bảng dưới; <b>B1</b> là ca quan trọng nhất.</p>';
+    h += '<div class="meta"><span><b>Staging</b> <a href="https://staging.bopcamping.cloud" target="_blank" rel="noopener">staging.bopcamping.cloud</a></span><span><b>Bead</b> bopcamping-bqsv + bopcamping-kuhg</span><span><b>Nhánh</b> develop</span></div>';
+    h += '<div class="ro">Bạn đang xem ở chế độ chỉ đọc nên trang không lưu được tích. Nhờ chủ sở hữu artifact mở quyền sửa.</div>';
+    h += '</header>';
+
+    // Bảng tra nhanh: hệ thống hiện hoạt động thế nào. Đọc cái này trước khi tích.
+    h += '<section><div class="sec-head"><span class="n">Tra nhanh</span><h2>Hiện tại hoạt động thế nào</h2></div>';
+    h += '<p class="rule"><b>Một luật duy nhất:</b> mã xác thực chỉ gửi tới hộp thư <b>đã gắn</b> với số đó. Email chỉ thành email đăng nhập <b>sau khi nhập đúng mã</b>.</p>';
+    h += '<div class="ref-wrap"><table class="ref">';
+    h += '<thead><tr><th>Tình huống của số điện thoại</th><th>Đăng nhập ra sao</th></tr></thead><tbody>';
+    [
+      ['Số <b>mới tinh</b>, bỏ trống email', 'Vào thẳng, không cần mã'],
+      ['Số <b>mới tinh</b>, có gõ email', 'Mã về email vừa gõ → nhập mã → vào'],
+      ['Đã có tài khoản <b>kèm email</b>', 'Luôn phải nhập mã. Mã về email đó (hiện dạng che). Gõ email khác → <span class="no">chặn</span>'],
+      ['Đã có tài khoản <b>chỉ có SĐT</b>', 'Bắt nhập email, gõ email nào cũng được, phải qua mã'],
+      ['Chưa có tài khoản, nhưng <b>đã có đơn cũ bạn đã xác nhận</b>', 'Mã về email trên đơn đó'],
+      ['Chưa có tài khoản, đơn còn <b>chờ xác nhận</b>', 'Coi như chưa gắn email → bắt tự nhập']
+    ].forEach(function (r) { h += '<tr><td>' + r[0] + '</td><td>' + r[1] + '</td></tr>'; });
+    h += '</tbody></table></div>';
+    h += '<p class="rule" style="border-left-color:var(--line-strong)"><b>Đặt đơn:</b> email gõ lúc checkout <b>chỉ để gửi mail cho đơn đó</b>, không bao giờ đụng tới đăng nhập — dù đã đăng nhập hay chưa.</p>';
+    h += '</section>';
+
+    h += '<div class="bar-wrap"><div class="tally">';
+    h += '<span class="pill">' + c.done + '/' + c.total + ' đã tích</span>';
+    h += '<span class="pill p">' + c.dat + ' đạt</span>';
+    h += '<span class="pill f">' + c.khong + ' không đạt</span>';
+    h += '<span class="pill m">' + c.meh + ' chưa hài lòng</span>';
+    h += '<span class="pill save" id="savechip">' + (dirty ? 'đang lưu…' : (state.updated ? 'đã lưu' : 'chưa tích gì')) + '</span>';
+    h += '</div><div class="bar">';
+    h += '<i class="p" style="width:' + (c.dat / c.total * 100) + '%"></i>';
+    h += '<i class="f" style="width:' + (c.khong / c.total * 100) + '%"></i>';
+    h += '<i class="m" style="width:' + (c.meh / c.total * 100) + '%"></i>';
+    h += '</div><div class="tools"><button class="tbtn" id="onlyleft" aria-pressed="' + (onlyLeft ? 'true' : 'false') + '">Chỉ hiện ca chưa tích</button></div></div>';
+
+    SECTIONS.forEach(function (s) {
+      h += '<section><div class="sec-head"><span class="n">Mục ' + s.n + '</span><h2>' + s.title + '</h2></div>';
+      if (s.note) h += '<p class="sec-note">' + s.note + '</p>';
+      h += '<div class="card">';
+      s.cases.forEach(function (k) {
+        var rec = state.cases[k.id] || {};
+        var st = rec.s || '';
+        var hide = onlyLeft && st ? ' data-hide="1"' : '';
+        h += '<div class="row' + (st ? ' done st-' + st : '') + '"' + hide + ' data-row="' + k.id + '">';
+        h += '<div class="row-top"><span class="cid">' + k.id + '</span><div class="texts">';
+        h += '<span class="do">' + k.do + '</span>';
+        h += '<span class="expect">' + k.ex + '</span>';
+        if (k.flag) h += '<span class="flag">' + k.flag + '</span>';
+        h += '</div>';
+        h += k.local === 'dat'
+          ? '<span class="badge" title="Tôi đã chạy ca này trên máy local và nó đạt">local ✓</span>'
+          : '<span class="badge none" title="Tôi chưa tự đo được ca này">chưa đo</span>';
+        h += '</div>';
+        h += '<div class="controls"><div class="seg" role="group" aria-label="Kết quả ca ' + k.id + '">';
+        ORDER.forEach(function (v) {
+          h += '<button type="button" data-set="' + k.id + '" data-v="' + v + '" aria-pressed="' + (st === v ? 'true' : 'false') + '">' + LABEL[v] + '</button>';
+        });
+        h += '</div>';
+        h += '<input class="note" type="text" data-note="' + k.id + '" placeholder="ghi chú (tuỳ ý)…" value="' + esc(rec.n || '') + '">';
+        h += '</div></div>';
+      });
+      h += '</div></section>';
+    });
+
+    h += '<footer><span>Rủi ro đã chấp nhận: với tài khoản <b>chưa gắn email nào</b>, người lạ biết SĐT vẫn chiếm được — mã gửi tới hộp thư họ vừa gõ chỉ chứng minh họ mở được hộp thư đó. Shop không có OTP SMS nên số điện thoại chưa bao giờ được xác thực. Hướng siết lại ghi ở bead <code>bopcamping-4j3z</code>.</span>';
+    h += '<span>Khách <b>đã có email</b> không nằm trong diện này — ca 3.1 kiểm đúng chỗ đó.</span></footer>';
+
+    root.innerHTML = h;
+    document.body.setAttribute('data-ro', readOnly ? '1' : '0');
+  }
+
+  function chip(text) { var el = document.getElementById('savechip'); if (el) el.textContent = text; }
+
+  function scheduleSave() {
+    dirty = true;
+    chip('đang lưu…');
+    lsSave();
+    if (saveTimer) clearTimeout(saveTimer);
+    saveTimer = setTimeout(commit, 1600);
+  }
+
+  function commit() {
+    if (!api || readOnly) { dirty = false; chip(api ? 'chỉ đọc' : 'lưu trên máy này'); return; }
+    state.updated = new Date().toISOString();
+    var html = buildDoc();
+    api.publish(html).then(function () {
+      dirty = false; // view sẽ tự tải lại
+    }).catch(function (err) {
+      var code = err && err.code;
+      if (code === 'conflict') { chip('có bản mới hơn'); return; }
+      if (code === 'not_writer' || code === 'not_granted' || code === 'not_declared' || code === 'capability_disabled' || code === 'consent_required') {
+        readOnly = true; document.body.setAttribute('data-ro', '1'); chip('chỉ đọc'); return;
+      }
+      if (code === 'rate_limited') { chip('lưu chậm lại…'); if (saveTimer) clearTimeout(saveTimer); saveTimer = setTimeout(commit, 6000); return; }
+      chip('lưu lỗi — thử lại');
+      if (saveTimer) clearTimeout(saveTimer); saveTimer = setTimeout(commit, 4000);
+    });
+  }
+
+  function buildDoc() {
+    var css = document.getElementById('css').textContent;
+    var js = document.getElementById('app').textContent;
+    var json = JSON.stringify(state).replace(/</g, '\\u003c');
+    return '<!doctype html>\n<html lang="vi">\n<head>\n<meta charset="utf-8">\n'
+      + '<meta name="viewport" content="width=device-width, initial-scale=1">\n'
+      + '<title>' + TITLE + '</title>\n'
+      + '<link rel="preconnect" href="https://fonts.googleapis.com">\n'
+      + '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>\n'
+      + '<link rel="stylesheet" href="' + FONTS + '">\n'
+      + '<style id="css">' + css + '</style>\n</head>\n<body>\n'
+      + '<div class="wrap" id="root"></div>\n'
+      + '<script type="application/json" id="state">' + json + '<\/script>\n'
+      + '<script id="app">' + js + '<\/script>\n'
+      + '</body>\n</html>';
+  }
+
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-set]');
+    if (b) {
+      if (readOnly) return;
+      var id = b.getAttribute('data-set'), v = b.getAttribute('data-v');
+      var rec = state.cases[id] || {};
+      rec.s = (rec.s === v) ? '' : v;
+      if (!rec.s && !rec.n) delete state.cases[id]; else state.cases[id] = rec;
+      render(); scheduleSave();
+      return;
+    }
+    var t = e.target.closest('#onlyleft');
+    if (t) {
+      var cur = sessionStorage.getItem('bop-only-left') === '1';
+      try { sessionStorage.setItem('bop-only-left', cur ? '0' : '1'); } catch (err) {}
+      render();
+    }
+  });
+
+  document.addEventListener('change', function (e) {
+    var n = e.target.closest('[data-note]');
+    if (!n || readOnly) return;
+    var id = n.getAttribute('data-note');
+    var rec = state.cases[id] || {};
+    rec.n = n.value.trim();
+    if (!rec.s && !rec.n) delete state.cases[id]; else state.cases[id] = rec;
+    scheduleSave();
+  });
+
+  var local = lsLoad();
+  if (local && Object.keys(local.cases).length && !Object.keys(state.cases).length) state = local;
+  render();
+
+  if (window.claude && window.claude.use) {
+    window.claude.use('artifact').then(function (a) {
+      api = a;
+      if (!a) { chip('lưu trên máy này'); }
+      else if (dirty) { commit(); } else { chip(state.updated ? 'đã lưu' : 'chưa tích gì'); }
+    }).catch(function () { chip('lưu trên máy này'); });
+  } else {
+    chip('lưu trên máy này');
+  }
+})();
+</script>

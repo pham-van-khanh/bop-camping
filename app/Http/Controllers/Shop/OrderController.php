@@ -167,11 +167,26 @@ class OrderController extends Controller
             }
         }
 
-        // Email xác nhận: ưu tiên email khách nhập ở checkout; bỏ trống thì lấy email tài khoản (bỏ tạm .local).
+        // Email xác nhận đơn: ưu tiên email khách nhập ở checkout; bỏ trống thì lấy email tài
+        // khoản (bỏ email tạm .local). Email này chỉ dùng để GỬI MAIL CHO ĐƠN NÀY.
+        //
+        // Checkout KHÔNG còn gắn email vào tài khoản (gỡ 27/08/2026, thay cho bopcamping-kuhg).
+        // Đổi email đăng nhập không được là tác dụng phụ của một hành động khác: khách gõ email
+        // ở đây là để nhận mail xác nhận đơn, không phải để đổi cách mình đăng nhập.
+        //
+        // Bản cũ gắn cho tài khoản chỉ-có-SĐT, và chốt duy nhất là hasPlaceholderEmail() — tức
+        // chỉ che cho người ĐÃ có email thật. Người CHƯA có, đúng nhóm mà tính năng sinh ra để
+        // phục vụ, thì không được che gì: bác khách chỉ có SĐT đặt đồ hộ đứa cháu và điền email
+        // của cháu để nó nhận mail, thế là email đăng nhập của bác thành email đứa cháu — lần
+        // sau mã xác thực bay vào hộp thư của cháu. Đúng cảnh mục 5.3 checklist cảnh báo.
+        //
+        // Không ai bị kẹt vì bỏ: luồng đăng nhập đã có sẵn bước "Email (bắt buộc)" + OTP cho tài
+        // khoản chỉ-có-SĐT (bopcamping-kuhg). Đó mới là chỗ đúng để gắn — khách đang chủ động
+        // làm việc đó, và có OTP chứng minh họ mở được hộp thư.
         $customerEmail = $validated['email'] ?? null;
+        $buyer = Auth::user();
         if (! $customerEmail) {
-            $user = Auth::user();
-            $customerEmail = ($user && ! str_ends_with($user->email, '@bopcamping.local')) ? $user->email : null;
+            $customerEmail = ($buyer && ! $buyer->hasPlaceholderEmail()) ? $buyer->email : null;
         }
 
         $base = [

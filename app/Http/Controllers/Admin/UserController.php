@@ -400,14 +400,24 @@ class UserController extends Controller
     public function impersonate(Request $request, User $user): RedirectResponse
     {
         // Không cho mạo danh admin khác — nếu không, một admin chiếm được quyền của admin kia.
-        abort_if($user->is_admin, 403, 'Không thể đăng nhập thay một tài khoản admin.');
+        //
+        // Chặn cả SHIPPER: index() lọc is_shipper=false nên nút không bao giờ hiện cho họ, nhưng
+        // route bind User theo id — POST thẳng là vào được. Mạo danh shipper thì đánh dấu đã giao,
+        // thu tiền thuê + cọc, hoàn cọc… đều ghi tên shipper, xoá sạch dấu vết kiểm toán tiền mặt
+        // mà vai trò đó sinh ra để giữ. Giao diện ẩn nút không phải là chốt chặn.
+        abort_if(
+            $user->is_admin || $user->is_shipper,
+            403,
+            'Chỉ đăng nhập thay được tài khoản khách hàng.'
+        );
 
         $admin = $request->user();
 
+        // KHÔNG ghi SĐT vào log: đó là PII, và `target_id` đã đủ để truy vết
+        // (.claude/rules/code-quality.md — "Never log secrets, tokens, or PII").
         Log::info('admin.user.impersonated', [
             'actor_id' => $admin->id,
             'target_id' => $user->id,
-            'target_phone' => $user->phone,
             'ip' => $request->ip(),
         ]);
 

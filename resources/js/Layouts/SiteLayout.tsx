@@ -52,9 +52,7 @@ export default function SiteLayout({ children }: { children: ReactNode }) {
 
     return (
         <>
-            {impersonating && (
-                <ImpersonationBar name={impersonating.name} />
-            )}
+            {impersonating && <ImpersonationBar name={impersonating.name} />}
             <Header cartCount={count} userName={auth.user?.name} />
             {children}
             <Footer />
