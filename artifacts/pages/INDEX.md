@@ -13,6 +13,7 @@ là danh sách của **riêng dự án này**, đi theo repo.
 
 | File | Là gì | URL |
 |---|---|---|
+| [so_deploy.html](so_deploy.html) | **Sổ deploy** — nhánh nào đang chạy ở Production / Staging, ngày deploy, commit để revert từng dòng. Phải cập nhật MỖI LẦN deploy. | https://claude.ai/code/artifact/96e44ef5-828e-4d6d-93af-03a6ee5faba4 |
 | [qa_run_auth_2026-08.html](qa_run_auth_2026-08.html) | Kết quả chạy quality gate + tự test đợt siết đăng nhập (bopcamping-bqsv, bopcamping-kuhg). Chỉ đọc. | https://claude.ai/code/artifact/a67ab4d6-13a7-40de-b14c-ad15905a004e |
 | [qa_checklist_auth_staging_2026-08.html](qa_checklist_auth_staging_2026-08.html) | Checklist 46 ca **tích tay** khi test staging: đạt / không đạt / chưa hài lòng + ghi chú. Trang tự lưu phiên bản mới mỗi lần tích. | https://claude.ai/code/artifact/de5ee57c-35a3-4137-b64a-425c048c6392 |
 
