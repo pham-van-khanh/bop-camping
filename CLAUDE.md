@@ -129,16 +129,25 @@ Không commit trực tiếp vào `main`/`feat/scaffold-laravel`/`develop` (ngo�
 
 | | |
 |---|---|
-| Điểm revert | **`b10eda9`** (merge commit, 2 cha: `497db63` = production trước đợt này, `ddd3132` = nhánh gộp) |
-| Nhánh gộp | `release/auth-hardening-2026-08` |
+| Nhánh gộp | `release/auth-hardening-2026-08` — **mọi bổ sung cho đợt này phải đi qua đây**, đừng merge thẳng feature branch vào production, nếu không điểm revert vỡ thành nhiều mảnh |
 | Hai nhánh nguồn | `feature/auth-hardening-impersonation` (bopcamping-bqsv)<br>`feature/phone-only-account-recovery` (bopcamping-kuhg) — đã chứa trọn nhánh trên |
+| Điểm revert | `e988721` (bổ sung: dọn ô nhập mã)<br>`b10eda9` (đợt chính; cha `497db63` = production trước đợt này) |
 
-Gỡ toàn bộ đợt:
+Gỡ toàn bộ đợt — revert **mới trước, cũ sau**:
 
 ```bash
 git checkout feat/scaffold-laravel && git pull
-git revert -m 1 b10eda9      # -m 1 = giữ nhánh production, bỏ nhánh gộp
+git revert -m 1 e988721      # bổ sung
+git revert -m 1 b10eda9      # đợt chính
 git push
+```
+
+`-m 1` = giữ nhánh production, bỏ phần từ nhánh gộp. Nếu về sau còn merge thêm từ
+`release/auth-hardening-2026-08`, thêm SHA vào đầu bảng và revert từ trên xuống.
+Tìm nhanh danh sách đầy đủ:
+
+```bash
+git log --merges --oneline feat/scaffold-laravel --grep="Release:"
 ```
 
 ⚠️ **Revert xong phải nhớ:** khách đăng nhập trong lúc đợt này chạy đã có cookie nhớ
