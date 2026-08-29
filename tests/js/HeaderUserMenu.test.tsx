@@ -43,7 +43,9 @@ describe('menu tài khoản ở header', () => {
     it('bấm vào tên KHÔNG đăng xuất, mà mở menu', () => {
         render(<Header userName="Chị Ngọc" />);
 
-        const btn = screen.getByRole('button', { name: 'Tài khoản (Chị Ngọc)' });
+        const btn = screen.getByRole('button', {
+            name: 'Tài khoản (Chị Ngọc)',
+        });
         expect(btn).toHaveAttribute('aria-expanded', 'false');
         // Chưa mở thì chưa có mục nào.
         expect(screen.queryByRole('menu')).not.toBeInTheDocument();
@@ -58,7 +60,9 @@ describe('menu tài khoản ở header', () => {
 
     it('menu có đúng hai mục: thông tin tài khoản và đăng xuất', () => {
         render(<Header userName="Chị Ngọc" />);
-        fireEvent.click(screen.getByRole('button', { name: 'Tài khoản (Chị Ngọc)' }));
+        fireEvent.click(
+            screen.getByRole('button', { name: 'Tài khoản (Chị Ngọc)' }),
+        );
 
         const items = screen.getAllByRole('menuitem');
         expect(items.map((e) => e.textContent)).toEqual([
@@ -70,7 +74,9 @@ describe('menu tài khoản ở header', () => {
 
     it('bấm "Đăng xuất" trong menu mới thật sự đăng xuất', () => {
         render(<Header userName="Chị Ngọc" />);
-        fireEvent.click(screen.getByRole('button', { name: 'Tài khoản (Chị Ngọc)' }));
+        fireEvent.click(
+            screen.getByRole('button', { name: 'Tài khoản (Chị Ngọc)' }),
+        );
         fireEvent.click(screen.getByRole('menuitem', { name: 'Đăng xuất' }));
 
         expect(posted.urls).toEqual(['/guest.logout']);
@@ -78,7 +84,9 @@ describe('menu tài khoản ở header', () => {
 
     it('bấm ra ngoài thì đóng menu', () => {
         render(<Header userName="Chị Ngọc" />);
-        fireEvent.click(screen.getByRole('button', { name: 'Tài khoản (Chị Ngọc)' }));
+        fireEvent.click(
+            screen.getByRole('button', { name: 'Tài khoản (Chị Ngọc)' }),
+        );
         expect(screen.getByRole('menu')).toBeInTheDocument();
 
         fireEvent.mouseDown(document.body);
@@ -88,10 +96,14 @@ describe('menu tài khoản ở header', () => {
 
     it('nhấn Esc thì đóng menu', () => {
         render(<Header userName="Chị Ngọc" />);
-        fireEvent.click(screen.getByRole('button', { name: 'Tài khoản (Chị Ngọc)' }));
+        fireEvent.click(
+            screen.getByRole('button', { name: 'Tài khoản (Chị Ngọc)' }),
+        );
 
         act(() => {
-            window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+            window.dispatchEvent(
+                new KeyboardEvent('keydown', { key: 'Escape' }),
+            );
         });
 
         expect(screen.queryByRole('menu')).not.toBeInTheDocument();
