@@ -122,10 +122,17 @@ export default function ComboCard({
                             Hợp cho {c.suitable_for} người
                         </span>
                     )}
-                    <div className="mt-auto flex items-end justify-between pt-2.5">
+                    {/* Cho xuống dòng như ProductCard (bopcamping-5nrb): thẻ hẹp (lưới 2 cột trên
+                        mobile) thì "Xem bộ →" rơi xuống hàng dưới thay vì tràn ra ngoài rồi bị
+                        `overflow-hidden` của thẻ cắt mất. */}
+                    <div className="mt-auto flex flex-wrap items-end justify-between gap-x-2 gap-y-1 pt-2.5">
                         <div>
-                            <div className="font-mono text-[19px] font-bold text-grass">
-                                {money(c.combo_price)}
+                            <div className="font-mono text-[19px] font-bold leading-tight text-grass">
+                                <span className="whitespace-nowrap">
+                                    {money(c.combo_price)}
+                                </span>
+                                {/* Chỗ ngắt dòng cho "/ngày" — xem chú thích ở ProductCard. */}
+                                <wbr />
                                 <span className="font-sans text-[12px] font-normal text-[#8a967a]">
                                     /ngày
                                 </span>
@@ -136,7 +143,7 @@ export default function ComboCard({
                                 </div>
                             )}
                         </div>
-                        <span className="text-[13px] font-bold text-grass transition group-hover:translate-x-0.5">
+                        <span className="whitespace-nowrap text-[13px] font-bold text-grass transition group-hover:translate-x-0.5">
                             Xem bộ →
                         </span>
                     </div>
