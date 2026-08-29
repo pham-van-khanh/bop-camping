@@ -117,16 +117,26 @@ export default function ProductCard({
                             {truncate(p.description)}
                         </p>
                     )}
+                    {/* flex-wrap là bắt buộc, không phải trang trí: lưới /thiet-bi để grid-cols-2 trên
+                        mobile nên thẻ chỉ rộng ~140px, hẹp hơn tổng giá/ngày + tiền cọc (~195px). Không
+                        cho xuống dòng thì tiền cọc tràn ra ngoài và bị `overflow-hidden` của thẻ cắt mất
+                        (bopcamping-5nrb). Thẻ rộng thì hai khối vẫn nằm cùng hàng như cũ. */}
                     <div
-                        className={`flex items-end justify-between ${compact ? 'mt-2.5' : 'mt-auto'}`}
+                        className={`flex flex-wrap items-end justify-between gap-x-2 gap-y-0.5 ${compact ? 'mt-2.5' : 'mt-auto'}`}
                     >
-                        <div className="font-mono text-[17px] font-bold text-ink">
-                            {money(p.price_per_day)}
+                        <div className="font-mono text-[17px] font-bold leading-tight text-ink">
+                            <span className="whitespace-nowrap">
+                                {money(p.price_per_day)}
+                            </span>
+                            {/* <wbr>: giữa "80.000đ" và "/ngày" không có khoảng trắng nên trình duyệt
+                                KHÔNG có chỗ ngắt dòng — máy 320px (thẻ ~103px) thì cả cụm tràn ra ngoài.
+                                <wbr> chỉ cho phép ngắt khi cần, thẻ rộng vẫn dính liền một dòng. */}
+                            <wbr />
                             <span className="font-sans text-[12px] font-normal text-[#8a967a]">
                                 /ngày
                             </span>
                         </div>
-                        <div className="font-mono text-[11px] text-campfire">
+                        <div className="whitespace-nowrap font-mono text-[11px] text-campfire">
                             cọc {money(p.deposit)}
                         </div>
                     </div>
