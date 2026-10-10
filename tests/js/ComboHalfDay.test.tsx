@@ -1,7 +1,7 @@
 import ComboDetail from '@/Pages/ComboDetail';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 /**
  * bopcamping-w7gi — chọn buổi (nửa ngày) cho combo.
@@ -88,12 +88,23 @@ const ve = (earlyPct: number) =>
 
 describe('chọn buổi cho combo (bopcamping-w7gi)', () => {
     beforeEach(() => {
+        // Ngày thuê gợi ý ở trên ghi cứng (2026-09-01). Không ghim đồng hồ thì qua ngày
+        // đó trang coi là ngày quá khứ, bỏ khoảng ngày → test tự vỡ theo lịch (đã vỡ
+        // 10/10/2026). Chỉ giả Date, timer thật để userEvent chạy bình thường.
+        vi.useFakeTimers({
+            now: new Date('2026-08-20T08:00:00'),
+            toFake: ['Date'],
+        });
         vi.stubGlobal(
             'fetch',
             vi.fn(() =>
                 Promise.resolve({ ok: false, json: () => Promise.resolve({}) }),
             ),
         );
+    });
+
+    afterEach(() => {
+        vi.useRealTimers();
     });
 
     it('thuê 1 ngày -> hiện đủ ba lựa chọn buổi kèm khung giờ', () => {
