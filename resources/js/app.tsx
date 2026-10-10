@@ -1,14 +1,13 @@
 import '../css/app.css';
 import './bootstrap';
 
+import { documentTitle } from '@/lib/seo';
 import { createInertiaApp } from '@inertiajs/react';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import { createRoot } from 'react-dom/client';
 
-const appName = import.meta.env.VITE_APP_NAME || 'BỐP CAMPING';
-
 createInertiaApp({
-    title: (title) => `${title} - ${appName}`,
+    title: documentTitle,
     resolve: (name) =>
         resolvePageComponent(
             `./Pages/${name}.tsx`,

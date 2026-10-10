@@ -24,7 +24,10 @@ class SeoService
     public function page(string $title, ?string $description = null, ?string $image = null, ?string $url = null, ?array $jsonld = null): array
     {
         $seo = [
-            'title' => $title,
+            // Brand đúng 1 lần trong MỌI seo.title — bất biến mà client dựa vào
+            // (resources/js/lib/seo.ts documentTitle không nối thêm khi đã có brand),
+            // nhờ đó document.title sau hydrate trùng khít <title> server (bopcamping-ft1j).
+            'title' => $this->withBrand($title),
             'description' => $this->plainText($description),
             'url' => $url ?? url()->current(),
         ];

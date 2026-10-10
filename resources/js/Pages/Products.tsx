@@ -2,7 +2,7 @@ import ProductCard from '@/Components/site/ProductCard';
 import RentalRangeBar from '@/Components/site/RentalRangeBar';
 import SiteLayout from '@/Layouts/SiteLayout';
 import type { ProductResource } from '@/types/product';
-import { Head, router } from '@inertiajs/react';
+import { router } from '@inertiajs/react';
 import { MouseEvent, ReactNode, useState } from 'react';
 
 type Sort = 'pop' | 'low' | 'high';
@@ -103,7 +103,6 @@ export default function Products({
 
     return (
         <>
-            <Head title="Thuê đồ — Kho thiết bị" />
             <main className="mx-auto max-w-[1400px] px-5 pb-10 pt-[34px]">
                 <div className="mb-6">
                     <div className="mb-[7px] font-mono text-[12px] tracking-[0.1em] text-campfire">

@@ -1,7 +1,6 @@
 import ComboCard, { type ComboCardData } from '@/Components/site/ComboCard';
 import RentalRangeBar from '@/Components/site/RentalRangeBar';
 import SiteLayout from '@/Layouts/SiteLayout';
-import { Head } from '@inertiajs/react';
 import { ReactNode } from 'react';
 
 type ComboListItem = ComboCardData & {
@@ -29,7 +28,6 @@ export default function Combos({
 }: Props) {
     return (
         <>
-            <Head title="Combo thuê trọn bộ" />
             <main className="mx-auto max-w-[1400px] px-5 pb-12 pt-[30px]">
                 <div className="mb-2 font-mono text-[12px] tracking-[0.1em] text-campfire">
                     THUÊ TRỌN BỘ · RẺ HƠN THUÊ LẺ

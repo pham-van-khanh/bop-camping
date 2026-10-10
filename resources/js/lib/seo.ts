@@ -36,12 +36,31 @@ export function comboTitle(name: string): string {
     return `${name.trim()} — Thuê trọn bộ tại ${SEO_BRAND}`;
 }
 
+/** Tiêu đề đã chứa brand chưa (không phân biệt hoa thường/dấu — "Bop Camping" cũng tính). */
+export function hasBrand(title: string): boolean {
+    return normalize(title).includes(normalize(SEO_BRAND));
+}
+
 export function staticPageTitle(title: string): string {
     const t = title.trim();
     if (t === '') return SEO_BRAND;
-    return normalize(t).includes(normalize(SEO_BRAND))
-        ? t
-        : `${t} | ${SEO_BRAND}`;
+    return hasBrand(t) ? t : `${t} | ${SEO_BRAND}`;
+}
+
+/**
+ * Title callback của createInertiaApp (resources/js/app.tsx) — bopcamping-ft1j.
+ *
+ * Trang khách: SiteLayout đặt `<Head title={seo.title}>`, mà server (SeoService::page)
+ * luôn đảm bảo seo.title có brand → hàm này trả NGUYÊN VĂN, document.title sau hydrate
+ * trùng khít <title> server in ra. Trước đây hàm luôn nối " - BỐP CAMPING" và trang tự đặt
+ * `<Head title={product.name}>` → Google (index DOM đã render) thấy title khác server.
+ *
+ * Trang admin/shipper/auth (không có seo.title) truyền tiêu đề ngắn → nối brand một lần.
+ */
+export function documentTitle(title: string): string {
+    const t = title.trim();
+    if (t === '') return SEO_BRAND;
+    return hasBrand(t) ? t : `${t} - ${SEO_BRAND}`;
 }
 
 /** Văn bản thuần như meta description sẽ thấy: gỡ thẻ HTML, gộp khoảng trắng. */

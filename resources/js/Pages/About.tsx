@@ -1,6 +1,6 @@
 import MagazineContent from '@/Components/site/MagazineContent';
 import SiteLayout from '@/Layouts/SiteLayout';
-import { Head, Link } from '@inertiajs/react';
+import { Link } from '@inertiajs/react';
 import { ReactNode } from 'react';
 
 /**
@@ -14,8 +14,6 @@ export default function About({
 }) {
     return (
         <>
-            <Head title={page.title} />
-
             {/* Hero: ảnh bìa (nếu có) + tiêu đề overlay; không có ảnh → banner nền be */}
             {page.cover_url ? (
                 <div className="relative h-[280px] overflow-hidden sm:h-[360px]">
