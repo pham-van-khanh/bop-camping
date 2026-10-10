@@ -10,6 +10,7 @@ type Media = { id: number; type: 'image' | 'video'; url: string };
 type Spot = {
     id: number;
     name: string;
+    slug: string;
     province: string;
     district: string | null;
     terrain_tag: string;
@@ -27,6 +28,7 @@ type Spot = {
 
 type FormData = {
     name: string;
+    slug: string;
     province: string;
     district: string;
     terrain_tag: string;
@@ -90,6 +92,7 @@ export default function AdminCampingSpots({
 
     const blank = (): FormData => ({
         name: '',
+        slug: '',
         province: '',
         district: '',
         terrain_tag: '',
@@ -114,6 +117,7 @@ export default function AdminCampingSpots({
     const openEdit = (s: Spot) => {
         form.setData({
             name: s.name,
+            slug: s.slug,
             province: s.province,
             district: s.district ?? '',
             terrain_tag: s.terrain_tag,
@@ -381,6 +385,16 @@ export default function AdminCampingSpots({
                                                                 {s.description}
                                                             </p>
                                                         )}
+                                                        <a
+                                                            href={`/diem-cam-trai/${s.slug}`}
+                                                            target="_blank"
+                                                            rel="noreferrer"
+                                                            className="mb-2 mr-4 inline-block text-[12.5px] font-semibold text-grass hover:text-pine"
+                                                        >
+                                                            Xem trang:
+                                                            /diem-cam-trai/
+                                                            {s.slug} ↗
+                                                        </a>
                                                         {s.map_url && (
                                                             <a
                                                                 href={s.map_url}
@@ -587,6 +601,25 @@ export default function AdminCampingSpots({
                                 />
                             </Field>
 
+                            <Field
+                                label="Slug (đường dẫn trang điểm)"
+                                error={form.errors.slug}
+                            >
+                                <input
+                                    type="text"
+                                    value={form.data.slug}
+                                    onChange={(e) =>
+                                        form.setData('slug', e.target.value)
+                                    }
+                                    className={inputCls}
+                                    placeholder="Để trống = tự tạo từ tên (vd: ho-ta-dung)"
+                                />
+                                <p className="mt-1 text-[12px] text-moss">
+                                    Trang: /diem-cam-trai/
+                                    {form.data.slug || '…'}
+                                </p>
+                            </Field>
+
                             <div className="grid grid-cols-2 gap-3">
                                 <Field
                                     label="Tỉnh / Thành"
@@ -702,9 +735,9 @@ export default function AdminCampingSpots({
                                             e.target.value,
                                         )
                                     }
-                                    rows={3}
+                                    rows={6}
                                     className={inputCls}
-                                    placeholder="Vài dòng về điểm cắm trại này..."
+                                    placeholder="Đường đi, chỗ dựng lều, nước/điện, phí vào cổng, lưu ý thời tiết... Đây là nội dung chính của trang điểm trên Google."
                                 />
                             </Field>
 

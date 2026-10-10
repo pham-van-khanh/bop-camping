@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Models\CampingSpotMedia;
 use App\Models\ComboImage;
 use App\Models\MediaVariant;
 use App\Models\Product;
@@ -17,13 +18,15 @@ class GenerateMediaVariantsCommand extends Command
 {
     protected $signature = 'media:variants {--dry-run : Chỉ đếm, không resize}';
 
-    protected $description = 'Sinh biến thể WebP đã resize cho ảnh sản phẩm/combo chưa có';
+    protected $description = 'Sinh biến thể WebP đã resize cho ảnh sản phẩm/combo/điểm cắm trại chưa có';
 
     public function handle(): int
     {
         $paths = collect()
             ->concat(ProductImage::where('type', 'image')->pluck('path'))
             ->concat(ComboImage::where('type', 'image')->pluck('path'))
+            // Ảnh điểm cắm trại — hiện trên trang /diem-cam-trai/{slug} (bopcamping-y05c).
+            ->concat(CampingSpotMedia::where('type', 'image')->pluck('path'))
             ->concat(Product::whereNotNull('thumbnail')->pluck('thumbnail'))
             ->filter()
             ->unique()
