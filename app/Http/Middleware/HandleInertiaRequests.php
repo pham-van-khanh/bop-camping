@@ -167,8 +167,9 @@ class HandleInertiaRequests extends Middleware
             'return_hour' => (int) $s->return_hour,
             'morning_end_hour' => (int) $s->morning_end_hour,
             'afternoon_start_hour' => (int) $s->afternoon_start_hour,
-            'addresses' => ServiceLocation::open()->ordered()->get(['name', 'area'])
-                ->map(fn (ServiceLocation $l) => ['name' => $l->name, 'area' => $l->area])
+            // slug: footer link sang trang khu vực /thue-do-cam-trai/{slug} (bopcamping-y05c).
+            'addresses' => ServiceLocation::open()->ordered()->get(['name', 'slug', 'area'])
+                ->map(fn (ServiceLocation $l) => ['name' => $l->name, 'slug' => $l->slug, 'area' => $l->area])
                 ->values(),
         ];
     }

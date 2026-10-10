@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasAutoSlug;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -9,8 +10,11 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class CampingSpot extends Model
 {
+    /** Slug cho trang /diem-cam-trai/{slug} (bopcamping-y05c). */
+    use HasAutoSlug;
+
     protected $fillable = [
-        'name', 'province', 'district', 'terrain_tag', 'description', 'map_url',
+        'name', 'slug', 'province', 'district', 'terrain_tag', 'description', 'map_url',
         'best_season_from', 'best_season_to', 'nearest_service_location_id',
         'is_suggested', 'sort_order',
     ];

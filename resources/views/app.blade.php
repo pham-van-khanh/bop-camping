@@ -30,7 +30,8 @@
         <meta name="description" content="{{ $seoDesc }}">
         <meta name="keywords" content="thuê đồ cắm trại, cho thuê lều, thuê túi ngủ, thuê bếp dã ngoại, camping Vinh, camping Hà Nội, cắm trại">
         <meta name="author" content="{{ $brand }}">
-        <meta name="robots" content="index, follow">
+        {{-- seo.robots: SeoService::noindex() cho trang mỏng (vd điểm cắm trại chưa có mô tả/ảnh). --}}
+        <meta name="robots" content="{{ $seo['robots'] ?? 'index, follow' }}">
         <meta name="theme-color" content="#557A2B">
         <meta name="thumbnail" content="{{ $seoImage }}">
         <link rel="canonical" href="{{ $seoUrl }}">

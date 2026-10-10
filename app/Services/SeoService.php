@@ -203,25 +203,84 @@ class SeoService
             ], fn ($v) => $v !== null)];
         }
 
-        return $withAddress->map(fn (ServiceLocation $l) => array_filter([
+        return $withAddress
+            ->map(fn (ServiceLocation $l) => $this->localBusinessFor($l, $telephone, $workingHours))
+            ->values()->all();
+    }
+
+    /**
+     * LocalBusiness của MỘT cơ sở — single source cho cả khối site-wide (khi cơ sở đã có địa
+     * chỉ) lẫn trang khu vực /thue-do-cam-trai/{slug} (bopcamping-y05c). Hai chỗ cùng gọi hàm
+     * này nên không bao giờ lệch nhau.
+     *
+     * `@id` + `url` trỏ về trang khu vực: đó là trang mô tả đúng cơ sở này (địa chỉ, giờ, hàng
+     * có sẵn). Cùng @id ở khối site-wide và khối trên trang khu vực -> Google gộp làm một thực
+     * thể, không thành hai cửa hàng trùng nhau.
+     *
+     * `address` chỉ khai khi admin đã điền — không bịa PostalAddress từ tên khu vực.
+     *
+     * @return array<string, mixed>
+     */
+    public function localBusinessFor(ServiceLocation $l, string $telephone, ?string $workingHours): array
+    {
+        $pageUrl = url('/thue-do-cam-trai/'.$l->slug);
+
+        return array_filter([
             '@context' => 'https://schema.org',
             '@type' => 'LocalBusiness',
+            '@id' => $pageUrl.'#store',
             'name' => self::BRAND.' - '.$l->name,
             'description' => 'Cho thuê thiết bị cắm trại theo ngày — lều, bếp, túi ngủ, đèn trại.',
-            'url' => url('/'),
+            'url' => $pageUrl,
             'image' => url('/images/album/forest-camp-aerial.jpg'),
             'telephone' => $telephone,
-            'address' => array_filter([
+            'address' => filled($l->address) ? array_filter([
                 '@type' => 'PostalAddress',
                 'streetAddress' => $l->address,
                 'addressLocality' => $l->name,
                 'addressRegion' => $l->area,
                 'addressCountry' => 'VN',
-            ], fn ($v) => filled($v)),
+            ], fn ($v) => filled($v)) : null,
+            'hasMap' => $l->map_url ?: null,
             'areaServed' => [$l->name],
             'openingHours' => $workingHours,
             'priceRange' => '$$',
-        ], fn ($v) => $v !== null))->values()->all();
+        ], fn ($v) => $v !== null);
+    }
+
+    /**
+     * Ngưỡng "trang mỏng" (thin content): ít hơn số ký tự văn bản này VÀ không có ảnh nào.
+     *
+     * Trang điểm cắm trại sinh tự động từ một bản ghi admin có khi chỉ gõ 1 câu (~60 ký tự).
+     * Google gặp hàng loạt trang na ná nhau gần như rỗng thì hạ chất lượng cả site — nên
+     * trang mỏng vẫn mở cho khách (và liên kết nội bộ vẫn chạy) nhưng gắn `noindex` và
+     * không khai trong sitemap, tới khi admin viết thêm mô tả hoặc tải ảnh lên.
+     */
+    public const THIN_CONTENT_CHARS = 200;
+
+    /** True khi nội dung chính quá ít để đáng được index — xem THIN_CONTENT_CHARS. */
+    public function isThinContent(?string $html, int $imageCount): bool
+    {
+        if ($imageCount > 0) {
+            return false;
+        }
+
+        return mb_strlen((string) $this->plainText($html, 100000)) < self::THIN_CONTENT_CHARS;
+    }
+
+    /**
+     * Gắn `<meta name="robots" content="noindex, follow">` cho trang (app.blade.php đọc
+     * `seo.robots`, mặc định "index, follow"). `follow` để Google vẫn đi theo liên kết
+     * nội bộ từ trang này sang trang khu vực / điểm khác.
+     *
+     * @param  array<string, mixed>  $seo  kết quả của page()
+     * @return array<string, mixed>
+     */
+    public function noindex(array $seo): array
+    {
+        $seo['robots'] = 'noindex, follow';
+
+        return $seo;
     }
 
     /**
