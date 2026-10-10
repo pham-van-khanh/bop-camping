@@ -3,6 +3,11 @@ import AddressPicker, {
 } from '@/Components/site/AddressPicker';
 import { COMBO_GRAD } from '@/Components/site/ComboCard';
 import SiteLayout from '@/Layouts/SiteLayout';
+import {
+    itemFromCartLine,
+    trackBeginCheckout,
+    trackPurchase,
+} from '@/lib/analytics';
 import { emit, EVENTS, on } from '@/lib/bus';
 import {
     addLine,
@@ -40,7 +45,14 @@ import {
 import type { PageProps } from '@/types';
 import { Head, Link, useForm, usePage } from '@inertiajs/react';
 import axios from 'axios';
-import { ChangeEvent, ReactNode, useEffect, useMemo, useState } from 'react';
+import {
+    ChangeEvent,
+    ReactNode,
+    useEffect,
+    useMemo,
+    useRef,
+    useState,
+} from 'react';
 
 type CheckoutItem = {
     product_id: number;
@@ -289,8 +301,17 @@ export default function Cart() {
     }, []);
 
     useEffect(() => {
-        if (flash.order_code) clearCart();
-    }, [flash.order_code]);
+        if (!flash.order_code) return;
+        // Đo lường purchase (bopcamping-wi6h): đọc giỏ TRƯỚC khi xoá để có danh sách món.
+        // trackPurchase tự khử trùng theo mã đơn (reload/Back không bắn lại).
+        trackPurchase({
+            transactionId: flash.order_code,
+            value: flash.order_value ?? 0,
+            items: getCart().map(itemFromCartLine),
+        });
+        clearCart();
+        // order_value đi cùng order_code trong cùng 1 flash; trackPurchase tự khử trùng theo mã.
+    }, [flash.order_code, flash.order_value]);
 
     // Giữ voucher_codes của form đồng bộ với lựa chọn.
     useEffect(() => setData('voucher_codes', selectedCodes), [selectedCodes]);
@@ -550,12 +571,26 @@ export default function Cart() {
             ? 'Tick xác nhận điều khoản để đặt đơn.'
             : '';
 
+    // begin_checkout (bopcamping-wi6h): lần ĐẦU khách bắt tay điền thông tin đặt đơn —
+    // trang giỏ gộp luôn form checkout, nên "mở giỏ" chưa phải là bắt đầu thanh toán.
+    const checkoutTracked = useRef(false);
+    const markCheckoutStarted = () => {
+        if (checkoutTracked.current || lines.length === 0) return;
+        checkoutTracked.current = true;
+        trackBeginCheckout(lines.map(itemFromCartLine));
+    };
+
     const set =
         (k: 'name' | 'phone' | 'email' | 'address' | 'note') =>
-        (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+        (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+            markCheckoutStarted();
             setData(k, e.target.value);
+        };
 
-    const submit = () => post(route('order.store'));
+    const submit = () => {
+        markCheckoutStarted();
+        post(route('order.store'));
+    };
 
     // ----- Đặt thành công -----
     if (flash.order_code) {

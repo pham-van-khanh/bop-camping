@@ -11,6 +11,8 @@ export interface Flash {
     order_name?: string;
     order_phone?: string;
     order_pay?: number;
+    // Giá trị đơn cho đo lường (tiền thuê − giảm, KHÔNG gồm cọc) — bopcamping-wi6h.
+    order_value?: number;
     order_discount?: number;
     order_items?: number;
     success?: string;

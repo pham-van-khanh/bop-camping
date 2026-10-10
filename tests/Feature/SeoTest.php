@@ -48,7 +48,7 @@ class SeoTest extends TestCase
 
         $html = $this->get('/')->getContent();
         $this->assertStringContainsString('https://www.googletagmanager.com/gtag/js?id=G-ABC12345', $html);
-        $this->assertStringContainsString("gtag('config','G-ABC12345')", $html);
+        $this->assertStringContainsString('gtag(\'config\',"G-ABC12345")', $html);
         $this->assertStringContainsString('<meta name="google-site-verification" content="verify-token-xyz">', $html);
     }
 

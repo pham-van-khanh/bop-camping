@@ -132,6 +132,9 @@ export type Order = {
     delivery_method: string;
     delivery_method_label: string;
     location_auto_assigned: boolean;
+    // Nguồn đơn first-touch (bopcamping-wi6h): label = utm_source → nền tảng theo click id
+    // → referrer → "Trực tiếp / không rõ" (AttributionService::label).
+    attribution?: OrderAttribution;
     // Đơn cha/con (bopcamping-wtuv): cha gom N đợt giao; con nằm trong children của cha.
     is_parent: boolean;
     children?: Order[];
@@ -1165,6 +1168,10 @@ export function OrderDetailPanel({
                     )}
                 </div>
 
+                {order.attribution && (
+                    <AttributionInfo attribution={order.attribution} />
+                )}
+
                 {/* Đổi lịch — chỉ đơn chưa giao (bopcamping-5hjm) */}
                 {['pending', 'confirmed'].includes(order.status) && (
                     <>
@@ -1586,5 +1593,70 @@ export function OrderDetailPanel({
                 )}
             </div>
         </div>
+    );
+}
+
+export type OrderAttribution = {
+    label: string;
+    utm_source: string | null;
+    utm_medium: string | null;
+    utm_campaign: string | null;
+    utm_content: string | null;
+    utm_term: string | null;
+    referrer_host: string | null;
+    click_id_type: string | null;
+};
+
+const CLICK_ID_LABEL: Record<string, string> = {
+    gclid: 'Google Ads',
+    fbclid: 'Facebook/Instagram',
+    ttclid: 'TikTok',
+};
+
+/** "Nguồn" — khách đến từ đâu lần đầu (30 ngày first-touch, bopcamping-wi6h). */
+function AttributionInfo({
+    attribution: a,
+}: {
+    attribution: OrderAttribution;
+}) {
+    const details: [string, string | null][] = [
+        ['Kênh (medium)', a.utm_medium],
+        ['Chiến dịch', a.utm_campaign],
+        ['Nội dung', a.utm_content],
+        ['Từ khoá', a.utm_term],
+        ['Trang giới thiệu', a.referrer_host],
+        [
+            'Click quảng cáo',
+            a.click_id_type
+                ? (CLICK_ID_LABEL[a.click_id_type] ?? a.click_id_type)
+                : null,
+        ],
+    ];
+    const shown = details.filter(([, v]) => !!v);
+
+    return (
+        <>
+            <div className="mb-2 mt-3 text-[12px] font-bold uppercase tracking-[0.04em] text-grass">
+                Nguồn
+            </div>
+            <div className="rounded-[11px] border border-cardBorder bg-white px-3 py-2.5 text-[13px]">
+                <span className="font-bold text-ink">{a.label}</span>
+                {shown.length > 0 ? (
+                    <dl className="mt-1 grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-[12px]">
+                        {shown.map(([k, v]) => (
+                            <div key={k} className="contents">
+                                <dt className="text-moss">{k}</dt>
+                                <dd className="break-all text-ink">{v}</dd>
+                            </div>
+                        ))}
+                    </dl>
+                ) : (
+                    <p className="mt-0.5 text-[12px] text-moss">
+                        Không có UTM/quảng cáo — khách vào thẳng, hoặc đơn đặt
+                        trước khi có tính năng ghi nguồn.
+                    </p>
+                )}
+            </div>
+        </>
     );
 }

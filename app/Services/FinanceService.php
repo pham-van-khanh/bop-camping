@@ -26,6 +26,13 @@ class FinanceService
      */
     public const RESERVE_RATE = 0.55;
 
+    /**
+     * Tiền thuê phải thu của 1 đơn ở dạng SQL — bản SQL của Order::getRentalDueAttribute()
+     * (total_price + extra_fee − discount_total, KHÔNG gồm cọc). Mọi phép SUM tiền thuê
+     * đều dùng hằng này để không ai viết lại công thức (và quên extra_fee) lần nữa.
+     */
+    public const RENTAL_DUE_SQL = 'total_price + extra_fee - discount_total';
+
     /** @var Collection<int, object>|null Vốn góp gom theo người, memoize trong 1 request. */
     private ?Collection $capitalRows = null;
 
@@ -97,7 +104,7 @@ class FinanceService
     public function revenue(?Carbon $from = null, ?Carbon $to = null): int
     {
         return (int) $this->revenueQuery($from, $to)
-            ->selectRaw('COALESCE(SUM(total_price + extra_fee - discount_total), 0) as s')
+            ->selectRaw('COALESCE(SUM('.self::RENTAL_DUE_SQL.'), 0) as s')
             ->value('s');
     }
 
@@ -145,7 +152,7 @@ class FinanceService
     {
         return (int) Order::where('is_parent', false)
             ->whereIn('status', ['confirmed', 'renting'])
-            ->selectRaw('COALESCE(SUM(total_price + extra_fee - discount_total), 0) as s')
+            ->selectRaw('COALESCE(SUM('.self::RENTAL_DUE_SQL.'), 0) as s')
             ->value('s');
     }
 
