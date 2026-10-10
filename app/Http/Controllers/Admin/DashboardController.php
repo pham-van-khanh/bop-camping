@@ -7,6 +7,7 @@ use App\Models\Combo;
 use App\Models\ComboEvent;
 use App\Models\Order;
 use App\Models\OrderItem;
+use App\Services\AttributionService;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -49,7 +50,41 @@ class DashboardController extends Controller
             ],
             'recent' => $recent,
             'combo_stats' => $this->comboStats(),
+            'source_stats' => $this->sourceStats(),
         ]);
+    }
+
+    /**
+     * Nguồn đơn 30 ngày gần nhất (bopcamping-wi6h): số đơn + giá trị (tiền thuê − giảm,
+     * không tính cọc) theo nhãn nguồn first-touch. Bỏ đơn huỷ và đơn CHA (cha = Σ con,
+     * tính cả hai là đếm đôi — cùng luật với các ô đếm phía trên).
+     *
+     * Gom ở SQL theo 3 cột thô rồi gắn nhãn ở PHP qua AttributionService::label() — cùng
+     * hàm với màn chi tiết đơn, để hai nơi không bao giờ gọi một nguồn bằng hai tên.
+     *
+     * @return array<int, array{source:string, orders:int, revenue:int}>
+     */
+    private function sourceStats(): array
+    {
+        $rows = Order::where('is_parent', false)
+            ->where('status', '!=', 'cancelled')
+            ->where('created_at', '>=', now()->subDays(30))
+            ->selectRaw('utm_source, referrer_host, click_id_type, COUNT(*) as orders, COALESCE(SUM(total_price - discount_total), 0) as revenue')
+            ->groupBy('utm_source', 'referrer_host', 'click_id_type')
+            ->get();
+
+        $bySource = [];
+        foreach ($rows as $r) {
+            $label = AttributionService::label($r->utm_source, $r->referrer_host, $r->click_id_type);
+            $bySource[$label] ??= ['source' => $label, 'orders' => 0, 'revenue' => 0];
+            $bySource[$label]['orders'] += (int) $r->orders;
+            $bySource[$label]['revenue'] += (int) $r->revenue;
+        }
+
+        return collect($bySource)
+            ->sortByDesc(fn ($s) => [$s['orders'], $s['revenue']])
+            ->values()
+            ->all();
     }
 
     /**

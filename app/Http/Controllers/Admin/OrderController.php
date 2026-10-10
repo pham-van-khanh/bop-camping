@@ -9,6 +9,7 @@ use App\Models\Order;
 use App\Models\Product;
 use App\Models\PromotionSetting;
 use App\Models\ServiceLocation;
+use App\Services\AttributionService;
 use App\Services\AvailabilityService;
 use App\Services\PaymentQrService;
 use App\Services\RentalPricingService;
@@ -209,6 +210,17 @@ class OrderController extends Controller
             'delivery_method' => $o->delivery_method,
             'delivery_method_label' => $o->deliveryMethodLabel(),
             'location_auto_assigned' => (bool) $o->location_auto_assigned,
+            // Nguồn đơn first-touch (bopcamping-wi6h) — null = đơn trước khi có tính năng / vào thẳng.
+            'attribution' => [
+                'label' => AttributionService::label($o->utm_source, $o->referrer_host, $o->click_id_type),
+                'utm_source' => $o->utm_source,
+                'utm_medium' => $o->utm_medium,
+                'utm_campaign' => $o->utm_campaign,
+                'utm_content' => $o->utm_content,
+                'utm_term' => $o->utm_term,
+                'referrer_host' => $o->referrer_host,
+                'click_id_type' => $o->click_id_type,
+            ],
             'items' => $o->items->map(fn ($i) => [
                 'name' => $i->product?->name ?? '(đã xoá)',
                 'quantity' => $i->quantity,
