@@ -95,6 +95,35 @@ class ReviewRichResultTest extends TestCase
         $this->get('/')->assertDontSee('AggregateRating', false)->assertDontSee('"Review"', false);
     }
 
+    /**
+     * Tên/nội dung đánh giá là chữ khách tự gõ, mà JSON-LD in bằng {!! !!}. Phải không
+     * thoát được khỏi thẻ <script> (CWE-79) — kể cả khi gõ dạng thực thể &lt;/script&gt;
+     * (plainText giải mã thực thể thành ký tự thật).
+     *
+     * @test
+     */
+    public function review_text_cannot_break_out_of_the_jsonld_script_tag(): void
+    {
+        $product = Product::factory()->create(['slug' => 'leu-xss']);
+        $this->review([
+            'product_id' => $product->id, 'category' => 'product',
+            'reviewer_name' => '</script><script>alert(1)</script>',
+            'content' => '&lt;/script&gt;&lt;script&gt;alert(2)&lt;/script&gt;',
+        ]);
+
+        $html = $this->get('/thiet-bi/leu-xss')->assertOk()->getContent();
+
+        $this->assertStringNotContainsString('<script>alert(1)', $html);
+        $this->assertStringNotContainsString('<script>alert(2)', $html);
+
+        // JSON-LD vẫn hợp lệ và giữ đúng chữ khách gõ sau khi giải mã.
+        preg_match_all('#<script type="application/ld\+json">(.*?)</script>#s', $html, $m);
+        $nodes = collect($m[1])->map(fn ($j) => json_decode($j, true, flags: JSON_THROW_ON_ERROR));
+        $product = $nodes->flatten(1)->firstWhere('@type', 'Product');
+        $this->assertSame('</script><script>alert(1)</script>', $product['review'][0]['author']['name']);
+        $this->assertSame('</script><script>alert(2)</script>', $product['review'][0]['reviewBody']);
+    }
+
     // ── helpers ──────────────────────────────────────────────────────────────
 
     private function combo(string $slug): Combo
