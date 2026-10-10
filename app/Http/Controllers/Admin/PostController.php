@@ -28,7 +28,9 @@ class PostController extends Controller
 {
     public function index(): Response
     {
+        // Bỏ cột content (longText, tới 200KB/bài) — danh sách không cần.
         $posts = Post::query()
+            ->select(['id', 'title', 'slug', 'status', 'published_at', 'updated_at', 'cover_path'])
             ->orderByRaw('published_at IS NULL DESC')
             ->orderByDesc('published_at')
             ->orderByDesc('id')

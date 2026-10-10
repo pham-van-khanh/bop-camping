@@ -174,6 +174,10 @@ class PostController extends Controller
     /** Ảnh đầu tiên trong nội dung — dùng làm og:image khi bài không có ảnh bìa. */
     private function firstContentImage(?string $html): ?string
     {
-        return $html && preg_match('/<img[^>]+src="([^"]+)"/i', $html, $m) ? $m[1] : null;
+        // Purifier lưu src dạng đã escape (&amp;) — giải mã trước khi blade escape lại,
+        // nếu không og:image thành "&amp;amp;" và ảnh không tải được.
+        return $html && preg_match('/<img[^>]+src="([^"]+)"/i', $html, $m)
+            ? html_entity_decode($m[1], ENT_QUOTES | ENT_HTML5, 'UTF-8')
+            : null;
     }
 }

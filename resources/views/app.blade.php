@@ -83,7 +83,7 @@
              WebSite, FAQPage đều mất @context nên Google không đọc được khối nào.
              Dựng sẵn ở SeoService::siteJsonLd() rồi chỉ in ra ở đây. --}}
         @foreach ($seoSite['site_jsonld'] ?? [] as $block)
-            <script type="application/ld+json">{!! json_encode($block, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) !!}</script>
+            <script type="application/ld+json">{!! json_encode($block, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG) !!}</script>
         @endforeach
 
         {{-- FAQPage KHÔNG khai ở đây (bopcamping-s5ct): markup phải ứng với FAQ nhìn
@@ -94,14 +94,14 @@
 
         {{-- JSON-LD riêng theo trang (vd Product/Breadcrumb ở trang chi tiết) --}}
         @if (! empty($seo['jsonld']))
-            <script type="application/ld+json">{!! json_encode($seo['jsonld'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) !!}</script>
+            <script type="application/ld+json">{!! json_encode($seo['jsonld'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG) !!}</script>
         @endif
 
         {{-- LocalBusiness (site-wide) — chỉ khi shop đã điền hotline ở Cài đặt shop.
              1 khối cho mỗi cơ sở đã có địa chỉ (SeoService::localBusinessJsonLd), gộp
              chung 1 khối generic khi chưa cơ sở nào điền địa chỉ. --}}
         @foreach ($seoSite['local_business'] ?? [] as $block)
-            <script type="application/ld+json">{!! json_encode($block, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) !!}</script>
+            <script type="application/ld+json">{!! json_encode($block, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG) !!}</script>
         @endforeach
 
         {{-- Google Tag Manager (chỉ khi đặt GTM_ID trong .env) --}}

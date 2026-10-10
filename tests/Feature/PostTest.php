@@ -433,4 +433,53 @@ class PostTest extends TestCase
 
         $this->assertStringNotContainsString('/cam-nang', $xml);
     }
+
+    /**
+     * Tiêu đề bài đi thẳng vào JSON-LD (breadcrumb name, BlogPosting headline) và được
+     * in RAW bằng {!! json_encode() !!} trong <head>. Không escape '<' thì tiêu đề chứa
+     * "</script>" phá khối ld+json và chèn script tuỳ ý cho mọi khách (CWE-79).
+     * headline còn đi qua plainText() vốn GIẢI MÃ thực thể, nên "&lt;/script&gt;" cũng thành
+     * "</script>" — phải escape ở tầng in ra, không phải ở tầng dữ liệu.
+     *
+     * @test
+     */
+    public function jsonld_cannot_break_out_of_script_tag_via_title(): void
+    {
+        Post::factory()->create([
+            'slug' => 'xss-title',
+            'title' => '</script><script>alert(1)</script>',
+            'excerpt' => '&lt;/script&gt;&lt;script&gt;alert(2)&lt;/script&gt;',
+        ]);
+
+        $html = $this->get('/cam-nang/xss-title')->assertOk()->getContent();
+
+        $this->assertStringNotContainsString('<script>alert(', $html);
+        // JSON-LD vẫn hợp lệ và giữ đúng tiêu đề sau khi giải mã.
+        preg_match_all('#application/ld\+json">(.*?)</script>#s', $html, $m);
+        $types = [];
+        foreach ($m[1] as $block) {
+            $data = json_decode($block, true, flags: JSON_THROW_ON_ERROR);
+            foreach (array_is_list($data) ? $data : [$data] as $node) {
+                $types[] = $node['@type'];
+                if ($node['@type'] === 'BreadcrumbList') {
+                    $this->assertSame('</script><script>alert(1)</script>', end($node['itemListElement'])['name']);
+                }
+            }
+        }
+        $this->assertContains('BlogPosting', $types);
+        $this->assertContains('BreadcrumbList', $types);
+    }
+
+    /** og:image lấy từ ảnh đầu bài phải là URL thật, không còn &amp; do Purifier escape. @test */
+    public function og_image_from_content_is_entity_decoded(): void
+    {
+        Post::factory()->create([
+            'slug' => 'anh-trong-bai',
+            'cover_path' => null,
+            'content' => '<p>Xem ảnh</p><img src="https://cdn.example.com/a.jpg?w=800&h=600" alt="a">',
+        ]);
+
+        $this->get('/cam-nang/anh-trong-bai')->assertInertia(fn (Assert $p) => $p
+            ->where('seo.image', 'https://cdn.example.com/a.jpg?w=800&h=600'));
+    }
 }
