@@ -8,6 +8,7 @@ import ProductReviews, {
     type ReviewSummary,
 } from '@/Components/site/ProductReviews';
 import SiteLayout from '@/Layouts/SiteLayout';
+import { trackViewItem } from '@/lib/analytics';
 import { emit, EVENTS } from '@/lib/bus';
 import {
     addLine,
@@ -107,6 +108,16 @@ export default function ProductDetail({
     const shopMorningEnd = site?.morning_end_hour ?? 12;
     const shopAfternoonStart = site?.afternoon_start_hour ?? 13;
     const zaloUrl = site?.zalo_1?.url ?? null;
+    // Đo lường (bopcamping-wi6h): view_item mỗi lần mở 1 sản phẩm (đổi SP liên quan cũng tính).
+    useEffect(() => {
+        trackViewItem({
+            id: String(product.id),
+            name: product.name,
+            category: product.category.slug,
+            pricePerDay: product.price_per_day,
+            quantity: 1,
+        });
+    }, [product.id]);
     const [activeImg, setActiveImg] = useState(0);
     const [lightboxOpen, setLightboxOpen] = useState(false);
     // Prefill ngày từ giỏ (bopcamping-wtuv T5): giỏ đã có khoảng ngày → sản phẩm mở sau tự

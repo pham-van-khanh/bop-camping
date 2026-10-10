@@ -6,6 +6,7 @@ import ProductReviews, {
     type ReviewSummary,
 } from '@/Components/site/ProductReviews';
 import SiteLayout from '@/Layouts/SiteLayout';
+import { trackViewItem } from '@/lib/analytics';
 import { emit, EVENTS } from '@/lib/bus';
 import {
     addLine,
@@ -101,6 +102,16 @@ export default function ComboDetail({
         }
     ).site;
     const zaloUrl = site?.zalo_1?.url ?? null;
+    // Đo lường (bopcamping-wi6h): view_item — id "combo-<id>" khớp itemFromCartLine().
+    useEffect(() => {
+        trackViewItem({
+            id: `combo-${combo.id}`,
+            name: combo.name,
+            category: 'combo',
+            pricePerDay: combo.combo_price,
+            quantity: 1,
+        });
+    }, [combo.id]);
     // Đọc trực tiếp từng trường như ProductDetail — type SiteInfo chưa khai các trường giờ.
     const hours = {
         pickup: site?.pickup_hour ?? 8,

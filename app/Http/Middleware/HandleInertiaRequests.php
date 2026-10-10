@@ -59,6 +59,7 @@ class HandleInertiaRequests extends Middleware
                 'order_name' => session('order_name'),
                 'order_phone' => session('order_phone'),
                 'order_pay' => session('order_pay'),
+                'order_value' => session('order_value'),
                 'order_discount' => session('order_discount'),
                 'order_items' => session('order_items'),
                 'success' => session('success'),
@@ -125,6 +126,9 @@ class HandleInertiaRequests extends Middleware
         return [
             'ga_id' => $s->ga_measurement_id,
             'google_verification' => $s->google_site_verification,
+            // Pixel quảng cáo (bopcamping-wi6h) — blade chỉ chèn khi có mã và KHÔNG ở /admin, /shipper.
+            'meta_pixel_id' => $s->meta_pixel_id,
+            'tiktok_pixel_id' => $s->tiktok_pixel_id,
             // Organization + WebSite dựng ở PHP rồi mới đưa sang blade. Viết thẳng trong
             // .blade.php thì Laravel 11+ nuốt mất '@context' (có directive cùng tên) —
             // đo trên production 11/08: cả hai khối này đều hỏng @context.

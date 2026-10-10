@@ -36,6 +36,7 @@ export default function Footer() {
 
     return (
         <footer
+            data-track-placement="footer"
             className="mt-5 border-t border-[#c2dcec]"
             style={{ background: 'rgba(214,236,247,.55)' }}
         >
