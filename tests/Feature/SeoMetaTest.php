@@ -191,7 +191,7 @@ class SeoMetaTest extends TestCase
         $detail->assertSee('Lều đôi Rich', false);
         $detail->assertSee('"sku"', false);
         $detail->assertSee('PeopleAudience', false);
-        // Review chỉ gắn vào product — combo không có, đừng bịa điểm.
+        // Combo chưa có đánh giá riêng nào — đừng bịa điểm (xem ReviewRichResultTest).
         $detail->assertDontSee('aggregateRating', false);
     }
 
