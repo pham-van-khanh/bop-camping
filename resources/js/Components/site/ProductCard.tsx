@@ -80,6 +80,11 @@ export default function ProductCard({
                                → @2x cần ~586px, browser chọn bậc 800 (bopcamping-ix4n). */
                             sizes="(min-width: 1024px) 300px, (min-width: 640px) 50vw, 100vw"
                             loading="lazy"
+                            decoding="async"
+                            /* Kích thước nội tại cho audit CLS — khung 240px cố định +
+                               object-cover nên con số không đổi bố cục thật. */
+                            width={400}
+                            height={320}
                             alt={p.name}
                             className="absolute inset-0 h-full w-full object-cover"
                         />

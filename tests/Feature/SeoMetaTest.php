@@ -125,7 +125,7 @@ class SeoMetaTest extends TestCase
         $res = $this->get('/combos');
 
         $res->assertInertia(fn ($p) => $p
-            ->where('seo.title', 'Combo thuê đồ cắm trại trọn bộ — tiết kiệm hơn thuê lẻ')
+            ->where('seo.title', 'Combo thuê đồ cắm trại trọn bộ — tiết kiệm hơn thuê lẻ | BỐP CAMPING')
             ->has('seo.description'));
         // Không được mang title mặc định của trang chủ.
         $res->assertDontSee('<title inertia>BỐP CAMPING — Cho thuê thiết bị cắm trại</title>', false);
@@ -191,7 +191,7 @@ class SeoMetaTest extends TestCase
         $detail->assertSee('Lều đôi Rich', false);
         $detail->assertSee('"sku"', false);
         $detail->assertSee('PeopleAudience', false);
-        // Review chỉ gắn vào product — combo không có, đừng bịa điểm.
+        // Combo chưa có đánh giá riêng nào — đừng bịa điểm (xem ReviewRichResultTest).
         $detail->assertDontSee('aggregateRating', false);
     }
 

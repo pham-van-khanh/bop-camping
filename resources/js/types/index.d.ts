@@ -62,6 +62,16 @@ export type PageProps<
     emailBonus: EmailBonus;
     durationTiers: { minDays: number; percent: number }[];
     site: SiteInfo;
+    /**
+     * SEO của trang (SeoService::page). Middleware luôn share `{ url }`; trang khách công
+     * khai có thêm `title` (luôn mang brand) — SiteLayout dùng nó làm document.title.
+     */
+    seo?: {
+        title?: string;
+        description?: string;
+        url?: string;
+        image?: string;
+    };
     /** Khác null khi admin đang xem hộ tài khoản khách (bopcamping-bqsv). */
     impersonating?: { name: string | null } | null;
     pending_reviews?: number | null;

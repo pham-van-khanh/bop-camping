@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Category;
+use App\Models\Review;
 use App\Models\ServiceLocation;
 use Illuminate\Support\Str;
 
@@ -23,7 +24,10 @@ class SeoService
     public function page(string $title, ?string $description = null, ?string $image = null, ?string $url = null, ?array $jsonld = null): array
     {
         $seo = [
-            'title' => $title,
+            // Brand đúng 1 lần trong MỌI seo.title — bất biến mà client dựa vào
+            // (resources/js/lib/seo.ts documentTitle không nối thêm khi đã có brand),
+            // nhờ đó document.title sau hydrate trùng khít <title> server (bopcamping-ft1j).
+            'title' => $this->withBrand($title),
             'description' => $this->plainText($description),
             'url' => $url ?? url()->current(),
         ];
@@ -283,6 +287,53 @@ class SeoService
                 'acceptedAnswer' => ['@type' => 'Answer', 'text' => $qa['answer']],
             ])->all(),
         ];
+    }
+
+    /**
+     * Mảnh `aggregateRating` + `review` gắn vào node Product (sản phẩm lẻ VÀ combo).
+     *
+     * Dùng chung một chỗ cho hai controller: trước đây chỉ ProductController khai
+     * aggregateRating, còn combo bỏ trống dù đã có đánh giá riêng theo `combo_id`.
+     *
+     * Chỉ nhận đánh giá ĐÃ DUYỆT của chính sản phẩm/combo đang xem — tức đúng những
+     * đánh giá đang hiện trên trang (Google đòi markup khớp nội dung nhìn thấy). KHÔNG
+     * dùng cho Organization/LocalBusiness: Google coi review tự khai về chính doanh
+     * nghiệp là "self-serving" và không hiện sao.
+     *
+     * Trả mảng rỗng khi chưa có đánh giá — không bịa điểm.
+     *
+     * @param  iterable<int, Review>  $reviews  đánh giá đã duyệt (mới nhất trước)
+     * @return array<string, mixed>
+     */
+    public function reviewMarkup(int $count, float $avg, iterable $reviews, int $limit = 5): array
+    {
+        if ($count < 1) {
+            return [];
+        }
+
+        $items = collect($reviews)->take($limit)->map(fn ($r) => array_filter([
+            '@type' => 'Review',
+            'author' => ['@type' => 'Person', 'name' => $r->reviewer_name ?: 'Khách thuê'],
+            'datePublished' => $r->created_at?->toDateString(),
+            'reviewBody' => $this->plainText($r->content, 500),
+            'reviewRating' => [
+                '@type' => 'Rating',
+                'ratingValue' => (int) $r->rating,
+                'bestRating' => 5,
+                'worstRating' => 1,
+            ],
+        ], fn ($v) => $v !== null))->values()->all();
+
+        return array_filter([
+            'aggregateRating' => [
+                '@type' => 'AggregateRating',
+                'ratingValue' => $avg,
+                'reviewCount' => $count,
+                'bestRating' => 5,
+                'worstRating' => 1,
+            ],
+            'review' => $items ?: null,
+        ], fn ($v) => $v !== null);
     }
 
     /**

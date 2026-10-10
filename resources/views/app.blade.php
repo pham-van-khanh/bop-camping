@@ -41,9 +41,13 @@
              Để ở layout chung thì MỌI trang (sản phẩm, combo, chính sách...) đều tải thừa
              717 KB — đo được là 50% trọng lượng trang chi tiết SP — lại còn ở
              fetchpriority=high nên giành băng thông với ảnh LCP thật của trang đó.
-             Preload sai chỗ thì hại LCP chứ không giúp. --}}
+             Preload sai chỗ thì hại LCP chứ không giúp.
+
+             Href = slide ĐẦU TIÊN thật sự hiện (banner hero admin quản lý), chỉ rơi về
+             ảnh mặc định của HeroSlideshow khi chưa có banner (bopcamping-b4c3). Trước
+             đây ghi cứng .webp trong khi banner seed là .jpg → tải 2 ảnh, preload phí. --}}
         @if (($page['component'] ?? '') === 'Welcome')
-            <link rel="preload" as="image" href="/images/album/beach-night-tent.webp" fetchpriority="high">
+            <link rel="preload" as="image" href="{{ data_get($page, 'props.hero_banners.0.src') ?: '/images/album/beach-night-tent.webp' }}" fetchpriority="high">
         @endif
 
         {{-- Favicon --}}
@@ -83,7 +87,7 @@
              WebSite, FAQPage đều mất @context nên Google không đọc được khối nào.
              Dựng sẵn ở SeoService::siteJsonLd() rồi chỉ in ra ở đây. --}}
         @foreach ($seoSite['site_jsonld'] ?? [] as $block)
-            <script type="application/ld+json">{!! json_encode($block, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) !!}</script>
+            <script type="application/ld+json">{!! json_encode($block, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG) !!}</script>
         @endforeach
 
         {{-- FAQPage KHÔNG khai ở đây (bopcamping-s5ct): markup phải ứng với FAQ nhìn
@@ -92,16 +96,21 @@
              structured data không khớp nội dung. Giờ trang chủ tự đưa vào seo.jsonld
              qua SeoService::faqPage(), sinh từ chính dữ liệu đang render. --}}
 
-        {{-- JSON-LD riêng theo trang (vd Product/Breadcrumb ở trang chi tiết) --}}
+        {{-- JSON-LD riêng theo trang (vd Product/Breadcrumb ở trang chi tiết).
+
+             JSON_HEX_TAG ở MỌI khối JSON-LD là BẮT BUỘC: {!! !!} không escape, mà JSON-LD
+             giờ chứa chữ khách tự gõ (tên + nội dung đánh giá). Không có cờ này thì tên
+             "</script><script>…" thoát khỏi thẻ script = XSS lưu trữ (CWE-79). Cờ đổi
+             < > thành < > — JSON vẫn hợp lệ, Google đọc y nguyên. --}}
         @if (! empty($seo['jsonld']))
-            <script type="application/ld+json">{!! json_encode($seo['jsonld'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) !!}</script>
+            <script type="application/ld+json">{!! json_encode($seo['jsonld'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG) !!}</script>
         @endif
 
         {{-- LocalBusiness (site-wide) — chỉ khi shop đã điền hotline ở Cài đặt shop.
              1 khối cho mỗi cơ sở đã có địa chỉ (SeoService::localBusinessJsonLd), gộp
              chung 1 khối generic khi chưa cơ sở nào điền địa chỉ. --}}
         @foreach ($seoSite['local_business'] ?? [] as $block)
-            <script type="application/ld+json">{!! json_encode($block, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) !!}</script>
+            <script type="application/ld+json">{!! json_encode($block, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG) !!}</script>
         @endforeach
 
         {{-- Google Tag Manager (chỉ khi đặt GTM_ID trong .env) --}}

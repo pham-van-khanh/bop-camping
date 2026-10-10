@@ -390,6 +390,9 @@ class ProductController extends Controller
 
         $reviewCount = $p->reviews()->where('status', 'approved')->count();
         $reviewAvg = $p->averageRating();
+        // Một lần query, dùng cho cả carousel lẫn JSON-LD `review` — markup phải đúng
+        // những đánh giá đang hiện trên trang.
+        $approvedReviews = $p->approvedReviews()->with(['images', 'orderItem'])->limit(20)->get();
         // Sản phẩm chưa có ảnh thì rơi về bìa thương hiệu 1200x630 — đúng tỉ lệ bóc link,
         // hơn là một tấm ảnh album bị mạng xã hội tự cắt (bopcamping-marf).
         $seoImage = $p->thumbnail ? url(Storage::disk('media')->url($p->thumbnail)) : url('/images/og-cover.jpg');
@@ -441,7 +444,7 @@ class ProductController extends Controller
                 'savings_percent' => $bannerCombo->savingsPercent(),
                 'items_count' => $bannerCombo->items->count(),
             ] : null,
-            'reviews' => $this->reviews($p),
+            'reviews' => $this->reviews($approvedReviews),
             'review_summary' => ['count' => $reviewCount, 'avg' => $reviewAvg],
             'can_review' => $user !== null && $user->reviewableOrderItemId($p->id) !== null,
             // SEO riêng cho sản phẩm — share đẹp + Product schema (giá/tồn/sao) + breadcrumb.
@@ -452,7 +455,7 @@ class ProductController extends Controller
                 'url' => url()->current(),
                 // Mảng nhiều node JSON-LD trong 1 thẻ script (Google chấp nhận): Product + Breadcrumb.
                 'jsonld' => [
-                    $this->productJsonLd($p, $seoImage, $seoDesc, $reviewCount, $reviewAvg),
+                    $this->productJsonLd($p, $seoImage, $seoDesc, $reviewCount, $reviewAvg, $approvedReviews),
                     $this->seo->breadcrumb([
                         ['Trang chủ', url('/')],
                         ['Thuê đồ', url('/thiet-bi')],
@@ -558,8 +561,12 @@ class ProductController extends Controller
             ->first();
     }
 
-    /** Product structured data (Google rich result: giá thuê/ngày, tồn kho, sao đánh giá). */
-    private function productJsonLd(Product $p, string $image, string $desc, int $reviewCount, float $reviewAvg): array
+    /**
+     * Product structured data (Google rich result: giá thuê/ngày, tồn kho, sao đánh giá).
+     *
+     * @param  EloquentCollection<int, Review>  $approvedReviews
+     */
+    private function productJsonLd(Product $p, string $image, string $desc, int $reviewCount, float $reviewAvg, EloquentCollection $approvedReviews): array
     {
         $data = [
             '@context' => 'https://schema.org',
@@ -579,21 +586,17 @@ class ProductController extends Controller
             ],
         ];
 
-        if ($reviewCount > 0) {
-            $data['aggregateRating'] = [
-                '@type' => 'AggregateRating',
-                'ratingValue' => $reviewAvg,
-                'reviewCount' => $reviewCount,
-            ];
-        }
-
-        return $data;
+        return $data + $this->seo->reviewMarkup($reviewCount, $reviewAvg, $approvedReviews);
     }
 
-    /** Đánh giá đã duyệt cho carousel (kèm ảnh/video + meta). */
-    private function reviews(Product $p): array
+    /**
+     * Đánh giá đã duyệt cho carousel (kèm ảnh/video + meta).
+     *
+     * @param  EloquentCollection<int, Review>  $approved
+     */
+    private function reviews(EloquentCollection $approved): array
     {
-        return $p->approvedReviews()->with(['images', 'orderItem'])->limit(20)->get()
+        return $approved
             ->map(fn (Review $r) => [
                 'id' => $r->id,
                 'reviewer_name' => $r->reviewer_name,

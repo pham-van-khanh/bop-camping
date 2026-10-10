@@ -99,6 +99,26 @@ describe('icon mạng xã hội ở footer', () => {
     });
 });
 
+describe('ảnh trong footer (bopcamping-b4c3 — audit alt/CLS)', () => {
+    it('mọi ảnh đều có alt, width, height và tải lười', () => {
+        state.site = site({
+            facebook_url: 'https://facebook.com/bopcamping',
+            tiktok_url: 'https://tiktok.com/@bopcamping',
+        });
+        const { container } = render(<Footer />);
+
+        const icons = container.querySelectorAll('a[aria-label] img');
+        expect(icons).toHaveLength(3);
+        icons.forEach((img) => {
+            // alt rỗng là CỐ Ý: link bọc ngoài đã có aria-label, đọc lại tên là thừa.
+            expect(img).toHaveAttribute('alt', '');
+            expect(img).toHaveAttribute('width', '20');
+            expect(img).toHaveAttribute('height', '20');
+            expect(img).toHaveAttribute('loading', 'lazy');
+        });
+    });
+});
+
 describe('cột "Liên hệ Zalo" — theo SỐ, không phải OA', () => {
     it('hiện đủ hai số khi admin điền cả hai, mỗi số trỏ đúng zalo.me của nó', () => {
         state.site = site({

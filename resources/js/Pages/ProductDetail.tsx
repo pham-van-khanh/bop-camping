@@ -24,7 +24,7 @@ import { queryDateRange } from '@/lib/queryDateRange';
 import { isHalfDaySession, type Session } from '@/lib/session';
 import type { PageProps } from '@/types';
 import type { ProductResource } from '@/types/product';
-import { Head, Link, usePage } from '@inertiajs/react';
+import { Link, usePage } from '@inertiajs/react';
 import { ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 
 /**
@@ -563,7 +563,6 @@ export default function ProductDetail({
 
     return (
         <>
-            <Head title={product.name} />
             <main className="mx-auto max-w-[1400px] px-5 pb-12 pt-6">
                 <Link
                     href="/thiet-bi"
