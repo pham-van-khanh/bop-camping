@@ -48,7 +48,11 @@ export interface SiteInfo {
     facebook_url: string | null;
     tiktok_url: string | null;
     working_hours: string | null;
-    addresses: { name: string; area: string | null }[];
+    /** Giờ giao / thu đồ mặc định của shop (adr_turnaround_buffer). */
+    pickup_hour?: number;
+    return_hour?: number;
+    /** slug = URL trang khu vực /thue-do-cam-trai/{slug} (bopcamping-y05c). */
+    addresses: { name: string; slug: string; area: string | null }[];
 }
 
 export type PageProps<

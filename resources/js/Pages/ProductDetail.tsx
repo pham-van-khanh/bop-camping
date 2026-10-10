@@ -943,6 +943,24 @@ export default function ProductDetail({
                             </div>
                         )}
 
+                        {/* Liên kết nội bộ sang trang khu vực (bopcamping-y05c): "Có sẵn tại Vinh, Hà Nội". */}
+                        {stores.length > 0 && (
+                            <p className="mb-[14px] text-[13px] text-moss">
+                                Có sẵn tại{' '}
+                                {stores.map((s, i) => (
+                                    <span key={s.id}>
+                                        {i > 0 && ', '}
+                                        <Link
+                                            href={`/thue-do-cam-trai/${s.slug}`}
+                                            className="font-semibold text-grass hover:text-pine"
+                                        >
+                                            kho {s.name}
+                                        </Link>
+                                    </span>
+                                ))}
+                            </p>
+                        )}
+
                         {/* 1.7: lịch dạng thu gọn — bấm để sổ, chọn xong tự đóng */}
                         <button
                             onClick={() => setCalOpen((o) => !o)}

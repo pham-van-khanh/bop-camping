@@ -3,9 +3,11 @@
 namespace App\Http\Controllers\Shop;
 
 use App\Http\Controllers\Controller;
+use App\Models\CampingSpot;
 use App\Models\Category;
 use App\Models\Combo;
 use App\Models\Product;
+use App\Models\ServiceLocation;
 use App\Models\StaticPage;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -101,6 +103,42 @@ class SitemapController extends Controller
                 'lastmod' => $c->updated_at?->toAtomString(),
                 'changefreq' => 'weekly',
                 'priority' => '0.7',
+            ];
+        }
+
+        // Landing page địa phương (bopcamping-y05c). Trang khu vực hiển thị hàng của kho đó,
+        // nên lastmod = mốc mới nhất giữa bản ghi cơ sở và sản phẩm đang bán ở kho — gom MỘT
+        // truy vấn cho mọi cơ sở. Chỉ cơ sở đang mở (cơ sở sắp mở trả 404).
+        $areaProductMax = Product::active()
+            ->join('product_service_location', 'product_service_location.product_id', '=', 'products.id')
+            ->groupBy('product_service_location.service_location_id')
+            ->selectRaw('product_service_location.service_location_id as loc, MAX(products.updated_at) as m')
+            ->get()
+            ->pluck('m', 'loc');
+        foreach (ServiceLocation::open()->ordered()->get(['id', 'slug', 'updated_at']) as $l) {
+            $urls[] = [
+                'loc' => url('/thue-do-cam-trai/'.$l->slug),
+                'lastmod' => $this->atom(max($l->updated_at?->toDateTimeString(), $areaProductMax[$l->id] ?? null)),
+                'changefreq' => 'weekly',
+                'priority' => '0.8',
+            ];
+        }
+
+        $spots = CampingSpot::orderBy('slug')->get(['slug', 'updated_at']);
+        if ($spots->isNotEmpty()) {
+            $urls[] = [
+                'loc' => url('/diem-cam-trai'),
+                'lastmod' => $this->atom($spots->max('updated_at')),
+                'changefreq' => 'weekly',
+                'priority' => '0.6',
+            ];
+        }
+        foreach ($spots as $s) {
+            $urls[] = [
+                'loc' => url('/diem-cam-trai/'.$s->slug),
+                'lastmod' => $s->updated_at?->toAtomString(),
+                'changefreq' => 'monthly',
+                'priority' => '0.5',
             ];
         }
 

@@ -92,6 +92,21 @@ export default function Footer() {
                         <Link href="/combos" className="hover:text-grass">
                             Combo tiết kiệm
                         </Link>
+                        {(site?.addresses ?? []).map((a) => (
+                            <Link
+                                key={a.slug}
+                                href={`/thue-do-cam-trai/${a.slug}`}
+                                className="hover:text-grass"
+                            >
+                                Thuê đồ cắm trại {a.name}
+                            </Link>
+                        ))}
+                        <Link
+                            href="/diem-cam-trai"
+                            className="hover:text-grass"
+                        >
+                            Điểm cắm trại
+                        </Link>
                         <Link href="/gioi-thieu" className="hover:text-grass">
                             Giới thiệu
                         </Link>

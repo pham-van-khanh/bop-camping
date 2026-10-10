@@ -32,6 +32,7 @@ use App\Http\Controllers\Shop\CartController;
 use App\Http\Controllers\Shop\ComboController;
 use App\Http\Controllers\Shop\FeedbackController;
 use App\Http\Controllers\Shop\GuestAuthController;
+use App\Http\Controllers\Shop\LocalLandingController;
 use App\Http\Controllers\Shop\OrderController;
 use App\Http\Controllers\Shop\OrderLookupController;
 use App\Http\Controllers\Shop\ProductController;
@@ -91,6 +92,14 @@ foreach (array_keys(StaticPage::POLICIES) as $policySlug) {
         ->defaults('slug', $policySlug)
         ->name('policy.'.$policySlug);
 }
+// ---------------------------------------------------------------------------
+// Landing page SEO địa phương (bopcamping-y05c) — trang khu vực theo cơ sở + trang
+// điểm cắm trại. Khai trong sitemap ở SitemapController. Giữ cả khối ở đây để merge
+// với nhánh khác cũng thêm route không đụng nhau.
+Route::get('/thue-do-cam-trai/{slug}', [LocalLandingController::class, 'area'])->name('area.show');
+Route::get('/diem-cam-trai', [LocalLandingController::class, 'spots'])->name('spots.index');
+Route::get('/diem-cam-trai/{slug}', [LocalLandingController::class, 'spot'])->name('spots.show');
+// ---------------------------------------------------------------------------
 // Góp ý trải nghiệm website — widget nổi mọi trang (Epic 2), throttle chống spam
 Route::post('/gop-y', [FeedbackController::class, 'store'])->name('feedback.store')->middleware('throttle:5,1');
 // Đánh giá sau chuyến đi qua link token (không cần đăng nhập)
