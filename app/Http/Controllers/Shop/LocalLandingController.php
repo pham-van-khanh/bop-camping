@@ -92,7 +92,7 @@ class LocalLandingController extends Controller
 
         return Inertia::render('AreaLanding', [
             'seo' => $this->seo->page(
-                $this->seo->withBrand($title),
+                $title,
                 $this->areaDescription($location, $productCount, $categories),
                 url('/images/og-cover.jpg'),
                 $url,
@@ -144,7 +144,7 @@ class LocalLandingController extends Controller
 
         return Inertia::render('CampingSpotIndex', [
             'seo' => $this->seo->page(
-                $this->seo->withBrand($title),
+                $title,
                 $description,
                 url('/images/og-cover.jpg'),
                 url('/diem-cam-trai'),

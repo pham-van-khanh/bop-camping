@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Testing\AssertableInertia as Assert;
+use Tests\Concerns\AssertsSeoTitle;
 use Tests\TestCase;
 
 /**
@@ -21,6 +22,7 @@ use Tests\TestCase;
  */
 class PostTest extends TestCase
 {
+    use AssertsSeoTitle;
     use RefreshDatabase;
 
     protected function setUp(): void
@@ -329,6 +331,21 @@ class PostTest extends TestCase
                 ->where('seo.jsonld.@type', 'BreadcrumbList'))
             ->assertSee('"BreadcrumbList"', false)
             ->assertDontSee('"BlogPosting"', false);
+    }
+
+    /** @test */
+    public function server_title_is_seo_title_with_brand_once_on_list_and_article(): void
+    {
+        Post::factory()->create(['slug' => 'chon-leu', 'title' => 'Chọn lều 2 người hay 4 người']);
+        Post::factory()->create(['slug' => 'co-brand', 'title' => 'Mẹo gấp lều — Bốp Camping']);
+
+        $this->assertSame('Cẩm nang cắm trại | BỐP CAMPING', $this->assertSeoTitleSingleSource($this->get('/cam-nang')));
+        $this->assertSame(
+            'Chọn lều 2 người hay 4 người | BỐP CAMPING',
+            $this->assertSeoTitleSingleSource($this->get('/cam-nang/chon-leu')),
+        );
+        // Tiêu đề admin đã tự gõ brand (khác hoa/thường) → không nối thêm.
+        $this->assertSame('Mẹo gấp lều — Bốp Camping', $this->get('/cam-nang/co-brand')->viewData('page')['props']['seo']['title']);
     }
 
     /** @test */

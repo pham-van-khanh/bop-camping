@@ -3,7 +3,7 @@ import ComboCard, { type ComboCardData } from '@/Components/site/ComboCard';
 import SpotCard, { type SpotCardData } from '@/Components/site/SpotCard';
 import SiteLayout from '@/Layouts/SiteLayout';
 import { terrainGradient } from '@/lib/terrain';
-import { Head, Link } from '@inertiajs/react';
+import { Link } from '@inertiajs/react';
 import { ReactNode, useState } from 'react';
 
 type SpotMedia = {
@@ -50,7 +50,6 @@ export default function CampingSpotDetail({
 
     return (
         <>
-            <Head title={`Cắm trại ở ${spot.name}`} />
             <main className="mx-auto max-w-[1400px] px-5 pb-12 pt-6">
                 <Breadcrumbs
                     items={[

@@ -5,7 +5,7 @@ import SpotCard, { type SpotCardData } from '@/Components/site/SpotCard';
 import SiteLayout from '@/Layouts/SiteLayout';
 import type { PageProps } from '@/types';
 import type { ProductResource } from '@/types/product';
-import { Head, Link, usePage } from '@inertiajs/react';
+import { Link, usePage } from '@inertiajs/react';
 import { ReactNode } from 'react';
 
 type LocationInfo = {
@@ -58,7 +58,6 @@ export default function AreaLanding({
 
     return (
         <>
-            <Head title={`Thuê đồ cắm trại tại ${location.name}`} />
             <main className="mx-auto max-w-[1400px] px-5 pb-12 pt-6">
                 <Breadcrumbs
                     items={[

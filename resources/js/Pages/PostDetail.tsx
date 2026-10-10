@@ -2,7 +2,7 @@ import PostCard, { PostMeta } from '@/Components/site/PostCard';
 import SiteLayout from '@/Layouts/SiteLayout';
 import { money } from '@/lib/format';
 import type { PostCardData, PostDetailData, PostGearItem } from '@/types/post';
-import { Head, Link } from '@inertiajs/react';
+import { Link } from '@inertiajs/react';
 import { ReactNode, useMemo } from 'react';
 
 /**
@@ -36,8 +36,6 @@ export default function PostDetail({
 
     return (
         <>
-            <Head title={post.title} />
-
             <article>
                 <header className="mx-auto max-w-[760px] px-4 pt-8 sm:px-5 sm:pt-12">
                     <nav

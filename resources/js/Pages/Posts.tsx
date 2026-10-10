@@ -1,19 +1,17 @@
 import PostCard from '@/Components/site/PostCard';
 import SiteLayout from '@/Layouts/SiteLayout';
 import type { PostPaginator } from '@/types/post';
-import { Head, Link } from '@inertiajs/react';
+import { Link } from '@inertiajs/react';
 import { ReactNode } from 'react';
 
 /**
  * /cam-nang — danh sách bài Cẩm nang (bopcamping-ennp), mới nhất trước.
- * Thẻ <title>/meta cho crawler do server dựng (SeoService); <Head> ở đây chỉ để
- * Inertia đổi tiêu đề tab khi điều hướng phía client (app.tsx tự nối tên app).
+ * Tiêu đề tab = seo.title từ server (SeoService), do SiteLayout đặt qua SeoTitle —
+ * trang này KHÔNG tự đặt <title> (bopcamping-ft1j).
  */
 export default function Posts({ posts }: { posts: PostPaginator }) {
     return (
         <>
-            <Head title="Cẩm nang cắm trại" />
-
             <section className="mx-auto max-w-[1200px] px-4 pb-6 pt-10 sm:px-5 sm:pt-14">
                 <nav
                     aria-label="Breadcrumb"

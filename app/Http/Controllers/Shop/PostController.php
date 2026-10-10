@@ -46,7 +46,7 @@ class PostController extends Controller
         return Inertia::render('Posts', [
             'posts' => $paginator,
             'seo' => $this->seo->page(
-                $this->seo->withBrand($title),
+                $title,
                 'Cẩm nang cắm trại cho người mới: checklist đồ cần mang, cách chọn lều, '
                     .'kinh nghiệm cắm trại mùa mưa và mẹo dã ngoại thực tế từ đội BỐP CAMPING.',
                 self::FALLBACK_IMAGE,
@@ -90,7 +90,7 @@ class PostController extends Controller
             'combos' => $this->comboCards($combos),
             'related' => $related->map(fn (Post $p) => $this->card($p))->values(),
             'seo' => $this->seo->page(
-                $this->seo->withBrand($post->seo_title ?: $post->title),
+                $post->seo_title ?: $post->title,
                 $description,
                 $image,
                 $url,

@@ -14,6 +14,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Tests\Concerns\AssertsSeoTitle;
 use Tests\TestCase;
 
 /**
@@ -25,6 +26,7 @@ use Tests\TestCase;
  */
 class LocalLandingPagesTest extends TestCase
 {
+    use AssertsSeoTitle;
     use RefreshDatabase;
 
     private ServiceLocation $vinh;
@@ -358,6 +360,22 @@ class LocalLandingPagesTest extends TestCase
                 ->where('seo.jsonld.@type', 'BreadcrumbList')
                 ->has('provinces', 2)
                 ->has('locations', 2));
+    }
+
+    /** @test */
+    public function server_title_is_seo_title_with_brand_once_on_area_and_spot_pages(): void
+    {
+        $spot = $this->spot();
+
+        $this->assertSame(
+            'Thuê đồ cắm trại tại Vinh theo ngày | BỐP CAMPING',
+            $this->assertSeoTitleSingleSource($this->get('/thue-do-cam-trai/vinh')),
+        );
+        $this->assertSame(
+            'Điểm cắm trại đẹp theo tỉnh thành | BỐP CAMPING',
+            $this->assertSeoTitleSingleSource($this->get('/diem-cam-trai')),
+        );
+        $this->assertSeoTitleSingleSource($this->get('/diem-cam-trai/'.$spot->slug));
     }
 
     /** @test */

@@ -1,7 +1,7 @@
 import Breadcrumbs from '@/Components/site/Breadcrumbs';
 import SpotCard, { type SpotCardData } from '@/Components/site/SpotCard';
 import SiteLayout from '@/Layouts/SiteLayout';
-import { Head, Link } from '@inertiajs/react';
+import { Link } from '@inertiajs/react';
 import { ReactNode } from 'react';
 
 interface Props {
@@ -13,7 +13,6 @@ interface Props {
 export default function CampingSpotIndex({ provinces, locations }: Props) {
     return (
         <>
-            <Head title="Điểm cắm trại đẹp" />
             <main className="mx-auto max-w-[1400px] px-5 pb-12 pt-6">
                 <Breadcrumbs
                     items={[
