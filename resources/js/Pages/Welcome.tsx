@@ -558,6 +558,10 @@ function PromoBannerCard({ banner }: { banner: PromoBanner }) {
             <img
                 src={banner.image}
                 alt={banner.title ?? ''}
+                width={1100}
+                height={300}
+                loading="lazy"
+                decoding="async"
                 className="h-full w-full object-cover"
             />
             {(banner.title || banner.subtitle) && (

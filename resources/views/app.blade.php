@@ -41,9 +41,13 @@
              Để ở layout chung thì MỌI trang (sản phẩm, combo, chính sách...) đều tải thừa
              717 KB — đo được là 50% trọng lượng trang chi tiết SP — lại còn ở
              fetchpriority=high nên giành băng thông với ảnh LCP thật của trang đó.
-             Preload sai chỗ thì hại LCP chứ không giúp. --}}
+             Preload sai chỗ thì hại LCP chứ không giúp.
+
+             Href = slide ĐẦU TIÊN thật sự hiện (banner hero admin quản lý), chỉ rơi về
+             ảnh mặc định của HeroSlideshow khi chưa có banner (bopcamping-b4c3). Trước
+             đây ghi cứng .webp trong khi banner seed là .jpg → tải 2 ảnh, preload phí. --}}
         @if (($page['component'] ?? '') === 'Welcome')
-            <link rel="preload" as="image" href="/images/album/beach-night-tent.webp" fetchpriority="high">
+            <link rel="preload" as="image" href="{{ data_get($page, 'props.hero_banners.0.src') ?: '/images/album/beach-night-tent.webp' }}" fetchpriority="high">
         @endif
 
         {{-- Favicon --}}

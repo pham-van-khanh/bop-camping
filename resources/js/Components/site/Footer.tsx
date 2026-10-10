@@ -47,7 +47,7 @@ export default function Footer() {
             >
                 <div>
                     <div className="mb-3 flex items-center gap-2.5">
-                        <Logo size={120} />
+                        <Logo size={120} loading="lazy" />
                         <span className="text-base font-extrabold text-pine">
                             BỐP CAMPING
                         </span>
@@ -73,6 +73,7 @@ export default function Footer() {
                                         alt=""
                                         width={20}
                                         height={20}
+                                        loading="lazy"
                                         className="h-5 w-5 object-contain"
                                     />
                                 </a>
