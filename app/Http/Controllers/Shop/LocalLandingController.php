@@ -198,21 +198,28 @@ class LocalLandingController extends Controller
         $url = url('/diem-cam-trai/'.$spot->slug);
         $cover = $media->firstWhere('type', 'image');
 
+        $seo = $this->seo->page(
+            $this->spotTitle($spot),
+            $this->spotDescription($spot, $store),
+            $cover['url'] ?? url('/images/og-cover.jpg'),
+            $url,
+            [
+                $this->seo->breadcrumb([
+                    ['Trang chủ', url('/')],
+                    ['Điểm cắm trại', url('/diem-cam-trai')],
+                    [$spot->name, $url],
+                ]),
+                $this->touristAttraction($spot, $media, $url),
+            ],
+        );
+        // Điểm chỉ có một câu mô tả và không ảnh = thin content: vẫn mở cho khách nhưng không
+        // cho index (và SitemapController cũng bỏ qua) — cùng một hàm quyết định cả hai chỗ.
+        if ($this->seo->isThinContent($spot->description, $imagePaths->count())) {
+            $seo = $this->seo->noindex($seo);
+        }
+
         return Inertia::render('CampingSpotDetail', [
-            'seo' => $this->seo->page(
-                $this->spotTitle($spot),
-                $this->spotDescription($spot, $store),
-                $cover['url'] ?? url('/images/og-cover.jpg'),
-                $url,
-                [
-                    $this->seo->breadcrumb([
-                        ['Trang chủ', url('/')],
-                        ['Điểm cắm trại', url('/diem-cam-trai')],
-                        [$spot->name, $url],
-                    ]),
-                    $this->touristAttraction($spot, $media, $url),
-                ],
-            ),
+            'seo' => $seo,
             'spot' => [
                 'name' => $spot->name,
                 'slug' => $spot->slug,

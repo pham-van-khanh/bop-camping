@@ -9,6 +9,7 @@ use App\Models\Combo;
 use App\Models\Product;
 use App\Models\ServiceLocation;
 use App\Models\StaticPage;
+use App\Services\SeoService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Carbon;
@@ -124,7 +125,8 @@ class SitemapController extends Controller
             ];
         }
 
-        $spots = CampingSpot::orderBy('slug')->get(['slug', 'updated_at']);
+        $spots = CampingSpot::withCount(['media as image_count' => fn ($q) => $q->where('type', 'image')])
+            ->orderBy('slug')->get(['id', 'slug', 'description', 'updated_at']);
         if ($spots->isNotEmpty()) {
             $urls[] = [
                 'loc' => url('/diem-cam-trai'),
@@ -133,7 +135,10 @@ class SitemapController extends Controller
                 'priority' => '0.6',
             ];
         }
-        foreach ($spots as $s) {
+        // Điểm "mỏng" (mô tả ngắn, không ảnh) mang noindex -> không khai trong sitemap, nếu không
+        // Search Console báo "Submitted URL marked noindex". Cùng hàm với trang điểm.
+        $seo = app(SeoService::class);
+        foreach ($spots->reject(fn (CampingSpot $s) => $seo->isThinContent($s->description, (int) $s->image_count)) as $s) {
             $urls[] = [
                 'loc' => url('/diem-cam-trai/'.$s->slug),
                 'lastmod' => $s->updated_at?->toAtomString(),

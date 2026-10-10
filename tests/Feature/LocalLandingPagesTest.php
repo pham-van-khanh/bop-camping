@@ -116,6 +116,10 @@ class LocalLandingPagesTest extends TestCase
         $b = $this->spot(['province' => 'Nghệ An']);
         $this->assertSame('ho-dong-mo', $a->slug);
         $this->assertNotSame($a->slug, $b->slug);
+
+        // Slug chỉ toàn ký tự lạ -> chuẩn hoá ra rỗng -> sinh lại từ tên, không lưu slug rỗng.
+        $c = $this->spot(['name' => 'Bãi Đá', 'slug' => '---']);
+        $this->assertSame('bai-da', $c->slug);
     }
 
     /** @test */
@@ -380,7 +384,9 @@ class LocalLandingPagesTest extends TestCase
     {
         ServiceLocation::create(['name' => 'Đà Nẵng', 'status' => 'coming', 'sort_order' => 3]);
         $this->product('Lều 4 người', 'leu-4-nguoi', [$this->hanoi->id]);
-        $spot = $this->spot();
+        $spot = $this->spot(['description' => str_repeat('Hồ rộng, đồi thông ven hồ, nước trong. ', 8)]);
+        // Điểm mỏng (1 câu, không ảnh) mang noindex -> KHÔNG được khai trong sitemap.
+        $thin = $this->spot(['name' => 'Bãi Mỏng', 'description' => 'Đẹp.']);
 
         $xml = $this->get('/sitemap.xml')->assertOk()->getContent();
         $doc = simplexml_load_string($xml);
@@ -397,5 +403,55 @@ class LocalLandingPagesTest extends TestCase
         }
         // Cơ sở sắp mở trả 404 -> không được khai.
         $this->assertArrayNotHasKey(url('/thue-do-cam-trai/da-nang'), $lastmods);
+        $this->assertArrayNotHasKey(url('/diem-cam-trai/'.$thin->slug), $lastmods);
+    }
+
+    /* ---------------- Thin content ---------------- */
+
+    /** @test */
+    public function thin_spot_page_is_noindex_but_rich_spot_page_is_indexable(): void
+    {
+        $thin = $this->spot(['description' => 'Hồ đẹp, gần Hà Nội.']);
+        $rich = $this->spot(['name' => 'Núi Hàm Lợn', 'description' => str_repeat('Rừng thông, đồi cỏ, view hồ. ', 10)]);
+
+        $this->get('/diem-cam-trai/'.$thin->slug)
+            ->assertOk()
+            ->assertInertia(fn ($p) => $p->where('seo.robots', 'noindex, follow'))
+            ->assertSee('<meta name="robots" content="noindex, follow">', false);
+
+        $this->get('/diem-cam-trai/'.$rich->slug)
+            ->assertOk()
+            ->assertInertia(fn ($p) => $p->missing('seo.robots'))
+            ->assertSee('<meta name="robots" content="index, follow">', false);
+
+        // Ảnh cũng là nội dung: mô tả ngắn nhưng có ảnh -> không coi là mỏng.
+        $thin->media()->create(['type' => 'image', 'path' => 'admin/camping-spots/a.jpg', 'sort_order' => 1]);
+        $this->get('/diem-cam-trai/'.$thin->slug)->assertInertia(fn ($p) => $p->missing('seo.robots'));
+
+        // Trang khác không bị dính noindex.
+        $this->get('/diem-cam-trai')->assertSee('<meta name="robots" content="index, follow">', false);
+    }
+
+    /* ---------------- XSS qua JSON-LD ---------------- */
+
+    /**
+     * Tên/mô tả do admin nhập đi thẳng vào <script type="application/ld+json">. Thiếu
+     * JSON_HEX_TAG thì "</script>" trong dữ liệu đóng thẻ sớm và phần sau chạy như JS.
+     */
+    /** @test */
+    public function json_ld_cannot_break_out_of_script_tag(): void
+    {
+        $payload = '</script><script>alert(1)</script>';
+        SiteSetting::current()->update(['hotline_primary' => '0900000000']);
+        $this->hanoi->update(['address' => '1 Phố Huế', 'intro' => 'Kho '.$payload]);
+        $this->hanoi->update(['name' => 'Hà Nội '.$payload]);
+        $spot = $this->spot(['name' => 'Hồ '.$payload, 'description' => 'Mô tả '.$payload]);
+
+        foreach (['/diem-cam-trai/'.$spot->slug, '/thue-do-cam-trai/'.$this->hanoi->slug, '/'] as $url) {
+            $html = $this->get($url)->assertOk()->getContent();
+            $this->assertStringNotContainsString('<script>alert(1)', $html, $url);
+            // JSON-LD vẫn là JSON hợp lệ, giải mã ra đúng chuỗi gốc.
+            $this->assertNotEmpty($this->schemaTypes($html), $url);
+        }
     }
 }

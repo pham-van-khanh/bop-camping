@@ -245,6 +245,41 @@ class SeoService
     }
 
     /**
+     * Ngưỡng "trang mỏng" (thin content): ít hơn số ký tự văn bản này VÀ không có ảnh nào.
+     *
+     * Trang điểm cắm trại sinh tự động từ một bản ghi admin có khi chỉ gõ 1 câu (~60 ký tự).
+     * Google gặp hàng loạt trang na ná nhau gần như rỗng thì hạ chất lượng cả site — nên
+     * trang mỏng vẫn mở cho khách (và liên kết nội bộ vẫn chạy) nhưng gắn `noindex` và
+     * không khai trong sitemap, tới khi admin viết thêm mô tả hoặc tải ảnh lên.
+     */
+    public const THIN_CONTENT_CHARS = 200;
+
+    /** True khi nội dung chính quá ít để đáng được index — xem THIN_CONTENT_CHARS. */
+    public function isThinContent(?string $html, int $imageCount): bool
+    {
+        if ($imageCount > 0) {
+            return false;
+        }
+
+        return mb_strlen((string) $this->plainText($html, 100000)) < self::THIN_CONTENT_CHARS;
+    }
+
+    /**
+     * Gắn `<meta name="robots" content="noindex, follow">` cho trang (app.blade.php đọc
+     * `seo.robots`, mặc định "index, follow"). `follow` để Google vẫn đi theo liên kết
+     * nội bộ từ trang này sang trang khu vực / điểm khác.
+     *
+     * @param  array<string, mixed>  $seo  kết quả của page()
+     * @return array<string, mixed>
+     */
+    public function noindex(array $seo): array
+    {
+        $seo['robots'] = 'noindex, follow';
+
+        return $seo;
+    }
+
+    /**
      * Nối brand vào title, nhưng CHỈ KHI title chưa có (bopcamping-12n9).
      *
      * Tiêu đề trang tĩnh do admin nhập trong panel, mà người nhập thường tự gõ luôn

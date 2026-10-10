@@ -17,8 +17,11 @@ trait HasAutoSlug
     protected static function bootHasAutoSlug(): void
     {
         static::saving(function ($model) {
-            $model->slug = filled($model->slug)
-                ? Str::slug((string) $model->slug)
+            // Chuẩn hoá trước; slug chỉ toàn ký tự lạ (vd "---") thành rỗng -> sinh lại từ tên,
+            // đừng lưu slug rỗng (URL /diem-cam-trai/ rỗng + đụng unique index).
+            $slug = Str::slug((string) $model->slug);
+            $model->slug = $slug !== ''
+                ? $slug
                 : Slug::unique(static::class, (string) $model->name, $model->getKey());
         });
     }
