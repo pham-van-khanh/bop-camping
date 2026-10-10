@@ -7,6 +7,7 @@ const NAV = [
     { label: 'Trang chủ', href: '/' },
     { label: 'Thuê đồ', href: '/thiet-bi' },
     { label: 'Combo', href: '/combos' },
+    { label: 'Cẩm nang', href: '/cam-nang' },
     { label: 'Giới thiệu', href: '/gioi-thieu' },
 ];
 

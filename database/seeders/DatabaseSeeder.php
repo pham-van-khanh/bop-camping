@@ -50,5 +50,10 @@ class DatabaseSeeder extends Seeder
             StaticPageSeeder::class,
             DurationDiscountTierSeeder::class,
         ]);
+
+        // Bài Cẩm nang mẫu — toàn BẢN NHÁP, chỉ để chủ shop xem khuôn trình bày (bopcamping-ennp).
+        if (app()->environment('local', 'testing')) {
+            $this->call(PostSeeder::class);
+        }
     }
 }

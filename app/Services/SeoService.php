@@ -286,6 +286,49 @@ class SeoService
     }
 
     /**
+     * BlogPosting JSON-LD cho một bài Cẩm nang (bopcamping-ennp).
+     *
+     * Chỉ gọi ở trang chi tiết bài — đúng nội dung đang hiện (Cạm bẫy #1 trong skill SEO).
+     * Không có tác giả cá nhân thì author = chính tổ chức, Google chấp nhận cả hai.
+     * headline cắt 110 ký tự theo khuyến nghị của Google; đi qua plainText() để chắc
+     * chắn không còn thẻ HTML nào lọt vào khối <script>.
+     *
+     * @return array<string, mixed>
+     */
+    public function blogPosting(
+        string $headline,
+        string $url,
+        ?string $description,
+        ?string $image,
+        ?\DateTimeInterface $published,
+        ?\DateTimeInterface $modified,
+        ?string $authorName = null,
+    ): array {
+        $publisher = [
+            '@type' => 'Organization',
+            'name' => self::BRAND,
+            'url' => url('/'),
+            'logo' => ['@type' => 'ImageObject', 'url' => url('/images/logo.png')],
+        ];
+
+        return array_filter([
+            '@context' => 'https://schema.org',
+            '@type' => 'BlogPosting',
+            'headline' => $this->plainText($headline, 110),
+            'description' => $this->plainText($description),
+            'image' => $image ? [Str::startsWith($image, ['http://', 'https://']) ? $image : url($image)] : null,
+            'datePublished' => $published?->format(DATE_ATOM),
+            'dateModified' => ($modified ?? $published)?->format(DATE_ATOM),
+            'author' => filled($authorName)
+                ? ['@type' => 'Person', 'name' => trim($authorName)]
+                : ['@type' => 'Organization', 'name' => self::BRAND, 'url' => url('/')],
+            'publisher' => $publisher,
+            'mainEntityOfPage' => ['@type' => 'WebPage', '@id' => $url],
+            'inLanguage' => 'vi-VN',
+        ], fn ($v) => $v !== null);
+    }
+
+    /**
      * BreadcrumbList JSON-LD từ danh sách [tên => url].
      *
      * @param  array<array{0:string,1:string}>  $items  [[name, url], ...]
