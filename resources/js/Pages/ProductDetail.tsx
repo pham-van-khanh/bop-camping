@@ -117,7 +117,12 @@ export default function ProductDetail({
             pricePerDay: product.price_per_day,
             quantity: 1,
         });
-    }, [product.id]);
+    }, [
+        product.id,
+        product.name,
+        product.category.slug,
+        product.price_per_day,
+    ]);
     const [activeImg, setActiveImg] = useState(0);
     const [lightboxOpen, setLightboxOpen] = useState(false);
     // Prefill ngày từ giỏ (bopcamping-wtuv T5): giỏ đã có khoảng ngày → sản phẩm mở sau tự

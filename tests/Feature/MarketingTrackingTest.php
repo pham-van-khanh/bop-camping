@@ -71,10 +71,10 @@ class MarketingTrackingTest extends TestCase
         $html = $this->get('/')->getContent();
 
         $this->assertStringContainsString('connect.facebook.net/en_US/fbevents.js', $html);
-        $this->assertStringContainsString("fbq('init','".self::META."')", $html);
+        $this->assertStringContainsString('fbq(\'init\',"'.self::META.'")', $html);
         $this->assertStringContainsString('fbq.disablePushState=true', $html);
         $this->assertStringContainsString('facebook.com/tr?id='.self::META, $html);
-        $this->assertStringContainsString("ttq.load('".self::TIKTOK."')", $html);
+        $this->assertStringContainsString('ttq.load("'.self::TIKTOK.'")', $html);
     }
 
     /** @test */
@@ -316,6 +316,78 @@ class MarketingTrackingTest extends TestCase
                     'google.com' => 80000,
                     'Trực tiếp / không rõ' => 50000,
                 ])
+            );
+    }
+
+    /** @test */
+    public function tracking_ids_written_outside_the_admin_form_are_rechecked_before_printing(): void
+    {
+        // Ghi thẳng DB (seeder/tinker) — bỏ qua validate của controller.
+        SiteSetting::current()->forceFill([
+            'ga_measurement_id' => "G-X');alert(1)//",
+            'meta_pixel_id' => "1');alert(1)//",
+            'tiktok_pixel_id' => "C4ABC123\n",
+        ])->save();
+
+        $html = $this->get('/')->getContent();
+
+        $this->assertStringNotContainsString('alert(1)', $html);
+        $this->assertStringNotContainsString('fbevents.js', $html);
+        $this->assertStringNotContainsString('analytics.tiktok.com', $html);
+        $this->assertStringNotContainsString('gtag/js', $html);
+    }
+
+    /** @test */
+    public function unreadable_attribution_cookie_is_replaced(): void
+    {
+        // Cookie không giải mã/không đọc được (vd sau khi đổi APP_KEY) không được chặn ghi mới.
+        $this->withUnencryptedCookie(AttributionService::COOKIE, 'rac-khong-phai-json')
+            ->get('/?utm_source=google')
+            ->assertCookie(AttributionService::COOKIE);
+    }
+
+    /** @test */
+    public function purchase_value_of_split_order_is_the_parent_rental_total(): void
+    {
+        $p = $this->product();
+
+        $this->post(route('order.store'), [
+            'name' => 'Khách A',
+            'phone' => '0912345678',
+            'items' => [
+                ['product_id' => $p->id, 'quantity' => 1, 'start' => '2030-07-01', 'end' => '2030-07-02'],
+                ['product_id' => $p->id, 'quantity' => 1, 'start' => '2030-08-01', 'end' => '2030-08-03'],
+            ],
+        ])->assertSessionHas('order_code');
+
+        $parent = Order::where('is_parent', true)->firstOrFail();
+        $children = Order::where('is_parent', false)->get();
+        $this->assertCount(2, $children);
+        // (2 + 3 ngày) × 100k — cọc không tính; bằng Σ tiền thuê của các đơn con.
+        $this->assertSame(500000, session('order_value'));
+        $this->assertSame($children->sum(fn (Order $c) => $c->rental_due), session('order_value'));
+        $this->assertSame($parent->code, session('order_code'));
+    }
+
+    /** @test */
+    public function dashboard_source_value_includes_extra_fee_like_finance_revenue(): void
+    {
+        Order::create([
+            'customer_name' => 'Khách',
+            'customer_phone' => '0900000001',
+            'start_date' => '2030-07-10',
+            'end_date' => '2030-07-12',
+            'total_price' => 300000,
+            'extra_fee' => 30000,
+            'discount_total' => 10000,
+            'deposit_total' => 100000,
+            'status' => 'pending',
+            'utm_source' => 'facebook',
+        ]);
+
+        $this->actingAs($this->admin())->get(route('admin.dashboard'))
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('source_stats.0', ['source' => 'facebook', 'orders' => 1, 'revenue' => 320000])
             );
     }
 }

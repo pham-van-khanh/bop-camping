@@ -47,13 +47,14 @@ class SiteSettingController extends Controller
             'morning_end_hour' => 'sometimes|integer|min:0|max:23',
             'afternoon_start_hour' => 'sometimes|integer|min:0|max:23',
             // SEO: GA4 dạng "G-XXXXXXXX"; mã xác minh Search Console là chuỗi token.
-            'ga_measurement_id' => 'nullable|string|max:40|regex:/^G-[A-Z0-9]+$/i',
+            'ga_measurement_id' => ['nullable', 'string', 'max:40', 'regex:'.SiteSetting::TRACKING_ID_PATTERNS['ga_measurement_id']],
             'google_site_verification' => 'nullable|string|max:120',
             // Pixel quảng cáo (bopcamping-wi6h). Regex chặt vì giá trị được in thẳng vào
             // <script> ở app.blade.php — chỉ chữ số (Meta) / chữ+số (TikTok) thì không thể
             // chèn mã (CWE-79), kể cả khi tài khoản admin bị lộ.
-            'meta_pixel_id' => 'nullable|string|regex:/^[0-9]{8,20}$/',
-            'tiktok_pixel_id' => 'nullable|string|regex:/^[A-Za-z0-9]{8,30}$/',
+            // Định dạng: SiteSetting::TRACKING_ID_PATTERNS (dùng chung với chốt kiểm lúc in ra blade).
+            'meta_pixel_id' => ['nullable', 'string', 'regex:'.SiteSetting::TRACKING_ID_PATTERNS['meta_pixel_id']],
+            'tiktok_pixel_id' => ['nullable', 'string', 'regex:'.SiteSetting::TRACKING_ID_PATTERNS['tiktok_pixel_id']],
         ], [
             'zalo1_url.url' => 'Link Zalo phải là URL hợp lệ.',
             'zalo2_url.url' => 'Link Zalo phải là URL hợp lệ.',

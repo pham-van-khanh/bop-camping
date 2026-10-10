@@ -124,11 +124,12 @@ class HandleInertiaRequests extends Middleware
         $hotlines = array_values(array_filter([$s->hotline_primary, $s->hotline_secondary]));
 
         return [
-            'ga_id' => $s->ga_measurement_id,
+            // Mã in vào <script> → đọc qua trackingId() (kiểm lại định dạng, sai = null).
+            'ga_id' => $s->trackingId('ga_measurement_id'),
             'google_verification' => $s->google_site_verification,
             // Pixel quảng cáo (bopcamping-wi6h) — blade chỉ chèn khi có mã và KHÔNG ở /admin, /shipper.
-            'meta_pixel_id' => $s->meta_pixel_id,
-            'tiktok_pixel_id' => $s->tiktok_pixel_id,
+            'meta_pixel_id' => $s->trackingId('meta_pixel_id'),
+            'tiktok_pixel_id' => $s->trackingId('tiktok_pixel_id'),
             // Organization + WebSite dựng ở PHP rồi mới đưa sang blade. Viết thẳng trong
             // .blade.php thì Laravel 11+ nuốt mất '@context' (có directive cùng tên) —
             // đo trên production 11/08: cả hai khối này đều hỏng @context.

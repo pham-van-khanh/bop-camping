@@ -248,8 +248,9 @@ class OrderController extends Controller
             'order_phone' => $validated['phone'],
             'order_pay' => $order->total_price + $order->deposit_total - $order->discount_total,
             'order_discount' => $order->discount_total,
-            // Giá trị đơn cho GA4/pixel (purchase): tiền thuê − giảm, KHÔNG gồm cọc (cọc hoàn lại).
-            'order_value' => max(0, $order->total_price - $order->discount_total),
+            // Giá trị đơn cho GA4/pixel (purchase): tiền thuê phải thu (Order::rental_due — đơn
+            // cha đã gộp Σ con + giảm giá phân bổ), KHÔNG gồm cọc (cọc hoàn lại).
+            'order_value' => max(0, $order->rental_due),
             'order_items' => count($itemLines) + count($comboLines),
         ]);
     }

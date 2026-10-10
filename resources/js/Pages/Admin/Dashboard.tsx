@@ -113,8 +113,8 @@ export default function AdminDashboard() {
                     </h2>
                     <p className="mb-3 text-[12.5px] text-moss">
                         Khách đến từ đâu lần đầu (UTM / quảng cáo / trang giới
-                        thiệu). Giá trị = tiền thuê − giảm giá, không tính cọc;
-                        bỏ đơn huỷ.
+                        thiệu). Giá trị = tiền thuê + phụ phí − giảm giá, không
+                        tính cọc; bỏ đơn huỷ.
                     </p>
                     {source_stats.length === 0 ? (
                         <p className="py-4 text-center text-[14px] text-moss">

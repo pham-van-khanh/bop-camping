@@ -25,7 +25,9 @@ class CaptureAttribution
 
         if (! $request->isMethod('GET')
             || $request->is('admin', 'admin/*', 'shipper', 'shipper/*')
-            || $request->cookies->has(AttributionService::COOKIE)) {
+            // Đọc được cookie hợp lệ thì giữ (first-touch). Cookie hỏng/không giải mã được
+            // (vd đổi APP_KEY → EncryptCookies trả null) coi như chưa có, để còn ghi lại.
+            || $this->attribution->fromCookie($request) !== null) {
             return $response;
         }
 

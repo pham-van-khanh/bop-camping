@@ -310,7 +310,8 @@ export default function Cart() {
             items: getCart().map(itemFromCartLine),
         });
         clearCart();
-    }, [flash.order_code]);
+        // order_value đi cùng order_code trong cùng 1 flash; trackPurchase tự khử trùng theo mã.
+    }, [flash.order_code, flash.order_value]);
 
     // Giữ voucher_codes của form đồng bộ với lựa chọn.
     useEffect(() => setData('voucher_codes', selectedCodes), [selectedCodes]);

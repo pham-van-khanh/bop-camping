@@ -111,7 +111,7 @@ export default function ComboDetail({
             pricePerDay: combo.combo_price,
             quantity: 1,
         });
-    }, [combo.id]);
+    }, [combo.id, combo.name, combo.combo_price]);
     // Đọc trực tiếp từng trường như ProductDetail — type SiteInfo chưa khai các trường giờ.
     const hours = {
         pickup: site?.pickup_hour ?? 8,

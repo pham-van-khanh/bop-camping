@@ -8,6 +8,7 @@ use App\Models\ComboEvent;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Services\AttributionService;
+use App\Services\FinanceService;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -55,8 +56,8 @@ class DashboardController extends Controller
     }
 
     /**
-     * Nguồn đơn 30 ngày gần nhất (bopcamping-wi6h): số đơn + giá trị (tiền thuê − giảm,
-     * không tính cọc) theo nhãn nguồn first-touch. Bỏ đơn huỷ và đơn CHA (cha = Σ con,
+     * Nguồn đơn 30 ngày gần nhất (bopcamping-wi6h): số đơn + giá trị (tiền thuê phải thu
+     * = FinanceService::RENTAL_DUE_SQL, gồm phụ phí, không tính cọc) theo nhãn nguồn first-touch. Bỏ đơn huỷ và đơn CHA (cha = Σ con,
      * tính cả hai là đếm đôi — cùng luật với các ô đếm phía trên).
      *
      * Gom ở SQL theo 3 cột thô rồi gắn nhãn ở PHP qua AttributionService::label() — cùng
@@ -69,7 +70,7 @@ class DashboardController extends Controller
         $rows = Order::where('is_parent', false)
             ->where('status', '!=', 'cancelled')
             ->where('created_at', '>=', now()->subDays(30))
-            ->selectRaw('utm_source, referrer_host, click_id_type, COUNT(*) as orders, COALESCE(SUM(total_price - discount_total), 0) as revenue')
+            ->selectRaw('utm_source, referrer_host, click_id_type, COUNT(*) as orders, COALESCE(SUM('.FinanceService::RENTAL_DUE_SQL.'), 0) as revenue')
             ->groupBy('utm_source', 'referrer_host', 'click_id_type')
             ->get();
 

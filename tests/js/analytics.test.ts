@@ -38,14 +38,17 @@ const lều: AnalyticsItem = {
     days: 3,
 };
 
-function installAll() {
+/** Dấu snippet GTM đẩy đồng bộ khi chạy — analytics.ts dựa vào đây để biết có GTM. */
+const GTM_START = { 'gtm.start': 1, event: 'gtm.js' };
+
+function installAll({ gtm = true }: { gtm?: boolean } = {}) {
     const gtag = vi.fn();
     const fbq = vi.fn();
     const ttq = { track: vi.fn(), page: vi.fn() };
     win.gtag = gtag;
     win.fbq = fbq;
     win.ttq = ttq;
-    win.dataLayer = [];
+    win.dataLayer = gtm ? [GTM_START] : [];
     return { gtag, fbq, ttq, dataLayer: win.dataLayer };
 }
 
@@ -138,11 +141,26 @@ describe('payload', () => {
 
         trackAddToCart(lều);
 
-        expect(dataLayer[0]).toEqual({ ecommerce: null });
-        expect(dataLayer[1]).toMatchObject({
+        expect(dataLayer[1]).toEqual({ ecommerce: null });
+        expect(dataLayer[2]).toMatchObject({
             event: 'add_to_cart',
             ecommerce: { currency: 'VND', value: 600000 },
         });
+    });
+
+    it('chỉ có GA4 (gtag tự tạo dataLayer, không có GTM): không đẩy sự kiện kiểu GTM vào dataLayer', () => {
+        const { gtag, dataLayer } = installAll({ gtm: false });
+
+        trackAddToCart(lều);
+        trackSpaNavigation('/');
+        trackSpaNavigation('/thiet-bi');
+
+        expect(gtag).toHaveBeenCalledWith(
+            'event',
+            'add_to_cart',
+            expect.objectContaining({ value: 600000 }),
+        );
+        expect(dataLayer).toEqual([]);
     });
 
     it('begin_checkout cộng nhiều món; giỏ rỗng không bắn', () => {
@@ -297,7 +315,7 @@ describe('an toàn', () => {
 });
 
 describe('page view khi điều hướng SPA', () => {
-    it('bỏ lần đầu (script gốc đã đếm), bỏ trùng URL, không gửi page_view GA4 tay', () => {
+    it('bỏ lần đầu (script gốc đã đếm), bỏ trùng URL, không gửi page_view GA4/TikTok tay', () => {
         const { gtag, fbq, ttq, dataLayer } = installAll();
 
         trackSpaNavigation('/');
@@ -307,8 +325,10 @@ describe('page view khi điều hướng SPA', () => {
         trackSpaNavigation('/thiet-bi'); // submit form quay về cùng trang
         expect(fbq).toHaveBeenCalledTimes(1);
         expect(fbq).toHaveBeenCalledWith('track', 'PageView');
-        expect(ttq.page).toHaveBeenCalledTimes(1);
+        // TikTok tự đo pageview khi URL đổi trong SPA (mặc định bật) → gọi tay là đếm đôi.
+        expect(ttq.page).not.toHaveBeenCalled();
         expect(dataLayer).toEqual([
+            GTM_START,
             { event: 'virtual_page_view', page_path: '/thiet-bi' },
         ]);
         expect(gtag).not.toHaveBeenCalled();

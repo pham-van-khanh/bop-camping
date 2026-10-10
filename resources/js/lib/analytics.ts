@@ -35,7 +35,6 @@ type Gtag = (...args: unknown[]) => void;
 type Fbq = ((...args: unknown[]) => void) & { disablePushState?: boolean };
 type Ttq = {
     track?: (event: string, params?: Record<string, unknown>) => void;
-    page?: () => void;
 };
 
 type TrackingWindow = Window & {
@@ -47,6 +46,24 @@ type TrackingWindow = Window & {
 
 const w = (): TrackingWindow | null =>
     typeof window === 'undefined' ? null : (window as TrackingWindow);
+
+/**
+ * GTM có được chèn không (blade chỉ chèn khi có GTM_ID). Không dựa vào việc `dataLayer`
+ * tồn tại: gtag.js của GA4 cũng tạo `dataLayer`, nên chỉ có GA4 thì đẩy sự kiện kiểu GTM
+ * vào đó là thừa (và nếu sau này gắn thêm GTM có thẻ GA4 thì thành đếm đôi). Snippet GTM
+ * đẩy đồng bộ `{event: 'gtm.js'}` ngay khi chạy → dấu hiệu chắc chắn.
+ */
+function gtmDataLayer(win: TrackingWindow): unknown[] | null {
+    const dl = win.dataLayer;
+    if (!Array.isArray(dl)) return null;
+    const loaded = dl.some(
+        (e) =>
+            typeof e === 'object' &&
+            e !== null &&
+            (e as { event?: unknown }).event === 'gtm.js',
+    );
+    return loaded ? dl : null;
+}
 
 /** Gọi một hàm bên ngoài, nuốt mọi lỗi (script bên thứ ba có thể hỏng bất kỳ lúc nào). */
 function safe(fn: () => void): void {
@@ -142,17 +159,18 @@ function dispatch(d: Dispatch): void {
         safe(() => win.gtag!('event', d.ga, d.gaParams));
     }
     // GTM: theo chuẩn ecommerce của GA4 — xoá object ecommerce cũ trước khi đẩy cái mới.
-    if (Array.isArray(win.dataLayer)) {
+    const dl = gtmDataLayer(win);
+    if (dl) {
         safe(() => {
             const { items, ...rest } = d.gaParams;
             if (items) {
-                win.dataLayer!.push({ ecommerce: null });
-                win.dataLayer!.push({
+                dl.push({ ecommerce: null });
+                dl.push({
                     event: d.ga,
                     ecommerce: { ...rest, items },
                 });
             } else {
-                win.dataLayer!.push({ event: d.ga, ...rest });
+                dl.push({ event: d.ga, ...rest });
             }
         });
     }
@@ -334,9 +352,11 @@ let lastUrl: string | null = null;
  * - Cùng URL (vd submit form rồi quay về chính trang đó): bỏ qua.
  * - GA4: KHÔNG gửi page_view tay. Enhanced measurement của GA4 (mặc định BẬT "thay đổi
  *   trang theo lịch sử trình duyệt") đã tự bắt pushState của Inertia — gửi thêm là đếm đôi.
- * - Meta: blade tắt fbq.disablePushState để ta chủ động gửi PageView tại đây.
- * - TikTok: ttq.page().
- * - GTM: đẩy `virtual_page_view` để ai dùng GTM tự gắn trigger.
+ * - Meta: blade đặt fbq.disablePushState=true (tắt tự đếm) nên ta chủ động gửi PageView tại đây.
+ * - TikTok: KHÔNG gọi ttq.page(). Pixel TikTok mặc định tự đo pageview mỗi khi URL đổi trong
+ *   SPA ("Single page application pageview measurement", bật sẵn) — gọi thêm là đếm đôi.
+ *   ttq.page() trong blade chỉ phục vụ lần tải trang đầu.
+ * - GTM (chỉ khi có GTM): đẩy `virtual_page_view` để ai dùng GTM tự gắn trigger.
  */
 export function trackSpaNavigation(url: string): void {
     const win = w();
@@ -354,16 +374,12 @@ export function trackSpaNavigation(url: string): void {
     if (first || same) return;
     if (!isTrackablePath(key.split('?')[0])) return;
 
-    if (Array.isArray(win.dataLayer)) {
-        safe(() =>
-            win.dataLayer!.push({ event: 'virtual_page_view', page_path: key }),
-        );
+    const dl = gtmDataLayer(win);
+    if (dl) {
+        safe(() => dl.push({ event: 'virtual_page_view', page_path: key }));
     }
     if (typeof win.fbq === 'function') {
         safe(() => win.fbq!('track', 'PageView'));
-    }
-    if (win.ttq && typeof win.ttq.page === 'function') {
-        safe(() => win.ttq!.page!());
     }
 }
 
