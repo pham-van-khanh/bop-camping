@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Shop;
 use App\Http\Controllers\Controller;
 use App\Models\Category;
 use App\Models\Combo;
+use App\Models\Post;
 use App\Models\Product;
 use App\Models\StaticPage;
 use Illuminate\Http\Request;
@@ -102,6 +103,27 @@ class SitemapController extends Controller
                 'changefreq' => 'weekly',
                 'priority' => '0.7',
             ];
+        }
+
+        // Cẩm nang (bopcamping-ennp) — CHỈ bài Post::published() (cùng scope với trang
+        // khách, nên nháp/bài hẹn giờ không bao giờ lọt vào). Chưa có bài nào thì bỏ cả
+        // trang danh sách: một trang rỗng là thin content.
+        $posts = Post::published()->latestPublished()->get(['slug', 'updated_at']);
+        if ($posts->isNotEmpty()) {
+            $urls[] = [
+                'loc' => url('/cam-nang'),
+                'lastmod' => $this->atom($posts->max('updated_at')),
+                'changefreq' => 'weekly',
+                'priority' => '0.7',
+            ];
+            foreach ($posts as $post) {
+                $urls[] = [
+                    'loc' => url('/cam-nang/'.$post->slug),
+                    'lastmod' => $post->updated_at?->toAtomString(),
+                    'changefreq' => 'monthly',
+                    'priority' => '0.6',
+                ];
+            }
         }
 
         $body = '';

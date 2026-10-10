@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Models\ComboImage;
 use App\Models\MediaVariant;
+use App\Models\Post;
 use App\Models\Product;
 use App\Models\ProductImage;
 use App\Services\MediaVariantService;
@@ -25,6 +26,8 @@ class GenerateMediaVariantsCommand extends Command
             ->concat(ProductImage::where('type', 'image')->pluck('path'))
             ->concat(ComboImage::where('type', 'image')->pluck('path'))
             ->concat(Product::whereNotNull('thumbnail')->pluck('thumbnail'))
+            // Ảnh bìa bài Cẩm nang (bopcamping-ennp).
+            ->concat(Post::whereNotNull('cover_path')->pluck('cover_path'))
             ->filter()
             ->unique()
             ->values();

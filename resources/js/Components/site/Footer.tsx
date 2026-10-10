@@ -94,6 +94,9 @@ export default function Footer() {
                         <Link href="/combos" className="hover:text-grass">
                             Combo tiết kiệm
                         </Link>
+                        <Link href="/cam-nang" className="hover:text-grass">
+                            Cẩm nang cắm trại
+                        </Link>
                         <Link href="/gioi-thieu" className="hover:text-grass">
                             Giới thiệu
                         </Link>

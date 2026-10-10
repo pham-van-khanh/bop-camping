@@ -13,6 +13,7 @@ use App\Http\Controllers\Admin\FaqController as AdminFaqController;
 use App\Http\Controllers\Admin\FeedbackController as AdminFeedbackController;
 use App\Http\Controllers\Admin\FinanceController as AdminFinanceController;
 use App\Http\Controllers\Admin\OrderController as AdminOrderController;
+use App\Http\Controllers\Admin\PostController as AdminPostController;
 use App\Http\Controllers\Admin\ProductContentController as AdminProductContentController;
 use App\Http\Controllers\Admin\ProductController as AdminProductController;
 use App\Http\Controllers\Admin\PromotionController as AdminPromotionController;
@@ -34,6 +35,7 @@ use App\Http\Controllers\Shop\FeedbackController;
 use App\Http\Controllers\Shop\GuestAuthController;
 use App\Http\Controllers\Shop\OrderController;
 use App\Http\Controllers\Shop\OrderLookupController;
+use App\Http\Controllers\Shop\PostController;
 use App\Http\Controllers\Shop\ProductController;
 use App\Http\Controllers\Shop\ReviewController;
 use App\Http\Controllers\Shop\ReviewInviteController;
@@ -262,6 +264,24 @@ Route::middleware(['admin'])->prefix('admin')->name('admin.')->group(function ()
     Route::post('/camping-spots/{campingSpot}/media', [AdminCampingSpotController::class, 'storeMedia'])->name('camping-spots.media.store')->middleware('throttle:60,1');
     Route::delete('/camping-spots/{campingSpot}/media/{media}', [AdminCampingSpotController::class, 'destroyMedia'])->name('camping-spots.media.destroy')->middleware('throttle:60,1');
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CẨM NANG (bopcamping-ennp) — bài viết hướng dẫn cắm trại.
+// Gom trọn route khách + admin vào một khối để merge với nhánh khác cũng thêm
+// route ít đụng nhau (chỉ 2 dòng `use` ở đầu file: PostController, AdminPostController).
+// ─────────────────────────────────────────────────────────────────────────────
+Route::get('/cam-nang', [PostController::class, 'index'])->name('posts');
+Route::get('/cam-nang/{slug}', [PostController::class, 'show'])->name('posts.show');
+
+Route::middleware(['admin'])->prefix('admin')->name('admin.')->group(function () {
+    Route::get('/cam-nang', [AdminPostController::class, 'index'])->name('posts');
+    Route::get('/cam-nang/tao', [AdminPostController::class, 'create'])->name('posts.create');
+    Route::post('/cam-nang', [AdminPostController::class, 'store'])->name('posts.store')->middleware('throttle:30,1');
+    Route::get('/cam-nang/{post}/sua', [AdminPostController::class, 'edit'])->name('posts.edit');
+    Route::put('/cam-nang/{post}', [AdminPostController::class, 'update'])->name('posts.update')->middleware('throttle:30,1');
+    Route::delete('/cam-nang/{post}', [AdminPostController::class, 'destroy'])->name('posts.destroy')->middleware('throttle:30,1');
+});
+// ── hết khối CẨM NANG ────────────────────────────────────────────────────────
 
 Route::get('/dashboard', function () {
     return Inertia::render('Dashboard');
