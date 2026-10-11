@@ -16,14 +16,16 @@ class ServiceLocationSeeder extends Seeder
 {
     public function run(): void
     {
+        // slug ghi tường minh: DatabaseSeeder chạy WithoutModelEvents nên hook HasAutoSlug
+        // không sinh hộ — thiếu thì /thue-do-cam-trai/{slug} 404 và lọc ?vi-tri= hỏng.
         ServiceLocation::firstOrCreate(
             ['name' => 'Vinh'],
-            ['area' => 'Nghệ An', 'status' => 'open', 'sort_order' => 1],
+            ['slug' => 'vinh', 'area' => 'Nghệ An', 'status' => 'open', 'sort_order' => 1],
         );
 
         ServiceLocation::firstOrCreate(
             ['name' => 'Hà Nội'],
-            ['area' => 'Nội thành', 'status' => 'open', 'sort_order' => 2],
+            ['slug' => 'ha-noi', 'area' => 'Nội thành', 'status' => 'open', 'sort_order' => 2],
         );
     }
 }

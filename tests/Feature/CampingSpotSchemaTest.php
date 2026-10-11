@@ -89,4 +89,23 @@ class CampingSpotSchemaTest extends TestCase
         $this->assertSame(2, $suggested->count());
         $this->assertTrue($suggested->every(fn ($s) => $s->nearestServiceLocation && $s->map_url));
     }
+
+    /**
+     * DatabaseSeeder dùng WithoutModelEvents -> hook `saving` của HasAutoSlug KHÔNG chạy, nên
+     * seeder phải tự ghi slug. Thiếu thì `migrate:fresh --seed` ra cơ sở/điểm có slug NULL:
+     * /thue-do-cam-trai/vinh và /diem-cam-trai/{slug} 404, link trên trang hỏng.
+     *
+     * @test
+     */
+    public function full_database_seed_gives_every_location_and_spot_a_slug(): void
+    {
+        $this->seed();
+
+        $this->assertSame(['ha-noi', 'vinh'], ServiceLocation::orderBy('slug')->pluck('slug')->all());
+        $this->assertSame(0, CampingSpot::whereNull('slug')->orWhere('slug', '')->count());
+        $this->assertSame('ho-dong-mo', CampingSpot::where('name', 'Hồ Đồng Mô')->value('slug'));
+
+        $this->get('/thue-do-cam-trai/vinh')->assertOk();
+        $this->get('/diem-cam-trai/ho-dong-mo')->assertOk();
+    }
 }
