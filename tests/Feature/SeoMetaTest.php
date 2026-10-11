@@ -125,7 +125,9 @@ class SeoMetaTest extends TestCase
         $res = $this->get('/combos');
 
         $res->assertInertia(fn ($p) => $p
-            ->where('seo.title', 'Combo thuê đồ cắm trại trọn bộ — tiết kiệm hơn thuê lẻ | BỐP CAMPING')
+            ->where('seo.title', 'Combo thuê đồ cắm trại trọn bộ | BỐP CAMPING')
+            // Gồm cả brand vẫn phải ≤ 60 ký tự, kẻo Google cắt mất đuôi trên SERP.
+            ->where('seo.title', fn (string $t) => mb_strlen($t) <= 60)
             ->has('seo.description'));
         // Không được mang title mặc định của trang chủ.
         $res->assertDontSee('<title inertia>BỐP CAMPING — Cho thuê thiết bị cắm trại</title>', false);
