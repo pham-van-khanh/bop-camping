@@ -268,6 +268,55 @@ class LocalLandingPagesTest extends TestCase
         $this->assertStringContainsString('"streetAddress":"12 Lê Duẩn"', $html);
     }
 
+    /**
+     * Cơ sở đã có địa chỉ -> khối site-wide cũng in LocalBusiness `…/vinh#store`. Trên chính
+     * trang khu vực Vinh, node đó chỉ được xuất hiện MỘT lần (bản của trang), còn trang chủ
+     * vẫn giữ khối site-wide.
+     *
+     * @test
+     */
+    public function area_page_emits_exactly_one_node_per_id(): void
+    {
+        SiteSetting::current()->update(['hotline_primary' => '0976544370']);
+        $this->vinh->update(['address' => '12 Lê Duẩn']);
+        $this->hanoi->update(['address' => '5 Hàng Bài']);
+        $vinhId = url('/thue-do-cam-trai/vinh').'#store';
+        $hanoiId = url('/thue-do-cam-trai/ha-noi').'#store';
+
+        $areaIds = $this->schemaIds($this->get('/thue-do-cam-trai/vinh')->getContent());
+        $this->assertSame(1, $areaIds[$vinhId] ?? 0, 'LocalBusiness Vinh phải xuất hiện đúng 1 lần');
+        // Cơ sở khác vẫn còn khối site-wide của nó (không bị lọc nhầm).
+        $this->assertSame(1, $areaIds[$hanoiId] ?? 0);
+        foreach ($areaIds as $id => $n) {
+            $this->assertSame(1, $n, "@id {$id} bị lặp {$n} lần");
+        }
+
+        $homeIds = $this->schemaIds($this->get('/')->getContent());
+        $this->assertSame(1, $homeIds[$vinhId] ?? 0, 'Trang chủ vẫn phải có LocalBusiness site-wide');
+        $this->assertSame(1, $homeIds[$hanoiId] ?? 0);
+    }
+
+    /**
+     * Đếm số node mang mỗi `@id` (cấp đầu) trong mọi khối JSON-LD của trang.
+     *
+     * @return array<string, int>
+     */
+    private function schemaIds(string $html): array
+    {
+        preg_match_all('#application/ld\+json">(.*?)</script>#s', $html, $m);
+        $ids = [];
+        foreach ($m[1] as $json) {
+            $d = json_decode(html_entity_decode($json), true);
+            foreach (array_is_list($d) ? $d : [$d] as $block) {
+                if (isset($block['@id'])) {
+                    $ids[$block['@id']] = ($ids[$block['@id']] ?? 0) + 1;
+                }
+            }
+        }
+
+        return $ids;
+    }
+
     /** @test */
     public function unknown_or_coming_area_returns_404(): void
     {

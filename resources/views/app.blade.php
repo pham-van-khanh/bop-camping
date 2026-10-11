@@ -109,8 +109,10 @@
 
         {{-- LocalBusiness (site-wide) — chỉ khi shop đã điền hotline ở Cài đặt shop.
              1 khối cho mỗi cơ sở đã có địa chỉ (SeoService::localBusinessJsonLd), gộp
-             chung 1 khối generic khi chưa cơ sở nào điền địa chỉ. --}}
-        @foreach ($seoSite['local_business'] ?? [] as $block)
+             chung 1 khối generic khi chưa cơ sở nào điền địa chỉ.
+             Trang khu vực đã tự khai LocalBusiness của cơ sở mình (cùng @id) thì bỏ bản
+             site-wide trùng — một node cho mỗi @id (SeoService::withoutIdsDeclaredByPage). --}}
+        @foreach (app(\App\Services\SeoService::class)->withoutIdsDeclaredByPage($seoSite['local_business'] ?? [], $seo['jsonld'] ?? null) as $block)
             <script type="application/ld+json">{!! json_encode($block, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG) !!}</script>
         @endforeach
 

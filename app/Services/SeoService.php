@@ -249,6 +249,36 @@ class SeoService
     }
 
     /**
+     * Bỏ các khối site-wide (vd LocalBusiness của từng cơ sở) mà trang đang xem ĐÃ tự khai
+     * cùng `@id` trong `seo.jsonld`.
+     *
+     * Trang khu vực /thue-do-cam-trai/{slug} khai LocalBusiness `…#store` của chính cơ sở đó,
+     * trong khi khối site-wide (khi cơ sở đã có địa chỉ) cũng in đúng node đó — hai node trùng
+     * `@id` trên một trang. Giữ bản của trang (nó mô tả đúng trang), bỏ bản site-wide.
+     * app.blade.php là chỗ DUY NHẤT gọi hàm này, ngay trước khi in khối site-wide.
+     *
+     * @param  array<int, array<string, mixed>>  $siteBlocks
+     * @param  array<mixed>|null  $pageJsonld  một khối hoặc danh sách khối
+     * @return array<int, array<string, mixed>>
+     */
+    public function withoutIdsDeclaredByPage(array $siteBlocks, ?array $pageJsonld): array
+    {
+        if (empty($pageJsonld)) {
+            return array_values($siteBlocks);
+        }
+
+        $pageIds = collect(array_is_list($pageJsonld) ? $pageJsonld : [$pageJsonld])
+            ->map(fn ($block) => is_array($block) ? ($block['@id'] ?? null) : null)
+            ->filter()
+            ->all();
+
+        return array_values(array_filter(
+            $siteBlocks,
+            fn (array $block) => ! isset($block['@id']) || ! in_array($block['@id'], $pageIds, true),
+        ));
+    }
+
+    /**
      * Ngưỡng "trang mỏng" (thin content): ít hơn số ký tự văn bản này VÀ không có ảnh nào.
      *
      * Trang điểm cắm trại sinh tự động từ một bản ghi admin có khi chỉ gõ 1 câu (~60 ký tự).
