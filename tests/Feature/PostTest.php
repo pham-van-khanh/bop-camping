@@ -7,7 +7,6 @@ use App\Models\Combo;
 use App\Models\Post;
 use App\Models\Product;
 use App\Models\User;
-use Database\Seeders\PostSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Cache;
@@ -410,18 +409,7 @@ class PostTest extends TestCase
             ->assertDontSee('"BlogPosting"', false);
     }
 
-    // ── Seeder ──────────────────────────────────────────────────────────
-
-    /** @test */
-    public function dev_seeder_only_creates_drafts(): void
-    {
-        $this->seed(PostSeeder::class);
-
-        $this->assertSame(3, Post::count());
-        $this->assertSame(0, Post::published()->count());
-        $this->assertStringContainsString('<h2>', Post::first()->content);
-        $this->get('/cam-nang/checklist-do-cam-trai-cho-nguoi-moi')->assertNotFound();
-    }
+    // Seeder bài mẫu: xem PostSeederTest.
 
     // ── Sitemap ─────────────────────────────────────────────────────────
 
