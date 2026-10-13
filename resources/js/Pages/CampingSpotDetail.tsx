@@ -238,7 +238,7 @@ export default function CampingSpotDetail({
                             href="/thiet-bi"
                             className="inline-block text-[14.5px] font-semibold text-grass hover:text-pine"
                         >
-                            Xem lều, bếp, túi ngủ cho thuê →
+                            Xem lều, tăng bạt, bàn ghế cho thuê →
                         </Link>
                     )}
                 </section>

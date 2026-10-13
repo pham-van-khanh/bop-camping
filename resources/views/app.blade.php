@@ -14,7 +14,7 @@
             $seoSite = $page['props']['seoSite'] ?? [];
             $brand = 'BỐP CAMPING';
             $seoTitle = $seo['title'] ?? $brand.' — Cho thuê thiết bị cắm trại';
-            $seoDesc = $seo['description'] ?? 'Cho thuê lều, bếp, túi ngủ, đèn trại... theo ngày. Giao nhận tận nơi tại Vinh & Hà Nội, cọc linh hoạt, trả tiền khi nhận (COD).';
+            $seoDesc = $seo['description'] ?? 'Cho thuê lều, tăng bạt, bàn ghế, bếp nướng... theo ngày. Giao nhận tận nơi tại Vinh & Hà Nội, cọc linh hoạt, trả tiền khi nhận (COD).';
             // Ảnh mặc định khi bóc link (Facebook/Zalo/Messenger): bìa thương hiệu cắt
             // sẵn 1200x630 — đúng tỉ lệ 1,91:1 các mạng dùng, nên không bị họ tự cắt
             // mất chữ. Trước đây dùng ảnh album 1.048 KB không đúng tỉ lệ (bopcamping-marf).
@@ -28,7 +28,7 @@
 
         <title inertia>{{ $seoTitle }}</title>
         <meta name="description" content="{{ $seoDesc }}">
-        <meta name="keywords" content="thuê đồ cắm trại, cho thuê lều, thuê túi ngủ, thuê bếp dã ngoại, camping Vinh, camping Hà Nội, cắm trại">
+        <meta name="keywords" content="thuê đồ cắm trại, cho thuê lều, thuê tăng bạt, thuê bếp nướng dã ngoại, camping Vinh, camping Hà Nội, cắm trại">
         <meta name="author" content="{{ $brand }}">
         {{-- seo.robots: SeoService::noindex() cho trang mỏng (vd điểm cắm trại chưa có mô tả/ảnh). --}}
         <meta name="robots" content="{{ $seo['robots'] ?? 'index, follow' }}">

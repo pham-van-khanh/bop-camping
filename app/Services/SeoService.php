@@ -107,7 +107,7 @@ class SeoService
             ->values();
 
         if ($names->isEmpty()) {
-            return 'lều, bếp, túi ngủ, đèn trại';
+            return 'lều, tăng bạt, bàn ghế, bếp nướng';
         }
 
         return Str::lower($names->take($limit)->implode(', '))
@@ -193,7 +193,7 @@ class SeoService
                 '@context' => 'https://schema.org',
                 '@type' => 'LocalBusiness',
                 'name' => self::BRAND,
-                'description' => 'Cho thuê thiết bị cắm trại theo ngày — lều, bếp, túi ngủ, đèn trại.',
+                'description' => 'Cho thuê thiết bị cắm trại theo ngày — lều, tăng bạt, bàn ghế, bếp nướng, nệm hơi.',
                 'url' => url('/'),
                 'image' => url('/images/album/forest-camp-aerial.jpg'),
                 'telephone' => $telephone,
@@ -230,7 +230,7 @@ class SeoService
             '@type' => 'LocalBusiness',
             '@id' => $pageUrl.'#store',
             'name' => self::BRAND.' - '.$l->name,
-            'description' => 'Cho thuê thiết bị cắm trại theo ngày — lều, bếp, túi ngủ, đèn trại.',
+            'description' => 'Cho thuê thiết bị cắm trại theo ngày — lều, tăng bạt, bàn ghế, bếp nướng, nệm hơi.',
             'url' => $pageUrl,
             'image' => url('/images/album/forest-camp-aerial.jpg'),
             'telephone' => $telephone,
