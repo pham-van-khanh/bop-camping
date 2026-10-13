@@ -165,9 +165,9 @@ export default function Home({
                             textShadow: '0 2px 16px rgba(0,0,0,.4)',
                         }}
                     >
-                        Lều, bếp, túi ngủ, đèn trại... thuê đủ bộ cho chuyến đi.
-                        Chọn ngày nhận và ngày trả, tụi mình kiểm tra còn hàng
-                        và giao tận nơi. Trả tiền khi nhận.
+                        Lều, tăng bạt, bàn ghế, bếp nướng... thuê đủ bộ cho
+                        chuyến đi. Chọn ngày nhận và ngày trả, tụi mình kiểm tra
+                        còn hàng và giao tận nơi. Trả tiền khi nhận.
                     </p>
                     <div className="flex flex-wrap gap-3">
                         <Link

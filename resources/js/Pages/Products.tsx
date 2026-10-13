@@ -202,7 +202,7 @@ export default function Products({
                         <input
                             value={search}
                             onChange={(e) => handleSearch(e.target.value)}
-                            placeholder="Tìm lều, bếp, túi ngủ..."
+                            placeholder="Tìm lều, tăng bạt, ghế..."
                             aria-label="Tìm thiết bị"
                             className="flex-1 border-none bg-transparent text-[15px] text-ink outline-none"
                         />

@@ -306,7 +306,7 @@ class LocalLandingController extends Controller
 
         $what = $categories->isNotEmpty()
             ? Str::lower($categories->take(3)->pluck('name')->implode(', '))
-            : 'lều, bếp, túi ngủ, đèn trại';
+            : 'lều, tăng bạt, bàn ghế, bếp nướng';
         $where = $location->name.($location->area ? ' ('.$location->area.')' : '');
 
         return 'Thuê '.$what.' tại '.$where.' theo ngày'
@@ -330,8 +330,8 @@ class LocalLandingController extends Controller
         $where = $spot->name.' ('.($spot->district ? $spot->district.', ' : '').$spot->province.')';
         $lead = $where.': '.Str::lower($spot->terrain_tag).', mùa đẹp '.Str::lower($spot->seasonLabel()).'.';
         $tail = $store
-            ? ' Gợi ý đồ cần mang, thuê lều, bếp, túi ngủ theo ngày tại kho '.$store->name.', trả tiền khi nhận (COD).'
-            : ' Gợi ý đồ cần mang và thuê lều, bếp, túi ngủ theo ngày, trả tiền khi nhận (COD).';
+            ? ' Gợi ý đồ cần mang, thuê lều, tăng bạt, bàn ghế theo ngày tại kho '.$store->name.', trả tiền khi nhận (COD).'
+            : ' Gợi ý đồ cần mang và thuê lều, tăng bạt, bàn ghế theo ngày, trả tiền khi nhận (COD).';
 
         $desc = $this->seo->plainText($spot->description, 400);
         $text = $desc ? $lead.' '.$desc : $lead;
