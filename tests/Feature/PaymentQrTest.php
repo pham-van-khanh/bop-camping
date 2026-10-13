@@ -273,7 +273,7 @@ class PaymentQrTest extends TestCase
     {
         $order = $this->order(['total_price' => 500_000, 'extra_fee' => 50_000]);
 
-        $this->get(route('lookup', ['code' => $order->code, 'phone' => $order->customer_phone]))
+        $this->followingRedirects()->get(route('lookup', ['code' => $order->code, 'phone' => $order->customer_phone]))
             ->assertInertia(fn (Assert $p) => $p
                 ->where('order.fee_due', 50_000)
                 ->where('order.fee_received', 0)
@@ -765,7 +765,7 @@ class PaymentQrTest extends TestCase
     {
         $order = $this->order();
 
-        $this->get(route('lookup', ['code' => $order->code, 'phone' => $order->customer_phone]))
+        $this->followingRedirects()->get(route('lookup', ['code' => $order->code, 'phone' => $order->customer_phone]))
             ->assertInertia(fn (Assert $p) => $p
                 ->component('OrderLookup')
                 ->where('order.payment_qr.content', $this->qr()->transferContentFor($order))
@@ -781,7 +781,7 @@ class PaymentQrTest extends TestCase
     {
         $order = $this->order();
 
-        $this->get(route('lookup', ['code' => $order->code, 'phone' => $order->customer_phone]))
+        $this->followingRedirects()->get(route('lookup', ['code' => $order->code, 'phone' => $order->customer_phone]))
             ->assertInertia(fn (Assert $p) => $p->missing('order.payment_qr.download_url'));
     }
 
@@ -790,7 +790,7 @@ class PaymentQrTest extends TestCase
     {
         $order = $this->order(['status' => 'confirmed']);
 
-        $this->get(route('lookup', ['code' => $order->code, 'phone' => $order->customer_phone]))
+        $this->followingRedirects()->get(route('lookup', ['code' => $order->code, 'phone' => $order->customer_phone]))
             ->assertInertia(fn (Assert $p) => $p->where('order.payment_qr', null));
     }
 
@@ -808,7 +808,7 @@ class PaymentQrTest extends TestCase
         $order = $this->order(['status' => 'confirmed']);
         $order->markPaid('rental', true);
 
-        $this->get(route('lookup', ['code' => $order->code, 'phone' => $order->customer_phone]))
+        $this->followingRedirects()->get(route('lookup', ['code' => $order->code, 'phone' => $order->customer_phone]))
             ->assertInertia(fn (Assert $p) => $p
                 ->where('order.rental_due', $order->rental_due)
                 ->where('order.rental_paid', true)
@@ -835,7 +835,7 @@ class PaymentQrTest extends TestCase
     {
         $order = $this->order();
 
-        $this->get(route('lookup', ['code' => $order->code, 'phone' => $order->customer_phone]))
+        $this->followingRedirects()->get(route('lookup', ['code' => $order->code, 'phone' => $order->customer_phone]))
             ->assertInertia(fn (Assert $p) => $p
                 ->where('order.rental_paid', false)
                 ->where('order.deposit_paid', false));

@@ -39,11 +39,10 @@ export default function PaymentQr({
             </div>
 
             <div className="flex flex-wrap items-start gap-4">
-                {/* referrerPolicy: trang tra cứu có SĐT khách ngay trên URL
-                    (/tra-cuu?code=…&phone=…). Ảnh này tải từ miền SePay, nên nếu trình
-                    duyệt gửi Referer đầy đủ thì SĐT khách đi thẳng sang bên thứ ba.
-                    Trình duyệt hiện đại mặc định đã chỉ gửi origin, nhưng mặc định là
-                    thứ đổi được — khoá cứng ở đây thì không phụ thuộc vào nó nữa. */}
+                {/* referrerPolicy: ảnh này tải từ miền SePay, URL trang tra cứu không được
+                    lọt sang bên thứ ba. SĐT nay đã bị server gỡ khỏi URL (OrderLookupService::
+                    redirectWithoutPhone) nhưng mã đơn vẫn còn — khoá cứng ở đây thì không phụ
+                    thuộc vào mặc định của trình duyệt. */}
                 <img
                     src={qr.url}
                     alt={`Mã QR chuyển khoản ${money(qr.amount)}, nội dung ${qr.content}`}

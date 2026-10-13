@@ -12,6 +12,7 @@ use App\Services\AvailabilityService;
 use App\Services\OrderLookupService;
 use App\Services\PaymentQrService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
@@ -58,8 +59,13 @@ class AccountController extends Controller
         return response()->json(['unavailable' => array_values(array_unique($dates))]);
     }
 
-    public function index(Request $request): Response
+    public function index(Request $request): Response|RedirectResponse
     {
+        // SĐT tra cứu không được nằm trên URL — xem OrderLookupService::redirectWithoutPhone.
+        if ($redirect = $this->lookup->redirectWithoutPhone($request)) {
+            return $redirect;
+        }
+
         $user = Auth::user();
 
         // ID các đơn đối soát của khách (qua user_id HOẶC trùng SĐT — bắt cả đơn vãng lai).
@@ -96,10 +102,11 @@ class AccountController extends Controller
         ]);
 
         // (4) Tra cứu đơn ngay trong tài khoản (bopcamping-7w8) — cùng logic /tra-cuu.
+        $lookupPhone = $this->lookup->rememberedPhone($request);
         $lookupOrder = null;
         $lookupNotFound = false;
-        if ($request->filled('code') && $request->filled('phone')) {
-            $lookupOrder = $this->lookup->find((string) $request->input('code'), (string) $request->input('phone'));
+        if ($request->filled('code') && $lookupPhone !== '') {
+            $lookupOrder = $this->lookup->find((string) $request->input('code'), $lookupPhone);
             $lookupNotFound = $lookupOrder === null;
         }
 
@@ -117,7 +124,7 @@ class AccountController extends Controller
                 'not_found' => $lookupNotFound,
                 'query' => [
                     'code' => $request->input('code', ''),
-                    'phone' => $request->input('phone', $user->phone ?? ''),
+                    'phone' => $lookupPhone !== '' ? $lookupPhone : ($user->phone ?? ''),
                 ],
             ],
         ]);

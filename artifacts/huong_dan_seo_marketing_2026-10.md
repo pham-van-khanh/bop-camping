@@ -33,6 +33,8 @@ Nhánh gộp: `release/seo-marketing-2026-10` (chưa deploy). Kế hoạch: `pla
 
 ### Meta / TikTok
 - Chọn Purchase / CompletePayment và Contact làm sự kiện chuyển đổi cho chiến dịch.
+- **Tắt "Đối sánh nâng cao tự động" (Automatic Advanced Matching)** — Meta: Events Manager → Pixel → Cài đặt; TikTok: Events Manager → Pixel → Settings. Bật thì pixel tự đọc ô tên/SĐT/email trong form đăng nhập, đặt đơn rồi gửi về Meta/TikTok, trái với mục 5 chính sách bảo mật ("không nhận họ tên, số điện thoại, email"). Code website không gửi những thông tin này; công tắc kia nằm ở phía nền tảng nên phải tắt tay.
+- GTM cũng vậy: đừng thêm thẻ đọc ô nhập liệu hay biến DOM chứa thông tin khách.
 
 ### Gắn UTM cho mọi link quảng cáo / bài đăng
 `?utm_source=facebook&utm_medium=cpc&utm_campaign=he-2026` — viết thống nhất (luôn `facebook`, không lúc `fb` lúc `facebook`).
