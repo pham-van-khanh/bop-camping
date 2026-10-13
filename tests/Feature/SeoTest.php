@@ -48,7 +48,7 @@ class SeoTest extends TestCase
 
         $html = $this->get('/')->getContent();
         $this->assertStringContainsString('https://www.googletagmanager.com/gtag/js?id=G-ABC12345', $html);
-        $this->assertStringContainsString("gtag('config','G-ABC12345')", $html);
+        $this->assertStringContainsString('gtag(\'config\',"G-ABC12345")', $html);
         $this->assertStringContainsString('<meta name="google-site-verification" content="verify-token-xyz">', $html);
     }
 
@@ -217,5 +217,20 @@ class SeoTest extends TestCase
         // Rỗng -> chỉ còn brand, không ra ' | BỐP CAMPING' cụt đầu.
         $this->assertSame('BỐP CAMPING', $seo->withBrand(''));
         $this->assertSame('BỐP CAMPING', $seo->withBrand(null));
+    }
+
+    /**
+     * Bất biến client dựa vào (bopcamping-ft1j): MỌI seo.title do SeoService::page() dựng đều
+     * mang brand đúng 1 lần. Title callback phía client (lib/seo.ts documentTitle) thấy đã có
+     * brand thì giữ nguyên → document.title sau hydrate trùng khít <title> server.
+     *
+     * @test
+     */
+    public function page_title_always_carries_the_brand_exactly_once(): void
+    {
+        $seo = app(SeoService::class);
+
+        $this->assertSame('Combo trọn bộ | BỐP CAMPING', $seo->page('Combo trọn bộ')['title']);
+        $this->assertSame('Lều X — Thuê tại BỐP CAMPING', $seo->page('Lều X — Thuê tại BỐP CAMPING')['title']);
     }
 }

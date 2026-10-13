@@ -11,6 +11,7 @@ use App\Models\Review;
 use App\Models\ServiceLocation;
 use App\Services\AvailabilityService;
 use App\Services\SeoService;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -82,7 +83,7 @@ class ComboController extends Controller
             // Không khai seo riêng thì rơi vào mặc định site-wide, tức là với Google trang
             // này trùng hệt trang chủ (bopcamping-u3u3).
             'seo' => $this->seo->page(
-                'Combo thuê đồ cắm trại trọn bộ — tiết kiệm hơn thuê lẻ',
+                'Combo thuê đồ cắm trại trọn bộ',
                 // Danh mục lấy từ DB, KHÔNG gõ tay: thêm/đổi tên danh mục trong admin thì
                 // câu này tự theo. Đã bỏ đoạn "giao nhận tận nơi tại Vinh & Hà Nội" — địa
                 // điểm là dữ liệu admin quản lý, hardcode vào đây là sai ngay khi mở cơ sở
@@ -125,6 +126,9 @@ class ComboController extends Controller
         $shaped = $this->shape($combo, ServiceLocation::open()->count());
 
         $reviewCount = $combo->reviews()->where('status', 'approved')->count();
+        $reviewAvg = $combo->averageRating();
+        // Một lần query cho cả carousel lẫn JSON-LD `review` (markup = đúng thứ đang hiện).
+        $approvedReviews = $combo->approvedReviews()->with(['images', 'orderItem'])->limit(20)->get();
 
         // Qua SeoService::plainText — xem ghi chú ở ProductController (bopcamping-1xja).
         $seoDesc = $this->seo->plainText($combo->description, 155)
@@ -136,8 +140,8 @@ class ComboController extends Controller
         return Inertia::render('ComboDetail', [
             'combo' => $shaped,
             'stores' => $this->storesFor($combo),
-            'reviews' => $this->reviews($combo),
-            'review_summary' => ['count' => $reviewCount, 'avg' => $combo->averageRating()],
+            'reviews' => $this->reviews($approvedReviews),
+            'review_summary' => ['count' => $reviewCount, 'avg' => $reviewAvg],
             'seo' => $this->seo->page(
                 $combo->name.' — Thuê trọn bộ tại BỐP CAMPING',
                 $seoDesc,
@@ -145,7 +149,7 @@ class ComboController extends Controller
                 // Trước đây chi tiết combo chỉ có title/desc, thiếu hẳn Product + Breadcrumb
                 // mà chi tiết sản phẩm đã có (bopcamping-u3u3).
                 jsonld: [
-                    $this->comboJsonLd($combo, $shaped, $seoImage, $seoDesc),
+                    $this->comboJsonLd($combo, $shaped, $seoImage, $seoDesc, $reviewCount, $reviewAvg, $approvedReviews),
                     $this->seo->breadcrumb([
                         ['Trang chủ', url('/')],
                         ['Combo', url('/combos')],
@@ -286,14 +290,16 @@ class ComboController extends Controller
      * một mức cọc, không cho khách tách lẻ. `price` là giá thuê/ngày trọn bộ, cùng đơn
      * vị với sản phẩm lẻ (KHÔNG phải tổng nhiều ngày).
      *
-     * KHÔNG khai `aggregateRating`: review trong dự án chỉ gắn vào `product_id`, combo
-     * không có review riêng. Mượn điểm của món bên trong rồi gán cho combo là bịa số —
-     * Google phạt nặng chuyện này.
+     * `aggregateRating`/`review` lấy từ đánh giá RIÊNG của combo (`reviews.combo_id`,
+     * đã duyệt) — đúng những đánh giá hiện trên trang. KHÔNG mượn điểm của món bên
+     * trong rồi gán cho combo: đó là bịa số, Google phạt nặng. Chưa có đánh giá thì
+     * không khai gì.
      *
      * @param  array<string, mixed>  $shaped
+     * @param  EloquentCollection<int, Review>  $approvedReviews
      * @return array<string, mixed>
      */
-    private function comboJsonLd(Combo $combo, array $shaped, string $image, string $desc): array
+    private function comboJsonLd(Combo $combo, array $shaped, string $image, string $desc, int $reviewCount, float $reviewAvg, EloquentCollection $approvedReviews): array
     {
         // Nhiều ảnh giúp Google chọn được ảnh hợp ngữ cảnh; ảnh chính vẫn đứng đầu.
         $images = collect($shaped['images'] ?? [])
@@ -363,18 +369,19 @@ class ComboController extends Controller
             ];
         }
 
-        return $data;
+        return $data + $this->seo->reviewMarkup($reviewCount, $reviewAvg, $approvedReviews);
     }
 
     /**
      * Đánh giá đã duyệt của combo, cùng hình dáng payload với đánh giá sản phẩm để
      * component ProductReviews dùng lại được nguyên (bopcamping-saeb).
      *
+     * @param  EloquentCollection<int, Review>  $approved
      * @return array<int, array<string, mixed>>
      */
-    private function reviews(Combo $combo): array
+    private function reviews(EloquentCollection $approved): array
     {
-        return $combo->approvedReviews()->with(['images', 'orderItem'])->limit(20)->get()
+        return $approved
             ->map(fn (Review $r) => [
                 'id' => $r->id,
                 'reviewer_name' => $r->reviewer_name,

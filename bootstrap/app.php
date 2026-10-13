@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Middleware\CanonicalHost;
+use App\Http\Middleware\CaptureAttribution;
 use App\Http\Middleware\CaptureReferralCode;
 use App\Http\Middleware\EnsureAdmin;
 use App\Http\Middleware\EnsureShipper;
@@ -27,6 +28,8 @@ return Application::configure(basePath: dirname(__DIR__))
             HandleInertiaRequests::class,
             AddLinkHeadersForPreloadedAssets::class,
             CaptureReferralCode::class,
+            // Nguồn khách first-touch (UTM/click id/referrer) → cookie bop_attr (bopcamping-wi6h).
+            CaptureAttribution::class,
         ]);
 
         $middleware->alias([

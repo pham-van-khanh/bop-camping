@@ -47,14 +47,22 @@ class SiteSettingController extends Controller
             'morning_end_hour' => 'sometimes|integer|min:0|max:23',
             'afternoon_start_hour' => 'sometimes|integer|min:0|max:23',
             // SEO: GA4 dạng "G-XXXXXXXX"; mã xác minh Search Console là chuỗi token.
-            'ga_measurement_id' => 'nullable|string|max:40|regex:/^G-[A-Z0-9]+$/i',
+            'ga_measurement_id' => ['nullable', 'string', 'max:40', 'regex:'.SiteSetting::TRACKING_ID_PATTERNS['ga_measurement_id']],
             'google_site_verification' => 'nullable|string|max:120',
+            // Pixel quảng cáo (bopcamping-wi6h). Regex chặt vì giá trị được in thẳng vào
+            // <script> ở app.blade.php — chỉ chữ số (Meta) / chữ+số (TikTok) thì không thể
+            // chèn mã (CWE-79), kể cả khi tài khoản admin bị lộ.
+            // Định dạng: SiteSetting::TRACKING_ID_PATTERNS (dùng chung với chốt kiểm lúc in ra blade).
+            'meta_pixel_id' => ['nullable', 'string', 'regex:'.SiteSetting::TRACKING_ID_PATTERNS['meta_pixel_id']],
+            'tiktok_pixel_id' => ['nullable', 'string', 'regex:'.SiteSetting::TRACKING_ID_PATTERNS['tiktok_pixel_id']],
         ], [
             'zalo1_url.url' => 'Link Zalo phải là URL hợp lệ.',
             'zalo2_url.url' => 'Link Zalo phải là URL hợp lệ.',
             'facebook_url.url' => 'Link Facebook phải là URL hợp lệ.',
             'tiktok_url.url' => 'Link TikTok phải là URL hợp lệ.',
             'ga_measurement_id.regex' => 'Mã GA4 có dạng G-XXXXXXXX.',
+            'meta_pixel_id.regex' => 'Meta Pixel ID chỉ gồm chữ số (thường 15–16 số).',
+            'tiktok_pixel_id.regex' => 'TikTok Pixel ID chỉ gồm chữ và số (vd C4ABC123DEF456).',
         ]);
 
         // Ràng buộc thứ tự khung giờ (feedback 2026-07-27): giao ≤ cuối sáng ≤ đầu chiều ≤ trả.

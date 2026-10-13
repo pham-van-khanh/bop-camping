@@ -35,10 +35,18 @@ type ComboStat = {
     convert_rate: number | null;
 };
 
+// Nguồn đơn 30 ngày (bopcamping-wi6h) — nhãn first-touch, đã bỏ đơn huỷ.
+type SourceStat = {
+    source: string;
+    orders: number;
+    revenue: number;
+};
+
 type Props = PageProps<{
     stats: Stats;
     recent: RecentOrder[];
     combo_stats: ComboStat[];
+    source_stats: SourceStat[];
 }>;
 
 const STATUS_ORDER = [
@@ -50,7 +58,7 @@ const STATUS_ORDER = [
 ] as const;
 
 export default function AdminDashboard() {
-    const { stats, recent, combo_stats } = usePage<Props>().props;
+    const { stats, recent, combo_stats, source_stats } = usePage<Props>().props;
 
     return (
         <>
@@ -96,6 +104,59 @@ export default function AdminDashboard() {
                             </div>
                         </Link>
                     ))}
+                </div>
+
+                {/* Nguồn đơn 30 ngày (bopcamping-wi6h) */}
+                <div className="mb-6 rounded-card border border-cardBorder bg-card p-5">
+                    <h2 className="mb-1 text-[16px] font-bold text-ink">
+                        Nguồn đơn — 30 ngày gần nhất
+                    </h2>
+                    <p className="mb-3 text-[12.5px] text-moss">
+                        Khách đến từ đâu lần đầu (UTM / quảng cáo / trang giới
+                        thiệu). Giá trị = tiền thuê + phụ phí − giảm giá, không
+                        tính cọc; bỏ đơn huỷ.
+                    </p>
+                    {source_stats.length === 0 ? (
+                        <p className="py-4 text-center text-[14px] text-moss">
+                            Chưa có đơn nào trong 30 ngày.
+                        </p>
+                    ) : (
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-[14px]">
+                                <thead>
+                                    <tr className="border-b border-cardBorder text-left text-[12px] uppercase tracking-[0.04em] text-moss">
+                                        <th className="py-2 pr-3 font-semibold">
+                                            Nguồn
+                                        </th>
+                                        <th className="py-2 pr-3 text-right font-semibold">
+                                            Số đơn
+                                        </th>
+                                        <th className="py-2 text-right font-semibold">
+                                            Giá trị
+                                        </th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {source_stats.map((s) => (
+                                        <tr
+                                            key={s.source}
+                                            className="border-b border-cardBorder/60 last:border-0"
+                                        >
+                                            <td className="break-all py-2.5 pr-3 font-semibold text-ink">
+                                                {s.source}
+                                            </td>
+                                            <td className="py-2.5 pr-3 text-right font-mono font-bold text-pine">
+                                                {s.orders}
+                                            </td>
+                                            <td className="py-2.5 text-right font-mono text-ink">
+                                                {money(s.revenue)}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
                 </div>
 
                 {/* Combo: lượt thuê + hiệu quả banner gợi ý trong giỏ (US-09) */}

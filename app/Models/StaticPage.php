@@ -78,7 +78,22 @@ class StaticPage extends Model
                 .'<h2>3. Bảo mật & chia sẻ</h2>'
                 .'<p>Thông tin của bạn được lưu trữ an toàn và chỉ dùng nội bộ cho việc vận hành dịch vụ. Chúng tôi <strong>không mua bán, trao đổi</strong> thông tin cá nhân của khách với bên thứ ba, trừ khi có yêu cầu hợp pháp của cơ quan chức năng.</p>'
                 .'<h2>4. Quyền của khách hàng</h2>'
-                .'<p>Bạn có thể yêu cầu xem, cập nhật hoặc xóa thông tin cá nhân của mình bằng cách liên hệ với chúng tôi qua hotline hoặc Zalo.</p>',
+                .'<p>Bạn có thể yêu cầu xem, cập nhật hoặc xóa thông tin cá nhân của mình bằng cách liên hệ với chúng tôi qua hotline hoặc Zalo.</p>'
+                // Mục 5 mô tả ĐÚNG những gì code đang làm — đổi cookie/công cụ đo lường thì sửa
+                // cả đây lẫn trang trên production (migration 2026_10_12_000001 chỉ chạy 1 lần).
+                .'<h2>5. Cookie và công cụ phân tích</h2>'
+                .'<p>Cookie là tệp nhỏ website lưu trong trình duyệt của bạn. BỐP CAMPING dùng cookie và bộ nhớ trình duyệt cho các việc sau:</p>'
+                .'<ul><li><strong>Đăng nhập và bảo mật:</strong> cookie phiên làm việc và cookie XSRF-TOKEN giữ cho bạn đăng nhập và bảo vệ giỏ thuê, bước đặt đơn khỏi bị giả mạo. Thiếu hai cookie này website không hoạt động đúng.</li>'
+                .'<li><strong>Nhớ đăng nhập:</strong> sau khi đăng nhập, trình duyệt nhớ bạn trong 60 ngày để không phải nhập lại mã OTP (tài khoản chưa có email được nhớ tới 400 ngày). Bấm đăng xuất là cookie này bị xóa.</li>'
+                .'<li><strong>Nguồn truy cập (cookie bop_attr):</strong> khi bạn vào website từ một quảng cáo hoặc trang khác, chúng tôi lưu nguồn đó trong 30 ngày, có mã hóa. Cookie chỉ chứa các tham số utm_*, tên miền trang dẫn tới và loại mã quảng cáo (Google, Facebook hay TikTok), không lưu chính mã đó và không chứa thông tin cá nhân. Nhờ vậy chúng tôi biết kênh quảng cáo nào hiệu quả.</li>'
+                .'<li><strong>Giỏ thuê:</strong> lưu trong bộ nhớ trình duyệt trên máy bạn (thiết bị, số lượng, ngày thuê) cho tới khi bạn đặt đơn.</li>'
+                .'<li><strong>Phân tích và quảng cáo:</strong> chỉ khi shop bật, website mới tải Google Analytics 4, Google Tag Manager, Meta Pixel và TikTok Pixel. Các công cụ này nhận lượt xem trang và hoạt động mua sắm như xem thiết bị, thêm vào giỏ, bấm gọi hoặc nhắn Zalo, mã đơn và giá trị đơn. Chúng <strong>không</strong> nhận họ tên, số điện thoại, email hay địa chỉ của bạn, nhưng có thể đặt cookie riêng của Google, Meta, TikTok. Trang quản trị không tải các công cụ này.</li></ul>'
+                .'<p><strong>Nếu bạn không muốn bị theo dõi:</strong></p>'
+                .'<ul><li>Chặn hoặc xóa cookie trong cài đặt trình duyệt, hoặc dùng tiện ích chặn theo dõi. Nếu chặn cả cookie đăng nhập, bạn sẽ không đăng nhập hay đặt thuê được.</li>'
+                .'<li>Google Analytics: cài <a href="https://tools.google.com/dlpage/gaoptout">tiện ích chặn Google Analytics</a> của Google.</li>'
+                .'<li>Meta (Facebook, Instagram): chỉnh trong <a href="https://accountscenter.facebook.com/ad_preferences">Tùy chọn quảng cáo</a> của Meta.</li>'
+                .'<li>TikTok: trong ứng dụng TikTok, vào Hồ sơ, chọn Cài đặt và quyền riêng tư, rồi chọn Quảng cáo.</li></ul>'
+                .'<p>Muốn xem hoặc xóa dữ liệu của bạn, hãy liên hệ chúng tôi qua hotline hoặc Zalo.</p>',
             'dieu-khoan-su-dung' => '<p>Khi truy cập và sử dụng website BỐP CAMPING, bạn đồng ý với các điều khoản dưới đây.</p>'
                 .'<h2>1. Dịch vụ</h2>'
                 .'<p>BỐP CAMPING cung cấp dịch vụ cho thuê thiết bị cắm trại theo ngày. Giá thuê, tồn kho và tình trạng thiết bị được hiển thị trên website và có thể thay đổi mà không cần báo trước.</p>'

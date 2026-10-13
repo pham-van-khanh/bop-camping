@@ -8,6 +8,7 @@ import ProductReviews, {
     type ReviewSummary,
 } from '@/Components/site/ProductReviews';
 import SiteLayout from '@/Layouts/SiteLayout';
+import { trackViewItem } from '@/lib/analytics';
 import { emit, EVENTS } from '@/lib/bus';
 import {
     addLine,
@@ -24,7 +25,7 @@ import { queryDateRange } from '@/lib/queryDateRange';
 import { isHalfDaySession, type Session } from '@/lib/session';
 import type { PageProps } from '@/types';
 import type { ProductResource } from '@/types/product';
-import { Head, Link, usePage } from '@inertiajs/react';
+import { Link, usePage } from '@inertiajs/react';
 import { ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 
 /**
@@ -107,6 +108,21 @@ export default function ProductDetail({
     const shopMorningEnd = site?.morning_end_hour ?? 12;
     const shopAfternoonStart = site?.afternoon_start_hour ?? 13;
     const zaloUrl = site?.zalo_1?.url ?? null;
+    // Đo lường (bopcamping-wi6h): view_item mỗi lần mở 1 sản phẩm (đổi SP liên quan cũng tính).
+    useEffect(() => {
+        trackViewItem({
+            id: String(product.id),
+            name: product.name,
+            category: product.category.slug,
+            pricePerDay: product.price_per_day,
+            quantity: 1,
+        });
+    }, [
+        product.id,
+        product.name,
+        product.category.slug,
+        product.price_per_day,
+    ]);
     const [activeImg, setActiveImg] = useState(0);
     const [lightboxOpen, setLightboxOpen] = useState(false);
     // Prefill ngày từ giỏ (bopcamping-wtuv T5): giỏ đã có khoảng ngày → sản phẩm mở sau tự
@@ -563,7 +579,6 @@ export default function ProductDetail({
 
     return (
         <>
-            <Head title={product.name} />
             <main className="mx-auto max-w-[1400px] px-5 pb-12 pt-6">
                 <Link
                     href="/thiet-bi"
@@ -941,6 +956,24 @@ export default function ProductDetail({
                                     })}
                                 </div>
                             </div>
+                        )}
+
+                        {/* Liên kết nội bộ sang trang khu vực (bopcamping-y05c): "Có sẵn tại Vinh, Hà Nội". */}
+                        {stores.length > 0 && (
+                            <p className="mb-[14px] text-[13px] text-moss">
+                                Có sẵn tại{' '}
+                                {stores.map((s, i) => (
+                                    <span key={s.id}>
+                                        {i > 0 && ', '}
+                                        <Link
+                                            href={`/thue-do-cam-trai/${s.slug}`}
+                                            className="font-semibold text-grass hover:text-pine"
+                                        >
+                                            kho {s.name}
+                                        </Link>
+                                    </span>
+                                ))}
+                            </p>
                         )}
 
                         {/* 1.7: lịch dạng thu gọn — bấm để sổ, chọn xong tự đóng */}

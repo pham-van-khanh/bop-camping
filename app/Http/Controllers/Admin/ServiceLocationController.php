@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\ServiceLocation;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class ServiceLocationController extends Controller
 {
@@ -21,7 +22,7 @@ class ServiceLocationController extends Controller
 
     public function update(Request $request, ServiceLocation $serviceLocation): RedirectResponse
     {
-        $serviceLocation->update($this->validated($request));
+        $serviceLocation->update($this->validated($request, $serviceLocation));
 
         return back()->with('success', 'Đã cập nhật vị trí phục vụ.');
     }
@@ -35,10 +36,16 @@ class ServiceLocationController extends Controller
     }
 
     /** Validate + chuẩn hoá dữ liệu cho store/update. */
-    private function validated(Request $request): array
+    private function validated(Request $request, ?ServiceLocation $current = null): array
     {
         $data = $request->validate([
             'name' => ['required', 'string', 'min:1', 'max:100'],
+            // Slug = URL trang khu vực /thue-do-cam-trai/{slug} VÀ khoá lọc ?vi-tri= (bopcamping-y05c).
+            // Để trống -> tự sinh từ tên. Chỉ chữ thường không dấu, số, gạch nối.
+            'slug' => ['nullable', 'string', 'max:100', 'regex:/^[a-z0-9]+(?:-[a-z0-9]+)*$/',
+                Rule::unique('service_locations', 'slug')->ignore($current?->id)],
+            // Đoạn giới thiệu trên trang khu vực — văn bản thường, trống thì trang tự sinh.
+            'intro' => ['nullable', 'string', 'max:3000'],
             'area' => ['nullable', 'string', 'max:100'],
             'address' => ['nullable', 'string', 'max:255'],
             // map_url được render thành <a href> trên trang checkout của khách.
@@ -54,6 +61,8 @@ class ServiceLocationController extends Controller
             'status.required' => 'Vui lòng chọn trạng thái.',
             'map_url.url' => 'Link bản đồ không hợp lệ.',
             'map_url.regex' => 'Link bản đồ phải bắt đầu bằng http:// hoặc https://',
+            'slug.regex' => 'Slug chỉ gồm chữ thường không dấu, số và dấu gạch nối (vd: ha-noi).',
+            'slug.unique' => 'Slug này đã được dùng cho vị trí khác.',
         ]);
 
         $data['sort_order'] = $data['sort_order'] ?? 0;

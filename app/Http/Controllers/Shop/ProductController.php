@@ -13,7 +13,7 @@ use App\Models\Product;
 use App\Models\Review;
 use App\Models\ServiceLocation;
 use App\Services\AvailabilityService;
-use App\Services\MediaVariantService;
+use App\Services\CatalogCardPresenter;
 use App\Services\SeoService;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Http\JsonResponse;
@@ -29,10 +29,11 @@ class ProductController extends Controller
 
     private const BRAND_TITLE = 'BỐP CAMPING — Cho thuê thiết bị cắm trại theo ngày';
 
-    public function __construct(private AvailabilityService $availability, private SeoService $seo) {}
-
-    /** Số vị trí đang mở (memoize) — biết sản phẩm có phục vụ "toàn hệ thống" không. */
-    private ?int $openLocationCount = null;
+    public function __construct(
+        private AvailabilityService $availability,
+        private SeoService $seo,
+        private CatalogCardPresenter $cards,
+    ) {}
 
     /**
      * Kho nào đang giữ con số "còn N" khi khách CHƯA chọn kho (bopcamping-kvcc).
@@ -71,11 +72,6 @@ class ProductController extends Controller
         return $out;
     }
 
-    private function openLocationCount(): int
-    {
-        return $this->openLocationCount ??= ServiceLocation::open()->count();
-    }
-
     /** GET / — trang chủ với 4 sản phẩm nổi bật */
     public function home(Request $request): Response
     {
@@ -83,8 +79,8 @@ class ProductController extends Controller
             ->with('category', 'images', 'serviceLocations')
             ->limit(4)
             ->get();
-        $this->warmMedia($featuredModels);
-        $featured = $featuredModels->map(fn ($p) => $this->shape($p));
+        $this->cards->warmProducts($featuredModels);
+        $featured = $featuredModels->map(fn ($p) => $this->cards->product($p));
 
         $systemQuery = Review::where('status', 'approved')->where('category', 'system');
 
@@ -100,34 +96,9 @@ class ProductController extends Controller
             ->orderBy('name')
             ->limit(4)
             ->get();
-        // Ảnh thẻ combo qua MediaVariantService như ProductCard (bopcamping-hjde) — trước
-        // đây serve thẳng file admin upload NGUYÊN BẢN (tới 50MB), bỏ qua hệ resize WebP.
-        MediaVariantService::warm($comboModels->map(fn (Combo $c) => $c->images->first()?->path));
-        $featuredCombos = $comboModels
-            ->map(function (Combo $c) {
-                $locations = $c->openLocations();
-                $cover = $c->images->first()
-                    ? MediaVariantService::payload($c->images->first()->path)
-                    : null;
-
-                return [
-                    'id' => $c->id,
-                    'name' => $c->name,
-                    'slug' => $c->slug,
-                    'combo_price' => (int) $c->combo_price,
-                    'sum_individual' => $c->sumIndividualPrice(),
-                    'savings_amount' => $c->savingsAmount(),
-                    'savings_percent' => $c->savingsPercent(),
-                    'suitable_for' => $c->suitable_for,
-                    'items_count' => $c->items->count(),
-                    'image' => $cover['url'] ?? null,
-                    'image_srcset' => $cover['srcset'] ?? null,
-                    'locations' => $locations,
-                    // openLocationCount() đã memoize nên không thành N+1 (bopcamping-65k9).
-                    'all_locations' => $this->openLocationCount() > 0
-                        && count($locations) === $this->openLocationCount(),
-                ];
-            })->values();
+        // Ảnh thẻ combo qua MediaVariantService như ProductCard (bopcamping-hjde).
+        $this->cards->warmCombos($comboModels);
+        $featuredCombos = $comboModels->map(fn (Combo $c) => $this->cards->combo($c))->values();
 
         // FAQ hiển thị ở trang chủ (ADR home_faq_contact) — chỉ câu đang bật, theo thứ tự.
         // Lấy MỘT LẦN rồi dùng cho cả React lẫn JSON-LD: hai bên phải là cùng một dữ liệu,
@@ -184,6 +155,8 @@ class ProductController extends Controller
             'suggested_spots' => $spots->where('is_suggested', true)->map(fn (CampingSpot $s) => [
                 'id' => $s->id,
                 'name' => $s->name,
+                // Link sang trang riêng /diem-cam-trai/{slug} (bopcamping-y05c).
+                'slug' => $s->slug,
                 'terrain_tag' => $s->terrain_tag,
                 'province' => $s->province,
                 'nearest_name' => $s->nearestServiceLocation?->name,
@@ -201,6 +174,7 @@ class ProductController extends Controller
         return [
             'id' => $s->id,
             'name' => $s->name,
+            'slug' => $s->slug,
             'terrain_tag' => $s->terrain_tag,
             'province' => $s->province,
             'district' => $s->district,
@@ -294,10 +268,10 @@ class ProductController extends Controller
             ? $this->bestLocationNames($productModels, $start, $end)
             : [];
 
-        $this->warmMedia($productModels);
+        $this->cards->warmProducts($productModels);
 
         $products = $productModels->map(function (Product $p) use ($hasRange, $availability, $bestAt) {
-            $shaped = $this->shape($p);
+            $shaped = $this->cards->product($p);
             // null khi khách chưa chọn ngày — FE phân biệt "chưa lọc" với "hết hàng".
             $shaped['available'] = $hasRange ? ($availability[$p->id] ?? 0) : null;
             $shaped['in_range'] = $hasRange ? ($shaped['available'] >= 1) : null;
@@ -364,7 +338,7 @@ class ProductController extends Controller
     {
         $p = Product::active()->with('category', 'images', 'serviceLocations')->where('slug', $product)->firstOrFail();
 
-        $this->warmMedia([$p]);
+        $this->cards->warmProducts([$p]);
 
         $from = Carbon::today();
         $to = Carbon::today()->addDays(90);
@@ -390,6 +364,9 @@ class ProductController extends Controller
 
         $reviewCount = $p->reviews()->where('status', 'approved')->count();
         $reviewAvg = $p->averageRating();
+        // Một lần query, dùng cho cả carousel lẫn JSON-LD `review` — markup phải đúng
+        // những đánh giá đang hiện trên trang.
+        $approvedReviews = $p->approvedReviews()->with(['images', 'orderItem'])->limit(20)->get();
         // Sản phẩm chưa có ảnh thì rơi về bìa thương hiệu 1200x630 — đúng tỉ lệ bóc link,
         // hơn là một tấm ảnh album bị mạng xã hội tự cắt (bopcamping-marf).
         $seoImage = $p->thumbnail ? url(Storage::disk('media')->url($p->thumbnail)) : url('/images/og-cover.jpg');
@@ -403,7 +380,7 @@ class ProductController extends Controller
         return Inertia::render('ProductDetail', [
             // specs/setup_content chỉ cần ở trang chi tiết — merge ngoài shape()
             // để card danh sách (shape dùng chung) không phải chở thêm payload.
-            'product' => array_merge($this->shape($p), [
+            'product' => array_merge($this->cards->product($p), [
                 'specs' => $p->specs ?? [],
                 'setup_content' => $p->setup_content,
             ]),
@@ -411,7 +388,7 @@ class ProductController extends Controller
             'related_products' => $p->related()->where('status', 'active')
                 ->with('category', 'images', 'serviceLocations')
                 ->get()
-                ->map(fn (Product $r) => $this->shape($r))
+                ->map(fn (Product $r) => $this->cards->product($r))
                 ->values(),
             'unavailable_dates' => $unavailableDates,
             'unavailable_by_location' => $unavailableByLocation,
@@ -428,7 +405,7 @@ class ProductController extends Controller
                     'quantity' => (int) $a->quantity,
                     'thumbnail' => $a->thumbnail ? Storage::disk('media')->url($a->thumbnail) : null,
                     'category' => ['name' => $a->category->name, 'slug' => $a->category->slug],
-                    'locations' => $this->shapeLocations($a),
+                    'locations' => $this->cards->productLocations($a),
                 ])->values(),
             // PRD 5.6: banner "thuộc combo" — ưu tiên hiển thị hơn gợi ý lẻ
             'combo_banner' => $bannerCombo ? [
@@ -441,7 +418,7 @@ class ProductController extends Controller
                 'savings_percent' => $bannerCombo->savingsPercent(),
                 'items_count' => $bannerCombo->items->count(),
             ] : null,
-            'reviews' => $this->reviews($p),
+            'reviews' => $this->reviews($approvedReviews),
             'review_summary' => ['count' => $reviewCount, 'avg' => $reviewAvg],
             'can_review' => $user !== null && $user->reviewableOrderItemId($p->id) !== null,
             // SEO riêng cho sản phẩm — share đẹp + Product schema (giá/tồn/sao) + breadcrumb.
@@ -452,7 +429,7 @@ class ProductController extends Controller
                 'url' => url()->current(),
                 // Mảng nhiều node JSON-LD trong 1 thẻ script (Google chấp nhận): Product + Breadcrumb.
                 'jsonld' => [
-                    $this->productJsonLd($p, $seoImage, $seoDesc, $reviewCount, $reviewAvg),
+                    $this->productJsonLd($p, $seoImage, $seoDesc, $reviewCount, $reviewAvg, $approvedReviews),
                     $this->seo->breadcrumb([
                         ['Trang chủ', url('/')],
                         ['Thuê đồ', url('/thiet-bi')],
@@ -558,8 +535,12 @@ class ProductController extends Controller
             ->first();
     }
 
-    /** Product structured data (Google rich result: giá thuê/ngày, tồn kho, sao đánh giá). */
-    private function productJsonLd(Product $p, string $image, string $desc, int $reviewCount, float $reviewAvg): array
+    /**
+     * Product structured data (Google rich result: giá thuê/ngày, tồn kho, sao đánh giá).
+     *
+     * @param  EloquentCollection<int, Review>  $approvedReviews
+     */
+    private function productJsonLd(Product $p, string $image, string $desc, int $reviewCount, float $reviewAvg, EloquentCollection $approvedReviews): array
     {
         $data = [
             '@context' => 'https://schema.org',
@@ -579,21 +560,17 @@ class ProductController extends Controller
             ],
         ];
 
-        if ($reviewCount > 0) {
-            $data['aggregateRating'] = [
-                '@type' => 'AggregateRating',
-                'ratingValue' => $reviewAvg,
-                'reviewCount' => $reviewCount,
-            ];
-        }
-
-        return $data;
+        return $data + $this->seo->reviewMarkup($reviewCount, $reviewAvg, $approvedReviews);
     }
 
-    /** Đánh giá đã duyệt cho carousel (kèm ảnh/video + meta). */
-    private function reviews(Product $p): array
+    /**
+     * Đánh giá đã duyệt cho carousel (kèm ảnh/video + meta).
+     *
+     * @param  EloquentCollection<int, Review>  $approved
+     */
+    private function reviews(EloquentCollection $approved): array
     {
-        return $p->approvedReviews()->with(['images', 'orderItem'])->limit(20)->get()
+        return $approved
             ->map(fn (Review $r) => [
                 'id' => $r->id,
                 'reviewer_name' => $r->reviewer_name,
@@ -605,92 +582,5 @@ class ProductController extends Controller
                     'url' => Storage::disk('media')->url($m->path),
                 ])->values(),
             ])->values()->all();
-    }
-
-    /** Biến đổi Product Eloquent -> array trả về Inertia */
-    /**
-     * Nạp sẵn biến thể ảnh cho cả danh sách TRƯỚC khi shape() (bopcamping-ix4n).
-     * Không gọi thì mỗi ảnh tự đi một query lẻ — đúng cái N+1 cần tránh.
-     *
-     * @param  iterable<Product>  $products
-     */
-    private function warmMedia(iterable $products): void
-    {
-        $paths = [];
-        foreach ($products as $p) {
-            $paths[] = $p->thumbnail;
-            foreach ($p->images as $img) {
-                $paths[] = $img->path;
-            }
-        }
-        MediaVariantService::warm($paths);
-    }
-
-    private function shape(Product $p): array
-    {
-        $thumb = $p->thumbnail ? MediaVariantService::payload($p->thumbnail) : null;
-
-        return [
-            'id' => $p->id,
-            'name' => $p->name,
-            'slug' => $p->slug,
-            'description' => $p->description,
-            'price_per_day' => $p->price_per_day,
-            'quantity' => $p->quantity,
-            'deposit' => $p->deposit ?? 0,
-            'early_return_discount_pct' => (int) $p->early_return_discount_pct,
-            // `thumbnail` giữ nguyên là string (nhiều component đang dùng trực tiếp);
-            // srcset đi kèm ở khoá riêng để browser tự chọn cỡ (bopcamping-ix4n).
-            'thumbnail' => $thumb['url'] ?? null,
-            'thumbnail_srcset' => $thumb['srcset'] ?? null,
-            'status' => $p->status,
-            'category' => [
-                'id' => $p->category->id,
-                'name' => $p->category->name,
-                'slug' => $p->category->slug,
-            ],
-            'images' => $p->images->map(function ($i) {
-                // Video không có biến thể — serve nguyên file.
-                if ($i->type !== 'image') {
-                    return [
-                        'url' => Storage::disk('media')->url($i->path),
-                        'srcset' => null,
-                        'sort_order' => $i->sort_order,
-                        'type' => $i->type,
-                    ];
-                }
-                $media = MediaVariantService::payload($i->path);
-
-                return [
-                    'url' => $media['url'],
-                    'srcset' => $media['srcset'],
-                    'sort_order' => $i->sort_order,
-                    'type' => $i->type,
-                ];
-            })->values()->all(),
-            'featured' => false,
-            // Badge vị trí: chỉ tính vị trí đang mở. all_locations = phục vụ toàn bộ
-            // vị trí đang mở -> hiện gộp "Toàn hệ thống"; ngược lại liệt kê từng nơi.
-            'locations' => $this->shapeLocations($p),
-            'all_locations' => $this->servesAllOpenLocations($p),
-        ];
-    }
-
-    /** Danh sách vị trí đang mở mà sản phẩm phục vụ (cho badge thẻ sản phẩm). */
-    private function shapeLocations(Product $p): array
-    {
-        return $p->serviceLocations
-            ->where('status', 'open')
-            ->map(fn (ServiceLocation $l) => ['name' => $l->name, 'slug' => $l->slug])
-            ->values()
-            ->all();
-    }
-
-    /** True nếu sản phẩm phủ hết các vị trí đang mở (>=1) -> badge "Toàn hệ thống". */
-    private function servesAllOpenLocations(Product $p): bool
-    {
-        $total = $this->openLocationCount();
-
-        return $total > 0 && $p->serviceLocations->where('status', 'open')->count() === $total;
     }
 }

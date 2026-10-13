@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Category;
+use App\Models\Review;
 use App\Models\ServiceLocation;
 use Illuminate\Support\Str;
 
@@ -23,7 +24,10 @@ class SeoService
     public function page(string $title, ?string $description = null, ?string $image = null, ?string $url = null, ?array $jsonld = null): array
     {
         $seo = [
-            'title' => $title,
+            // Brand đúng 1 lần trong MỌI seo.title — bất biến mà client dựa vào
+            // (resources/js/lib/seo.ts documentTitle không nối thêm khi đã có brand),
+            // nhờ đó document.title sau hydrate trùng khít <title> server (bopcamping-ft1j).
+            'title' => $this->withBrand($title),
             'description' => $this->plainText($description),
             'url' => $url ?? url()->current(),
         ];
@@ -199,25 +203,114 @@ class SeoService
             ], fn ($v) => $v !== null)];
         }
 
-        return $withAddress->map(fn (ServiceLocation $l) => array_filter([
+        return $withAddress
+            ->map(fn (ServiceLocation $l) => $this->localBusinessFor($l, $telephone, $workingHours))
+            ->values()->all();
+    }
+
+    /**
+     * LocalBusiness của MỘT cơ sở — single source cho cả khối site-wide (khi cơ sở đã có địa
+     * chỉ) lẫn trang khu vực /thue-do-cam-trai/{slug} (bopcamping-y05c). Hai chỗ cùng gọi hàm
+     * này nên không bao giờ lệch nhau.
+     *
+     * `@id` + `url` trỏ về trang khu vực: đó là trang mô tả đúng cơ sở này (địa chỉ, giờ, hàng
+     * có sẵn). Cùng @id ở khối site-wide và khối trên trang khu vực -> Google gộp làm một thực
+     * thể, không thành hai cửa hàng trùng nhau.
+     *
+     * `address` chỉ khai khi admin đã điền — không bịa PostalAddress từ tên khu vực.
+     *
+     * @return array<string, mixed>
+     */
+    public function localBusinessFor(ServiceLocation $l, string $telephone, ?string $workingHours): array
+    {
+        $pageUrl = url('/thue-do-cam-trai/'.$l->slug);
+
+        return array_filter([
             '@context' => 'https://schema.org',
             '@type' => 'LocalBusiness',
+            '@id' => $pageUrl.'#store',
             'name' => self::BRAND.' - '.$l->name,
             'description' => 'Cho thuê thiết bị cắm trại theo ngày — lều, bếp, túi ngủ, đèn trại.',
-            'url' => url('/'),
+            'url' => $pageUrl,
             'image' => url('/images/album/forest-camp-aerial.jpg'),
             'telephone' => $telephone,
-            'address' => array_filter([
+            'address' => filled($l->address) ? array_filter([
                 '@type' => 'PostalAddress',
                 'streetAddress' => $l->address,
                 'addressLocality' => $l->name,
                 'addressRegion' => $l->area,
                 'addressCountry' => 'VN',
-            ], fn ($v) => filled($v)),
+            ], fn ($v) => filled($v)) : null,
+            'hasMap' => $l->map_url ?: null,
             'areaServed' => [$l->name],
             'openingHours' => $workingHours,
             'priceRange' => '$$',
-        ], fn ($v) => $v !== null))->values()->all();
+        ], fn ($v) => $v !== null);
+    }
+
+    /**
+     * Bỏ các khối site-wide (vd LocalBusiness của từng cơ sở) mà trang đang xem ĐÃ tự khai
+     * cùng `@id` trong `seo.jsonld`.
+     *
+     * Trang khu vực /thue-do-cam-trai/{slug} khai LocalBusiness `…#store` của chính cơ sở đó,
+     * trong khi khối site-wide (khi cơ sở đã có địa chỉ) cũng in đúng node đó — hai node trùng
+     * `@id` trên một trang. Giữ bản của trang (nó mô tả đúng trang), bỏ bản site-wide.
+     * app.blade.php là chỗ DUY NHẤT gọi hàm này, ngay trước khi in khối site-wide.
+     *
+     * @param  array<int, array<string, mixed>>  $siteBlocks
+     * @param  array<mixed>|null  $pageJsonld  một khối hoặc danh sách khối
+     * @return array<int, array<string, mixed>>
+     */
+    public function withoutIdsDeclaredByPage(array $siteBlocks, ?array $pageJsonld): array
+    {
+        if (empty($pageJsonld)) {
+            return array_values($siteBlocks);
+        }
+
+        $pageIds = collect(array_is_list($pageJsonld) ? $pageJsonld : [$pageJsonld])
+            ->map(fn ($block) => is_array($block) ? ($block['@id'] ?? null) : null)
+            ->filter()
+            ->all();
+
+        return array_values(array_filter(
+            $siteBlocks,
+            fn (array $block) => ! isset($block['@id']) || ! in_array($block['@id'], $pageIds, true),
+        ));
+    }
+
+    /**
+     * Ngưỡng "trang mỏng" (thin content): ít hơn số ký tự văn bản này VÀ không có ảnh nào.
+     *
+     * Trang điểm cắm trại sinh tự động từ một bản ghi admin có khi chỉ gõ 1 câu (~60 ký tự).
+     * Google gặp hàng loạt trang na ná nhau gần như rỗng thì hạ chất lượng cả site — nên
+     * trang mỏng vẫn mở cho khách (và liên kết nội bộ vẫn chạy) nhưng gắn `noindex` và
+     * không khai trong sitemap, tới khi admin viết thêm mô tả hoặc tải ảnh lên.
+     */
+    public const THIN_CONTENT_CHARS = 200;
+
+    /** True khi nội dung chính quá ít để đáng được index — xem THIN_CONTENT_CHARS. */
+    public function isThinContent(?string $html, int $imageCount): bool
+    {
+        if ($imageCount > 0) {
+            return false;
+        }
+
+        return mb_strlen((string) $this->plainText($html, 100000)) < self::THIN_CONTENT_CHARS;
+    }
+
+    /**
+     * Gắn `<meta name="robots" content="noindex, follow">` cho trang (app.blade.php đọc
+     * `seo.robots`, mặc định "index, follow"). `follow` để Google vẫn đi theo liên kết
+     * nội bộ từ trang này sang trang khu vực / điểm khác.
+     *
+     * @param  array<string, mixed>  $seo  kết quả của page()
+     * @return array<string, mixed>
+     */
+    public function noindex(array $seo): array
+    {
+        $seo['robots'] = 'noindex, follow';
+
+        return $seo;
     }
 
     /**
@@ -283,6 +376,96 @@ class SeoService
                 'acceptedAnswer' => ['@type' => 'Answer', 'text' => $qa['answer']],
             ])->all(),
         ];
+    }
+
+    /**
+     * Mảnh `aggregateRating` + `review` gắn vào node Product (sản phẩm lẻ VÀ combo).
+     *
+     * Dùng chung một chỗ cho hai controller: trước đây chỉ ProductController khai
+     * aggregateRating, còn combo bỏ trống dù đã có đánh giá riêng theo `combo_id`.
+     *
+     * Chỉ nhận đánh giá ĐÃ DUYỆT của chính sản phẩm/combo đang xem — tức đúng những
+     * đánh giá đang hiện trên trang (Google đòi markup khớp nội dung nhìn thấy). KHÔNG
+     * dùng cho Organization/LocalBusiness: Google coi review tự khai về chính doanh
+     * nghiệp là "self-serving" và không hiện sao.
+     *
+     * Trả mảng rỗng khi chưa có đánh giá — không bịa điểm.
+     *
+     * @param  iterable<int, Review>  $reviews  đánh giá đã duyệt (mới nhất trước)
+     * @return array<string, mixed>
+     */
+    public function reviewMarkup(int $count, float $avg, iterable $reviews, int $limit = 5): array
+    {
+        if ($count < 1) {
+            return [];
+        }
+
+        $items = collect($reviews)->take($limit)->map(fn ($r) => array_filter([
+            '@type' => 'Review',
+            'author' => ['@type' => 'Person', 'name' => $r->reviewer_name ?: 'Khách thuê'],
+            'datePublished' => $r->created_at?->toDateString(),
+            'reviewBody' => $this->plainText($r->content, 500),
+            'reviewRating' => [
+                '@type' => 'Rating',
+                'ratingValue' => (int) $r->rating,
+                'bestRating' => 5,
+                'worstRating' => 1,
+            ],
+        ], fn ($v) => $v !== null))->values()->all();
+
+        return array_filter([
+            'aggregateRating' => [
+                '@type' => 'AggregateRating',
+                'ratingValue' => $avg,
+                'reviewCount' => $count,
+                'bestRating' => 5,
+                'worstRating' => 1,
+            ],
+            'review' => $items ?: null,
+        ], fn ($v) => $v !== null);
+    }
+
+    /**
+     * BlogPosting JSON-LD cho một bài Cẩm nang (bopcamping-ennp).
+     *
+     * Chỉ gọi ở trang chi tiết bài — đúng nội dung đang hiện (Cạm bẫy #1 trong skill SEO).
+     * Không có tác giả cá nhân thì author = chính tổ chức, Google chấp nhận cả hai.
+     * headline cắt 110 ký tự theo khuyến nghị của Google; đi qua plainText() để chắc
+     * chắn không còn thẻ HTML nào lọt vào khối <script>.
+     *
+     * @return array<string, mixed>
+     */
+    public function blogPosting(
+        string $headline,
+        string $url,
+        ?string $description,
+        ?string $image,
+        ?\DateTimeInterface $published,
+        ?\DateTimeInterface $modified,
+        ?string $authorName = null,
+    ): array {
+        $publisher = [
+            '@type' => 'Organization',
+            'name' => self::BRAND,
+            'url' => url('/'),
+            'logo' => ['@type' => 'ImageObject', 'url' => url('/images/logo.png')],
+        ];
+
+        return array_filter([
+            '@context' => 'https://schema.org',
+            '@type' => 'BlogPosting',
+            'headline' => $this->plainText($headline, 110),
+            'description' => $this->plainText($description),
+            'image' => $image ? [Str::startsWith($image, ['http://', 'https://']) ? $image : url($image)] : null,
+            'datePublished' => $published?->format(DATE_ATOM),
+            'dateModified' => ($modified ?? $published)?->format(DATE_ATOM),
+            'author' => filled($authorName)
+                ? ['@type' => 'Person', 'name' => trim($authorName)]
+                : ['@type' => 'Organization', 'name' => self::BRAND, 'url' => url('/')],
+            'publisher' => $publisher,
+            'mainEntityOfPage' => ['@type' => 'WebPage', '@id' => $url],
+            'inLanguage' => 'vi-VN',
+        ], fn ($v) => $v !== null);
     }
 
     /**

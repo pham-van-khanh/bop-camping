@@ -11,6 +11,8 @@ export interface Flash {
     order_name?: string;
     order_phone?: string;
     order_pay?: number;
+    // Giá trị đơn cho đo lường (tiền thuê − giảm, KHÔNG gồm cọc) — bopcamping-wi6h.
+    order_value?: number;
     order_discount?: number;
     order_items?: number;
     success?: string;
@@ -48,7 +50,11 @@ export interface SiteInfo {
     facebook_url: string | null;
     tiktok_url: string | null;
     working_hours: string | null;
-    addresses: { name: string; area: string | null }[];
+    /** Giờ giao / thu đồ mặc định của shop (adr_turnaround_buffer). */
+    pickup_hour?: number;
+    return_hour?: number;
+    /** slug = URL trang khu vực /thue-do-cam-trai/{slug} (bopcamping-y05c). */
+    addresses: { name: string; slug: string; area: string | null }[];
 }
 
 export type PageProps<
@@ -62,6 +68,16 @@ export type PageProps<
     emailBonus: EmailBonus;
     durationTiers: { minDays: number; percent: number }[];
     site: SiteInfo;
+    /**
+     * SEO của trang (SeoService::page). Middleware luôn share `{ url }`; trang khách công
+     * khai có thêm `title` (luôn mang brand) — SiteLayout dùng nó làm document.title.
+     */
+    seo?: {
+        title?: string;
+        description?: string;
+        url?: string;
+        image?: string;
+    };
     /** Khác null khi admin đang xem hộ tài khoản khách (bopcamping-bqsv). */
     impersonating?: { name: string | null } | null;
     pending_reviews?: number | null;

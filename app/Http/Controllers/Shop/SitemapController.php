@@ -3,10 +3,14 @@
 namespace App\Http\Controllers\Shop;
 
 use App\Http\Controllers\Controller;
+use App\Models\CampingSpot;
 use App\Models\Category;
 use App\Models\Combo;
+use App\Models\Post;
 use App\Models\Product;
+use App\Models\ServiceLocation;
 use App\Models\StaticPage;
+use App\Services\SeoService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Carbon;
@@ -101,6 +105,67 @@ class SitemapController extends Controller
                 'lastmod' => $c->updated_at?->toAtomString(),
                 'changefreq' => 'weekly',
                 'priority' => '0.7',
+            ];
+        }
+
+        // Cẩm nang (bopcamping-ennp) — CHỈ bài Post::published() (cùng scope với trang
+        // khách, nên nháp/bài hẹn giờ không bao giờ lọt vào). Chưa có bài nào thì bỏ cả
+        // trang danh sách: một trang rỗng là thin content.
+        $posts = Post::published()->latestPublished()->get(['slug', 'updated_at']);
+        if ($posts->isNotEmpty()) {
+            $urls[] = [
+                'loc' => url('/cam-nang'),
+                'lastmod' => $this->atom($posts->max('updated_at')),
+                'changefreq' => 'weekly',
+                'priority' => '0.7',
+            ];
+            foreach ($posts as $post) {
+                $urls[] = [
+                    'loc' => url('/cam-nang/'.$post->slug),
+                    'lastmod' => $post->updated_at?->toAtomString(),
+                    'changefreq' => 'monthly',
+                    'priority' => '0.6',
+                ];
+            }
+        }
+
+        // Landing page địa phương (bopcamping-y05c). Trang khu vực hiển thị hàng của kho đó,
+        // nên lastmod = mốc mới nhất giữa bản ghi cơ sở và sản phẩm đang bán ở kho — gom MỘT
+        // truy vấn cho mọi cơ sở. Chỉ cơ sở đang mở (cơ sở sắp mở trả 404).
+        $areaProductMax = Product::active()
+            ->join('product_service_location', 'product_service_location.product_id', '=', 'products.id')
+            ->groupBy('product_service_location.service_location_id')
+            ->selectRaw('product_service_location.service_location_id as loc, MAX(products.updated_at) as m')
+            ->get()
+            ->pluck('m', 'loc');
+        foreach (ServiceLocation::open()->ordered()->get(['id', 'slug', 'updated_at']) as $l) {
+            $urls[] = [
+                'loc' => url('/thue-do-cam-trai/'.$l->slug),
+                'lastmod' => $this->atom(max($l->updated_at?->toDateTimeString(), $areaProductMax[$l->id] ?? null)),
+                'changefreq' => 'weekly',
+                'priority' => '0.8',
+            ];
+        }
+
+        $spots = CampingSpot::withCount(['media as image_count' => fn ($q) => $q->where('type', 'image')])
+            ->orderBy('slug')->get(['id', 'slug', 'description', 'updated_at']);
+        if ($spots->isNotEmpty()) {
+            $urls[] = [
+                'loc' => url('/diem-cam-trai'),
+                'lastmod' => $this->atom($spots->max('updated_at')),
+                'changefreq' => 'weekly',
+                'priority' => '0.6',
+            ];
+        }
+        // Điểm "mỏng" (mô tả ngắn, không ảnh) mang noindex -> không khai trong sitemap, nếu không
+        // Search Console báo "Submitted URL marked noindex". Cùng hàm với trang điểm.
+        $seo = app(SeoService::class);
+        foreach ($spots->reject(fn (CampingSpot $s) => $seo->isThinContent($s->description, (int) $s->image_count)) as $s) {
+            $urls[] = [
+                'loc' => url('/diem-cam-trai/'.$s->slug),
+                'lastmod' => $s->updated_at?->toAtomString(),
+                'changefreq' => 'monthly',
+                'priority' => '0.5',
             ];
         }
 

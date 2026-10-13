@@ -45,6 +45,10 @@ export default function MediaThumb({
                 <img
                     src={m.url}
                     alt=""
+                    width={size}
+                    height={size}
+                    loading="lazy"
+                    decoding="async"
                     className="h-full w-full object-cover"
                 />
             )}

@@ -30,7 +30,8 @@
         <meta name="description" content="{{ $seoDesc }}">
         <meta name="keywords" content="thuê đồ cắm trại, cho thuê lều, thuê túi ngủ, thuê bếp dã ngoại, camping Vinh, camping Hà Nội, cắm trại">
         <meta name="author" content="{{ $brand }}">
-        <meta name="robots" content="index, follow">
+        {{-- seo.robots: SeoService::noindex() cho trang mỏng (vd điểm cắm trại chưa có mô tả/ảnh). --}}
+        <meta name="robots" content="{{ $seo['robots'] ?? 'index, follow' }}">
         <meta name="theme-color" content="#557A2B">
         <meta name="thumbnail" content="{{ $seoImage }}">
         <link rel="canonical" href="{{ $seoUrl }}">
@@ -41,9 +42,13 @@
              Để ở layout chung thì MỌI trang (sản phẩm, combo, chính sách...) đều tải thừa
              717 KB — đo được là 50% trọng lượng trang chi tiết SP — lại còn ở
              fetchpriority=high nên giành băng thông với ảnh LCP thật của trang đó.
-             Preload sai chỗ thì hại LCP chứ không giúp. --}}
+             Preload sai chỗ thì hại LCP chứ không giúp.
+
+             Href = slide ĐẦU TIÊN thật sự hiện (banner hero admin quản lý), chỉ rơi về
+             ảnh mặc định của HeroSlideshow khi chưa có banner (bopcamping-b4c3). Trước
+             đây ghi cứng .webp trong khi banner seed là .jpg → tải 2 ảnh, preload phí. --}}
         @if (($page['component'] ?? '') === 'Welcome')
-            <link rel="preload" as="image" href="/images/album/beach-night-tent.webp" fetchpriority="high">
+            <link rel="preload" as="image" href="{{ data_get($page, 'props.hero_banners.0.src') ?: '/images/album/beach-night-tent.webp' }}" fetchpriority="high">
         @endif
 
         {{-- Favicon --}}
@@ -83,7 +88,7 @@
              WebSite, FAQPage đều mất @context nên Google không đọc được khối nào.
              Dựng sẵn ở SeoService::siteJsonLd() rồi chỉ in ra ở đây. --}}
         @foreach ($seoSite['site_jsonld'] ?? [] as $block)
-            <script type="application/ld+json">{!! json_encode($block, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) !!}</script>
+            <script type="application/ld+json">{!! json_encode($block, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG) !!}</script>
         @endforeach
 
         {{-- FAQPage KHÔNG khai ở đây (bopcamping-s5ct): markup phải ứng với FAQ nhìn
@@ -92,27 +97,58 @@
              structured data không khớp nội dung. Giờ trang chủ tự đưa vào seo.jsonld
              qua SeoService::faqPage(), sinh từ chính dữ liệu đang render. --}}
 
-        {{-- JSON-LD riêng theo trang (vd Product/Breadcrumb ở trang chi tiết) --}}
+        {{-- JSON-LD riêng theo trang (vd Product/Breadcrumb ở trang chi tiết).
+
+             JSON_HEX_TAG ở MỌI khối JSON-LD là BẮT BUỘC: {!! !!} không escape, mà JSON-LD
+             giờ chứa chữ khách tự gõ (tên + nội dung đánh giá). Không có cờ này thì tên
+             "</script><script>…" thoát khỏi thẻ script = XSS lưu trữ (CWE-79). Cờ đổi
+             < > thành < > — JSON vẫn hợp lệ, Google đọc y nguyên. --}}
         @if (! empty($seo['jsonld']))
-            <script type="application/ld+json">{!! json_encode($seo['jsonld'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) !!}</script>
+            <script type="application/ld+json">{!! json_encode($seo['jsonld'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG) !!}</script>
         @endif
 
         {{-- LocalBusiness (site-wide) — chỉ khi shop đã điền hotline ở Cài đặt shop.
              1 khối cho mỗi cơ sở đã có địa chỉ (SeoService::localBusinessJsonLd), gộp
-             chung 1 khối generic khi chưa cơ sở nào điền địa chỉ. --}}
-        @foreach ($seoSite['local_business'] ?? [] as $block)
-            <script type="application/ld+json">{!! json_encode($block, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) !!}</script>
+             chung 1 khối generic khi chưa cơ sở nào điền địa chỉ.
+             Trang khu vực đã tự khai LocalBusiness của cơ sở mình (cùng @id) thì bỏ bản
+             site-wide trùng — một node cho mỗi @id (SeoService::withoutIdsDeclaredByPage). --}}
+        @foreach (app(\App\Services\SeoService::class)->withoutIdsDeclaredByPage($seoSite['local_business'] ?? [], $seo['jsonld'] ?? null) as $block)
+            <script type="application/ld+json">{!! json_encode($block, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG) !!}</script>
         @endforeach
 
+        {{-- Đo lường/quảng cáo CHỈ ở trang khách (bopcamping-wi6h): /admin và /shipper là nhân
+             viên thao tác — đếm vào thì sai số liệu traffic, và pixel quảng cáo sẽ gom nhân viên
+             vào tệp remarketing. Mã do admin nhập ở Cài đặt shop; seoSite đưa qua
+             SiteSetting::trackingId() (kiểm lại định dạng). Trong <script> luôn in bằng @json
+             (escape đúng ngữ cảnh JS), KHÔNG dùng {{ }} (escape HTML, sai ngữ cảnh). --}}
+        @php
+            $trackingOn = ! request()->is('admin', 'admin/*', 'shipper', 'shipper/*');
+            $metaPixel = $trackingOn ? ($seoSite['meta_pixel_id'] ?? null) : null;
+            $tiktokPixel = $trackingOn ? ($seoSite['tiktok_pixel_id'] ?? null) : null;
+        @endphp
+
         {{-- Google Tag Manager (chỉ khi đặt GTM_ID trong .env) --}}
-        @if (config('services.gtm.id'))
-            <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);})(window,document,'script','dataLayer','{{ config('services.gtm.id') }}');</script>
+        @if ($trackingOn && config('services.gtm.id'))
+            <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);})(window,document,'script','dataLayer',@json((string) config('services.gtm.id')));</script>
         @endif
 
         {{-- Google Analytics 4 (chỉ khi admin đã điền mã GA4 ở Cài đặt shop) --}}
-        @if (! empty($seoSite['ga_id']))
+        {{-- Page view khi chuyển trang SPA do Enhanced measurement của GA4 tự bắt (theo lịch
+             sử trình duyệt) — resources/js/lib/analytics.ts cố ý KHÔNG gửi thêm để khỏi đếm đôi. --}}
+        @if ($trackingOn && ! empty($seoSite['ga_id']))
             <script async src="https://www.googletagmanager.com/gtag/js?id={{ $seoSite['ga_id'] }}"></script>
-            <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','{{ $seoSite['ga_id'] }}');</script>
+            <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config',@json($seoSite['ga_id']));</script>
+        @endif
+
+        {{-- Meta Pixel. disablePushState: tắt tự đếm PageView theo pushState — analytics.ts tự
+             gửi PageView mỗi lần Inertia đổi URL, tránh đếm đôi. --}}
+        @if ($metaPixel)
+            <script>!function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');fbq.disablePushState=true;fbq('init',@json($metaPixel));fbq('track','PageView');</script>
+        @endif
+
+        {{-- TikTok Pixel --}}
+        @if ($tiktokPixel)
+            <script>!function(w,d,t){w.TiktokAnalyticsObject=t;var ttq=w[t]=w[t]||[];ttq.methods=["page","track","identify","instances","debug","on","off","once","ready","alias","group","enableCookie","disableCookie","holdConsent","revokeConsent","grantConsent"],ttq.setAndDefer=function(t,e){t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}};for(var i=0;i<ttq.methods.length;i++)ttq.setAndDefer(ttq,ttq.methods[i]);ttq.instance=function(t){for(var e=ttq._i[t]||[],n=0;n<ttq.methods.length;n++)ttq.setAndDefer(e,ttq.methods[n]);return e},ttq.load=function(e,n){var r="https://analytics.tiktok.com/i18n/pixel/events.js";ttq._i=ttq._i||{},ttq._i[e]=[],ttq._i[e]._u=r,ttq._t=ttq._t||{},ttq._t[e]=+new Date,ttq._o=ttq._o||{},ttq._o[e]=n||{};n=d.createElement("script");n.type="text/javascript",n.async=!0,n.src=r+"?sdkid="+e+"&lib="+t;e=d.getElementsByTagName("script")[0];e.parentNode.insertBefore(n,e)};ttq.load(@json($tiktokPixel));ttq.page();}(window,document,'ttq');</script>
         @endif
 
         <!-- Fonts -->
@@ -126,8 +162,11 @@
         @inertiaHead
     </head>
     <body class="font-sans antialiased">
-        @if (config('services.gtm.id'))
+        @if ($trackingOn && config('services.gtm.id'))
             <noscript><iframe src="https://www.googletagmanager.com/ns.html?id={{ config('services.gtm.id') }}" height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+        @endif
+        @if ($metaPixel)
+            <noscript><img height="1" width="1" style="display:none" alt="" src="https://www.facebook.com/tr?id={{ $metaPixel }}&amp;ev=PageView&amp;noscript=1"></noscript>
         @endif
         @inertia
     </body>

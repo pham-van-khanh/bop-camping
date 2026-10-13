@@ -34,7 +34,7 @@ class OrderLookupTest extends TestCase
     {
         $this->makeOrder();
 
-        $this->get(route('lookup', ['code' => 'BOP-ABC123', 'phone' => '0912345678']))
+        $this->followingRedirects()->get(route('lookup', ['code' => 'BOP-ABC123', 'phone' => '0912345678']))
             ->assertInertia(fn (Assert $p) => $p
                 ->component('OrderLookup')
                 ->where('not_found', false)
@@ -47,7 +47,7 @@ class OrderLookupTest extends TestCase
     {
         $this->makeOrder();
 
-        $this->get(route('lookup', ['code' => 'BOP-ABC123', 'phone' => '0999999999']))
+        $this->followingRedirects()->get(route('lookup', ['code' => 'BOP-ABC123', 'phone' => '0999999999']))
             ->assertInertia(fn (Assert $p) => $p
                 ->component('OrderLookup')
                 ->where('not_found', true)
@@ -70,7 +70,7 @@ class OrderLookupTest extends TestCase
         $order = $this->makeOrder();
         $order->update(['confirmed_pickup_time' => '14:30', 'confirmed_return_time' => '09:00']);
 
-        $this->get(route('lookup', ['code' => 'BOP-ABC123', 'phone' => '0912345678']))
+        $this->followingRedirects()->get(route('lookup', ['code' => 'BOP-ABC123', 'phone' => '0912345678']))
             ->assertInertia(fn (Assert $p) => $p
                 ->where('order.confirmed_pickup_time', '14:30')
                 ->where('order.confirmed_return_time', '09:00'));
@@ -81,7 +81,7 @@ class OrderLookupTest extends TestCase
     {
         $this->makeOrder();
 
-        $this->get(route('lookup', ['code' => 'BOP-ABC123', 'phone' => '0912345678']))
+        $this->followingRedirects()->get(route('lookup', ['code' => 'BOP-ABC123', 'phone' => '0912345678']))
             ->assertInertia(fn (Assert $p) => $p
                 ->where('order.confirmed_pickup_time', null)
                 ->where('order.confirmed_return_time', null));
@@ -107,7 +107,7 @@ class OrderLookupTest extends TestCase
             'extra_fee' => 80000,
         ]);
 
-        $res = $this->get(route('lookup', ['code' => $order->code, 'phone' => $order->customer_phone]));
+        $res = $this->followingRedirects()->get(route('lookup', ['code' => $order->code, 'phone' => $order->customer_phone]));
 
         $res->assertInertia(fn ($p) => $p
             ->has('order.extra_fees', 2)
