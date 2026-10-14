@@ -156,7 +156,7 @@ class AccountOrdersTest extends TestCase
         ]);
 
         $this->actingAs($user)
-            ->get(route('account', ['code' => $order->code, 'phone' => $user->phone]))
+            ->followingRedirects()->get(route('account', ['code' => $order->code, 'phone' => $user->phone]))
             ->assertInertia(fn (Assert $p) => $p
                 ->where('lookup.order.code', $order->code)
                 ->where('lookup.not_found', false)
@@ -170,7 +170,7 @@ class AccountOrdersTest extends TestCase
         $order = $this->order($user, $user->phone);
 
         $this->actingAs($user)
-            ->get(route('account', ['code' => $order->code, 'phone' => '0999999999']))
+            ->followingRedirects()->get(route('account', ['code' => $order->code, 'phone' => '0999999999']))
             ->assertInertia(fn (Assert $p) => $p
                 ->where('lookup.order', null)
                 ->where('lookup.not_found', true));
@@ -235,7 +235,7 @@ class AccountOrdersTest extends TestCase
         $order->update(['confirmed_pickup_time' => '14:30', 'confirmed_return_time' => '09:00']);
 
         $this->actingAs($user)
-            ->get(route('account', ['code' => $order->code, 'phone' => $user->phone]))
+            ->followingRedirects()->get(route('account', ['code' => $order->code, 'phone' => $user->phone]))
             ->assertInertia(fn (Assert $p) => $p
                 ->where('lookup.order.confirmed_pickup_time', '14:30')
                 ->where('lookup.order.confirmed_return_time', '09:00'));

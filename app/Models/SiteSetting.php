@@ -28,6 +28,30 @@ class SiteSetting extends Model
         'afternoon_start_hour' => 'integer',
     ];
 
+    /**
+     * Định dạng mã đo lường/quảng cáo (bopcamping-wi6h) — NGUỒN DUY NHẤT cho cả validate lúc
+     * admin lưu (SiteSettingController) lẫn kiểm lại lúc in vào <script> (trackingId()).
+     * Cờ `D`: `$` không khớp trước "\n" cuối chuỗi.
+     */
+    public const TRACKING_ID_PATTERNS = [
+        'ga_measurement_id' => '/^G-[A-Z0-9]{4,30}$/iD',
+        'meta_pixel_id' => '/^[0-9]{8,20}$/D',
+        'tiktok_pixel_id' => '/^[A-Za-z0-9]{8,30}$/D',
+    ];
+
+    /**
+     * Mã đo lường đã KIỂM LẠI định dạng, hoặc null. Giá trị được in vào <script> ở
+     * app.blade.php, nên không tin rằng mọi đường ghi (seeder, tinker, sửa tay DB) đều
+     * đã đi qua validate của controller (CWE-79, phòng thủ nhiều lớp).
+     */
+    public function trackingId(string $column): ?string
+    {
+        $value = $this->getAttribute($column);
+        $pattern = self::TRACKING_ID_PATTERNS[$column] ?? null;
+
+        return is_string($value) && $pattern !== null && preg_match($pattern, $value) === 1 ? $value : null;
+    }
+
     /** Lấy bản ghi cấu hình duy nhất (tạo mặc định nếu chưa có). */
     public static function current(): self
     {

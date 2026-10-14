@@ -18,7 +18,7 @@ import SystemReviews, {
 import SiteLayout from '@/Layouts/SiteLayout';
 import type { PageProps } from '@/types';
 import type { ProductResource } from '@/types/product';
-import { Head, Link, usePage } from '@inertiajs/react';
+import { Link, usePage } from '@inertiajs/react';
 import { motion } from 'framer-motion';
 import { ReactNode, useState } from 'react';
 
@@ -109,8 +109,6 @@ export default function Home({
     ];
     return (
         <>
-            <Head title="Cho thuê thiết bị cắm trại" />
-
             {/* Hero ảnh full-bleed (slideshow) + panel "Đang phục vụ tại" bên phải */}
             <HeroSlideshow
                 slides={hero_banners}
@@ -167,9 +165,9 @@ export default function Home({
                             textShadow: '0 2px 16px rgba(0,0,0,.4)',
                         }}
                     >
-                        Lều, bếp, túi ngủ, đèn trại... thuê đủ bộ cho chuyến đi.
-                        Chọn ngày nhận và ngày trả, tụi mình kiểm tra còn hàng
-                        và giao tận nơi. Trả tiền khi nhận.
+                        Lều, tăng bạt, bàn ghế, bếp nướng... thuê đủ bộ cho
+                        chuyến đi. Chọn ngày nhận và ngày trả, tụi mình kiểm tra
+                        còn hàng và giao tận nơi. Trả tiền khi nhận.
                     </p>
                     <div className="flex flex-wrap gap-3">
                         <Link
@@ -558,6 +556,10 @@ function PromoBannerCard({ banner }: { banner: PromoBanner }) {
             <img
                 src={banner.image}
                 alt={banner.title ?? ''}
+                width={1100}
+                height={300}
+                loading="lazy"
+                decoding="async"
                 className="h-full w-full object-cover"
             />
             {(banner.title || banner.subtitle) && (

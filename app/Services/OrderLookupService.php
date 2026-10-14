@@ -4,6 +4,8 @@ namespace App\Services;
 
 use App\Models\Order;
 use App\Models\OrderItem;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 
 /**
  * Tra cứu đơn theo mã + SĐT và shape dữ liệu cho FE (bopcamping-7w8).
@@ -12,7 +14,49 @@ use App\Models\OrderItem;
  */
 class OrderLookupService
 {
+    /** SĐT tra cứu gần nhất của phiên — thay cho `?phone=` trên URL (xem redirectWithoutPhone). */
+    public const PHONE_SESSION_KEY = 'order_lookup_phone';
+
     public function __construct(private PaymentQrService $paymentQr) {}
+
+    /**
+     * SĐT khách KHÔNG được nằm trên URL trang tra cứu (/tra-cuu, /tai-khoan).
+     *
+     * Trang khách tải GA4 / GTM / Meta Pixel / TikTok Pixel, và cả bốn đều gửi NGUYÊN URL
+     * (gồm query string) về máy chủ của họ ở mỗi lượt xem trang — kể cả lượt xem trong SPA
+     * (GA4 enhanced measurement, TikTok tự đo pushState, PageView của analytics.ts). Chính
+     * sách bảo mật mục 5 cam kết các công cụ này không nhận SĐT, nên SĐT phải rời URL TRƯỚC
+     * khi trình duyệt kịp vẽ trang.
+     *
+     * Request mang `?phone=` (form tra cứu dùng router.get, link "Theo dõi đơn này" sau
+     * checkout) → cất SĐT vào session rồi redirect về đúng URL đó bỏ `phone`. Redirect ở
+     * SERVER nên không có HTML nào — và không script đo lường nào — từng chạy trên URL có SĐT.
+     * null = URL đã sạch, controller xử lý tiếp.
+     */
+    public function redirectWithoutPhone(Request $request): ?RedirectResponse
+    {
+        if (! $request->query->has('phone')) {
+            return null;
+        }
+
+        $phone = $request->query('phone');
+        $phone = is_string($phone) ? trim($phone) : '';
+        if ($phone === '') {
+            $request->session()->forget(self::PHONE_SESSION_KEY);
+        } else {
+            $request->session()->put(self::PHONE_SESSION_KEY, $phone);
+        }
+
+        return redirect()->to($request->fullUrlWithoutQuery(['phone']));
+    }
+
+    /** SĐT đã cất bởi redirectWithoutPhone — chuỗi rỗng nếu phiên chưa tra cứu. */
+    public function rememberedPhone(Request $request): string
+    {
+        $phone = $request->session()->get(self::PHONE_SESSION_KEY);
+
+        return is_string($phone) ? $phone : '';
+    }
 
     /** Tìm đơn khớp cả mã lẫn SĐT — null nếu không khớp. */
     public function find(string $code, string $phone): ?array

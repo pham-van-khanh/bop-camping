@@ -6,6 +6,7 @@ use App\Models\CampingSpot;
 use App\Models\Product;
 use App\Models\ServiceLocation;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Str;
 
 class CampingSpotSeeder extends Seeder
 {
@@ -14,11 +15,11 @@ class CampingSpotSeeder extends Seeder
     {
         $vinh = ServiceLocation::firstOrCreate(
             ['name' => 'Vinh'],
-            ['area' => 'Nghệ An', 'status' => 'open', 'sort_order' => 1],
+            ['slug' => 'vinh', 'area' => 'Nghệ An', 'status' => 'open', 'sort_order' => 1],
         );
         $hanoi = ServiceLocation::firstOrCreate(
             ['name' => 'Hà Nội'],
-            ['area' => 'Nội thành', 'status' => 'open', 'sort_order' => 2],
+            ['slug' => 'ha-noi', 'area' => 'Nội thành', 'status' => 'open', 'sort_order' => 2],
         );
 
         $spots = [
@@ -38,6 +39,9 @@ class CampingSpotSeeder extends Seeder
             CampingSpot::firstOrCreate(
                 ['name' => $name],
                 [
+                    // Ghi slug tường minh: DatabaseSeeder chạy WithoutModelEvents nên hook
+                    // HasAutoSlug không sinh hộ — thiếu dòng này thì /diem-cam-trai/{slug} 404.
+                    'slug' => Str::slug($name),
                     'province' => $province,
                     'district' => $district,
                     'terrain_tag' => $tag,

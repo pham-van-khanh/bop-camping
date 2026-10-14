@@ -1,13 +1,18 @@
 import { terrainGradient } from '@/lib/terrain';
+import { Link } from '@inertiajs/react';
+import type { ReactNode } from 'react';
 
 export type ServiceLocation = {
     name: string;
+    /** Có slug + đang mở -> bấm sang trang khu vực /thue-do-cam-trai/{slug}. */
+    slug?: string;
     area: string | null;
     status: 'open' | 'coming';
 };
 export type SuggestedSpot = {
     id: number;
     name: string;
+    slug: string;
     terrain_tag: string;
     province: string;
     nearest_name: string | null;
@@ -50,14 +55,7 @@ export default function HomeServingPanel({
             </p>
             <div className="flex flex-col gap-2">
                 {locations.map((l) => (
-                    <div
-                        key={l.name}
-                        className="flex items-center gap-3 rounded-[12px] px-3 py-2.5"
-                        style={{
-                            background: 'rgba(255,255,255,.06)',
-                            border: '1px solid rgba(207,224,168,.18)',
-                        }}
-                    >
+                    <LocationRow key={l.name} l={l}>
                         <span
                             className="grid h-9 w-9 flex-none place-items-center rounded-[10px]"
                             style={{ background: 'rgba(85,122,43,.45)' }}
@@ -111,7 +109,7 @@ export default function HomeServingPanel({
                         >
                             {l.status === 'open' ? 'ĐANG MỞ' : 'SẮP MỞ'}
                         </span>
-                    </div>
+                    </LocationRow>
                 ))}
             </div>
 
@@ -127,7 +125,11 @@ export default function HomeServingPanel({
                     </div>
                     <div className="flex flex-col gap-2">
                         {suggested.map((s) => (
-                            <div key={s.id} className="flex items-center gap-3">
+                            <Link
+                                key={s.id}
+                                href={`/diem-cam-trai/${s.slug}`}
+                                className="flex items-center gap-3 rounded-[10px] transition hover:bg-white/5"
+                            >
                                 <span
                                     className="h-9 w-9 flex-none rounded-[10px]"
                                     style={{
@@ -144,7 +146,7 @@ export default function HomeServingPanel({
                                         {s.nearest_name ?? s.province}
                                     </div>
                                 </div>
-                            </div>
+                            </Link>
                         ))}
                     </div>
                 </>
@@ -161,6 +163,38 @@ export default function HomeServingPanel({
                 Nếu bạn chưa biết cắm trại ở đâu, tụi mình sẽ giúp bạn
                 <span aria-hidden>→</span>
             </button>
+        </div>
+    );
+}
+
+/** Một dòng cơ sở — cơ sở đang mở là link sang trang khu vực (bopcamping-y05c). */
+function LocationRow({
+    l,
+    children,
+}: {
+    l: ServiceLocation;
+    children: ReactNode;
+}) {
+    const className =
+        'flex items-center gap-3 rounded-[12px] px-3 py-2.5 transition';
+    const style = {
+        background: 'rgba(255,255,255,.06)',
+        border: '1px solid rgba(207,224,168,.18)',
+    };
+    if (l.status === 'open' && l.slug) {
+        return (
+            <Link
+                href={`/thue-do-cam-trai/${l.slug}`}
+                className={`${className} hover:bg-white/10`}
+                style={style}
+            >
+                {children}
+            </Link>
+        );
+    }
+    return (
+        <div className={className} style={style}>
+            {children}
         </div>
     );
 }

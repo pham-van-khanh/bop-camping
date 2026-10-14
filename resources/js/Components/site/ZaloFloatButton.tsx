@@ -36,6 +36,7 @@ export default function ZaloFloatButton() {
             target="_blank"
             rel="noreferrer"
             aria-label="Liên hệ Zalo"
+            data-track-placement="float"
             title="Nhắn Zalo cho BỐP CAMPING"
             className="fixed bottom-[80px] right-5 z-[80] grid h-12 w-12 place-items-center rounded-[14px] outline-none transition [filter:drop-shadow(0_4px_10px_rgba(0,0,0,.3))] hover:-translate-y-0.5 focus-visible:ring-2 focus-visible:ring-[#0068FF] focus-visible:ring-offset-2"
         >

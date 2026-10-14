@@ -1,6 +1,5 @@
 import MagazineContent from '@/Components/site/MagazineContent';
 import SiteLayout from '@/Layouts/SiteLayout';
-import { Head } from '@inertiajs/react';
 import { ReactNode } from 'react';
 
 /**
@@ -15,8 +14,6 @@ export default function Policy({
 }) {
     return (
         <>
-            <Head title={page.title} />
-
             <div className="mx-auto max-w-[820px] px-5 pt-10">
                 <div className="mb-1 font-mono text-[12px] font-bold tracking-[0.14em] text-campfire">
                     CHÍNH SÁCH

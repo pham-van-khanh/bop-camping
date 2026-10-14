@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\GenerateMediaVariants;
 use App\Models\CampingSpot;
 use App\Models\CampingSpotMedia;
 use App\Models\ServiceLocation;
@@ -10,6 +11,7 @@ use App\Support\MediaType;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -23,6 +25,7 @@ class CampingSpotController extends Controller
             ->through(fn (CampingSpot $s) => [
                 'id' => $s->id,
                 'name' => $s->name,
+                'slug' => $s->slug,
                 'province' => $s->province,
                 'district' => $s->district,
                 'terrain_tag' => $s->terrain_tag,
@@ -48,7 +51,9 @@ class CampingSpotController extends Controller
                 ->map(fn (ServiceLocation $l) => [
                     'id' => $l->id,
                     'name' => $l->name,
+                    'slug' => $l->slug,
                     'area' => $l->area,
+                    'intro' => $l->intro,
                     // Địa chỉ + link bản đồ hiện cho khách chọn "Tự đến xem đồ" (bopcamping-n0db).
                     'address' => $l->address,
                     'map_url' => $l->map_url,
@@ -70,7 +75,7 @@ class CampingSpotController extends Controller
 
     public function update(Request $request, CampingSpot $campingSpot): RedirectResponse
     {
-        $campingSpot->update($this->validated($request));
+        $campingSpot->update($this->validated($request, $campingSpot));
 
         return back()->with('success', 'Đã cập nhật điểm cắm trại.');
     }
@@ -96,12 +101,22 @@ class CampingSpotController extends Controller
         ]);
 
         $maxSort = (int) $campingSpot->media()->max('sort_order');
+        $imagePaths = [];
         foreach ((array) $request->file('media', []) as $file) {
-            $campingSpot->media()->create([
+            $media = $campingSpot->media()->create([
                 'type' => MediaType::detect($file),
                 'path' => $file->store('admin/camping-spots', 'media'),
                 'sort_order' => ++$maxSort,
             ]);
+            if ($media->type === 'image') {
+                $imagePaths[] = $media->path;
+            }
+        }
+
+        // Ảnh điểm cắm trại giờ hiện trên trang riêng /diem-cam-trai/{slug} (bopcamping-y05c)
+        // — sinh biến thể WebP như ảnh sản phẩm/combo, không serve file gốc tới 50MB.
+        if ($imagePaths !== []) {
+            GenerateMediaVariants::dispatch($imagePaths);
         }
 
         return back()->with('success', 'Đã tải lên ảnh/video.');
@@ -119,14 +134,18 @@ class CampingSpotController extends Controller
     }
 
     /** Validate + chuẩn hoá dữ liệu cho store/update. */
-    private function validated(Request $request): array
+    private function validated(Request $request, ?CampingSpot $current = null): array
     {
         $data = $request->validate([
             'name' => ['required', 'string', 'min:2', 'max:150'],
+            // URL trang /diem-cam-trai/{slug} (bopcamping-y05c) — trống thì tự sinh từ tên.
+            'slug' => ['nullable', 'string', 'max:160', 'regex:/^[a-z0-9]+(?:-[a-z0-9]+)*$/',
+                Rule::unique('camping_spots', 'slug')->ignore($current?->id)],
             'province' => ['required', 'string', 'max:100'],
             'district' => ['nullable', 'string', 'max:100'],
             'terrain_tag' => ['required', 'string', 'max:50'],
-            'description' => ['nullable', 'string', 'max:1000'],
+            // Mô tả giờ là nội dung chính của trang riêng — cho viết dài hơn (bopcamping-y05c).
+            'description' => ['nullable', 'string', 'max:5000'],
             'map_url' => ['nullable', 'url', 'max:500'],
             'best_season_from' => ['nullable', 'integer', 'min:1', 'max:12'],
             'best_season_to' => ['nullable', 'integer', 'min:1', 'max:12'],
@@ -138,6 +157,8 @@ class CampingSpotController extends Controller
             'province.required' => 'Vui lòng nhập tỉnh/thành.',
             'terrain_tag.required' => 'Vui lòng nhập loại địa hình.',
             'map_url.url' => 'Link bản đồ phải là một URL hợp lệ.',
+            'slug.regex' => 'Slug chỉ gồm chữ thường không dấu, số và dấu gạch nối (vd: ho-dong-mo).',
+            'slug.unique' => 'Slug này đã được dùng cho điểm khác.',
         ]);
 
         $data['is_suggested'] = $request->boolean('is_suggested');

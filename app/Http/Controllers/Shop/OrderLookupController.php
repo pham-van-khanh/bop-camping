@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Shop;
 
 use App\Http\Controllers\Controller;
 use App\Services\OrderLookupService;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -17,13 +18,19 @@ class OrderLookupController extends Controller
 {
     public function __construct(private OrderLookupService $lookup) {}
 
-    public function index(Request $request): Response
+    public function index(Request $request): Response|RedirectResponse
     {
+        // SĐT không được nằm trên URL (đo lường gửi nguyên URL đi) — xem redirectWithoutPhone.
+        if ($redirect = $this->lookup->redirectWithoutPhone($request)) {
+            return $redirect;
+        }
+        $phone = $this->lookup->rememberedPhone($request);
+
         $order = null;
         $notFound = false;
 
-        if ($request->filled('code') && $request->filled('phone')) {
-            $order = $this->lookup->find((string) $request->input('code'), (string) $request->input('phone'));
+        if ($request->filled('code') && $phone !== '') {
+            $order = $this->lookup->find((string) $request->input('code'), $phone);
             $notFound = $order === null;
         }
 
@@ -34,7 +41,7 @@ class OrderLookupController extends Controller
             // SĐT mặc định lấy từ tài khoản đang đăng nhập (auto-fill — KE_HOACH 8.3).
             'query' => [
                 'code' => $request->input('code', ''),
-                'phone' => $request->input('phone', $request->user()?->phone ?? ''),
+                'phone' => $phone !== '' ? $phone : ($request->user()?->phone ?? ''),
             ],
         ]);
     }

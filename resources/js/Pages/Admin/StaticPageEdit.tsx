@@ -1,5 +1,7 @@
 import RichTextEditor from '@/Components/admin/RichTextEditor';
+import SeoLengthHint from '@/Components/admin/SeoLengthHint';
 import AdminLayout from '@/Layouts/AdminLayout';
+import { staticPageTitle } from '@/lib/seo';
 import type { PageProps } from '@/types';
 import { Head, Link, useForm, usePage } from '@inertiajs/react';
 import { ReactNode, useEffect, useState } from 'react';
@@ -90,6 +92,10 @@ export default function AdminStaticPageEdit({
                                 form.setData('title', e.target.value)
                             }
                             className="w-full rounded-[10px] border border-cardBorder px-3.5 py-2.5 text-[13.5px] outline-none transition focus:border-grass"
+                        />
+                        <SeoLengthHint
+                            kind="title"
+                            value={staticPageTitle(form.data.title)}
                         />
                         {form.errors.title && (
                             <p className="mt-1 text-[12px] text-[#b3493a]">
