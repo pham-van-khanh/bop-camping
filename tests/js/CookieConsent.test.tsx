@@ -258,18 +258,23 @@ describe('banner đồng ý cookie', () => {
         expect(accept.className).toBe(reject.className);
     });
 
-    it('nói rõ từ chối vẫn thuê đồ bình thường và chỗ đổi ý', () => {
+    it('nội dung gọn kiểu Naturehike: một câu nêu Google Analytics + mục đích', () => {
+        // Chủ shop chọn bản gọn để banner ít che trang nhất. Chi tiết (cookie nào,
+        // từ chối vẫn thuê bình thường, chỗ đổi ý) nằm ở Chính sách bảo mật.
         render(<CookieConsent />);
-        const text = dialog()!.textContent ?? '';
-        expect(text).toMatch(/từ chối vẫn xem và thuê đồ bình thường/i);
-        expect(text).toContain('Cài đặt cookie');
+        const text = (dialog()!.textContent ?? '')
+            .replace('Từ chối', '')
+            .replace('Đồng ý', '')
+            .trim();
         expect(text).toContain('Google Analytics');
+        expect(text).toMatch(/trang nào hữu ích/);
+        expect(text.length).toBeLessThan(110);
     });
 
-    it('có link tới Chính sách bảo mật', () => {
+    it('"Tìm hiểu thêm" dẫn tới Chính sách bảo mật', () => {
         render(<CookieConsent />);
         expect(
-            screen.getByRole('link', { name: /chính sách bảo mật/i }),
+            screen.getByRole('link', { name: 'Tìm hiểu thêm' }),
         ).toHaveAttribute('href', '/chinh-sach-bao-mat');
     });
 

@@ -66,37 +66,33 @@ export default function CookieConsent() {
         <div
             ref={panel}
             role="dialog"
-            aria-labelledby="cookie-consent-title"
+            aria-label="Đồng ý cookie"
             aria-describedby="cookie-consent-desc"
             tabIndex={-1}
-            className="fixed inset-x-0 bottom-0 z-[90] border-t border-cardBorder bg-card px-5 pb-[max(16px,env(safe-area-inset-bottom))] pt-4 shadow-toast outline-none sm:bottom-5 sm:left-5 sm:right-auto sm:w-[380px] sm:rounded-card sm:border sm:pb-4"
+            className="fixed inset-x-0 bottom-0 z-[90] border-t border-cardBorder bg-card px-5 pb-[max(14px,env(safe-area-inset-bottom))] pt-3.5 shadow-toast outline-none sm:bottom-5 sm:left-5 sm:right-auto sm:w-[380px] sm:rounded-card sm:border sm:pb-3.5"
         >
-            <h2
-                id="cookie-consent-title"
-                className="m-0 text-[15px] font-extrabold text-pine"
-            >
-                Bốp xin phép dùng cookie
-            </h2>
-            <p
-                id="cookie-consent-desc"
-                className="mb-3.5 mt-1.5 text-[13.5px] leading-[1.55] text-moss"
-            >
-                {/* Câu thứ hai trấn an khách: từ chối không mất gì (giỏ hàng, đăng
-                    nhập dùng cookie thiết yếu, không cần xin phép). */}
-                Tụi mình muốn dùng cookie của Google Analytics để biết trang nào
-                hữu ích và làm web tốt hơn. Bạn từ chối vẫn xem và thuê đồ bình
-                thường. Đổi ý lúc nào cũng được ở mục “Cài đặt cookie” cuối
-                trang.{' '}
-                <Link
-                    href="/chinh-sach-bao-mat"
-                    className="font-semibold text-grass underline underline-offset-2 hover:text-pine"
+            {/* Gọn kiểu Naturehike — chủ shop chọn để banner ít che trang nhất. Chi
+                tiết (cookie nào, từ chối vẫn thuê bình thường, chỗ đổi ý) nằm ở
+                Chính sách bảo mật, link "Tìm hiểu thêm". */}
+            <div className="flex items-start gap-3">
+                <CookieIcon />
+                <p
+                    id="cookie-consent-desc"
+                    className="m-0 text-[13.5px] leading-[1.55] text-moss"
                 >
-                    Chính sách bảo mật
-                </Link>
-            </p>
+                    Bốp dùng cookie Google Analytics để biết trang nào hữu ích
+                    với bạn.{' '}
+                    <Link
+                        href="/chinh-sach-bao-mat"
+                        className="font-semibold text-grass underline underline-offset-2 hover:text-pine"
+                    >
+                        Tìm hiểu thêm
+                    </Link>
+                </p>
+            </div>
             {/* Hai nút GIỐNG HỆT nhau (cỡ, màu, thứ tự đọc) — tô đậm riêng "Đồng ý" là
                 dark pattern mà hướng dẫn GDPR/CookieYes cấm: lựa chọn phải tự do. */}
-            <div className="grid grid-cols-2 gap-2.5">
+            <div className="mt-3 grid grid-cols-2 gap-2.5">
                 <button
                     type="button"
                     onClick={() => decide(false)}
@@ -113,5 +109,27 @@ export default function CookieConsent() {
                 </button>
             </div>
         </div>
+    );
+}
+
+/** Bánh cookie bị cắn một miếng — tông đất cho hợp theme be Naturehike. */
+function CookieIcon() {
+    return (
+        <svg
+            viewBox="0 0 32 32"
+            width={30}
+            height={30}
+            aria-hidden="true"
+            className="mt-0.5 shrink-0"
+        >
+            <path
+                d="M16 3a13 13 0 1 0 13 13 4 4 0 0 1-4.5-4.5 4 4 0 0 1-4.5-4.5A4 4 0 0 1 16 3Z"
+                fill="#D9A35F"
+            />
+            <circle cx="11" cy="13" r="1.8" fill="#6B4423" />
+            <circle cx="17.5" cy="19.5" r="1.8" fill="#6B4423" />
+            <circle cx="10.5" cy="21.5" r="1.4" fill="#6B4423" />
+            <circle cx="23" cy="23" r="1.3" fill="#6B4423" />
+        </svg>
     );
 }
