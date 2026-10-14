@@ -10,11 +10,11 @@
         @php
             // SEO động: lấy từ prop 'seo' của trang (controller/shared), có fallback site-wide.
             $seo = $page['props']['seo'] ?? [];
-            // SEO site-wide (không bị controller ghi đè): GA4, Google verification, LocalBusiness.
+            // SEO site-wide (không bị controller ghi đè): Google verification, LocalBusiness.
             $seoSite = $page['props']['seoSite'] ?? [];
             $brand = 'BỐP CAMPING';
             $seoTitle = $seo['title'] ?? $brand.' — Cho thuê thiết bị cắm trại';
-            $seoDesc = $seo['description'] ?? 'Cho thuê lều, bếp, túi ngủ, đèn trại... theo ngày. Giao nhận tận nơi tại Vinh & Hà Nội, cọc linh hoạt, trả tiền khi nhận (COD).';
+            $seoDesc = $seo['description'] ?? 'Cho thuê lều, tăng bạt, bàn ghế, bếp nướng... theo ngày. Giao nhận tận nơi tại Vinh & Hà Nội, cọc linh hoạt, trả tiền khi nhận (COD).';
             // Ảnh mặc định khi bóc link (Facebook/Zalo/Messenger): bìa thương hiệu cắt
             // sẵn 1200x630 — đúng tỉ lệ 1,91:1 các mạng dùng, nên không bị họ tự cắt
             // mất chữ. Trước đây dùng ảnh album 1.048 KB không đúng tỉ lệ (bopcamping-marf).
@@ -28,9 +28,10 @@
 
         <title inertia>{{ $seoTitle }}</title>
         <meta name="description" content="{{ $seoDesc }}">
-        <meta name="keywords" content="thuê đồ cắm trại, cho thuê lều, thuê túi ngủ, thuê bếp dã ngoại, camping Vinh, camping Hà Nội, cắm trại">
+        <meta name="keywords" content="thuê đồ cắm trại, cho thuê lều, thuê tăng bạt, thuê bếp nướng dã ngoại, camping Vinh, camping Hà Nội, cắm trại">
         <meta name="author" content="{{ $brand }}">
-        <meta name="robots" content="index, follow">
+        {{-- seo.robots: SeoService::noindex() cho trang mỏng (vd điểm cắm trại chưa có mô tả/ảnh). --}}
+        <meta name="robots" content="{{ $seo['robots'] ?? 'index, follow' }}">
         <meta name="theme-color" content="#557A2B">
         <meta name="thumbnail" content="{{ $seoImage }}">
         <link rel="canonical" href="{{ $seoUrl }}">
@@ -41,9 +42,13 @@
              Để ở layout chung thì MỌI trang (sản phẩm, combo, chính sách...) đều tải thừa
              717 KB — đo được là 50% trọng lượng trang chi tiết SP — lại còn ở
              fetchpriority=high nên giành băng thông với ảnh LCP thật của trang đó.
-             Preload sai chỗ thì hại LCP chứ không giúp. --}}
+             Preload sai chỗ thì hại LCP chứ không giúp.
+
+             Href = slide ĐẦU TIÊN thật sự hiện (banner hero admin quản lý), chỉ rơi về
+             ảnh mặc định của HeroSlideshow khi chưa có banner (bopcamping-b4c3). Trước
+             đây ghi cứng .webp trong khi banner seed là .jpg → tải 2 ảnh, preload phí. --}}
         @if (($page['component'] ?? '') === 'Welcome')
-            <link rel="preload" as="image" href="/images/album/beach-night-tent.webp" fetchpriority="high">
+            <link rel="preload" as="image" href="{{ data_get($page, 'props.hero_banners.0.src') ?: '/images/album/beach-night-tent.webp' }}" fetchpriority="high">
         @endif
 
         {{-- Favicon --}}
@@ -83,7 +88,7 @@
              WebSite, FAQPage đều mất @context nên Google không đọc được khối nào.
              Dựng sẵn ở SeoService::siteJsonLd() rồi chỉ in ra ở đây. --}}
         @foreach ($seoSite['site_jsonld'] ?? [] as $block)
-            <script type="application/ld+json">{!! json_encode($block, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) !!}</script>
+            <script type="application/ld+json">{!! json_encode($block, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG) !!}</script>
         @endforeach
 
         {{-- FAQPage KHÔNG khai ở đây (bopcamping-s5ct): markup phải ứng với FAQ nhìn
@@ -92,28 +97,32 @@
              structured data không khớp nội dung. Giờ trang chủ tự đưa vào seo.jsonld
              qua SeoService::faqPage(), sinh từ chính dữ liệu đang render. --}}
 
-        {{-- JSON-LD riêng theo trang (vd Product/Breadcrumb ở trang chi tiết) --}}
+        {{-- JSON-LD riêng theo trang (vd Product/Breadcrumb ở trang chi tiết).
+
+             JSON_HEX_TAG ở MỌI khối JSON-LD là BẮT BUỘC: {!! !!} không escape, mà JSON-LD
+             giờ chứa chữ khách tự gõ (tên + nội dung đánh giá). Không có cờ này thì tên
+             "</script><script>…" thoát khỏi thẻ script = XSS lưu trữ (CWE-79). Cờ đổi
+             < > thành < > — JSON vẫn hợp lệ, Google đọc y nguyên. --}}
         @if (! empty($seo['jsonld']))
-            <script type="application/ld+json">{!! json_encode($seo['jsonld'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) !!}</script>
+            <script type="application/ld+json">{!! json_encode($seo['jsonld'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG) !!}</script>
         @endif
 
         {{-- LocalBusiness (site-wide) — chỉ khi shop đã điền hotline ở Cài đặt shop.
              1 khối cho mỗi cơ sở đã có địa chỉ (SeoService::localBusinessJsonLd), gộp
-             chung 1 khối generic khi chưa cơ sở nào điền địa chỉ. --}}
-        @foreach ($seoSite['local_business'] ?? [] as $block)
-            <script type="application/ld+json">{!! json_encode($block, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) !!}</script>
+             chung 1 khối generic khi chưa cơ sở nào điền địa chỉ.
+             Trang khu vực đã tự khai LocalBusiness của cơ sở mình (cùng @id) thì bỏ bản
+             site-wide trùng — một node cho mỗi @id (SeoService::withoutIdsDeclaredByPage). --}}
+        @foreach (app(\App\Services\SeoService::class)->withoutIdsDeclaredByPage($seoSite['local_business'] ?? [], $seo['jsonld'] ?? null) as $block)
+            <script type="application/ld+json">{!! json_encode($block, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG) !!}</script>
         @endforeach
 
-        {{-- Google Tag Manager (chỉ khi đặt GTM_ID trong .env) --}}
-        @if (config('services.gtm.id'))
-            <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);})(window,document,'script','dataLayer','{{ config('services.gtm.id') }}');</script>
-        @endif
-
-        {{-- Google Analytics 4 (chỉ khi admin đã điền mã GA4 ở Cài đặt shop) --}}
-        @if (! empty($seoSite['ga_id']))
-            <script async src="https://www.googletagmanager.com/gtag/js?id={{ $seoSite['ga_id'] }}"></script>
-            <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','{{ $seoSite['ga_id'] }}');</script>
-        @endif
+        {{-- GA4 / GTM / Meta Pixel / TikTok Pixel KHÔNG in ở đây (bopcamping-vqwr). In thẳng
+             thì cookie đo lường/quảng cáo được đặt ngay khi mở trang, trước khi khách kịp đồng
+             ý. Mã (đã kiểm định dạng qua SiteSetting::trackingId) đi qua prop `analytics`, và
+             resources/js/lib/consent.ts chỉ nạp script sau khi khách bấm "Đồng ý" ở banner
+             cookie. Prop đó null ở /admin và /shipper nên trang nội bộ không bao giờ nạp
+             (bopcamping-wi6h). Hai thẻ <noscript> (iframe GTM, ảnh Meta) cũng bỏ: không có JS
+             thì không có banner, nên không có cách nào xin phép. --}}
 
         <!-- Fonts -->
         <link rel="preconnect" href="https://fonts.bunny.net">
@@ -126,9 +135,6 @@
         @inertiaHead
     </head>
     <body class="font-sans antialiased">
-        @if (config('services.gtm.id'))
-            <noscript><iframe src="https://www.googletagmanager.com/ns.html?id={{ config('services.gtm.id') }}" height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
-        @endif
         @inertia
     </body>
 </html>

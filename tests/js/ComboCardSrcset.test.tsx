@@ -52,6 +52,9 @@ describe('ComboCard — srcset ảnh cover', () => {
         );
         expect(img).toHaveAttribute('sizes');
         expect(img).toHaveAttribute('loading', 'lazy');
+        // bopcamping-b4c3: kích thước nội tại để audit CLS không báo thiếu width/height.
+        expect(img).toHaveAttribute('width');
+        expect(img).toHaveAttribute('height');
     });
 
     it('ảnh chưa backfill (không có image_srcset) vẫn render bình thường, không vỡ thẻ', () => {

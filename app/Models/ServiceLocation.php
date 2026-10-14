@@ -2,21 +2,22 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasAutoSlug;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Support\Str;
 
 class ServiceLocation extends Model
 {
-    protected $fillable = ['name', 'area', 'address', 'map_url', 'status', 'sort_order'];
+    /*
+     * `slug` là cột thật (bopcamping-y05c), dùng cho CẢ HAI: khoá lọc ?vi-tri= và URL trang
+     * khu vực /thue-do-cam-trai/{slug}. Trước đây là accessor Str::slug(name); migration đã
+     * backfill đúng công thức đó nên link ?vi-tri= cũ vẫn chạy.
+     */
+    use HasAutoSlug;
 
-    /** Slug không dấu từ tên (vd 'Hà Nội' -> 'ha-noi') để dùng cho filter URL. */
-    public function getSlugAttribute(): string
-    {
-        return Str::slug($this->name);
-    }
+    protected $fillable = ['name', 'slug', 'area', 'address', 'map_url', 'intro', 'status', 'sort_order'];
 
     /** Điểm cắm trại gần vị trí phục vụ này. */
     public function campingSpots(): HasMany

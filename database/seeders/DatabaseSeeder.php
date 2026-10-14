@@ -50,5 +50,13 @@ class DatabaseSeeder extends Seeder
             StaticPageSeeder::class,
             DurationDiscountTierSeeder::class,
         ]);
+
+        // Bài Cẩm nang soạn sẵn — toàn BẢN NHÁP (bopcamping-ennp). NGOẠI LỆ có chủ đích của
+        // quy tắc "không idempotent" ở trên: PostSeeder chỉ tạo bài chưa có slug nên an toàn
+        // khi gọi tay trên production (`db:seed --class=PostSeeder --force`). Ở đây vẫn chỉ
+        // tự chạy khi dev/test.
+        if (app()->environment('local', 'testing')) {
+            $this->call(PostSeeder::class);
+        }
     }
 }

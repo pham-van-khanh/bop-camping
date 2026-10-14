@@ -10,6 +10,7 @@ use App\Models\Order;
 use App\Models\Product;
 use App\Models\PromotionSetting;
 use App\Models\User;
+use App\Services\AttributionService;
 use App\Services\AvailabilityService;
 use App\Services\OrderSplitter;
 use App\Services\Promotion\EmailBonusService;
@@ -31,6 +32,7 @@ class OrderController extends Controller
         private EmailBonusService $emailBonus,
         private StoreResolver $storeResolver,
         private OrderSplitter $splitter,
+        private AttributionService $attribution,
     ) {}
 
     /**
@@ -203,6 +205,9 @@ class OrderController extends Controller
             'note' => $validated['note'] ?? null,
             // Nằm trong $base nên đơn CHA và mọi đơn CON đều thừa hưởng (bopcamping-wtuv).
             'delivery_method' => $validated['delivery_method'] ?? 'self_pickup',
+            // Nguồn đơn (bopcamping-wi6h): đọc từ cookie first-touch do CaptureAttribution ghi,
+            // đã làm sạch trong AttributionService — KHÔNG nhận giá trị nguồn từ body request.
+            ...$this->attribution->forOrder($request),
         ];
 
         // Tách đơn theo khoảng ngày (bopcamping-wtuv): 1 khoảng → đơn thường; ≥2 → cha + con.
@@ -243,6 +248,9 @@ class OrderController extends Controller
             'order_phone' => $validated['phone'],
             'order_pay' => $order->total_price + $order->deposit_total - $order->discount_total,
             'order_discount' => $order->discount_total,
+            // Giá trị đơn cho GA4/pixel (purchase): tiền thuê phải thu (Order::rental_due — đơn
+            // cha đã gộp Σ con + giảm giá phân bổ), KHÔNG gồm cọc (cọc hoàn lại).
+            'order_value' => max(0, $order->rental_due),
             'order_items' => count($itemLines) + count($comboLines),
         ]);
     }

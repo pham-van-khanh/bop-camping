@@ -59,6 +59,7 @@ class HandleInertiaRequests extends Middleware
                 'order_name' => session('order_name'),
                 'order_phone' => session('order_phone'),
                 'order_pay' => session('order_pay'),
+                'order_value' => session('order_value'),
                 'order_discount' => session('order_discount'),
                 'order_items' => session('order_items'),
                 'success' => session('success'),
@@ -105,15 +106,44 @@ class HandleInertiaRequests extends Middleware
             'seo' => [
                 'url' => $request->url(),
             ],
-            // SEO site-wide KHÔNG bị controller ghi đè (prop riêng): GA4 + Google
-            // verification + LocalBusiness — admin nhập ở Cài đặt shop, blade gate theo giá trị.
+            // SEO site-wide KHÔNG bị controller ghi đè (prop riêng): Google verification +
+            // LocalBusiness — admin nhập ở Cài đặt shop, blade gate theo giá trị.
             'seoSite' => fn () => $this->sharedSeoSite(),
+            // Mã GA4/GTM/Meta Pixel/TikTok Pixel cho banner đồng ý cookie (bopcamping-vqwr).
+            // Blade KHÔNG in script đo lường nữa: lib/consent.ts chỉ nạp sau khi khách bấm
+            // "Đồng ý". null = shop chưa bật công cụ nào (không có cookie nào cần hỏi, không
+            // hiện banner) hoặc đang ở trang nội bộ.
+            'analytics' => fn () => $this->sharedAnalytics($request),
         ];
     }
 
     /**
+     * Mã nào in vào <script> đều đọc qua trackingId() (kiểm lại định dạng, sai = null).
+     * /admin và /shipper luôn null: nhân viên thao tác — đếm vào thì sai số liệu traffic,
+     * pixel quảng cáo sẽ gom nhân viên vào tệp remarketing (bopcamping-wi6h).
+     *
+     * @return array{ga_id: ?string, gtm_id: ?string, meta_pixel_id: ?string, tiktok_pixel_id: ?string}|null
+     */
+    private function sharedAnalytics(Request $request): ?array
+    {
+        if ($request->is('admin', 'admin/*', 'shipper', 'shipper/*')) {
+            return null;
+        }
+
+        $s = SiteSetting::current();
+        $ids = [
+            'ga_id' => $s->trackingId('ga_measurement_id'),
+            'gtm_id' => config('services.gtm.id') ?: null,
+            'meta_pixel_id' => $s->trackingId('meta_pixel_id'),
+            'tiktok_pixel_id' => $s->trackingId('tiktok_pixel_id'),
+        ];
+
+        return array_filter($ids) === [] ? null : $ids;
+    }
+
+    /**
      * SEO site-wide dùng ở blade head (độc lập với prop 'seo' per-page):
-     * mã GA4 + Google verification (admin nhập), LocalBusiness JSON-LD.
+     * Google verification (admin nhập), LocalBusiness JSON-LD.
      *
      * @return array<string, mixed>
      */
@@ -123,7 +153,6 @@ class HandleInertiaRequests extends Middleware
         $hotlines = array_values(array_filter([$s->hotline_primary, $s->hotline_secondary]));
 
         return [
-            'ga_id' => $s->ga_measurement_id,
             'google_verification' => $s->google_site_verification,
             // Organization + WebSite dựng ở PHP rồi mới đưa sang blade. Viết thẳng trong
             // .blade.php thì Laravel 11+ nuốt mất '@context' (có directive cùng tên) —
@@ -162,8 +191,9 @@ class HandleInertiaRequests extends Middleware
             'return_hour' => (int) $s->return_hour,
             'morning_end_hour' => (int) $s->morning_end_hour,
             'afternoon_start_hour' => (int) $s->afternoon_start_hour,
-            'addresses' => ServiceLocation::open()->ordered()->get(['name', 'area'])
-                ->map(fn (ServiceLocation $l) => ['name' => $l->name, 'area' => $l->area])
+            // slug: footer link sang trang khu vực /thue-do-cam-trai/{slug} (bopcamping-y05c).
+            'addresses' => ServiceLocation::open()->ordered()->get(['name', 'slug', 'area'])
+                ->map(fn (ServiceLocation $l) => ['name' => $l->name, 'slug' => $l->slug, 'area' => $l->area])
                 ->values(),
         ];
     }

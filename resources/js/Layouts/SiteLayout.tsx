@@ -1,3 +1,4 @@
+import CookieConsent from '@/Components/site/CookieConsent';
 import FeedbackWidget from '@/Components/site/FeedbackWidget';
 import Footer from '@/Components/site/Footer';
 import Header from '@/Components/site/Header';
@@ -7,7 +8,7 @@ import ZaloFloatButton from '@/Components/site/ZaloFloatButton';
 import { EVENTS, on } from '@/lib/bus';
 import { cartCount, getCart } from '@/lib/cart';
 import type { PageProps } from '@/types';
-import { router, usePage } from '@inertiajs/react';
+import { Head, router, usePage } from '@inertiajs/react';
 import { ReactNode, useEffect, useState } from 'react';
 
 /**
@@ -33,6 +34,16 @@ function ImpersonationBar({ name }: { name: string | null }) {
 }
 
 /**
+ * document.title của trang khách = ĐÚNG seo.title server đã in vào <title inertia>
+ * (bopcamping-ft1j). Một nguồn duy nhất cho cả lần tải đầu lẫn điều hướng SPA — trang con
+ * KHÔNG tự đặt <Head title> nữa. Trang không có seo.title (giỏ, tài khoản…) vẫn tự đặt.
+ */
+export function SeoTitle() {
+    const title = usePage<PageProps>().props.seo?.title;
+    return title ? <Head title={title} /> : null;
+}
+
+/**
  * Khung chung mọi trang khách: Header + nội dung + Footer + Toast + Modal đăng nhập.
  * Dùng làm persistent layout của Inertia để giỏ/toast/đăng nhập sống xuyên suốt điều hướng.
  */
@@ -52,6 +63,7 @@ export default function SiteLayout({ children }: { children: ReactNode }) {
 
     return (
         <>
+            <SeoTitle />
             {impersonating && <ImpersonationBar name={impersonating.name} />}
             <Header cartCount={count} userName={auth.user?.name} />
             {children}
@@ -60,6 +72,7 @@ export default function SiteLayout({ children }: { children: ReactNode }) {
             <LoginModal />
             <ZaloFloatButton />
             <FeedbackWidget />
+            <CookieConsent />
         </>
     );
 }

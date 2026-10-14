@@ -21,6 +21,8 @@ type Settings = {
     afternoon_start_hour: number;
     ga_measurement_id: string | null;
     google_site_verification: string | null;
+    meta_pixel_id: string | null;
+    tiktok_pixel_id: string | null;
 };
 
 type Props = PageProps<{
@@ -55,6 +57,8 @@ export default function AdminSiteSettings() {
         afternoon_start_hour: String(settings.afternoon_start_hour ?? 13),
         ga_measurement_id: settings.ga_measurement_id ?? '',
         google_site_verification: settings.google_site_verification ?? '',
+        meta_pixel_id: settings.meta_pixel_id ?? '',
+        tiktok_pixel_id: settings.tiktok_pixel_id ?? '',
     });
 
     useEffect(() => {
@@ -321,6 +325,16 @@ export default function AdminSiteSettings() {
                             </span>{' '}
                             (phương thức thẻ HTML).
                         </p>
+                        {/* bopcamping-vqwr: mọi công cụ chờ khách đồng ý cookie mới chạy. */}
+                        <p className="mb-3 text-[12.5px] text-moss">
+                            Có mã GA4, Meta Pixel hoặc TikTok Pixel thì trang
+                            khách hiện banner xin phép cookie. Các công cụ này
+                            chỉ chạy với khách bấm{' '}
+                            <span className="font-semibold">Đồng ý</span>, nên
+                            số liệu và tệp khách quảng cáo sẽ nhỏ hơn thực tế.
+                            Bật thêm pixel quảng cáo thì khách đã đồng ý trước
+                            đó được hỏi lại.
+                        </p>
                         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                             {field(
                                 'ga_measurement_id',
@@ -334,7 +348,25 @@ export default function AdminSiteSettings() {
                                 'abcXyz123...',
                                 'Chỉ dán phần content của thẻ meta verification',
                             )}
+                            {field(
+                                'meta_pixel_id',
+                                'Meta Pixel ID (Facebook/Instagram)',
+                                '123456789012345',
+                                'Chỉ dãy số — lấy ở Meta Events Manager → Nguồn dữ liệu',
+                            )}
+                            {field(
+                                'tiktok_pixel_id',
+                                'TikTok Pixel ID',
+                                'C4ABC123DEF456GHI789',
+                                'Chữ và số — lấy ở TikTok Ads Manager → Tài sản → Sự kiện',
+                            )}
                         </div>
+                        <p className="mt-3 text-[12px] text-moss">
+                            Mã chỉ chạy ở trang khách (không chạy ở trang
+                            admin/shipper). Web tự gửi sự kiện xem thiết bị,
+                            thêm vào giỏ, bắt đầu đặt, đặt đơn thành công và bấm
+                            liên hệ — không gửi tên, SĐT hay email của khách.
+                        </p>
                     </section>
 
                     {/* Địa chỉ (read-only, lấy từ Điểm cắm trại) */}

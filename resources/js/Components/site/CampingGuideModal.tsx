@@ -6,6 +6,7 @@ export type SpotMedia = { type: 'image' | 'video'; url: string };
 export type GuideSpot = {
     id: number;
     name: string;
+    slug: string;
     terrain_tag: string;
     province: string;
     district: string | null;
@@ -545,10 +546,10 @@ function SpotDetail({ spot, onBack }: { spot: GuideSpot; onBack: () => void }) {
                             </a>
                         )}
                         <Link
-                            href="/thiet-bi"
+                            href={`/diem-cam-trai/${spot.slug}`}
                             className="rounded-[12px] border border-cardBorder px-5 py-2.5 text-[14px] font-semibold text-pine transition hover:border-grass"
                         >
-                            Xem thiết bị thuê
+                            Xem chi tiết & đồ cần mang
                         </Link>
                     </div>
                 </div>

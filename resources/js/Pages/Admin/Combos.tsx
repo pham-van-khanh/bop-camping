@@ -1,9 +1,11 @@
 import MediaGallery from '@/Components/admin/MediaGallery';
+import SeoLengthHint from '@/Components/admin/SeoLengthHint';
 import AdminLayout from '@/Layouts/AdminLayout';
 import ComboLocationPicker, {
     type PickerLocation,
 } from '@/Pages/Admin/combo/ComboLocationPicker';
 import { money } from '@/lib/format';
+import { comboTitle } from '@/lib/seo';
 import type { PageProps } from '@/types';
 import { Head, router, useForm, usePage } from '@inertiajs/react';
 import { Fragment, ReactNode, useEffect, useMemo, useState } from 'react';
@@ -509,6 +511,10 @@ export default function AdminCombos({
                                     placeholder="VD: Combo Gia Đình 4 người"
                                     autoFocus
                                 />
+                                <SeoLengthHint
+                                    kind="title"
+                                    value={comboTitle(form.data.name)}
+                                />
                                 {form.errors.name && (
                                     <p className="mt-1 text-[12px] text-[#b3493a]">
                                         {form.errors.name}
@@ -914,6 +920,10 @@ export default function AdminCombos({
                                     rows={3}
                                     className="w-full rounded-[10px] border border-cardBorder px-3.5 py-2.5 text-[13.5px] outline-none transition focus:border-grass"
                                     placeholder="Combo dành cho ai, gồm những gì nổi bật…"
+                                />
+                                <SeoLengthHint
+                                    kind="description"
+                                    value={form.data.description}
                                 />
                             </div>
 

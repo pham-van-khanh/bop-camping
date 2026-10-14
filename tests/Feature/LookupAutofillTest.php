@@ -38,7 +38,7 @@ class LookupAutofillTest extends TestCase
     {
         $user = User::factory()->create(['phone' => '0912345678']);
 
-        $this->actingAs($user)->get(route('lookup', ['phone' => '0999999999', 'code' => 'BOP-X']))
+        $this->actingAs($user)->followingRedirects()->get(route('lookup', ['phone' => '0999999999', 'code' => 'BOP-X']))
             ->assertInertia(fn (Assert $page) => $page
                 ->where('query.phone', '0999999999')
                 ->where('query.code', 'BOP-X'));

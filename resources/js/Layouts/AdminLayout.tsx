@@ -429,6 +429,27 @@ const NAV = [
         ),
     },
     {
+        href: '/admin/cam-nang',
+        name: 'admin.posts',
+        label: 'Cẩm nang',
+        icon: (
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                <path
+                    d="M12 6.5C10.2 5 7.6 4.5 4 4.5v13c3.6 0 6.2.5 8 2 1.8-1.5 4.4-2 8-2v-13c-3.6 0-6.2.5-8 2Z"
+                    stroke="currentColor"
+                    strokeWidth="1.7"
+                    strokeLinejoin="round"
+                />
+                <path
+                    d="M12 6.5v13"
+                    stroke="currentColor"
+                    strokeWidth="1.7"
+                    strokeLinecap="round"
+                />
+            </svg>
+        ),
+    },
+    {
         href: '/admin/settings',
         name: 'admin.settings',
         label: 'Cài đặt shop',

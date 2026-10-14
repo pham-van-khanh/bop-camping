@@ -4,7 +4,11 @@ import { useState } from 'react';
 export type ServiceLocation = {
     id: number;
     name: string;
+    /** URL trang khu vực /thue-do-cam-trai/{slug} + khoá lọc ?vi-tri= (bopcamping-y05c). */
+    slug: string;
     area: string | null;
+    /** Đoạn giới thiệu trên trang khu vực — trống thì trang tự sinh từ dữ liệu. */
+    intro: string | null;
     // Địa chỉ + link bản đồ hiện cho khách chọn "Tự đến xem đồ" (bopcamping-n0db).
     address: string | null;
     map_url: string | null;
@@ -15,6 +19,8 @@ export type ServiceLocation = {
 
 type FormData = {
     name: string;
+    slug: string;
+    intro: string;
     area: string;
     address: string;
     map_url: string;
@@ -41,6 +47,8 @@ export default function ServiceLocationsManager({
 
     const blank = (): FormData => ({
         name: '',
+        slug: '',
+        intro: '',
         area: '',
         address: '',
         map_url: '',
@@ -58,6 +66,8 @@ export default function ServiceLocationsManager({
     const openEdit = (l: ServiceLocation) => {
         form.setData({
             name: l.name,
+            slug: l.slug,
+            intro: l.intro ?? '',
             area: l.area ?? '',
             address: l.address ?? '',
             map_url: l.map_url ?? '',
@@ -160,6 +170,16 @@ export default function ServiceLocationsManager({
                                 <div className="text-[11px] text-moss">
                                     {l.area ?? '—'} · {l.spots_count} điểm
                                 </div>
+                                {l.status === 'open' && (
+                                    <a
+                                        href={`/thue-do-cam-trai/${l.slug}`}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="text-[11px] font-semibold text-grass hover:underline"
+                                    >
+                                        /thue-do-cam-trai/{l.slug} ↗
+                                    </a>
+                                )}
                             </div>
                             <span
                                 className="rounded-full px-2 py-0.5 text-[10.5px] font-semibold"
@@ -326,6 +346,56 @@ export default function ServiceLocationsManager({
                                 {form.errors.map_url && (
                                     <p className="mt-1 text-[12px] text-[#b3493a]">
                                         {form.errors.map_url}
+                                    </p>
+                                )}
+                            </div>
+                            {/* Trang khu vực SEO (bopcamping-y05c) */}
+                            <div>
+                                <label className="mb-1.5 block text-[13px] font-semibold text-pine">
+                                    Slug (đường dẫn trang khu vực)
+                                </label>
+                                <input
+                                    type="text"
+                                    value={form.data.slug}
+                                    onChange={(e) =>
+                                        form.setData('slug', e.target.value)
+                                    }
+                                    className={inputCls}
+                                    placeholder="Để trống = tự tạo từ tên (vd: ha-noi)"
+                                />
+                                <p className="mt-1 text-[12px] text-moss">
+                                    Trang: /thue-do-cam-trai/
+                                    {form.data.slug || '…'} — cũng là bộ lọc
+                                    ?vi-tri=. Đã có trên Google thì đừng đổi.
+                                </p>
+                                {form.errors.slug && (
+                                    <p className="mt-1 text-[12px] text-[#b3493a]">
+                                        {form.errors.slug}
+                                    </p>
+                                )}
+                            </div>
+                            <div>
+                                <label className="mb-1.5 block text-[13px] font-semibold text-pine">
+                                    Giới thiệu khu vực
+                                </label>
+                                <textarea
+                                    value={form.data.intro}
+                                    onChange={(e) =>
+                                        form.setData('intro', e.target.value)
+                                    }
+                                    rows={4}
+                                    className={inputCls}
+                                    placeholder="Vài câu về kho ở đây: gần đâu, phục vụ những quận/huyện nào, điểm cắm trại khách hay đi..."
+                                />
+                                <p className="mt-1 text-[12px] text-moss">
+                                    Hiện đầu trang khu vực. Để trống thì trang
+                                    tự viết từ số món, danh mục, điểm cắm trại
+                                    gần. Từ 120 ký tự trở lên sẽ được dùng làm
+                                    mô tả trên Google.
+                                </p>
+                                {form.errors.intro && (
+                                    <p className="mt-1 text-[12px] text-[#b3493a]">
+                                        {form.errors.intro}
                                     </p>
                                 )}
                             </div>

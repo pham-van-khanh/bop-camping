@@ -1,14 +1,20 @@
 import '../css/app.css';
 import './bootstrap';
 
-import { createInertiaApp } from '@inertiajs/react';
+import { initAnalytics } from '@/lib/analytics';
+import { documentTitle } from '@/lib/seo';
+import { createInertiaApp, router } from '@inertiajs/react';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import { createRoot } from 'react-dom/client';
 
-const appName = import.meta.env.VITE_APP_NAME || 'BỐP CAMPING';
+// Đo lường marketing (bopcamping-wi6h): page view khi điều hướng SPA + click liên hệ.
+// Đăng ký TRƯỚC createInertiaApp để bắt được cả sự kiện navigate của lần tải đầu.
+initAnalytics((cb) => {
+    router.on('navigate', (event) => cb(event.detail.page.url));
+});
 
 createInertiaApp({
-    title: (title) => `${title} - ${appName}`,
+    title: documentTitle,
     resolve: (name) =>
         resolvePageComponent(
             `./Pages/${name}.tsx`,

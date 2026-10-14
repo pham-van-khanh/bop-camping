@@ -1,4 +1,5 @@
 import Logo from '@/Components/Logo';
+import { emit, EVENTS } from '@/lib/bus';
 import type { PageProps } from '@/types';
 import { Link, usePage } from '@inertiajs/react';
 
@@ -17,7 +18,7 @@ const SOCIAL_ICON = {
 } as const;
 
 export default function Footer() {
-    const { site } = usePage<PageProps>().props;
+    const { site, analytics } = usePage<PageProps>().props;
     const hotlines = [site?.hotline_primary, site?.hotline_secondary].filter(
         Boolean,
     ) as string[];
@@ -36,6 +37,7 @@ export default function Footer() {
 
     return (
         <footer
+            data-track-placement="footer"
             className="mt-5 border-t border-[#c2dcec]"
             style={{ background: 'rgba(214,236,247,.55)' }}
         >
@@ -47,7 +49,7 @@ export default function Footer() {
             >
                 <div>
                     <div className="mb-3 flex items-center gap-2.5">
-                        <Logo size={120} />
+                        <Logo size={120} loading="lazy" />
                         <span className="text-base font-extrabold text-pine">
                             BỐP CAMPING
                         </span>
@@ -73,6 +75,7 @@ export default function Footer() {
                                         alt=""
                                         width={20}
                                         height={20}
+                                        loading="lazy"
                                         className="h-5 w-5 object-contain"
                                     />
                                 </a>
@@ -91,6 +94,24 @@ export default function Footer() {
                         </Link>
                         <Link href="/combos" className="hover:text-grass">
                             Combo tiết kiệm
+                        </Link>
+                        <Link href="/cam-nang" className="hover:text-grass">
+                            Cẩm nang cắm trại
+                        </Link>
+                        {(site?.addresses ?? []).map((a) => (
+                            <Link
+                                key={a.slug}
+                                href={`/thue-do-cam-trai/${a.slug}`}
+                                className="hover:text-grass"
+                            >
+                                Thuê đồ cắm trại {a.name}
+                            </Link>
+                        ))}
+                        <Link
+                            href="/diem-cam-trai"
+                            className="hover:text-grass"
+                        >
+                            Điểm cắm trại
                         </Link>
                         <Link href="/gioi-thieu" className="hover:text-grass">
                             Giới thiệu
@@ -139,6 +160,17 @@ export default function Footer() {
                         >
                             Chính sách hủy / đổi / trả
                         </Link>
+                        {/* Mở lại banner cookie để đổi ý (bopcamping-vqwr). Không dùng
+                            công cụ phân tích nào thì không có gì để chỉnh. */}
+                        {analytics && (
+                            <button
+                                type="button"
+                                onClick={() => emit(EVENTS.openCookieSettings)}
+                                className="text-left hover:text-grass"
+                            >
+                                Cài đặt cookie
+                            </button>
+                        )}
                     </div>
                 </div>
 

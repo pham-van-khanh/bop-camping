@@ -1,5 +1,6 @@
 // Giỏ thuê lưu ở localStorage (chưa có backend). Mỗi thay đổi bắn EVENTS.cartChange
 // để Header cập nhật badge và trang Giỏ vẽ lại.
+import { itemFromCartLine, trackAddToCart } from './analytics';
 import { emit, EVENTS } from './bus';
 import { dayCount } from './format';
 import { netFromGross, type DurationTier } from './pricing';
@@ -121,6 +122,8 @@ export function addLine(line: CartLine) {
     if (i >= 0) lines[i].qty += line.qty;
     else lines.push(line);
     save(lines);
+    // Mọi đường thêm vào giỏ (trang SP, combo, gợi ý trong giỏ) đều đi qua đây → đo 1 chỗ.
+    trackAddToCart(itemFromCartLine(line));
 }
 
 export function setQty(index: number, qty: number) {
