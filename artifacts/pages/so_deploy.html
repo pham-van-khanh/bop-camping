@@ -185,6 +185,13 @@
         </thead>
         <tbody>
           <tr>
+            <td class="feature">Banner đồng ý cookie</td>
+            <td class="desc">GA4, GTM, Meta Pixel, TikTok Pixel chỉ nạp sau khi khách bấm “Đồng ý”; hai nút ngang nhau, câu chữ đổi theo công cụ đang bật (có pixel thì nói rõ quảng cáo); “Cài đặt cookie” ở footer để đổi ý. Chạy 1 migration bổ sung mục 5 Chính sách bảo mật. Banner chỉ hiện khi staging có điền mã GA/pixel ở Cài đặt shop.</td>
+            <td class="branch"><code>feature/cookie-consent-banner</code></td>
+            <td class="date">14/10/2026</td>
+            <td class="sha"><code>57bdafc</code></td>
+          </tr>
+          <tr>
             <td class="feature">Địa chỉ cơ sở + bản đồ</td>
             <td class="desc">Địa chỉ và link Google Maps cho từng cơ sở, hiện khi khách chọn tự đến lấy đồ.</td>
             <td class="branch"><code>feature/dia-chi-cua-hang-map</code></td>
@@ -220,6 +227,12 @@
       (fast-forward), nên không có một điểm để revert — phải gỡ từng commit
       (<code>72bfcf8</code>, <code>bade965</code> và các commit trước đó của nhánh). Cách gọn
       hơn: reset <code>develop</code> về nhánh production rồi merge lại những nhánh còn muốn giữ.
+    </p>
+    <p class="revert-note">
+      <b>Banner đồng ý cookie (<code>57bdafc</code>):</b> nhánh đã gộp sẵn production (đợt SEO &amp;
+      marketing) nên lên production sẽ merge sạch. Muốn gỡ hẳn phần sửa Chính sách bảo mật thì
+      chạy <code>php artisan migrate:rollback --step=1</code> <b>trước khi</b> revert (migration
+      <code>2026_10_14_000001</code> đổi lại mục 5 về bản cũ nếu chủ shop chưa sửa tay).
     </p>
     <div class="note" style="border-left-color: var(--prod)">
       <p>
