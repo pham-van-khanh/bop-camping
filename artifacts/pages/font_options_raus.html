@@ -1,0 +1,288 @@
+<title>Font Bốp Camping</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@300;400;500;600;700&family=Lora:ital,wght@0,500;0,600;1,500;1,600&family=Literata:ital,opsz,wght@0,7..72,500;0,7..72,600;1,7..72,500&family=Plus+Jakarta+Sans:wght@600;700;800&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+/* Layout: bảng chọn font dính trên cùng → mock trang chủ Bốp theo Raus (giấy kem, xanh thông, thanh đặt thuê vàng) → bảng so sánh. */
+:root {
+  --paper: #f7f0e1;      /* nền giấy kem */
+  --paper-2: #efe5cf;    /* lớp kem đậm hơn, tạo chiều sâu thay cho bóng đổ */
+  --card: #fffaf0;
+  --ink: #23212c;        /* chữ — gần đen, hơi ấm */
+  --ink-2: #57524a;      /* chữ phụ */
+  --pine: #006434;       /* xanh thông — màu thương hiệu */
+  --pine-soft: #d9e8d6;
+  --marigold: #fcbd1c;   /* thanh đặt thuê — điểm nhấn duy nhất */
+  --sky: #a6dfff;        /* thanh thông báo */
+  --ember: #dd5000;
+  --line: #e2d7bf;
+
+  --body: 'Be Vietnam Pro', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --mono: 'JetBrains Mono', ui-monospace, Menlo, monospace;
+  --display: var(--body);
+  --display-w: 300;
+  --display-track: -0.035em;
+  --display-lh: 1.12;
+  --accent-style: normal;
+  --accent-color: var(--pine);
+  --h2-w: 500;
+  --title-font: var(--body);
+  --title-w: 600;
+  color-scheme: light;
+}
+/* 4 option font — chỉ đổi biến, giao diện giữ nguyên */
+[data-opt="raus"]    { --display: var(--body); --display-w: 300; --display-track: -0.035em; --accent-style: normal; --h2-w: 500; }
+[data-opt="lora"]    { --display: 'Lora', Georgia, serif; --display-w: 600; --display-track: -0.015em; --accent-style: italic; --h2-w: 600; }
+[data-opt="literata"]{ --display: 'Literata', Georgia, serif; --display-w: 600; --display-track: -0.02em; --accent-style: italic; --h2-w: 600; }
+[data-opt="jakarta"] { --display: 'Plus Jakarta Sans', system-ui, sans-serif; --display-w: 800; --display-track: -0.03em; --accent-style: normal; --h2-w: 700; }
+
+* { box-sizing: border-box; }
+body { background: var(--paper); color: var(--ink); font-family: var(--body); font-size: 16px; line-height: 1.65; margin: 0; padding-inline: 16px; -webkit-font-smoothing: antialiased; }
+.wrap { max-width: 1120px; margin: 0 auto; }
+h1, h2, h3 { text-wrap: balance; margin: 0; }
+:focus-visible { outline: 3px solid var(--pine); outline-offset: 2px; border-radius: 8px; }
+
+/* ── Bảng chọn ── */
+.picker { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--paper); padding-block: 14px 12px; border-bottom: 1px solid var(--line); }
+.picker-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 16px; margin-bottom: 10px; }
+.picker-head strong { font-size: 15px; font-weight: 600; }
+.picker-head span { font-size: 13.5px; color: var(--ink-2); }
+.opts { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 8px; }
+.opt { position: relative; }
+.opt input { position: absolute; opacity: 0; inset: 0; }
+.opt label { display: flex; flex-direction: column; gap: 2px; padding: 10px 14px; border-radius: 16px; background: var(--paper-2); cursor: pointer; border: 2px solid transparent; transition: border-color .15s, background .15s; min-height: 100%; }
+.opt label b { font-size: 15px; font-weight: 600; }
+.opt label small { font-size: 13px; color: var(--ink-2); line-height: 1.4; }
+.opt input:checked + label { background: var(--card); border-color: var(--pine); }
+.opt input:focus-visible + label { outline: 3px solid var(--pine); outline-offset: 2px; }
+.badge { align-self: flex-start; font-size: 11.5px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; background: var(--marigold); color: var(--ink); border-radius: 99px; padding: 1px 8px; margin-bottom: 2px; }
+
+/* ── Mock trang chủ ── */
+.site { margin-block: 20px 8px; background: var(--paper); border: 1px solid var(--line); border-radius: 28px; overflow: hidden; }
+.announce { background: var(--sky); text-align: center; font-size: 14px; padding: 8px 16px; }
+.announce b { font-weight: 600; }
+.nav { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 24px; padding: 18px clamp(16px, 4vw, 40px); }
+.logo { font-family: var(--display); font-weight: var(--display-w); letter-spacing: var(--display-track); color: var(--pine); font-size: 26px; line-height: 1; }
+.logo i { font-style: var(--accent-style); }
+.links { display: flex; flex-wrap: wrap; gap: 4px 20px; font-size: 15px; font-weight: 500; flex: 1; }
+.links a { color: var(--ink); text-decoration: none; }
+.links a:hover { color: var(--pine); }
+.login { font-size: 15px; font-weight: 600; color: var(--pine); border: 1.5px solid var(--pine); border-radius: 99px; padding: 7px 18px; background: none; font-family: var(--body); cursor: pointer; }
+
+.hero { padding: clamp(24px, 5vw, 56px) clamp(16px, 4vw, 40px) 28px; display: grid; gap: 20px; }
+.eyebrow { font-size: 13px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--pine); }
+.hero h1 { font-family: var(--display); font-weight: var(--display-w); letter-spacing: var(--display-track); line-height: var(--display-lh); font-size: clamp(36px, 6.4vw, 72px); max-width: 15ch; }
+.hero h1 em { font-style: var(--accent-style); color: var(--accent-color); }
+.lead { font-size: 18px; line-height: 1.6; color: var(--ink-2); max-width: 54ch; margin: 0; }
+
+.book { background: var(--marigold); border-radius: 24px; padding: 10px; display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; margin-top: 4px; }
+.field { background: #fff8e2; border-radius: 16px; padding: 9px 14px; display: flex; flex-direction: column; min-width: 0; }
+.field label { font-size: 12.5px; font-weight: 600; color: var(--ink-2); }
+.field input { font: 500 16px/1.4 var(--body); color: var(--ink); border: 0; background: transparent; padding: 0; min-width: 0; }
+.field input:focus { outline: none; }
+.field:focus-within { box-shadow: inset 0 0 0 2px var(--ink); }
+.go { border: 0; border-radius: 16px; background: var(--ink); color: #fff; font: 600 16px var(--body); padding: 14px 18px; cursor: pointer; }
+.go:hover { background: var(--pine); }
+
+.section { padding: 28px clamp(16px, 4vw, 40px); }
+.sec-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 18px; }
+.section h2 { font-family: var(--display); font-weight: var(--h2-w); letter-spacing: var(--display-track); font-size: clamp(26px, 3.4vw, 36px); line-height: 1.2; }
+.sec-head a { font-size: 15px; font-weight: 600; color: var(--pine); }
+
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 16px; }
+.prod { background: var(--card); border-radius: 20px; overflow: hidden; display: flex; flex-direction: column; }
+.prod .pic { aspect-ratio: 4 / 3; max-width: 100%; display: grid; place-items: center; }
+.prod .pic svg { width: 58%; height: auto; }
+.prod .body { padding: 14px 16px 16px; display: flex; flex-direction: column; gap: 4px; flex: 1; }
+.cat { font-size: 12.5px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-2); }
+.prod h3 { font-family: var(--title-font); font-weight: var(--title-w); font-size: 17px; line-height: 1.35; }
+.stock { font-size: 14px; color: var(--pine); font-weight: 500; }
+.stock.low { color: var(--ember); }
+.price { margin-top: auto; padding-top: 10px; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 4px 12px; border-top: 1px solid var(--line); }
+.price b { font-size: 19px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.price b span { font-size: 14px; font-weight: 500; color: var(--ink-2); }
+.price small { font-size: 14px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+
+.split { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+.article { background: var(--paper-2); border-radius: 28px; padding: clamp(20px, 3vw, 32px); min-width: 0; }
+.article h3 { font-family: var(--display); font-weight: var(--h2-w); letter-spacing: var(--display-track); font-size: clamp(22px, 2.6vw, 28px); line-height: 1.25; margin: 6px 0 12px; }
+.article h3 em { font-style: var(--accent-style); color: var(--accent-color); }
+.article p { margin: 0 0 12px; max-width: 65ch; }
+.article p:last-child { margin: 0; }
+.order { background: var(--card); border-radius: 28px; padding: clamp(20px, 3vw, 28px); display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.order h3 { font-family: var(--display); font-weight: var(--h2-w); letter-spacing: var(--display-track); font-size: 22px; line-height: 1.25; }
+.code { font-family: var(--mono); font-weight: 500; font-size: 15px; background: var(--pine-soft); color: var(--pine); border-radius: 8px; padding: 2px 8px; letter-spacing: .02em; }
+.rows { display: grid; gap: 6px; font-size: 15px; }
+.rows div { display: flex; justify-content: space-between; gap: 12px; }
+.rows dt { color: var(--ink-2); }
+.rows dd { margin: 0; font-weight: 500; font-variant-numeric: tabular-nums; text-align: right; }
+.total { border-top: 1px solid var(--line); padding-top: 10px; font-size: 17px; }
+.total dd { font-weight: 700; }
+.note { font-size: 14px; color: var(--ink-2); margin: 0; }
+
+/* ── Ghi chú option & bảng so sánh ── */
+.about { margin-block: 20px; display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
+.about > div { background: var(--card); border-radius: 20px; padding: 20px 22px; min-width: 0; }
+.about h2 { font-size: 13px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--pine); margin-bottom: 8px; }
+.about p, .about li { font-size: 15px; margin: 0 0 6px; }
+.about ul { margin: 0; padding-left: 18px; }
+.cmp-wrap { overflow-x: auto; background: var(--card); border-radius: 20px; margin-block: 0 40px; }
+table { border-collapse: collapse; width: 100%; min-width: 720px; font-size: 15px; }
+th, td { text-align: left; padding: 12px 16px; border-bottom: 1px solid var(--line); vertical-align: top; }
+thead th { font-size: 13px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-2); }
+tbody tr:last-child td { border-bottom: 0; }
+tbody tr.on { background: var(--pine-soft); }
+.dots { letter-spacing: 2px; color: var(--pine); white-space: nowrap; }
+.dots i { font-style: normal; color: var(--line); }
+
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="wrap" id="app" data-opt="lora">
+  <div class="picker">
+    <div class="picker-head">
+      <strong>Chọn font cho Bốp Camping</strong>
+      <span>Bấm từng option, cả trang bên dưới đổi theo. Giao diện theo phong cách Raus.</span>
+    </div>
+    <div class="opts" role="radiogroup" aria-label="Option font">
+      <div class="opt"><input type="radio" name="opt" id="o-raus" value="raus"><label for="o-raus"><b>1 · Raus nguyên bản</b><small>Be Vietnam Pro mảnh, một họ chữ</small></label></div>
+      <div class="opt"><input type="radio" name="opt" id="o-lora" value="lora" checked><label for="o-lora"><span class="badge">Đề xuất</span><b>2 · Rừng thông</b><small>Lora + Be Vietnam Pro</small></label></div>
+      <div class="opt"><input type="radio" name="opt" id="o-literata" value="literata"><label for="o-literata"><b>3 · Sổ tay dã ngoại</b><small>Literata + Be Vietnam Pro</small></label></div>
+      <div class="opt"><input type="radio" name="opt" id="o-jakarta" value="jakarta"><label for="o-jakarta"><b>4 · Trại hè</b><small>Plus Jakarta Sans + Be Vietnam Pro</small></label></div>
+    </div>
+  </div>
+
+  <div class="site" aria-label="Bản xem thử trang chủ">
+    <div class="announce">Thuê từ 3 ngày giảm 10% · nhập mã <b>BOP10</b> khi đặt</div>
+    <div class="nav">
+      <div class="logo">Bốp <i>Camping</i></div>
+      <nav class="links" aria-label="Menu mẫu"><a href="#app">Thuê đồ</a><a href="#app">Combo đi trại</a><a href="#app">Cẩm nang</a><a href="#app">Tra cứu đơn</a></nav>
+      <button class="login" type="button">Đăng nhập</button>
+    </div>
+
+    <section class="hero">
+      <div class="eyebrow">Thuê đồ cắm trại theo ngày</div>
+      <h1>Cuối tuần này, mang cả <em>khu rừng</em> theo trong ba lô.</h1>
+      <p class="lead">Lều, túi ngủ, bếp dã ngoại được kiểm kỹ trước mỗi chuyến. Chọn ngày đi, Bốp báo ngay món nào còn trống, giao tận nơi và thu tiền khi nhận đồ.</p>
+      <form class="book" onsubmit="event.preventDefault()">
+        <div class="field"><label for="d1">Ngày nhận đồ</label><input id="d1" value="Thứ Sáu, 17/10"></div>
+        <div class="field"><label for="d2">Ngày trả đồ</label><input id="d2" value="Chủ Nhật, 19/10"></div>
+        <div class="field"><label for="q">Bạn cần gì?</label><input id="q" value="Lều 2 người"></div>
+        <button class="go" type="submit">Xem đồ còn trống</button>
+      </form>
+    </section>
+
+    <section class="section">
+      <div class="sec-head"><h2>Còn trống cho chuyến 17–19/10</h2><a href="#app">Xem tất cả 48 món</a></div>
+      <div class="grid">
+        <article class="prod">
+          <div class="pic" style="background:#dfe9d3"><svg viewBox="0 0 120 80" aria-hidden="true"><path d="M10 72 L60 10 L110 72 Z" fill="#006434"/><path d="M60 10 L74 72 L46 72 Z" fill="#0b4d2c"/><path d="M52 72 L60 46 L68 72 Z" fill="#fcbd1c"/><rect x="4" y="72" width="112" height="3" rx="1.5" fill="#23212c"/></svg></div>
+          <div class="body"><div class="cat">Lều</div><h3>Lều Naturehike Cloud-Up 2</h3><div class="stock">Còn 3 chiếc trong ngày bạn chọn</div>
+          <div class="price"><b>120.000đ <span>/ngày</span></b><small>Cọc 300.000đ</small></div></div>
+        </article>
+        <article class="prod">
+          <div class="pic" style="background:#f3dfb4"><svg viewBox="0 0 120 80" aria-hidden="true"><rect x="22" y="18" width="76" height="50" rx="22" fill="#dd5000"/><rect x="22" y="18" width="34" height="50" rx="17" fill="#b84300"/><path d="M30 34 H90 M30 48 H90" stroke="#f7f0e1" stroke-width="3" stroke-linecap="round" fill="none"/><rect x="4" y="70" width="112" height="3" rx="1.5" fill="#23212c"/></svg></div>
+          <div class="body"><div class="cat">Túi ngủ</div><h3>Túi ngủ Naturehike CW400</h3><div class="stock low">Chỉ còn 1 chiếc</div>
+          <div class="price"><b>60.000đ <span>/ngày</span></b><small>Cọc 150.000đ</small></div></div>
+        </article>
+        <article class="prod">
+          <div class="pic" style="background:#cfe7f5"><svg viewBox="0 0 120 80" aria-hidden="true"><rect x="36" y="44" width="48" height="24" rx="6" fill="#23212c"/><path d="M60 14 C70 26 68 34 60 40 C52 34 50 26 60 14 Z" fill="#fcbd1c"/><path d="M60 24 C64 30 63 34 60 37 C57 34 56 30 60 24 Z" fill="#dd5000"/><rect x="28" y="40" width="64" height="5" rx="2.5" fill="#57524a"/><rect x="4" y="70" width="112" height="3" rx="1.5" fill="#23212c"/></svg></div>
+          <div class="body"><div class="cat">Bếp & nấu ăn</div><h3>Bếp gas mini MSR Pocket Rocket 2</h3><div class="stock">Còn 4 chiếc trong ngày bạn chọn</div>
+          <div class="price"><b>50.000đ <span>/ngày</span></b><small>Cọc 200.000đ</small></div></div>
+        </article>
+      </div>
+    </section>
+
+    <section class="section split">
+      <article class="article">
+        <div class="eyebrow">Cẩm nang · 4 phút đọc</div>
+        <h3>Dựng lều trước khi trời tối, và <em>những điều dân phượt hay quên</em></h3>
+        <p>Đến nơi trước 16 giờ để còn đủ ánh sáng chọn chỗ bằng phẳng, tránh gốc cây khô và vùng trũng đọng nước. Trải tấm lót trước, cửa lều quay ngược hướng gió để đêm khỏi lạnh.</p>
+        <p>Ở Đà Lạt hay Mộc Châu, nhiệt độ đêm có thể xuống dưới 12°C. Túi ngủ CW400 giữ ấm tới khoảng 5°C, đủ cho phần lớn các chuyến từ tháng Mười đến tháng Ba.</p>
+      </article>
+      <aside class="order">
+        <div class="eyebrow">Đơn của bạn</div>
+        <h3>Đặt thuê thành công</h3>
+        <div>Mã đơn <span class="code">BOP-24A7K</span></div>
+        <dl class="rows">
+          <div><dt>Ngày thuê</dt><dd>17/10 → 19/10 (3 ngày)</dd></div>
+          <div><dt>Lều Cloud-Up 2 × 1</dt><dd>360.000đ</dd></div>
+          <div><dt>Túi ngủ CW400 × 2</dt><dd>360.000đ</dd></div>
+          <div><dt>Giảm giá BOP10</dt><dd>−72.000đ</dd></div>
+          <div><dt>Tiền cọc</dt><dd>600.000đ</dd></div>
+          <div class="total"><dt>Thanh toán khi nhận</dt><dd>1.248.000đ</dd></div>
+        </dl>
+        <p class="note">Bốp gọi xác nhận trong 30 phút. Tiền cọc được hoàn khi trả đồ đủ và nguyên vẹn.</p>
+      </aside>
+    </section>
+  </div>
+
+  <div class="about" id="about"></div>
+
+  <div class="cmp-wrap">
+    <table>
+      <thead><tr><th>Option</th><th>Cảm giác</th><th>Tốc độ tải</th><th>Font phải tải</th><th>Hợp nhất khi</th></tr></thead>
+      <tbody id="cmp"></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+const OPTS = {
+  raus: {
+    name: '1 · Raus nguyên bản',
+    feel: 'Nhẹ, thoáng, thì thầm. Tiêu đề Be Vietnam Pro 300 khít chữ, đúng chất Raus.',
+    pros: ['Một họ chữ duy nhất: tải nhanh nhất, không lệch phong cách giữa các trang.', 'Dấu tiếng Việt chuẩn nhất vì font làm riêng cho tiếng Việt.'],
+    cons: ['Tiêu đề mảnh chỉ đẹp từ khoảng 28px. Dưới cỡ đó phải lên độ đậm 500.', 'Ít cá tính nhất, thương hiệu dựa hoàn toàn vào màu.'],
+    load: '4 kiểu chữ (300, 400, 500, 600)',
+    read: 3, speed: 3,
+    when: 'Bạn muốn trang gọn, nhanh, nhìn giống Raus nhất.'
+  },
+  lora: {
+    name: '2 · Rừng thông',
+    feel: 'Ấm, có hồn, như cuốn nhật ký đi rừng. Chữ nghiêng làm điểm nhấn cho cụm từ quan trọng.',
+    pros: ['Tiêu đề có chân tạo khác biệt rõ với các shop thuê đồ khác.', 'Hợp nhất với trang Cẩm nang và các đoạn kể chuyện.', 'Nội dung vẫn là Be Vietnam Pro nên dễ đọc như hiện tại.'],
+    cons: ['Chỉ dùng cho chữ từ khoảng 20px trở lên. Tên sản phẩm trên thẻ, nút, form vẫn để Be Vietnam Pro.'],
+    load: '5 kiểu chữ (Lora 600 + nghiêng 500, Be Vietnam Pro 400/500/600)',
+    read: 3, speed: 2,
+    when: 'Bạn muốn khách thấy Bốp là shop có gu, đáng tin cho chuyến đi.'
+  },
+  literata: {
+    name: '3 · Sổ tay dã ngoại',
+    feel: 'Như sách hướng dẫn: chân chữ chắc, nghiêm túc hơn Lora một chút.',
+    pros: ['Được thiết kế để đọc lâu trên màn hình, rõ ở cả cỡ vừa (18–22px).', 'Hợp nếu Cẩm nang sẽ là mảng nội dung lớn.'],
+    cons: ['Trông hơi "sách", kém tươi và kém mời gọi ở phần hero so với Lora.'],
+    load: '5 kiểu chữ (Literata 600 + nghiêng 500, Be Vietnam Pro 400/500/600)',
+    read: 3, speed: 2,
+    when: 'Bạn định viết nhiều bài hướng dẫn, kinh nghiệm cắm trại.'
+  },
+  jakarta: {
+    name: '4 · Trại hè',
+    feel: 'Hiện đại, năng động, đậm chất bán hàng.',
+    pros: ['Tiêu đề đậm rõ, nổi bật trên điện thoại.', 'Gần với giao diện hiện tại nhất, đổi ít bỡ ngỡ.'],
+    cons: ['Ít chất "rừng" nhất. Đặt cạnh nền kem của Raus thì chữ hơi cứng.'],
+    load: '5 kiểu chữ (Jakarta 700/800, Be Vietnam Pro 400/500/600)',
+    read: 3, speed: 2,
+    when: 'Khách chủ yếu là sinh viên, nhóm trẻ, bạn muốn cảm giác vui, nhanh.'
+  }
+};
+const app = document.getElementById('app');
+const dots = n => '●'.repeat(n) + '<i>' + '●'.repeat(3 - n) + '</i>';
+function render(key) {
+  app.dataset.opt = key;
+  const o = OPTS[key];
+  document.getElementById('about').innerHTML = `
+    <div><h2>Đang xem: ${o.name}</h2><p>${o.feel}</p><p><b>Hợp nhất khi:</b> ${o.when}</p></div>
+    <div><h2>Điểm mạnh</h2><ul>${o.pros.map(p => `<li>${p}</li>`).join('')}</ul></div>
+    <div><h2>Cần lưu ý</h2><ul>${o.cons.map(p => `<li>${p}</li>`).join('')}</ul></div>`;
+  document.getElementById('cmp').innerHTML = Object.entries(OPTS).map(([k, v]) => `
+    <tr class="${k === key ? 'on' : ''}"><td><b>${v.name}</b></td><td>${v.feel.split('.')[0]}.</td>
+    <td class="dots" aria-label="${v.speed} trên 3">${dots(v.speed)}</td><td>${v.load}</td><td>${v.when}</td></tr>`).join('');
+  try { localStorage.setItem('bop-font-opt', key); } catch (e) {}
+}
+let start = 'lora';
+try { const s = localStorage.getItem('bop-font-opt'); if (s && OPTS[s]) start = s; } catch (e) {}
+document.getElementById('o-' + start).checked = true;
+document.querySelectorAll('input[name="opt"]').forEach(r => r.addEventListener('change', () => render(r.value)));
+render(start);
+</script>
