@@ -7,7 +7,9 @@ import { ReactNode, useCallback, useEffect, useRef, useState } from 'react';
  * 7 ảnh thật, trượt ngang 0.8s + Ken Burns zoom nhẹ; tự chạy ~4.8s;
  * tạm dừng khi hover / tab ẩn / prefers-reduced-motion.
  * Nội dung (chip, H1, CTA) truyền vào qua children, hiển thị đè lên ảnh.
- * Chim/bướm (ảnh ngày) hoặc đom đóm (ảnh đêm) bay giữa ảnh và chữ — xem HeroCreatures.
+ * Chim (ảnh ngày) hoặc đom đóm (ảnh đêm) bay giữa ảnh và chữ — xem HeroCreatures.
+ * Bướm bay khắp trang (SiteButterflies) né khối có `data-butterfly-avoid`, đậu lên
+ * mép trên khối có `data-butterfly-perch`.
  */
 
 /** `mood` bỏ trống (banner admin) thì HeroCreatures tự đoán theo độ sáng ảnh. */
@@ -72,7 +74,7 @@ export default function HeroSlideshow({
     const [index, setIndex] = useState(0);
     const [paused, setPaused] = useState(false);
     const reduced = useRef(prefersReducedMotion());
-    // Khối mà chim/bướm/đom đóm phải né (và panel bên phải là chỗ bướm đậu).
+    // Khối mà đom đóm phải né (chim bay sau chữ nên không cần né).
     const contentRef = useRef<HTMLDivElement>(null);
     const asideRef = useRef<HTMLDivElement>(null);
     const controlsRef = useRef<HTMLDivElement>(null);
@@ -128,6 +130,7 @@ export default function HeroSlideshow({
 
     return (
         <section
+            data-hero-slideshow
             aria-roledescription="carousel"
             aria-label="Ảnh cắm trại nổi bật"
             onMouseEnter={() => setPaused(true)}
@@ -194,7 +197,6 @@ export default function HeroSlideshow({
                 slide={SLIDES[index]}
                 slideReady={loaded.has(index)}
                 avoid={[contentRef, asideRef, controlsRef]}
-                perchOn={[asideRef]}
                 glass={[asideRef, controlsRef]}
             />
 
@@ -208,12 +210,18 @@ export default function HeroSlideshow({
                 }}
             >
                 <div className="flex w-full flex-col gap-9 lg:flex-row lg:items-center lg:justify-between">
-                    <div ref={contentRef} className="max-w-[640px]">
+                    <div
+                        ref={contentRef}
+                        data-butterfly-avoid
+                        className="max-w-[640px]"
+                    >
                         {children}
                     </div>
                     {aside && (
                         <div
                             ref={asideRef}
+                            data-butterfly-avoid
+                            data-butterfly-perch
                             className="w-full lg:w-[372px] lg:flex-none"
                         >
                             {aside}
@@ -236,6 +244,7 @@ export default function HeroSlideshow({
                 */}
                 <div
                     ref={controlsRef}
+                    data-butterfly-avoid
                     className="mx-auto flex max-w-[1400px] items-end justify-between gap-4 px-5 pr-[80px] sm:pr-[128px]"
                 >
                     <div className="flex gap-2 overflow-x-auto pb-0.5">

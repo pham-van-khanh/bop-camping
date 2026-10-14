@@ -2,6 +2,7 @@ import FeedbackWidget from '@/Components/site/FeedbackWidget';
 import Footer from '@/Components/site/Footer';
 import Header from '@/Components/site/Header';
 import LoginModal from '@/Components/site/LoginModal';
+import SiteButterflies from '@/Components/site/SiteButterflies';
 import Toast from '@/Components/site/Toast';
 import ZaloFloatButton from '@/Components/site/ZaloFloatButton';
 import { EVENTS, on } from '@/lib/bus';
@@ -33,7 +34,8 @@ function ImpersonationBar({ name }: { name: string | null }) {
 }
 
 /**
- * Khung chung mọi trang khách: Header + nội dung + Footer + Toast + Modal đăng nhập.
+ * Khung chung mọi trang khách: Header + nội dung + Footer + Toast + Modal đăng nhập
+ * + bướm bay khắp trang (SiteButterflies — tự tắt ở trang giỏ/thanh toán).
  * Dùng làm persistent layout của Inertia để giỏ/toast/đăng nhập sống xuyên suốt điều hướng.
  */
 export default function SiteLayout({ children }: { children: ReactNode }) {
@@ -56,6 +58,7 @@ export default function SiteLayout({ children }: { children: ReactNode }) {
             <Header cartCount={count} userName={auth.user?.name} />
             {children}
             <Footer />
+            <SiteButterflies />
             <Toast />
             <LoginModal />
             <ZaloFloatButton />

@@ -14,12 +14,13 @@ import {
 import { RefObject, useEffect, useRef, useState } from 'react';
 
 /**
- * Lớp canvas chim / bướm / đom đóm trên hero trang chủ (bopcamping-hus0).
- * Ảnh ngày → chim + bướm; ảnh đêm → đom đóm. Logic bay nằm ở lib/heroCreatures.
+ * Lớp canvas chim / đom đóm trên hero trang chủ (bopcamping-hus0).
+ * Ảnh ngày → chim; ảnh đêm → đom đóm. Logic bay nằm ở lib/heroCreatures.
+ * Bướm bay khắp trang ở lớp riêng (SiteButterflies); nó đọc `data-mood` trên canvas
+ * này để biết ảnh đang là đêm mà bay đi — đừng đổi tên thuộc tính đó.
  *
  * Đặt GIỮA lớp phủ tối và lớp chữ của hero: lỡ có bay ngang thì cũng ở sau chữ,
- * và mô phỏng còn né hẳn các khối `avoid`. Chỉ để trang trí: aria-hidden, không
- * nhận chuột (khách bấm xuyên qua).
+ * và đom đóm còn né hẳn khối chữ. Chỉ để trang trí: aria-hidden, không nhận chuột.
  *
  * Không chạy khi: prefers-reduced-motion, trình duyệt thiếu IntersectionObserver,
  * hero đã cuộn khỏi màn hình, hoặc tab bị ẩn.
@@ -30,11 +31,9 @@ type Props = {
     slide: { src: string; mood?: Mood };
     /** Ảnh của slide đã được tải (chưa tải thì đừng tải hộ chỉ để đoán ngày/đêm). */
     slideReady: boolean;
-    /** Khối không cho bay vào: chữ + nút, panel, điều khiển slide. */
+    /** Khối đom đóm không bay vào: chữ + nút, panel, điều khiển slide. */
     avoid: RefObject<HTMLElement>[];
-    /** Khối bướm được đậu lên mép trên. */
-    perchOn?: RefObject<HTMLElement>[];
-    /** Khối kính mờ / trong suốt — đom đóm được bay phía sau (bướm vẫn né). */
+    /** Trong số `avoid`, khối kính mờ / trong suốt — đom đóm được bay phía sau. */
     glass?: RefObject<HTMLElement>[];
 };
 
@@ -52,7 +51,6 @@ function motionAllowed() {
 function layoutOf(
     host: HTMLElement,
     avoid: RefObject<HTMLElement>[],
-    perchOn: RefObject<HTMLElement>[],
     glass: RefObject<HTMLElement>[],
 ): Layout {
     const h = host.getBoundingClientRect();
@@ -67,27 +65,20 @@ function layoutOf(
             h: r.height,
         };
     };
-    const perchEls = new Set(perchOn.map((p) => p.current));
     const glassEls = new Set(glass.map((g) => g.current));
     const rects: AvoidRect[] = [];
     for (const ref of avoid) {
         const r = rel(ref.current);
         if (!r) continue;
-        // Khối cho đậu thì vùng cấm bắt đầu đúng mép trên — chỗ ngồi nằm ngoài vùng cấm.
-        const top = perchEls.has(ref.current) ? 0 : PAD;
         rects.push({
             x: r.x - PAD,
-            y: r.y - top,
+            y: r.y - PAD,
             w: r.w + 2 * PAD,
-            h: r.h + PAD + top,
+            h: r.h + 2 * PAD,
             glass: glassEls.has(ref.current),
         });
     }
-    const perches = perchOn
-        .map((p) => rel(p.current))
-        .filter((r): r is Rect => r !== null && r.w > 80)
-        .map((r) => ({ y: r.y, x0: r.x + 24, x1: r.x + r.w - 24 }));
-    return { width: h.width, height: h.height, avoid: rects, perches };
+    return { width: h.width, height: h.height, avoid: rects };
 }
 
 /** Đoán ngày/đêm theo độ sáng trung bình. Chỉ đọc ảnh cùng origin (ảnh khác origin
@@ -141,21 +132,17 @@ export default function HeroCreatures({
     slide,
     slideReady,
     avoid,
-    perchOn = [],
     glass = [],
 }: Props) {
     const [enabled, setEnabled] = useState(motionAllowed);
     const [, rerender] = useState(0);
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const worldRef = useRef<World | null>(null);
-    const layoutRef = useRef<Layout | null>(null);
     // Mảng ref do cha truyền có thể đổi danh tính mỗi lần render (slide đổi mỗi ~5s);
     // giữ trong ref để vòng vẽ không bị dựng lại từ đầu mỗi lần đổi ảnh.
     const avoidRef = useRef(avoid);
-    const perchRef = useRef(perchOn);
     const glassRef = useRef(glass);
     avoidRef.current = avoid;
-    perchRef.current = perchOn;
     glassRef.current = glass;
 
     const mood: Mood = slide.mood ?? detected.get(slide.src) ?? 'day';
@@ -185,9 +172,7 @@ export default function HeroCreatures({
 
     useEffect(() => {
         moodRef.current = mood;
-        const world = worldRef.current;
-        const layout = layoutRef.current;
-        if (world && layout) setMood(world, layout, mood);
+        if (worldRef.current) setMood(worldRef.current, mood);
     }, [mood]);
 
     useEffect(() => {
@@ -197,14 +182,8 @@ export default function HeroCreatures({
         const ctx = canvas?.getContext('2d');
         if (!canvas || !host || !ctx) return;
 
-        let layout = layoutOf(
-            host,
-            avoidRef.current,
-            perchRef.current,
-            glassRef.current,
-        );
+        let layout = layoutOf(host, avoidRef.current, glassRef.current);
         const world = createWorld(layout, moodRef.current);
-        layoutRef.current = layout;
         worldRef.current = world;
 
         let raf = 0;
@@ -222,16 +201,10 @@ export default function HeroCreatures({
             ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
         };
         const remeasure = () => {
-            const next = layoutOf(
-                host,
-                avoidRef.current,
-                perchRef.current,
-                glassRef.current,
-            );
+            const next = layoutOf(host, avoidRef.current, glassRef.current);
             const resized =
                 next.width !== layout.width || next.height !== layout.height;
             layout = next;
-            layoutRef.current = next;
             if (resized) fit();
         };
         fit();
@@ -294,7 +267,6 @@ export default function HeroCreatures({
             host.removeEventListener('pointerleave', untrack);
             document.removeEventListener('visibilitychange', sync);
             worldRef.current = null;
-            layoutRef.current = null;
         };
     }, [enabled]);
 
