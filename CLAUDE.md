@@ -177,6 +177,14 @@ Sửa xong sổ thì mới coi là deploy xong.
 
 ### Đợt đang chạy trên production — có thể phải revert
 
+**Đợt SEO & marketing (14/10/2026)** — hai merge commit trên `feat/scaffold-laravel`: `cd3b0a4` (đợt chính) và `0e9833b` (bổ sung: bỏ “túi ngủ, đèn trại”),
+gộp từ nhánh `release/seo-marketing-2026-10` (4 nhánh nguồn: `feature/marketing-tracking`,
+`feature/seo-landing-pages`, `feature/cam-nang`, `feature/seo-polish`). Mọi bổ sung cho đợt này
+đi qua nhánh gộp đó. Gỡ cả đợt — mới trước, cũ sau: `git revert -m 1 0e9833b` rồi `git revert -m 1 cd3b0a4`. Revert **không** gỡ 6 migration đã
+chạy (bảng `posts`, cột pixel/nguồn đơn/slug, mục 5 Chính sách bảo mật) — muốn gỡ mục 5 thì
+`php artisan migrate:rollback --step=1` trước. Hướng dẫn chủ shop + dữ liệu nhập admin:
+[artifacts/pages/so_tay_seo_marketing_2026-10.html](artifacts/pages/so_tay_seo_marketing_2026-10.html).
+
 **Đợt siết đăng nhập (27/08/2026)** — gom vào **một merge commit duy nhất** trên
 `feat/scaffold-laravel` để gỡ được bằng một lệnh:
 

@@ -108,6 +108,27 @@
         </thead>
         <tbody>
           <tr>
+            <td class="feature">Bỏ “túi ngủ, đèn trại” khỏi câu chữ</td>
+            <td class="desc">Mô tả Google, LocalBusiness, câu hero trang chủ, ô tìm kiếm chỉ nêu món shop thật sự cho thuê. Bổ sung cho đợt dưới, cùng nhánh gộp.</td>
+            <td class="branch"><code>release/seo-marketing-2026-10</code></td>
+            <td class="date">14/10/2026</td>
+            <td class="sha"><code>0e9833b</code></td>
+          </tr>
+          <tr>
+            <td class="feature">SEO &amp; marketing 10/2026</td>
+            <td class="desc">Đo chuyển đổi GA4/GTM/Meta/TikTok + nguồn đơn (UTM) trong admin; trang khu vực <code>/thue-do-cam-trai/*</code> và điểm cắm trại <code>/diem-cam-trai</code>; mục Cẩm nang + 8 bài (seeder, chưa đăng); sao đánh giá cho combo, title một nguồn; mục 5 “Cookie” trong Chính sách bảo mật; SĐT không còn nằm trên URL tra cứu đơn. Gộp 4 nhánh <code>feature/marketing-tracking</code>, <code>feature/seo-landing-pages</code>, <code>feature/cam-nang</code>, <code>feature/seo-polish</code>.</td>
+            <td class="branch"><code>release/seo-marketing-2026-10</code></td>
+            <td class="date">14/10/2026</td>
+            <td class="sha"><code>cd3b0a4</code></td>
+          </tr>
+          <tr>
+            <td class="feature">Tiền cọc trên thẻ sản phẩm (mobile)</td>
+            <td class="desc">Tiền cọc trên thẻ sản phẩm không còn bị cắt ở màn hình điện thoại. <i>Ghi bù 14/10 — lúc deploy chưa vào sổ.</i></td>
+            <td class="branch"><code>feature/mobile-card-price-wrap</code></td>
+            <td class="date">29/08/2026</td>
+            <td class="sha"><code>46e9723</code></td>
+          </tr>
+          <tr>
             <td class="feature">Quy trình deploy + sổ này</td>
             <td class="desc">Luật: chỉ deploy khi chủ shop bảo, và deploy xong phải ghi vào sổ. Kèm chính trang sổ deploy này. Chỉ đụng tài liệu, không đổi gì trên site.</td>
             <td class="branch"><code>chore/deploy-needs-order</code></td>
@@ -136,6 +157,12 @@
       Gỡ nhiều dòng thì làm <b>từ trên xuống</b> — bảng xếp mới nhất trước, revert ngược thứ tự
       là dính xung đột. Revert code <b>không gỡ</b> thứ đã nằm ở database (cookie nhớ 60 ngày,
       email khách đã gắn qua OTP).
+    </p>
+    <p class="revert-note">
+      <b>Riêng đợt SEO &amp; marketing (<code>0e9833b</code> rồi <code>cd3b0a4</code>):</b> hai lần push đầu dừng ở bước SSH của GitHub Actions; chủ shop sửa rồi chạy lại, lên production lúc ~22:00 ngày 14/10. Ngoài ra, deploy đã chạy 6 migration (bảng
+      <code>posts</code>, cột pixel ID, cột nguồn đơn, slug cơ sở/điểm cắm trại, mục 5 Chính sách bảo
+      mật). Revert code <b>không</b> gỡ chúng — bảng/cột thừa không làm hỏng gì. Muốn gỡ hẳn mục 5 thì
+      chạy <code>php artisan migrate:rollback --step=1</code> <b>trước khi</b> revert.
     </p>
   </section>
 
@@ -208,7 +235,7 @@
   </section>
 
   <footer>
-    <span>Cập nhật lần cuối: 27/08/2026. Đây là bản ghi tay — sửa file nguồn <code>artifacts/pages/so_deploy.html</code> trong repo rồi publish lại là trang này đổi theo, giữ nguyên link.</span>
+    <span>Cập nhật lần cuối: 14/10/2026. Đây là bản ghi tay — sửa file nguồn <code>artifacts/pages/so_deploy.html</code> trong repo rồi publish lại là trang này đổi theo, giữ nguyên link.</span>
     <span>Tra lại nếu nghi sổ lạc hậu: <code>git branch -r --merged origin/develop --no-merged origin/feat/scaffold-laravel</code></span>
   </footer>
 
