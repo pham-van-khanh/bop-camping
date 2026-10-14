@@ -258,23 +258,26 @@ describe('banner đồng ý cookie', () => {
         expect(accept.className).toBe(reject.className);
     });
 
-    it('nội dung gọn kiểu Naturehike: một câu nêu Google Analytics + mục đích', () => {
-        // Chủ shop chọn bản gọn để banner ít che trang nhất. Chi tiết (cookie nào,
-        // từ chối vẫn thuê bình thường, chỗ đổi ý) nằm ở Chính sách bảo mật.
-        render(<CookieConsent />);
-        const text = (dialog()!.textContent ?? '')
-            .replace('Từ chối', '')
-            .replace('Đồng ý', '')
-            .trim();
-        expect(text).toContain('Google Analytics');
-        expect(text).toMatch(/trang nào hữu ích/);
-        expect(text.length).toBeLessThan(110);
-    });
-
-    it('"Tìm hiểu thêm" dẫn tới Chính sách bảo mật', () => {
+    it('nội dung theo cấu trúc adidas: tiêu đề lợi ích + bấm Đồng ý nghĩa là gì', () => {
+        // Chủ shop chọn kiểu adidas nhưng viết lại theo đúng việc Bốp làm: chỉ cookie
+        // phân tích, không quảng cáo, không bán dữ liệu — và không nêu tên Google.
         render(<CookieConsent />);
         expect(
-            screen.getByRole('link', { name: 'Tìm hiểu thêm' }),
+            screen.getByRole('heading', { name: /trải nghiệm tốt hơn/i }),
+        ).toBeInTheDocument();
+        const text = dialog()!.textContent ?? '';
+        expect(text).toMatch(/bằng cách chọn “Đồng ý”/i);
+        expect(text).toMatch(/không dùng cookie quảng cáo/i);
+        expect(text).toMatch(/vẫn xem và thuê đồ bình thường/i);
+        expect(text).not.toMatch(/google/i);
+        // Không dùng chữ "theo dõi bạn" như bản gốc — dễ làm khách lo.
+        expect(text).not.toMatch(/theo dõi/i);
+    });
+
+    it('link Chính sách bảo mật để tìm hiểu thêm', () => {
+        render(<CookieConsent />);
+        expect(
+            screen.getByRole('link', { name: 'Chính sách bảo mật' }),
         ).toHaveAttribute('href', '/chinh-sach-bao-mat');
     });
 

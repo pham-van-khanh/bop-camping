@@ -66,30 +66,42 @@ export default function CookieConsent() {
         <div
             ref={panel}
             role="dialog"
-            aria-label="Đồng ý cookie"
+            aria-labelledby="cookie-consent-title"
             aria-describedby="cookie-consent-desc"
             tabIndex={-1}
-            className="fixed inset-x-0 bottom-0 z-[90] border-t border-cardBorder bg-card px-5 pb-[max(14px,env(safe-area-inset-bottom))] pt-3.5 shadow-toast outline-none sm:bottom-5 sm:left-5 sm:right-auto sm:w-[380px] sm:rounded-card sm:border sm:pb-3.5"
+            className="fixed inset-x-0 bottom-0 z-[90] border-t border-cardBorder bg-card px-5 pb-[max(14px,env(safe-area-inset-bottom))] pt-3.5 shadow-toast outline-none sm:bottom-5 sm:left-5 sm:right-auto sm:w-[400px] sm:rounded-card sm:border sm:pb-3.5"
         >
-            {/* Gọn kiểu Naturehike — chủ shop chọn để banner ít che trang nhất. Chi
-                tiết (cookie nào, từ chối vẫn thuê bình thường, chỗ đổi ý) nằm ở
-                Chính sách bảo mật, link "Tìm hiểu thêm". */}
-            <div className="flex items-start gap-3">
+            {/* Cấu trúc theo banner adidas (chủ shop chọn) nhưng viết đúng việc Bốp làm:
+                chỉ cookie phân tích — không pixel, không quảng cáo, không chia sẻ cho
+                mạng xã hội. Không nêu tên Google ở đây (chủ shop yêu cầu); tên công cụ
+                + danh sách cookie nằm ở Chính sách bảo mật. Tránh chữ "theo dõi bạn"
+                của bản gốc vì dễ làm khách lo. */}
+            <div className="flex items-center gap-2.5">
                 <CookieIcon />
-                <p
-                    id="cookie-consent-desc"
-                    className="m-0 text-[13.5px] leading-[1.55] text-moss"
+                <h2
+                    id="cookie-consent-title"
+                    className="m-0 text-[15px] font-extrabold leading-snug text-pine"
                 >
-                    Bốp dùng cookie Google Analytics để biết trang nào hữu ích
-                    với bạn.{' '}
-                    <Link
-                        href="/chinh-sach-bao-mat"
-                        className="font-semibold text-grass underline underline-offset-2 hover:text-pine"
-                    >
-                        Tìm hiểu thêm
-                    </Link>
-                </p>
+                    Cookie giúp bạn có trải nghiệm tốt hơn trên Bốp Camping
+                </h2>
             </div>
+            <p
+                id="cookie-consent-desc"
+                className="mb-0 mt-2 text-[13px] leading-[1.55] text-moss"
+            >
+                Bằng cách chọn “Đồng ý”, bạn cho phép Bốp dùng cookie phân tích
+                để ghi nhận cách bạn xem website, như trang nào được xem và xem
+                bao lâu, nhằm cải thiện trang web. Bốp không dùng cookie quảng
+                cáo và không bán dữ liệu của bạn. Chọn “Từ chối” thì bạn vẫn xem
+                và thuê đồ bình thường. Muốn tìm hiểu thêm? Xem{' '}
+                <Link
+                    href="/chinh-sach-bao-mat"
+                    className="font-semibold text-grass underline underline-offset-2 hover:text-pine"
+                >
+                    Chính sách bảo mật
+                </Link>
+                .
+            </p>
             {/* Hai nút GIỐNG HỆT nhau (cỡ, màu, thứ tự đọc) — tô đậm riêng "Đồng ý" là
                 dark pattern mà hướng dẫn GDPR/CookieYes cấm: lựa chọn phải tự do. */}
             <div className="mt-3 grid grid-cols-2 gap-2.5">
@@ -120,7 +132,7 @@ function CookieIcon() {
             width={30}
             height={30}
             aria-hidden="true"
-            className="mt-0.5 shrink-0"
+            className="shrink-0"
         >
             <path
                 d="M16 3a13 13 0 1 0 13 13 4 4 0 0 1-4.5-4.5 4 4 0 0 1-4.5-4.5A4 4 0 0 1 16 3Z"
