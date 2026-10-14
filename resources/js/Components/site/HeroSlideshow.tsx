@@ -1,3 +1,5 @@
+import HeroCreatures from '@/Components/site/HeroCreatures';
+import type { Mood } from '@/lib/heroCreatures';
 import { ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 
 /**
@@ -5,35 +7,47 @@ import { ReactNode, useCallback, useEffect, useRef, useState } from 'react';
  * 7 ảnh thật, trượt ngang 0.8s + Ken Burns zoom nhẹ; tự chạy ~4.8s;
  * tạm dừng khi hover / tab ẩn / prefers-reduced-motion.
  * Nội dung (chip, H1, CTA) truyền vào qua children, hiển thị đè lên ảnh.
+ * Chim/bướm (ảnh ngày) hoặc đom đóm (ảnh đêm) bay giữa ảnh và chữ — xem HeroCreatures.
  */
 
-type Slide = { src: string; title: string };
+/** `mood` bỏ trống (banner admin) thì HeroCreatures tự đoán theo độ sáng ảnh. */
+type Slide = { src: string; title: string; mood?: Mood };
 
 const DEFAULT_SLIDES: Slide[] = [
     {
         src: '/images/album/beach-night-tent.webp',
         title: 'Lều sáng đèn bên biển đêm',
+        mood: 'night',
     },
     {
         src: '/images/album/forest-camp-aerial.webp',
         title: 'Trại giữa rừng thông',
+        mood: 'day',
     },
     {
         src: '/images/album/cliff-turquoise.webp',
         title: 'Vách đá bên biển xanh',
+        mood: 'day',
     },
     {
         src: '/images/album/cloud-sea-sunrise.webp',
         title: 'Biển mây đón bình minh',
+        mood: 'day',
     },
     {
         src: '/images/album/beach-sunset-relax.webp',
         title: 'Hoàng hôn trên bãi biển',
+        mood: 'day',
     },
-    { src: '/images/album/bay-overview.webp', title: 'Toàn cảnh vịnh' },
+    {
+        src: '/images/album/bay-overview.webp',
+        title: 'Toàn cảnh vịnh',
+        mood: 'day',
+    },
     {
         src: '/images/album/tent-interior-night.webp',
         title: 'Đêm ấm trong lều',
+        mood: 'night',
     },
 ];
 
@@ -58,6 +72,10 @@ export default function HeroSlideshow({
     const [index, setIndex] = useState(0);
     const [paused, setPaused] = useState(false);
     const reduced = useRef(prefersReducedMotion());
+    // Khối mà chim/bướm/đom đóm phải né (và panel bên phải là chỗ bướm đậu).
+    const contentRef = useRef<HTMLDivElement>(null);
+    const asideRef = useRef<HTMLDivElement>(null);
+    const controlsRef = useRef<HTMLDivElement>(null);
     // Chỉ slide đầu (khớp <link rel=preload> ở app.blade.php) tải ngay — 6 slide còn
     // lại tải khi thực sự sắp cần, không phải lúc mount (bopcamping-vq7t: trước đây
     // cả 7 ảnh ~1.3MB tải cùng lúc dù 6 ảnh đang ẩn, PageSpeed mobile báo LCP 5.3s).
@@ -172,6 +190,14 @@ export default function HeroSlideshow({
                 }}
             />
 
+            <HeroCreatures
+                slide={SLIDES[index]}
+                slideReady={loaded.has(index)}
+                avoid={[contentRef, asideRef, controlsRef]}
+                perchOn={[asideRef]}
+                glass={[asideRef, controlsRef]}
+            />
+
             {/* Nội dung đè lên */}
             <div
                 className="relative mx-auto flex max-w-[1400px] flex-col justify-center px-5"
@@ -182,9 +208,14 @@ export default function HeroSlideshow({
                 }}
             >
                 <div className="flex w-full flex-col gap-9 lg:flex-row lg:items-center lg:justify-between">
-                    <div className="max-w-[640px]">{children}</div>
+                    <div ref={contentRef} className="max-w-[640px]">
+                        {children}
+                    </div>
                     {aside && (
-                        <div className="w-full lg:w-[372px] lg:flex-none">
+                        <div
+                            ref={asideRef}
+                            className="w-full lg:w-[372px] lg:flex-none"
+                        >
                             {aside}
                         </div>
                     )}
@@ -203,7 +234,10 @@ export default function HeroSlideshow({
                     mobile nút "Góp ý" ẩn chữ nên rộng 50px → 80px; từ sm chữ hiện, rộng 98px → 128px.
                     Chừa ở mọi bề rộng màn hình để mũi tên không bị nhảy vị trí theo viewport.
                 */}
-                <div className="mx-auto flex max-w-[1400px] items-end justify-between gap-4 px-5 pr-[80px] sm:pr-[128px]">
+                <div
+                    ref={controlsRef}
+                    className="mx-auto flex max-w-[1400px] items-end justify-between gap-4 px-5 pr-[80px] sm:pr-[128px]"
+                >
                     <div className="flex gap-2 overflow-x-auto pb-0.5">
                         {SLIDES.map((s, i) => {
                             const active = i === index;

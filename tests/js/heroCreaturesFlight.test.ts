@@ -1,0 +1,197 @@
+import {
+    COUNTS,
+    createWorld,
+    fireflyBrightness,
+    insideRect,
+    type Layout,
+    moodFromLuminance,
+    setMood,
+    step,
+} from '@/lib/heroCreatures';
+import { describe, expect, it } from 'vitest';
+
+/**
+ * bopcamping-hus0 — chim/bướm/đom đóm trên hero trang chủ. Test phần mô phỏng
+ * (không vẽ): các luật UX phải giữ dù rng ra số nào.
+ */
+
+/** rng cố định để test lặp lại được (mulberry32). */
+function seeded(seed: number) {
+    let a = seed;
+    return () => {
+        a = (a + 0x6d2b79f5) | 0;
+        let t = Math.imul(a ^ (a >>> 15), 1 | a);
+        t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+}
+
+// Bố cục giống hero desktop thật: khối chữ bên trái, panel bên phải, dải điều khiển dưới.
+// Panel là chỗ đậu nên vùng cấm của nó bắt đầu đúng ở mép trên (y = 214), không nới lên.
+const DESKTOP: Layout = {
+    width: 1280,
+    height: 720,
+    avoid: [
+        { x: 20, y: 150, w: 620, h: 380 },
+        { x: 866, y: 214, w: 400, h: 300, glass: true },
+        { x: 20, y: 650, w: 1240, h: 56, glass: true },
+    ],
+    perches: [{ y: 214, x0: 918, x1: 1214 }],
+};
+const MOBILE: Layout = {
+    ...DESKTOP,
+    width: 390,
+    height: 900,
+    avoid: [],
+    perches: [],
+};
+
+const FRAME = 1 / 60;
+
+function run(
+    seconds: number,
+    each: (t: number) => void,
+    world: ReturnType<typeof createWorld>,
+    layout: Layout,
+    pointerAt?: (t: number) => { x: number; y: number } | null,
+) {
+    for (let t = 0; t < seconds; t += FRAME) {
+        step(world, layout, FRAME, pointerAt ? pointerAt(t) : null);
+        each(t);
+    }
+}
+
+describe('heroCreatures — ảnh ngày hay đêm', () => {
+    it('ngưỡng độ sáng tách đúng 7 ảnh album (đêm 0.19/0.27, hoàng hôn 0.36, ngày ≥ 0.49)', () => {
+        expect(moodFromLuminance(0.193)).toBe('night');
+        expect(moodFromLuminance(0.27)).toBe('night');
+        expect(moodFromLuminance(0.361)).toBe('day');
+        expect(moodFromLuminance(0.491)).toBe('day');
+    });
+});
+
+describe('heroCreatures — bướm không che chữ, nút, panel', () => {
+    // 30 seed: 5 seed từng lọt lưới một đường bay (chạy trốn chuột lao vào mép panel).
+    it.each(Array.from({ length: 30 }, (_, i) => i + 1))(
+        'seed %i: 60 giây bay, kể cả khi con trỏ rượt, bướm không lần nào lọt vào vùng cấm',
+        (seed) => {
+            const world = createWorld(DESKTOP, 'day', seeded(seed));
+            let hits = 0;
+            let samples = 0;
+            // Con trỏ quét vòng tròn quanh hero — ép bướm chạy trốn theo đủ hướng.
+            const pointer = (t: number) => ({
+                x: 640 + Math.cos(t * 0.7) * 520,
+                y: 360 + Math.sin(t * 1.1) * 300,
+            });
+            run(
+                60,
+                () => {
+                    for (const b of world.flies) {
+                        if (b.state === 'rest') continue;
+                        samples++;
+                        if (DESKTOP.avoid.some((r) => insideRect(b, r))) hits++;
+                    }
+                },
+                world,
+                DESKTOP,
+                pointer,
+            );
+            expect(samples).toBeGreaterThan(0);
+            expect(hits).toBe(0);
+        },
+    );
+
+    it('đom đóm gần như không trôi vào khối chữ (< 2% thời gian), nhưng có bay sau panel kính', () => {
+        const world = createWorld(DESKTOP, 'night', seeded(7));
+        const text = DESKTOP.avoid.filter((r) => !r.glass);
+        const glass = DESKTOP.avoid.filter((r) => r.glass);
+        let inText = 0;
+        let behindGlass = 0;
+        let samples = 0;
+        run(
+            60,
+            () => {
+                for (const f of world.fireflies) {
+                    samples++;
+                    if (text.some((r) => insideRect(f, r))) inText++;
+                    if (glass.some((r) => insideRect(f, r))) behindGlass++;
+                }
+            },
+            world,
+            DESKTOP,
+        );
+        expect(inText / samples).toBeLessThan(0.02);
+        // Trên điện thoại panel chiếm gần hết hero — cấm cả panel thì đom đóm hết chỗ bay.
+        expect(behindGlass).toBeGreaterThan(0);
+    });
+});
+
+describe('heroCreatures — đổi ảnh ngày/đêm', () => {
+    it('ảnh đêm từ đầu: không có chim, không có bướm, đom đóm sáng hẳn', () => {
+        const world = createWorld(DESKTOP, 'night', seeded(1));
+        let maxFlocks = 0;
+        run(
+            30,
+            () => (maxFlocks = Math.max(maxFlocks, world.flocks.length)),
+            world,
+            DESKTOP,
+        );
+        expect(maxFlocks).toBe(0);
+        expect(world.flies).toHaveLength(0);
+        expect(world.night).toBeGreaterThan(0.99);
+    });
+
+    it('ngày → đêm: bướm bay ra khỏi khung rồi mới biến mất, đom đóm hiện dần', () => {
+        const world = createWorld(DESKTOP, 'day', seeded(2));
+        expect(world.flies).toHaveLength(COUNTS.butterflies.desktop);
+        setMood(world, DESKTOP, 'night');
+        expect(world.flies.every((b) => b.state === 'leave')).toBe(true);
+
+        run(0.3, () => {}, world, DESKTOP);
+        // Chưa kịp bay ra mép → vẫn còn đó, không biến mất cái rụp.
+        expect(world.flies.length).toBeGreaterThan(0);
+        expect(world.night).toBeGreaterThan(0);
+        expect(world.night).toBeLessThan(0.6);
+
+        run(20, () => {}, world, DESKTOP);
+        expect(world.flies).toHaveLength(0);
+        expect(world.night).toBeGreaterThan(0.99);
+    });
+
+    it('đêm → ngày: bướm quay lại đủ số, đom đóm tắt dần, đàn chim đầu tiên tới sớm', () => {
+        const world = createWorld(DESKTOP, 'night', seeded(3));
+        setMood(world, DESKTOP, 'day');
+        expect(world.flies).toHaveLength(COUNTS.butterflies.desktop);
+
+        let firstFlockAt = Infinity;
+        run(
+            3,
+            (t) => {
+                if (world.flocks.length > 0)
+                    firstFlockAt = Math.min(firstFlockAt, t);
+            },
+            world,
+            DESKTOP,
+        );
+        expect(firstFlockAt).toBeLessThan(1.5);
+        expect(world.night).toBeLessThan(0.05);
+    });
+});
+
+describe('heroCreatures — điện thoại ít con hơn', () => {
+    it('màn hẹp dùng số lượng mobile', () => {
+        const day = createWorld(MOBILE, 'day', seeded(1));
+        expect(day.flies).toHaveLength(COUNTS.butterflies.mobile);
+        expect(day.fireflies).toHaveLength(COUNTS.fireflies.mobile);
+        expect(COUNTS.fireflies.mobile).toBeLessThan(COUNTS.fireflies.desktop);
+    });
+});
+
+describe('heroCreatures — nhịp nháy đom đóm', () => {
+    it('sáng trong pha "on", tắt hẳn trong pha "off"', () => {
+        const f = { on: 1, off: 2, t: 0.5 };
+        expect(fireflyBrightness(f)).toBeCloseTo(1);
+        expect(fireflyBrightness({ ...f, t: 2 })).toBe(0);
+        expect(fireflyBrightness({ ...f, t: 3.5 })).toBeCloseTo(1);
+    });
+});
