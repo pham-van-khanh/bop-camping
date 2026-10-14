@@ -105,15 +105,30 @@ class HandleInertiaRequests extends Middleware
             'seo' => [
                 'url' => $request->url(),
             ],
-            // SEO site-wide KHÔNG bị controller ghi đè (prop riêng): GA4 + Google
-            // verification + LocalBusiness — admin nhập ở Cài đặt shop, blade gate theo giá trị.
+            // SEO site-wide KHÔNG bị controller ghi đè (prop riêng): Google verification +
+            // LocalBusiness — admin nhập ở Cài đặt shop, blade gate theo giá trị.
             'seoSite' => fn () => $this->sharedSeoSite(),
+            // Mã GA4/GTM cho banner đồng ý cookie (bopcamping-vqwr). Blade KHÔNG in script
+            // phân tích nữa: lib/consent.ts chỉ nạp sau khi khách bấm "Đồng ý". null =
+            // shop chưa cấu hình công cụ nào → không có cookie nào cần hỏi, không hiện banner.
+            'analytics' => fn () => $this->sharedAnalytics(),
         ];
     }
 
     /**
+     * @return array{ga_id: ?string, gtm_id: ?string}|null
+     */
+    private function sharedAnalytics(): ?array
+    {
+        $ga = SiteSetting::current()->ga_measurement_id ?: null;
+        $gtm = config('services.gtm.id') ?: null;
+
+        return ($ga || $gtm) ? ['ga_id' => $ga, 'gtm_id' => $gtm] : null;
+    }
+
+    /**
      * SEO site-wide dùng ở blade head (độc lập với prop 'seo' per-page):
-     * mã GA4 + Google verification (admin nhập), LocalBusiness JSON-LD.
+     * Google verification (admin nhập), LocalBusiness JSON-LD.
      *
      * @return array<string, mixed>
      */
@@ -123,7 +138,6 @@ class HandleInertiaRequests extends Middleware
         $hotlines = array_values(array_filter([$s->hotline_primary, $s->hotline_secondary]));
 
         return [
-            'ga_id' => $s->ga_measurement_id,
             'google_verification' => $s->google_site_verification,
             // Organization + WebSite dựng ở PHP rồi mới đưa sang blade. Viết thẳng trong
             // .blade.php thì Laravel 11+ nuốt mất '@context' (có directive cùng tên) —

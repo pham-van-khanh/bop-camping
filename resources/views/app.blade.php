@@ -10,7 +10,7 @@
         @php
             // SEO động: lấy từ prop 'seo' của trang (controller/shared), có fallback site-wide.
             $seo = $page['props']['seo'] ?? [];
-            // SEO site-wide (không bị controller ghi đè): GA4, Google verification, LocalBusiness.
+            // SEO site-wide (không bị controller ghi đè): Google verification, LocalBusiness.
             $seoSite = $page['props']['seoSite'] ?? [];
             $brand = 'BỐP CAMPING';
             $seoTitle = $seo['title'] ?? $brand.' — Cho thuê thiết bị cắm trại';
@@ -104,16 +104,11 @@
             <script type="application/ld+json">{!! json_encode($block, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) !!}</script>
         @endforeach
 
-        {{-- Google Tag Manager (chỉ khi đặt GTM_ID trong .env) --}}
-        @if (config('services.gtm.id'))
-            <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);})(window,document,'script','dataLayer','{{ config('services.gtm.id') }}');</script>
-        @endif
-
-        {{-- Google Analytics 4 (chỉ khi admin đã điền mã GA4 ở Cài đặt shop) --}}
-        @if (! empty($seoSite['ga_id']))
-            <script async src="https://www.googletagmanager.com/gtag/js?id={{ $seoSite['ga_id'] }}"></script>
-            <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','{{ $seoSite['ga_id'] }}');</script>
-        @endif
+        {{-- GA4 / GTM KHÔNG in ở đây (bopcamping-vqwr). In thẳng thì cookie _ga được đặt
+             ngay khi mở trang, trước khi khách kịp đồng ý. Mã được chia sẻ qua prop
+             `analytics` và resources/js/lib/consent.ts chỉ nạp script sau khi khách bấm
+             "Đồng ý" ở banner cookie. Thẻ <noscript> iframe của GTM cũng bỏ: không có JS
+             thì không có banner, nên không có cách nào xin phép. --}}
 
         <!-- Fonts -->
         <link rel="preconnect" href="https://fonts.bunny.net">
@@ -126,9 +121,6 @@
         @inertiaHead
     </head>
     <body class="font-sans antialiased">
-        @if (config('services.gtm.id'))
-            <noscript><iframe src="https://www.googletagmanager.com/ns.html?id={{ config('services.gtm.id') }}" height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
-        @endif
         @inertia
     </body>
 </html>

@@ -37,6 +37,12 @@ export interface SiteZalo {
     url: string | null;
 }
 
+/** Mã GA4/GTM cho banner đồng ý cookie (bopcamping-vqwr) — chỉ nạp khi khách đồng ý. */
+export interface AnalyticsIds {
+    ga_id: string | null;
+    gtm_id: string | null;
+}
+
 export interface SiteInfo {
     hotline_primary: string | null;
     hotline_secondary: string | null;
@@ -62,6 +68,8 @@ export type PageProps<
     emailBonus: EmailBonus;
     durationTiers: { minDays: number; percent: number }[];
     site: SiteInfo;
+    /** null = shop chưa cấu hình GA4/GTM → không có cookie nào cần hỏi. */
+    analytics: AnalyticsIds | null;
     /** Khác null khi admin đang xem hộ tài khoản khách (bopcamping-bqsv). */
     impersonating?: { name: string | null } | null;
     pending_reviews?: number | null;

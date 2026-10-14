@@ -321,6 +321,13 @@ export default function AdminSiteSettings() {
                             </span>{' '}
                             (phương thức thẻ HTML).
                         </p>
+                        {/* bopcamping-vqwr: GA chờ khách đồng ý cookie mới chạy. */}
+                        <p className="mb-3 text-[12.5px] text-moss">
+                            Có mã GA4 thì trang khách hiện banner xin phép
+                            cookie. Google Analytics chỉ chạy với khách bấm{' '}
+                            <span className="font-semibold">Đồng ý</span>, nên
+                            số liệu sẽ thấp hơn tổng lượt truy cập thật.
+                        </p>
                         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                             {field(
                                 'ga_measurement_id',

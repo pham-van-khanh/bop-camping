@@ -1,4 +1,5 @@
 import Logo from '@/Components/Logo';
+import { emit, EVENTS } from '@/lib/bus';
 import type { PageProps } from '@/types';
 import { Link, usePage } from '@inertiajs/react';
 
@@ -17,7 +18,7 @@ const SOCIAL_ICON = {
 } as const;
 
 export default function Footer() {
-    const { site } = usePage<PageProps>().props;
+    const { site, analytics } = usePage<PageProps>().props;
     const hotlines = [site?.hotline_primary, site?.hotline_secondary].filter(
         Boolean,
     ) as string[];
@@ -139,6 +140,17 @@ export default function Footer() {
                         >
                             Chính sách hủy / đổi / trả
                         </Link>
+                        {/* Mở lại banner cookie để đổi ý (bopcamping-vqwr). Không dùng
+                            công cụ phân tích nào thì không có gì để chỉnh. */}
+                        {analytics && (
+                            <button
+                                type="button"
+                                onClick={() => emit(EVENTS.openCookieSettings)}
+                                className="text-left hover:text-grass"
+                            >
+                                Cài đặt cookie
+                            </button>
+                        )}
                     </div>
                 </div>
 

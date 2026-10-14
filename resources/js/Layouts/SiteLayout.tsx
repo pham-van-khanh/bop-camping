@@ -1,3 +1,4 @@
+import CookieConsent from '@/Components/site/CookieConsent';
 import FeedbackWidget from '@/Components/site/FeedbackWidget';
 import Footer from '@/Components/site/Footer';
 import Header from '@/Components/site/Header';
@@ -60,6 +61,7 @@ export default function SiteLayout({ children }: { children: ReactNode }) {
             <LoginModal />
             <ZaloFloatButton />
             <FeedbackWidget />
+            <CookieConsent />
         </>
     );
 }

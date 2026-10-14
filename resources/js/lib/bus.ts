@@ -21,4 +21,5 @@ export const EVENTS = {
     userChange: 'bop:user-change',
     toast: 'bop:toast',
     openLogin: 'bop:open-login',
+    openCookieSettings: 'bop:open-cookie-settings',
 } as const;

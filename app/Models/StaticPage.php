@@ -77,7 +77,12 @@ class StaticPage extends Model
                 .'<ul><li>Xử lý và giao nhận đơn thuê, liên hệ xác nhận lịch.</li><li>Gửi mã OTP xác thực đăng nhập qua email.</li><li>Chăm sóc khách hàng, xử lý khiếu nại và cải thiện dịch vụ.</li></ul>'
                 .'<h2>3. Bảo mật & chia sẻ</h2>'
                 .'<p>Thông tin của bạn được lưu trữ an toàn và chỉ dùng nội bộ cho việc vận hành dịch vụ. Chúng tôi <strong>không mua bán, trao đổi</strong> thông tin cá nhân của khách với bên thứ ba, trừ khi có yêu cầu hợp pháp của cơ quan chức năng.</p>'
-                .'<h2>4. Quyền của khách hàng</h2>'
+                // Mục cookie khớp banner đồng ý cookie (bopcamping-vqwr) — banner dẫn link về đây.
+                .'<h2>4. Cookie</h2>'
+                .'<ul><li><strong>Cookie cần thiết</strong>: giữ phiên đăng nhập, giỏ hàng và bảo mật biểu mẫu. Luôn bật vì website không hoạt động được nếu thiếu.</li>'
+                .'<li><strong>Cookie phân tích (Google Analytics)</strong>: thống kê lượt xem và cách khách dùng website để chúng tôi biết trang nào hữu ích. <strong>Chỉ bật khi bạn bấm "Đồng ý"</strong> ở banner cookie; bạn có thể đổi ý bất cứ lúc nào qua mục "Cài đặt cookie" ở cuối trang.</li></ul>'
+                .'<p>Chúng tôi không dùng cookie quảng cáo.</p>'
+                .'<h2>5. Quyền của khách hàng</h2>'
                 .'<p>Bạn có thể yêu cầu xem, cập nhật hoặc xóa thông tin cá nhân của mình bằng cách liên hệ với chúng tôi qua hotline hoặc Zalo.</p>',
             'dieu-khoan-su-dung' => '<p>Khi truy cập và sử dụng website BỐP CAMPING, bạn đồng ý với các điều khoản dưới đây.</p>'
                 .'<h2>1. Dịch vụ</h2>'

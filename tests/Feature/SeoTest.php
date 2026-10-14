@@ -33,22 +33,19 @@ class SeoTest extends TestCase
 
     /* ---- T1: GA4 + Google verification từ admin ---- */
 
-    /** @test */
-    public function ga4_and_verification_render_only_when_admin_sets_them(): void
+    /**
+     * Mã GA4 không còn in vào blade — nó chờ khách đồng ý cookie mới nạp, xem
+     * CookieConsentTest (bopcamping-vqwr). Ở đây chỉ còn thẻ xác minh Search Console.
+     *
+     * @test
+     */
+    public function verification_renders_only_when_admin_sets_it(): void
     {
-        // Chưa cấu hình → không có script/meta
-        $html = $this->get('/')->getContent();
-        $this->assertStringNotContainsString('gtag/js?id=', $html);
-        $this->assertStringNotContainsString('google-site-verification', $html);
+        $this->assertStringNotContainsString('google-site-verification', $this->get('/')->getContent());
 
-        SiteSetting::current()->update([
-            'ga_measurement_id' => 'G-ABC12345',
-            'google_site_verification' => 'verify-token-xyz',
-        ]);
+        SiteSetting::current()->update(['google_site_verification' => 'verify-token-xyz']);
 
         $html = $this->get('/')->getContent();
-        $this->assertStringContainsString('https://www.googletagmanager.com/gtag/js?id=G-ABC12345', $html);
-        $this->assertStringContainsString("gtag('config','G-ABC12345')", $html);
         $this->assertStringContainsString('<meta name="google-site-verification" content="verify-token-xyz">', $html);
     }
 
