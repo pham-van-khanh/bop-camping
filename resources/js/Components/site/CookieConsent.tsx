@@ -9,6 +9,9 @@ import type { PageProps } from '@/types';
 import { Link, usePage } from '@inertiajs/react';
 import { useEffect, useRef, useState } from 'react';
 
+const CHOICE_BUTTON =
+    'h-10 rounded-control border border-pine bg-white text-[14px] font-bold text-pine transition hover:bg-pine hover:text-white';
+
 /**
  * Banner đồng ý cookie phân tích (bopcamping-vqwr) — chế độ CHẶN HẲN: chưa bấm
  * "Đồng ý" thì không nạp GA4/GTM (xem lib/consent.ts). Chỉ hiện khi shop có cấu hình
@@ -78,9 +81,12 @@ export default function CookieConsent() {
                 id="cookie-consent-desc"
                 className="mb-3.5 mt-1.5 text-[13.5px] leading-[1.55] text-moss"
             >
-                Cho phép Bốp dùng Google Analytics để biết trang nào hữu ích và
-                làm web tốt hơn? Cookie cần cho giỏ hàng và đăng nhập thì luôn
-                bật. Đổi ý lúc nào cũng được ở cuối trang.{' '}
+                {/* Câu thứ hai trấn an khách: từ chối không mất gì (giỏ hàng, đăng
+                    nhập dùng cookie thiết yếu, không cần xin phép). */}
+                Tụi mình muốn dùng cookie của Google Analytics để biết trang nào
+                hữu ích và làm web tốt hơn. Bạn từ chối vẫn xem và thuê đồ bình
+                thường. Đổi ý lúc nào cũng được ở mục “Cài đặt cookie” cuối
+                trang.{' '}
                 <Link
                     href="/chinh-sach-bao-mat"
                     className="font-semibold text-grass underline underline-offset-2 hover:text-pine"
@@ -88,19 +94,20 @@ export default function CookieConsent() {
                     Chính sách bảo mật
                 </Link>
             </p>
-            {/* Hai nút ngang hàng, cùng cỡ — "Từ chối" phải dễ bấm như "Đồng ý". */}
+            {/* Hai nút GIỐNG HỆT nhau (cỡ, màu, thứ tự đọc) — tô đậm riêng "Đồng ý" là
+                dark pattern mà hướng dẫn GDPR/CookieYes cấm: lựa chọn phải tự do. */}
             <div className="grid grid-cols-2 gap-2.5">
                 <button
                     type="button"
                     onClick={() => decide(false)}
-                    className="h-10 rounded-control border border-[#cdd6b6] bg-white text-[14px] font-bold text-pine transition hover:border-grass"
+                    className={CHOICE_BUTTON}
                 >
                     Từ chối
                 </button>
                 <button
                     type="button"
                     onClick={() => decide(true)}
-                    className="h-10 rounded-control bg-pine text-[14px] font-bold text-white transition hover:bg-grass"
+                    className={CHOICE_BUTTON}
                 >
                     Đồng ý
                 </button>

@@ -249,6 +249,23 @@ describe('banner đồng ý cookie', () => {
         expect(gaScripts()).toHaveLength(0);
     });
 
+    it('Đồng ý và Từ chối nổi bật ngang nhau — không ép khách bấm Đồng ý', () => {
+        // Nút Đồng ý tô đậm còn Từ chối chỉ có viền là "dark pattern" mà hướng dẫn
+        // GDPR/CookieYes cấm: hai lựa chọn phải cùng cỡ, cùng kiểu.
+        render(<CookieConsent />);
+        const accept = screen.getByRole('button', { name: 'Đồng ý' });
+        const reject = screen.getByRole('button', { name: 'Từ chối' });
+        expect(accept.className).toBe(reject.className);
+    });
+
+    it('nói rõ từ chối vẫn thuê đồ bình thường và chỗ đổi ý', () => {
+        render(<CookieConsent />);
+        const text = dialog()!.textContent ?? '';
+        expect(text).toMatch(/từ chối vẫn xem và thuê đồ bình thường/i);
+        expect(text).toContain('Cài đặt cookie');
+        expect(text).toContain('Google Analytics');
+    });
+
     it('có link tới Chính sách bảo mật', () => {
         render(<CookieConsent />);
         expect(

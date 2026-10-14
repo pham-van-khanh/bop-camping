@@ -79,9 +79,15 @@ class StaticPage extends Model
                 .'<p>Thông tin của bạn được lưu trữ an toàn và chỉ dùng nội bộ cho việc vận hành dịch vụ. Chúng tôi <strong>không mua bán, trao đổi</strong> thông tin cá nhân của khách với bên thứ ba, trừ khi có yêu cầu hợp pháp của cơ quan chức năng.</p>'
                 // Mục cookie khớp banner đồng ý cookie (bopcamping-vqwr) — banner dẫn link về đây.
                 .'<h2>4. Cookie</h2>'
-                .'<ul><li><strong>Cookie cần thiết</strong>: giữ phiên đăng nhập, giỏ hàng và bảo mật biểu mẫu. Luôn bật vì website không hoạt động được nếu thiếu.</li>'
-                .'<li><strong>Cookie phân tích (Google Analytics)</strong>: thống kê lượt xem và cách khách dùng website để chúng tôi biết trang nào hữu ích. <strong>Chỉ bật khi bạn bấm "Đồng ý"</strong> ở banner cookie; bạn có thể đổi ý bất cứ lúc nào qua mục "Cài đặt cookie" ở cuối trang.</li></ul>'
-                .'<p>Chúng tôi không dùng cookie quảng cáo.</p>'
+                .'<p>Cookie là tệp nhỏ website lưu trên trình duyệt của bạn. Chúng tôi chia làm hai loại:</p>'
+                .'<p><strong>Cookie cần thiết</strong> (luôn bật, website không chạy được nếu thiếu):</p>'
+                .'<ul><li><code>bopcamping-session</code>: giữ phiên truy cập, hết hạn sau 2 giờ không dùng.</li>'
+                .'<li><code>XSRF-TOKEN</code>: chống giả mạo biểu mẫu, hết hạn sau 2 giờ.</li>'
+                .'<li><code>remember_web_…</code>: ghi nhớ đăng nhập để bạn không phải nhập lại, 60 ngày (400 ngày với tài khoản chỉ có số điện thoại). Xoá khi bạn đăng xuất.</li>'
+                .'<li>Giỏ hàng và lựa chọn cookie của bạn được lưu trong bộ nhớ của trình duyệt trên máy bạn, không dùng để theo dõi.</li></ul>'
+                .'<p><strong>Cookie phân tích</strong> (chỉ bật khi bạn bấm "Đồng ý" ở banner cookie):</p>'
+                .'<ul><li><code>_ga</code>, <code>_ga_…</code> của Google Analytics (Google LLC): thống kê lượt xem và cách khách dùng website để chúng tôi biết trang nào hữu ích, tối đa 2 năm.</li></ul>'
+                .'<p>Bạn từ chối vẫn xem và thuê đồ bình thường. Đổi ý bất cứ lúc nào qua mục "Cài đặt cookie" ở cuối trang; rút lại thì cookie phân tích bị xoá ngay. Chúng tôi không dùng cookie quảng cáo.</p>'
                 .'<h2>5. Quyền của khách hàng</h2>'
                 .'<p>Bạn có thể yêu cầu xem, cập nhật hoặc xóa thông tin cá nhân của mình bằng cách liên hệ với chúng tôi qua hotline hoặc Zalo.</p>',
             'dieu-khoan-su-dung' => '<p>Khi truy cập và sử dụng website BỐP CAMPING, bạn đồng ý với các điều khoản dưới đây.</p>'
