@@ -60,9 +60,18 @@ class SiteSetting extends Model
 
     /**
      * Zalo OA chính thức của shop (bopcamping-yki5) — SINGLE SOURCE, đừng chép link
-     * này ra chỗ khác. Shop đã chốt dùng một OA cố định thay cho Zalo cá nhân.
+     * này ra chỗ khác. Hiện ở footer (icon + cột "Liên hệ Zalo"), form đăng nhập,
+     * trang khu vực.
      */
     public const ZALO_OA_URL = 'https://zalo.me/791036380751013489';
+
+    /**
+     * Zalo cho nút nổi cạnh "Góp ý" (bopcamping-ygsu) — SINGLE SOURCE. Chủ shop đổi
+     * 23/10/2026: nút nổi mở thẳng Zalo cá nhân số này thay cho OA, OA chuyển xuống
+     * footer. Cố định chứ không đọc zalo1/zalo2 trong admin, để sửa số ở footer không
+     * vô tình đổi luôn nút nổi.
+     */
+    public const ZALO_FLOAT_URL = 'https://zalo.me/0373655008';
 
     /**
      * URL Zalo THEO SỐ cho tài khoản thứ $n (1|2): url override → zalo.me/<sđt> → null.
