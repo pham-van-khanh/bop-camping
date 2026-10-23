@@ -1,7 +1,8 @@
+import PostDefaultCover from '@/Components/site/PostDefaultCover';
 import type { PostCardData } from '@/types/post';
 import { Link } from '@inertiajs/react';
 
-/** Nền đất cho bài chưa có ảnh bìa — cùng tông thẻ sản phẩm/combo. */
+/** Nền đất lót dưới ảnh bìa trong lúc ảnh đang tải — cùng tông thẻ sản phẩm/combo. */
 const POST_GRAD = 'linear-gradient(150deg,#5c4033,#7f7a2b 55%,#557A2B)';
 
 /** Dòng phụ: ngày đăng · phút đọc (dùng chung thẻ + trang chi tiết). */
@@ -58,9 +59,7 @@ export default function PostCard({
                         className="absolute inset-0 h-full w-full object-cover transition duration-500 group-hover:scale-[1.03]"
                     />
                 ) : (
-                    <div className="absolute inset-0 grid place-items-center font-mono text-[12px] font-bold tracking-[0.18em] text-[#f3e6cf]/80">
-                        CẨM NANG
-                    </div>
+                    <PostDefaultCover title={post.title} variant="card" />
                 )}
             </div>
             <div className="flex flex-1 flex-col p-4 sm:p-5">

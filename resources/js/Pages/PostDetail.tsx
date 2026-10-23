@@ -1,4 +1,5 @@
 import PostCard, { PostMeta } from '@/Components/site/PostCard';
+import PostDefaultCover from '@/Components/site/PostDefaultCover';
 import SiteLayout from '@/Layouts/SiteLayout';
 import { money } from '@/lib/format';
 import type { PostCardData, PostDetailData, PostGearItem } from '@/types/post';
@@ -74,8 +75,8 @@ export default function PostDetail({
                     </div>
                 </header>
 
-                {post.cover && (
-                    <figure className="mx-auto mt-6 max-w-[1040px] px-0 sm:px-5">
+                <figure className="mx-auto mt-6 max-w-[1040px] px-0 sm:px-5">
+                    {post.cover ? (
                         <img
                             src={post.cover.url}
                             srcSet={post.cover.srcset ?? undefined}
@@ -84,8 +85,15 @@ export default function PostDetail({
                             fetchPriority="high"
                             className="aspect-[16/9] w-full object-cover sm:rounded-card"
                         />
-                    </figure>
-                )}
+                    ) : (
+                        <div className="relative aspect-[16/9] overflow-hidden bg-[#5c4033] sm:rounded-card">
+                            <PostDefaultCover
+                                title={post.title}
+                                variant="hero"
+                            />
+                        </div>
+                    )}
+                </figure>
 
                 <div className="mx-auto max-w-[760px] px-4 pb-4 pt-8 sm:px-5">
                     <div

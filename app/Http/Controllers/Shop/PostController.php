@@ -24,8 +24,11 @@ class PostController extends Controller
 {
     private const PER_PAGE = 12;
 
-    /** Ảnh mặc định cho og:image/schema khi bài chưa có ảnh nào. */
-    private const FALLBACK_IMAGE = '/images/album/forest-camp-aerial.jpg';
+    /**
+     * Ảnh mặc định cho og:image/schema khi bài chưa có ảnh nào — cùng ảnh với bìa mặc
+     * định trên trang (Components/site/PostDefaultCover.tsx), bản .jpg cho mạng xã hội.
+     */
+    public const FALLBACK_IMAGE = '/images/cam-nang/cover-default.jpg';
 
     public function __construct(private SeoService $seo) {}
 
