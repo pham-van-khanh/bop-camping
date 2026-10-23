@@ -7,8 +7,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
  * không test nào kêu, nên chủ shop điền Facebook/TikTok trong admin mà ngoài trang
  * chẳng thấy gì. File này khoá lại hai thứ:
  *   1. Điền link nào thì hiện icon đó (và KHÔNG hiện icon chưa điền).
- *   2. OA và liên hệ theo SỐ là hai đường tách bạch — cột "Liên hệ Zalo" phải
- *      trỏ vào từng số, không phải OA.
+ *   2. OA và liên hệ theo SỐ là hai đường tách bạch — cột "Liên hệ Zalo" có một
+ *      dòng OA riêng ở đầu (bopcamping-ygsu), còn từng số phải trỏ vào số đó,
+ *      không phải OA.
  */
 
 const state = vi.hoisted(() => ({
@@ -41,6 +42,7 @@ const site = (over: Record<string, unknown> = {}) => ({
     hotline_primary: '0976544370',
     hotline_secondary: null,
     zalo_oa: OA,
+    zalo_float: 'https://zalo.me/0373655008',
     zalo_1: {
         label: 'Tư vấn',
         phone: '0976544370',
@@ -119,7 +121,17 @@ describe('ảnh trong footer (bopcamping-b4c3 — audit alt/CLS)', () => {
     });
 });
 
-describe('cột "Liên hệ Zalo" — theo SỐ, không phải OA', () => {
+describe('cột "Liên hệ Zalo" — OA đứng đầu, rồi tới từng SỐ', () => {
+    it('dòng đầu là OA (bopcamping-ygsu — nút nổi đã chuyển sang số)', () => {
+        state.site = site();
+        const { container } = render(<Footer />);
+
+        const col = within(container).getByText('Liên hệ Zalo').parentElement!;
+        const [first] = within(col).getAllByRole('link');
+        expect(first).toHaveAccessibleName('Zalo OA BỐP CAMPING');
+        expect(first).toHaveAttribute('href', OA);
+    });
+
     it('hiện đủ hai số khi admin điền cả hai, mỗi số trỏ đúng zalo.me của nó', () => {
         state.site = site({
             zalo_2: {
@@ -142,11 +154,11 @@ describe('cột "Liên hệ Zalo" — theo SỐ, không phải OA', () => {
         expect(second).not.toHaveAttribute('href', OA);
     });
 
-    it('chỉ hiện một dòng khi admin mới điền một số', () => {
+    it('chỉ hiện một dòng số khi admin mới điền một số (cộng dòng OA)', () => {
         state.site = site();
         const { container } = render(<Footer />);
 
         const col = within(container).getByText('Liên hệ Zalo').parentElement!;
-        expect(within(col).getAllByRole('link')).toHaveLength(1);
+        expect(within(col).getAllByRole('link')).toHaveLength(2);
     });
 });

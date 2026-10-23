@@ -144,8 +144,9 @@ class HandleInertiaRequests extends Middleware
      * Thông tin liên hệ dùng chung cho footer + dải Zalo. Địa chỉ lấy từ
      * ServiceLocation đang mở.
      *
-     * Hai đường Zalo tách bạch (bopcamping-h0hh): `zalo_oa` là kênh chính thức cho
-     * nút nổi; `zalo_1/zalo_2` là liên hệ THEO SỐ cho footer.
+     * Các đường Zalo tách bạch (bopcamping-h0hh, bopcamping-ygsu): `zalo_float` cho nút
+     * nổi; `zalo_oa` là kênh chính thức ở footer; `zalo_1/zalo_2` là liên hệ THEO SỐ
+     * cho footer.
      *
      * @return array<string, mixed>
      */
@@ -157,6 +158,7 @@ class HandleInertiaRequests extends Middleware
             'hotline_primary' => $s->hotline_primary,
             'hotline_secondary' => $s->hotline_secondary,
             'zalo_oa' => SiteSetting::ZALO_OA_URL,
+            'zalo_float' => SiteSetting::ZALO_FLOAT_URL,
             'zalo_1' => ['label' => $s->zalo1_label, 'phone' => $s->zalo1_phone, 'url' => $s->zaloUrl(1)],
             'zalo_2' => ['label' => $s->zalo2_label, 'phone' => $s->zalo2_phone, 'url' => $s->zaloUrl(2)],
             'facebook_url' => $s->facebook_url,

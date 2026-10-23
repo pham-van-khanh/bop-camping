@@ -21,12 +21,12 @@ function ZaloMark({ size = 48 }: { size?: number }) {
  * Nút Zalo nổi, nằm ngay TRÊN nút Góp ý (FeedbackWidget: bottom-5 + h-12 = chiếm 20→68px,
  * nút này ở 80→128px nên hở 12px).
  *
- * Chỉ mở Zalo OA (bopcamping-h0hh) — một đích duy nhất nên không còn panel chọn tài
- * khoản như trước. Muốn nhắn theo SỐ nhân viên thì xuống footer, ở đó liệt kê từng số.
+ * Mở thẳng Zalo cá nhân số 0373655008 (bopcamping-ygsu, trước đó là OA) — một đích
+ * duy nhất nên không có panel chọn tài khoản. OA và các số khác nằm ở footer.
  */
 export default function ZaloFloatButton() {
     const { site } = usePage<PageProps>().props;
-    const url = site?.zalo_oa;
+    const url = site?.zalo_float;
 
     if (!url) return null;
 

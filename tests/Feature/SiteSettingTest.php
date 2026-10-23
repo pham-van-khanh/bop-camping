@@ -54,8 +54,9 @@ class SiteSettingTest extends TestCase
     }
 
     /**
-     * Hai đường Zalo phải TÁCH nhau (bopcamping-h0hh): OA cho nút nổi, số cho footer.
-     * Gộp lại là mất đường liên hệ theo số — đúng lỗi đã mắc ở bopcamping-yki5.
+     * Các đường Zalo phải TÁCH nhau (bopcamping-h0hh): OA và từng số cho footer, nút
+     * nổi có link cố định riêng (bopcamping-ygsu). Gộp lại là mất đường liên hệ theo
+     * số — đúng lỗi đã mắc ở bopcamping-yki5.
      *
      * @test
      */
@@ -68,6 +69,7 @@ class SiteSettingTest extends TestCase
 
         $this->get('/')->assertInertia(fn ($page) => $page
             ->where('site.zalo_oa', SiteSetting::ZALO_OA_URL)
+            ->where('site.zalo_float', 'https://zalo.me/0373655008')
             ->where('site.zalo_1.phone', '0976544370')
             ->where('site.zalo_1.url', 'https://zalo.me/0976544370')
             ->where('site.zalo_2.phone', '0373655008')

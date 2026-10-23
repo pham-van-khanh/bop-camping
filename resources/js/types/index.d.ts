@@ -42,8 +42,10 @@ export interface SiteZalo {
 export interface SiteInfo {
     hotline_primary: string | null;
     hotline_secondary: string | null;
-    /** Zalo OA chính thức — nút nổi dùng cái này (hằng, luôn có). */
+    /** Zalo OA chính thức — hiện ở footer (hằng, luôn có). */
     zalo_oa: string;
+    /** Zalo cho nút nổi cạnh "Góp ý" — Zalo cá nhân theo số (hằng, luôn có). */
+    zalo_float: string;
     /** Liên hệ THEO SỐ cho footer — khác OA, xem SiteSetting::zaloUrl. */
     zalo_1: SiteZalo;
     zalo_2: SiteZalo;

@@ -167,6 +167,18 @@ export default function Footer() {
                         Liên hệ Zalo
                     </div>
                     <div className="flex flex-col gap-[9px] text-[14px] text-moss">
+                        {/* OA đứng đầu cột (bopcamping-ygsu): nút nổi đã chuyển sang Zalo
+                            theo số, nên đây là chỗ khách thấy OA bằng chữ. */}
+                        {site?.zalo_oa && (
+                            <a
+                                href={site.zalo_oa}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="hover:text-grass"
+                            >
+                                Zalo OA BỐP CAMPING
+                            </a>
+                        )}
                         {[site?.zalo_1, site?.zalo_2]
                             .filter((z) => z?.url)
                             .map((z, i) => (
