@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Http\Controllers\Shop\PostController;
 use App\Jobs\GenerateMediaVariants;
 use App\Models\Combo;
 use App\Models\Post;
@@ -486,5 +487,26 @@ class PostTest extends TestCase
 
         $this->get('/cam-nang/anh-trong-bai')->assertInertia(fn (Assert $p) => $p
             ->where('seo.image', 'https://cdn.example.com/a.jpg?w=800&h=600'));
+    }
+
+    /**
+     * Bài không có ảnh nào → og:image là bìa mặc định của Cẩm nang (cùng ảnh trang hiện
+     * khi thiếu bìa), và file đó phải có thật — link chết thì Facebook/Zalo hiện ô trống.
+     *
+     * @test
+     */
+    public function og_image_falls_back_to_default_cam_nang_cover(): void
+    {
+        Post::factory()->create([
+            'slug' => 'khong-anh',
+            'cover_path' => null,
+            'content' => '<p>Chỉ có chữ.</p>',
+        ]);
+
+        $this->get('/cam-nang/khong-anh')->assertInertia(fn (Assert $p) => $p
+            ->where('post.cover', null)
+            ->where('seo.image', url('/images/cam-nang/cover-default.jpg')));
+
+        $this->assertFileExists(public_path(PostController::FALLBACK_IMAGE));
     }
 }
