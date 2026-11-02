@@ -108,6 +108,13 @@
         </thead>
         <tbody>
           <tr>
+            <td class="feature">Thống kê truy cập + báo Telegram</td>
+            <td class="desc">Ghi lượt xem trang/sản phẩm và lần bấm Zalo/gọi/Messenger vào bảng <code>visit_events</code> (cookie <code>bop_vid</code>, giữ 180 ngày); trang admin <code>/admin/truy-cap</code>. Báo Telegram khi khách bấm liên hệ, có đơn mới, có khách mới (qua queue). Cần <code>TELEGRAM_BOT_TOKEN</code> + <code>TELEGRAM_CHAT_ID</code> trong <code>.env</code> server và queue worker; thiếu thì chỉ tắt phần báo tin. Có 2 migration (bảng <code>visit_events</code>, dòng cookie trong Chính sách bảo mật); revert code không gỡ migration.</td>
+            <td class="branch"><code>feature/thong-ke-truy-cap-telegram</code></td>
+            <td class="date">02/11/2026</td>
+            <td class="sha"><code>9d98bd8</code></td>
+          </tr>
+          <tr>
             <td class="feature">Ảnh bìa mặc định Cẩm nang</td>
             <td class="desc">Bài Cẩm nang chưa có ảnh bìa hiện ảnh bìa chung + tiêu đề bài in lên ảnh (thẻ bài <code>/cam-nang</code>, Bài liên quan, đầu trang chi tiết). og:image dự phòng của Cẩm nang đổi sang ảnh này. Ảnh ở <code>public/images/cam-nang/</code>. Không có migration.</td>
             <td class="branch"><code>feature/cam-nang-anh-bia-mac-dinh</code></td>
