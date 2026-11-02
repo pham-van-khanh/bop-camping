@@ -23,6 +23,7 @@ use App\Http\Controllers\Admin\ServiceLocationController as AdminServiceLocation
 use App\Http\Controllers\Admin\SiteSettingController as AdminSiteSettingController;
 use App\Http\Controllers\Admin\StaticPageController as AdminStaticPageController;
 use App\Http\Controllers\Admin\StatsController as AdminStatsController;
+use App\Http\Controllers\Admin\TrafficController as AdminTrafficController;
 use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\Admin\VoucherController as AdminVoucherController;
 use App\Http\Controllers\ImpersonationController;
@@ -42,11 +43,15 @@ use App\Http\Controllers\Shop\ReviewController;
 use App\Http\Controllers\Shop\ReviewInviteController;
 use App\Http\Controllers\Shop\SitemapController;
 use App\Http\Controllers\Shop\StaticPageController;
+use App\Http\Controllers\Shop\TrackController;
 use App\Models\StaticPage;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
 Route::get('/', [ProductController::class, 'home'])->name('home');
+
+// Beacon khách bấm Zalo/gọi/Messenger → ghi visit_events + báo Telegram
+Route::post('/track/lien-he', [TrackController::class, 'contact'])->name('track.contact')->middleware('throttle:30,1');
 
 // Sitemap động cho bot tìm kiếm (Epic 3) — sinh từ DB, cache 1h
 Route::get('/sitemap.xml', [SitemapController::class, 'index'])->name('sitemap');
@@ -139,6 +144,9 @@ Route::middleware(['admin'])->prefix('admin')->name('admin.')->group(function ()
 
     // Thống kê đơn + doanh thu theo ngày (bopcamping-h1s)
     Route::get('/stats', [AdminStatsController::class, 'index'])->name('stats');
+
+    // Thống kê truy cập + số lần khách bấm Zalo/gọi/Messenger
+    Route::get('/truy-cap', [AdminTrafficController::class, 'index'])->name('traffic');
 
     // Tài chính: vốn, thu-chi, lợi nhuận, hoàn vốn + quản lý khoản chi (bopcamping-n4qy).
     // Route chi phí chuyển từ StatsController sang đây cùng với form nhập — giữ nguyên

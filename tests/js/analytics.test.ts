@@ -371,4 +371,41 @@ describe('click liên hệ', () => {
         );
         document.body.innerHTML = '';
     });
+
+    it('click Zalo → báo server /track/lien-he (kèm vị trí và đường dẫn)', () => {
+        const fetchMock = vi.fn().mockResolvedValue(new Response(null));
+        vi.stubGlobal('fetch', fetchMock);
+        document.body.innerHTML =
+            '<div data-track-placement="float"><a href="https://zalo.me/1"><span>Z</span></a></div>';
+
+        handleDocumentClick({
+            target: document.querySelector('span'),
+        } as unknown as Event);
+
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+        const [url, init] = fetchMock.mock.calls[0];
+        expect(url).toBe('/track/lien-he');
+        expect(init.keepalive).toBe(true);
+        expect(JSON.parse(init.body)).toEqual({
+            method: 'zalo',
+            placement: 'float',
+            path: window.location.pathname,
+        });
+        vi.unstubAllGlobals();
+        document.body.innerHTML = '';
+    });
+
+    it('link thường (không phải liên hệ) → không gọi server', () => {
+        const fetchMock = vi.fn();
+        vi.stubGlobal('fetch', fetchMock);
+        document.body.innerHTML = '<a href="/thiet-bi"><span>x</span></a>';
+
+        handleDocumentClick({
+            target: document.querySelector('span'),
+        } as unknown as Event);
+
+        expect(fetchMock).not.toHaveBeenCalled();
+        vi.unstubAllGlobals();
+        document.body.innerHTML = '';
+    });
 });

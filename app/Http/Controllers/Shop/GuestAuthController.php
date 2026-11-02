@@ -7,6 +7,7 @@ use App\Http\Controllers\ImpersonationController;
 use App\Models\Order;
 use App\Models\User;
 use App\Services\Auth\OtpService;
+use App\Services\TelegramNotifier;
 use Illuminate\Auth\SessionGuard;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -349,10 +350,15 @@ class GuestAuthController extends Controller
         // otp_pending không thể mang SĐT admin, nhưng không dựa vào một chốt chặn duy nhất.
         $user = User::where('phone', $pending['phone'])->where('is_admin', false)->first()
             ?? new User(['phone' => $pending['phone']]);
+        $isNew = ! $user->exists;
         $user->name = $pending['name'];
         $user->email = $pending['email'];
         $user->email_verified_at = now();
         $user->save();
+
+        if ($isNew) {
+            app(TelegramNotifier::class)->send('👤 <b>Khách mới đăng ký</b>'."\n".e($user->name).' · '.e($user->phone));
+        }
 
         $request->session()->forget('otp_pending');
         Auth::login($user, remember: true);
