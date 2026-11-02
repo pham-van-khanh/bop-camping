@@ -40,7 +40,11 @@ class PrivacyPolicyCookieSectionTest extends TestCase
     {
         $default = StaticPage::policyDefaults('chinh-sach-bao-mat')['content'];
 
-        return substr($default, (int) strpos($default, '<h2>5. '));
+        $section = substr($default, (int) strpos($default, '<h2>5. '));
+
+        // Gạch "Thống kê truy cập của shop (bop_vid)" do migration 2026_11_02_000002 thêm sau
+        // (xem PrivacyPolicyVisitTrackingTest) — migration cookie gốc không mang theo nó.
+        return (string) preg_replace('#<li><strong>Thống kê truy cập của shop.*?</li>#u', '', $section);
     }
 
     /** @test */

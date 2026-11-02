@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\VisitEvent;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
@@ -12,3 +13,6 @@ Artisan::command('inspire', function () {
 // Cần chạy scheduler trên server: `php artisan schedule:work` (dev) hoặc cron gọi
 // `schedule:run` mỗi phút (prod). Mail vẫn cần queue worker để gửi.
 Schedule::command('orders:send-pickup-reminders')->dailyAt('08:00');
+
+// Dọn sự kiện truy cập quá 180 ngày (bảng visit_events tăng theo từng lượt xem trang).
+Schedule::command('model:prune', ['--model' => [VisitEvent::class]])->dailyAt('03:00');

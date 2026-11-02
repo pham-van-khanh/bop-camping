@@ -45,6 +45,12 @@ return [
         'holder' => env('SEPAY_HOLDER'),       // Tên chủ TK, không dấu — chỉ để hiện trên QR
     ],
 
+    // Báo tin cho chủ shop qua Telegram (bấm Zalo, đơn mới, khách mới). Thiếu → tắt im lặng.
+    'telegram' => [
+        'token' => env('TELEGRAM_BOT_TOKEN'),
+        'chat_id' => env('TELEGRAM_CHAT_ID'),
+    ],
+
     // Marketing / SEO — chỉ render khi đặt biến môi trường tương ứng (không nhúng ID giả).
     'gtm' => [
         'id' => env('GTM_ID'),                                  // VD: GTM-XXXXXXX

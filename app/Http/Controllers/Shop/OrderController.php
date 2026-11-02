@@ -17,6 +17,7 @@ use App\Services\Promotion\EmailBonusService;
 use App\Services\Promotion\VoucherService;
 use App\Services\Referral\ReferralService;
 use App\Services\StoreResolver;
+use App\Services\TelegramNotifier;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -241,6 +242,12 @@ class OrderController extends Controller
         if ($admins = User::adminNotifyEmails()) {
             Mail::to($admins)->send(new NewOrderAdminMail($order));
         }
+        app(TelegramNotifier::class)->send(
+            '🛎 <b>Đơn mới '.e($order->code).'</b>'."\n"
+            .e($order->customer_name).' · '.e($order->customer_phone)."\n"
+            .'Thuê '.$order->start_date->format('d/m').' → '.$order->end_date->format('d/m')
+            .' · '.number_format($order->total_price - $order->discount_total, 0, ',', '.').'đ'
+        );
 
         return back()->with([
             'order_code' => $order->code,

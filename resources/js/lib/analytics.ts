@@ -388,6 +388,38 @@ export function resetNavigationState(): void {
     lastUrl = null;
 }
 
+/**
+ * Báo server (thống kê nội bộ + Telegram cho chủ shop) rằng khách vừa bấm liên hệ.
+ * fetch `keepalive` để request vẫn đi nốt khi link mở Zalo ngay trong tab này. Không PII:
+ * server tự biết khách là ai nếu đã đăng nhập. Mọi lỗi đều nuốt.
+ */
+function reportContact(method: ContactMethod, placement?: string): void {
+    const win = w();
+    if (!win || typeof win.fetch !== 'function' || !trackingAllowed()) return;
+    safe(() => {
+        const xsrf = /(?:^|; )XSRF-TOKEN=([^;]+)/.exec(win.document.cookie);
+        void win
+            .fetch('/track/lien-he', {
+                method: 'POST',
+                keepalive: true,
+                credentials: 'same-origin',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Accept: 'application/json',
+                    ...(xsrf
+                        ? { 'X-XSRF-TOKEN': decodeURIComponent(xsrf[1]) }
+                        : {}),
+                },
+                body: JSON.stringify({
+                    method,
+                    placement,
+                    path: win.location.pathname,
+                }),
+            })
+            .catch(() => undefined);
+    });
+}
+
 /** Bắt click link liên hệ ở bất kỳ đâu (nút Zalo nổi, footer, trang chi tiết…). */
 export function handleDocumentClick(e: Event): void {
     const target = e.target as Element | null;
@@ -401,6 +433,7 @@ export function handleDocumentClick(e: Event): void {
             .closest('[data-track-placement]')
             ?.getAttribute('data-track-placement') ?? undefined;
     trackLead(method, placement);
+    reportContact(method, placement);
 }
 
 /**

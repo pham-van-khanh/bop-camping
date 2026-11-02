@@ -6,6 +6,7 @@ use App\Http\Middleware\CaptureReferralCode;
 use App\Http\Middleware\EnsureAdmin;
 use App\Http\Middleware\EnsureShipper;
 use App\Http\Middleware\HandleInertiaRequests;
+use App\Http\Middleware\RecordVisit;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -30,6 +31,8 @@ return Application::configure(basePath: dirname(__DIR__))
             CaptureReferralCode::class,
             // Nguồn khách first-touch (UTM/click id/referrer) → cookie bop_attr (bopcamping-wi6h).
             CaptureAttribution::class,
+            // Thống kê truy cập nội bộ (visit_events) — đứng SAU CaptureAttribution.
+            RecordVisit::class,
         ]);
 
         $middleware->alias([
