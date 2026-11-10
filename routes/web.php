@@ -13,6 +13,7 @@ use App\Http\Controllers\Admin\FaqController as AdminFaqController;
 use App\Http\Controllers\Admin\FeedbackController as AdminFeedbackController;
 use App\Http\Controllers\Admin\FinanceController as AdminFinanceController;
 use App\Http\Controllers\Admin\OrderController as AdminOrderController;
+use App\Http\Controllers\Admin\OrderCreateController as AdminOrderCreateController;
 use App\Http\Controllers\Admin\PostController as AdminPostController;
 use App\Http\Controllers\Admin\ProductContentController as AdminProductContentController;
 use App\Http\Controllers\Admin\ProductController as AdminProductController;
@@ -163,6 +164,11 @@ Route::middleware(['admin'])->prefix('admin')->name('admin.')->group(function ()
     Route::delete('/von-gop/{capital}', [AdminFinanceController::class, 'destroyCapital'])->name('capital.destroy');
 
     Route::get('/orders', [AdminOrderController::class, 'index'])->name('orders');
+    // Admin tự tạo đơn hộ khách (bopcamping-yv2w) — đặt TRƯỚC /orders/{order} để không bị nuốt.
+    Route::get('/orders/create', [AdminOrderCreateController::class, 'create'])->name('orders.create');
+    Route::get('/orders/create/kha-dung', [AdminOrderCreateController::class, 'availability'])->name('orders.create.availability')->middleware('throttle:120,1');
+    Route::get('/orders/create/khach', [AdminOrderCreateController::class, 'customer'])->name('orders.create.customer')->middleware('throttle:60,1');
+    Route::post('/orders', [AdminOrderCreateController::class, 'store'])->name('orders.store')->middleware('throttle:30,1');
     Route::get('/orders/{order}', [AdminOrderController::class, 'show'])->name('orders.show');
     Route::patch('/orders/{order}', [AdminOrderController::class, 'updateStatus'])->name('orders.update');
     // Per-store: đổi cửa hàng của đơn (kiểm tồn store đích)

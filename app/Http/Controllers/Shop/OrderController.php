@@ -5,34 +5,27 @@ namespace App\Http\Controllers\Shop;
 use App\Http\Controllers\Controller;
 use App\Mail\NewOrderAdminMail;
 use App\Mail\OrderPlacedMail;
-use App\Models\Combo;
 use App\Models\Order;
-use App\Models\Product;
 use App\Models\PromotionSetting;
 use App\Models\User;
 use App\Services\AttributionService;
-use App\Services\AvailabilityService;
-use App\Services\OrderSplitter;
+use App\Services\OrderPlacementService;
 use App\Services\Promotion\EmailBonusService;
 use App\Services\Promotion\VoucherService;
 use App\Services\Referral\ReferralService;
-use App\Services\StoreResolver;
 use App\Services\TelegramNotifier;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 
 class OrderController extends Controller
 {
     public function __construct(
-        private AvailabilityService $availability,
         private ReferralService $referrals,
         private VoucherService $vouchers,
         private EmailBonusService $emailBonus,
-        private StoreResolver $storeResolver,
-        private OrderSplitter $splitter,
+        private OrderPlacementService $placement,
         private AttributionService $attribution,
     ) {}
 
@@ -93,81 +86,11 @@ class OrderController extends Controller
         $itemLines = $validated['items'] ?? [];
         $comboLines = $validated['combos'] ?? [];
 
-        if (empty($itemLines) && empty($comboLines)) {
-            return back()->withErrors(['items' => 'Giỏ thuê đang trống.'])->withInput();
-        }
-
-        $errors = [];
-        $products = Product::whereIn('id', array_column($itemLines, 'product_id'))
-            ->with('serviceLocations')
-            ->get()
-            ->keyBy('id');
-
-        // Combo phải đang bán và còn món; nạp sẵn product + vị trí cho check bên dưới.
-        $combos = Combo::active()
-            ->whereHas('items')
-            ->with('items.product.serviceLocations', 'serviceLocations')
-            ->whereIn('id', array_column($comboLines, 'combo_id'))
-            ->get()
-            ->keyBy('id');
-        foreach ($comboLines as $line) {
-            if (! $combos->has($line['combo_id'])) {
-                $errors[] = 'Combo bạn chọn không còn cho thuê.';
-            }
-        }
-        if (! empty($errors)) {
-            return back()->withErrors(['items' => implode(' ', $errors)])->withInput();
-        }
-
-        // Per-store: GỘP nhu cầu per (sản phẩm + khoảng ngày) từ thuê lẻ + combo bung
-        // (chống overbook khi 1 sản phẩm ở cả hai phần).
-        $needed = []; // "productId|start|end" => qty
-        foreach ($itemLines as $item) {
-            $key = "{$item['product_id']}|{$item['start']}|{$item['end']}";
-            $needed[$key] = ($needed[$key] ?? 0) + $item['quantity'];
-        }
-        foreach ($comboLines as $line) {
-            $combo = $combos->get($line['combo_id']);
-            foreach ($combo->items as $comboItem) {
-                $key = "{$comboItem->product_id}|{$line['start']}|{$line['end']}";
-                $needed[$key] = ($needed[$key] ?? 0) + $comboItem->quantity * $line['quantity'];
-            }
-        }
-
-        $productsById = $products->values()
-            ->concat($combos->flatMap(fn (Combo $c) => $c->items->map(fn ($i) => $i->product))->filter())
-            ->keyBy('id');
-
         // Cửa hàng khách chọn (per-store): id đầu tiên khác null; 2 store khác nhau → lỗi (giỏ 1 cơ sở).
         $chosenIds = collect($itemLines)->concat($comboLines)
             ->pluck('location_id')->filter()->unique()->values();
         if ($chosenIds->count() > 1) {
             return back()->withErrors(['items' => 'Giỏ đang chọn 2 cơ sở khác nhau. Mỗi đơn chỉ thuê tại một cơ sở.'])->withInput();
-        }
-
-        // Resolve store: khách chọn → validate store đó; chưa chọn → tự gán store đủ cả giỏ.
-        // StoreResolver đã kiểm tồn kho per-store (single source of truth).
-        try {
-            $resolved = $this->storeResolver->resolveForCart($needed, $productsById, $chosenIds->first());
-        } catch (\RuntimeException $e) {
-            return back()->withErrors(['items' => $e->getMessage()])->withInput();
-        }
-
-        // bopcamping-v5ig — combo CHỈ bán ở kho được gán. StoreResolver chỉ kiểm tồn per-product
-        // (combo đã bung thành sản phẩm) nên không biết ràng buộc này; thiếu check ở đây thì khách
-        // đặt được combo ở cơ sở mà shop không bán nó.
-        //
-        // Đơn không gắn kho (chưa có cơ sở nào đang mở / dữ liệu cũ) → BỎ QUA, không chặn.
-        if ($resolved['location'] !== null) {
-            foreach ($comboLines as $line) {
-                $combo = $combos->get($line['combo_id']);
-                if (! in_array($resolved['location']->id, $combo->openLocationIds(), true)) {
-                    return back()->withErrors([
-                        'items' => "Combo \"{$combo->name}\" không cho thuê tại {$resolved['location']->name}. "
-                            .'Bạn đổi cơ sở hoặc bỏ combo này khỏi giỏ giúp nhé.',
-                    ])->withInput();
-                }
-            }
         }
 
         // Email xác nhận đơn: ưu tiên email khách nhập ở checkout; bỏ trống thì lấy email tài
@@ -194,8 +117,6 @@ class OrderController extends Controller
 
         $base = [
             'user_id' => Auth::id(),
-            'service_location_id' => $resolved['location']?->id,
-            'location_auto_assigned' => $resolved['auto'],
             'customer_name' => $validated['name'],
             'customer_phone' => $validated['phone'],
             'customer_email' => $customerEmail,
@@ -211,8 +132,12 @@ class OrderController extends Controller
             ...$this->attribution->forOrder($request),
         ];
 
-        // Tách đơn theo khoảng ngày (bopcamping-wtuv): 1 khoảng → đơn thường; ≥2 → cha + con.
-        $order = DB::transaction(fn () => $this->splitter->create($base, $itemLines, $comboLines, $productsById, $combos));
+        // Combo còn bán → kiểm tồn + chọn cơ sở → tách đơn (nguồn chung với admin tạo hộ).
+        try {
+            $order = $this->placement->place($base, $itemLines, $comboLines, $chosenIds->first());
+        } catch (\RuntimeException $e) {
+            return back()->withErrors(['items' => $e->getMessage()])->withInput();
+        }
 
         // Khuyến mãi (chỉ khách đăng nhập). Đơn cha (bopcamping-wtuv T3): áp trên TỔNG cha
         // rồi PHÂN BỔ xuống con ∝ tiền thuê; đơn thường: áp trực tiếp như cũ.

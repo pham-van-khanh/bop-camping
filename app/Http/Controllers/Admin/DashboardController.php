@@ -70,13 +70,13 @@ class DashboardController extends Controller
         $rows = Order::where('is_parent', false)
             ->where('status', '!=', 'cancelled')
             ->where('created_at', '>=', now()->subDays(30))
-            ->selectRaw('utm_source, referrer_host, click_id_type, COUNT(*) as orders, COALESCE(SUM('.FinanceService::RENTAL_DUE_SQL.'), 0) as revenue')
-            ->groupBy('utm_source', 'referrer_host', 'click_id_type')
+            ->selectRaw('utm_source, referrer_host, click_id_type, (created_by IS NOT NULL) as by_admin, COUNT(*) as orders, COALESCE(SUM('.FinanceService::RENTAL_DUE_SQL.'), 0) as revenue')
+            ->groupByRaw('utm_source, referrer_host, click_id_type, (created_by IS NOT NULL)')
             ->get();
 
         $bySource = [];
         foreach ($rows as $r) {
-            $label = AttributionService::label($r->utm_source, $r->referrer_host, $r->click_id_type);
+            $label = AttributionService::label($r->utm_source, $r->referrer_host, $r->click_id_type, (bool) $r->by_admin);
             $bySource[$label] ??= ['source' => $label, 'orders' => 0, 'revenue' => 0];
             $bySource[$label]['orders'] += (int) $r->orders;
             $bySource[$label]['revenue'] += (int) $r->revenue;

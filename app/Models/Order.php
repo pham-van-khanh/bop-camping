@@ -22,6 +22,8 @@ class Order extends Model
 
     protected $fillable = [
         'user_id',
+        // Admin tạo hộ (bopcamping-yv2w) — null = khách tự đặt trên web.
+        'created_by',
         'parent_id',
         'is_parent',
         'service_location_id',
@@ -600,6 +602,12 @@ class Order extends Model
             $collected > 0 => 'deposit',   // nghĩa cũ: đã thu MỘT PHẦN (3 mức, giữ nguyên tên)
             default => 'unpaid',
         };
+    }
+
+    /** Admin đã tạo hộ đơn này (bopcamping-yv2w); null = khách tự đặt. */
+    public function createdBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'created_by');
     }
 
     /** Người đánh dấu đã thu tiền thuê (admin hoặc shipper) — cho đối soát. */

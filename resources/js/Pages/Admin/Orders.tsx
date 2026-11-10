@@ -4,7 +4,7 @@ import { money } from '@/lib/format';
 import { STATUS_LABEL, STATUS_STYLE } from '@/lib/orderStatus';
 import { sessionLabel, shopHours } from '@/lib/session';
 import { NEXT_STATUSES, type Order } from '@/Pages/Admin/orderShared';
-import { Head, router, usePage } from '@inertiajs/react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 import { ReactNode, useState } from 'react';
 
 type Stats = {
@@ -103,6 +103,13 @@ export default function AdminOrders({
                             Bấm vào đơn để mở màn hình chi tiết
                         </p>
                     </div>
+                    {/* Admin tạo đơn hộ khách (bopcamping-yv2w) */}
+                    <Link
+                        href={route('admin.orders.create')}
+                        className="inline-flex h-10 items-center rounded-control bg-grass px-4 text-[14px] font-bold text-white hover:opacity-90"
+                    >
+                        + Tạo đơn
+                    </Link>
                 </div>
 
                 {/* Stats */}

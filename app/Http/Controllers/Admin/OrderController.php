@@ -38,7 +38,7 @@ class OrderController extends Controller
 
         // Đơn cha/con (bopcamping-wtuv T6): danh sách chỉ TOP-LEVEL (đơn thường + cha, ẩn con);
         // con nạp kèm trong cha. Search theo mã đơn (cả mã con)/tên/SĐT.
-        $relations = ['items.product', 'items.combo', 'vouchers', 'referralUse.referrer', 'serviceLocation', 'rentalPaidBy:id,name', 'feePaidBy:id,name', 'depositPaidBy:id,name', 'depositRefundedBy:id,name', 'deliveredBy:id,name', 'collectedBy:id,name'];
+        $relations = ['items.product', 'items.combo', 'vouchers', 'referralUse.referrer', 'serviceLocation', 'rentalPaidBy:id,name', 'feePaidBy:id,name', 'depositPaidBy:id,name', 'depositRefundedBy:id,name', 'deliveredBy:id,name', 'collectedBy:id,name', 'createdBy:id,name'];
         $query = Order::topLevel()->with(array_merge($relations, array_map(fn ($r) => "children.$r", $relations)))->latest();
 
         if ($q !== '') {
@@ -105,7 +105,7 @@ class OrderController extends Controller
      */
     public function show(Order $order): Response
     {
-        $relations = ['items.product', 'items.combo', 'vouchers', 'referralUse.referrer', 'serviceLocation', 'rentalPaidBy:id,name', 'feePaidBy:id,name', 'depositPaidBy:id,name', 'depositRefundedBy:id,name', 'deliveredBy:id,name', 'collectedBy:id,name'];
+        $relations = ['items.product', 'items.combo', 'vouchers', 'referralUse.referrer', 'serviceLocation', 'rentalPaidBy:id,name', 'feePaidBy:id,name', 'depositPaidBy:id,name', 'depositRefundedBy:id,name', 'deliveredBy:id,name', 'collectedBy:id,name', 'createdBy:id,name'];
         $order->load(array_merge($relations, array_map(fn ($r) => "children.$r", $relations), ['parent:id,code']));
 
         $row = $this->mapOrder($order, withQr: true);
@@ -212,7 +212,9 @@ class OrderController extends Controller
             'location_auto_assigned' => (bool) $o->location_auto_assigned,
             // Nguồn đơn first-touch (bopcamping-wi6h) — null = đơn trước khi có tính năng / vào thẳng.
             'attribution' => [
-                'label' => AttributionService::label($o->utm_source, $o->referrer_host, $o->click_id_type),
+                'label' => AttributionService::label($o->utm_source, $o->referrer_host, $o->click_id_type, $o->created_by !== null),
+                // Admin tạo hộ (bopcamping-yv2w): tên người tạo; null = khách tự đặt trên web.
+                'created_by' => $o->createdBy?->name,
                 'utm_source' => $o->utm_source,
                 'utm_medium' => $o->utm_medium,
                 'utm_campaign' => $o->utm_campaign,
