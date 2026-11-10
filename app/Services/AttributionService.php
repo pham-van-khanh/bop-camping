@@ -22,6 +22,9 @@ class AttributionService
 {
     public const COOKIE = 'bop_attr';
 
+    /** Nhãn nguồn cho đơn admin tạo hộ (orders.created_by khác null). */
+    public const ADMIN_LABEL = 'Admin tạo hộ';
+
     /** First-touch giữ 30 ngày. */
     public const TTL_MINUTES = 60 * 24 * 30;
 
@@ -134,8 +137,14 @@ class AttributionService
      * Nhãn nguồn cho admin: utm_source → nền tảng suy từ click id → referrer → "Trực tiếp".
      * Dùng chung cho chi tiết đơn và bảng tổng quan để hai nơi không lệch nhau.
      */
-    public static function label(?string $utmSource, ?string $referrerHost, ?string $clickIdType): string
+    public static function label(?string $utmSource, ?string $referrerHost, ?string $clickIdType, bool $byAdmin = false): string
     {
+        // Đơn admin tạo hộ (bopcamping-yv2w) — khách không qua web nên không có tín hiệu nguồn;
+        // tách riêng để không lẫn vào "Trực tiếp / không rõ" của khách web.
+        if ($byAdmin) {
+            return self::ADMIN_LABEL;
+        }
+
         if ($utmSource) {
             return $utmSource;
         }

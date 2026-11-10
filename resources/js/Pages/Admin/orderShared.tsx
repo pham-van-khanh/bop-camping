@@ -41,6 +41,8 @@ export type DiscountLine = {
     amount: number;
     code?: string;
     percent?: boolean;
+    // Lý do admin ghi khi giảm tay lúc tạo đơn hộ (source = 'admin', bopcamping-yv2w).
+    note?: string;
 };
 
 /** 1 mốc việc trên đơn: đã làm chưa, ai làm, lúc nào. */
@@ -151,6 +153,8 @@ const DISCOUNT_SOURCE_LABEL: Record<string, string> = {
     cap: 'Điều chỉnh trần giảm giá',
     // bopcamping-wtuv: phần giảm phân bổ từ voucher tính trên TỔNG đơn gộp (cha)
     parent_alloc: 'Giảm phân bổ từ đơn gộp',
+    // Admin giảm tay khi tạo đơn hộ khách (bopcamping-yv2w)
+    admin: 'Giảm giá (admin)',
 };
 
 // Hoàn cọc — chỉ dùng khi đơn ĐÃ TRẢ (bopcamping-7be).
@@ -1439,6 +1443,11 @@ export function OrderDetailPanel({
                                         {d.code}
                                     </span>
                                 )}
+                                {d.note && (
+                                    <span className="ml-1 text-moss">
+                                        — {d.note}
+                                    </span>
+                                )}
                             </span>
                             <span
                                 className="font-mono font-bold"
@@ -1605,6 +1614,8 @@ export type OrderAttribution = {
     utm_term: string | null;
     referrer_host: string | null;
     click_id_type: string | null;
+    // Tên admin đã tạo hộ đơn (bopcamping-yv2w); null/vắng = khách tự đặt trên web.
+    created_by?: string | null;
 };
 
 const CLICK_ID_LABEL: Record<string, string> = {
@@ -1641,7 +1652,11 @@ function AttributionInfo({
             </div>
             <div className="rounded-[11px] border border-cardBorder bg-white px-3 py-2.5 text-[13px]">
                 <span className="font-bold text-ink">{a.label}</span>
-                {shown.length > 0 ? (
+                {a.created_by ? (
+                    <p className="mt-0.5 text-[12px] text-moss">
+                        Tạo bởi <b className="text-ink">{a.created_by}</b>
+                    </p>
+                ) : shown.length > 0 ? (
                     <dl className="mt-1 grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-[12px]">
                         {shown.map(([k, v]) => (
                             <div key={k} className="contents">
