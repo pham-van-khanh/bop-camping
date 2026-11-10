@@ -108,6 +108,13 @@
         </thead>
         <tbody>
           <tr>
+            <td class="feature">Admin tự tạo đơn</td>
+            <td class="desc">Nút <b>+ Tạo đơn</b> ở trang Đơn thuê → <code>/admin/orders/create</code>: admin tạo đơn hộ khách (Zalo/điện thoại/tại shop). Tra SĐT điền sẵn khách cũ, cho phép ngày quá khứ, hết hàng chặn cứng, giá hệ thống tính + giảm tay có lý do. Đơn vào thẳng <i>Đã xác nhận</i>, mail khách nếu có email, không báo đơn mới. Checkout khách dùng chung <code>OrderPlacementService</code>. 1 migration (cột <code>orders.created_by</code>); revert code không gỡ migration. Đi thẳng production, không qua staging.</td>
+            <td class="branch"><code>feature/admin-tao-don</code></td>
+            <td class="date">10/11/2026</td>
+            <td class="sha"><code>0880c5a</code></td>
+          </tr>
+          <tr>
             <td class="feature">Thống kê truy cập + báo Telegram</td>
             <td class="desc">Ghi lượt xem trang/sản phẩm và lần bấm Zalo/gọi/Messenger vào bảng <code>visit_events</code> (cookie <code>bop_vid</code>, giữ 180 ngày); trang admin <code>/admin/truy-cap</code>. Báo Telegram khi khách bấm liên hệ, có đơn mới, có khách mới (qua queue). Cần <code>TELEGRAM_BOT_TOKEN</code> + <code>TELEGRAM_CHAT_ID</code> trong <code>.env</code> server và queue worker; thiếu thì chỉ tắt phần báo tin. Có 2 migration (bảng <code>visit_events</code>, dòng cookie trong Chính sách bảo mật); revert code không gỡ migration.</td>
             <td class="branch"><code>feature/thong-ke-truy-cap-telegram</code></td>
