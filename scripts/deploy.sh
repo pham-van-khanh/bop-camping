@@ -241,6 +241,33 @@ cd "$NEW_RELEASE"
 success "Database migrations completed."
 
 #######################################
+# Seed Cam nang drafts (PostSeeder)
+#######################################
+# PostSeeder is production-safe by design: it only CREATES posts whose slug does
+# not exist yet, always as DRAFTS (never visible to customers or the sitemap),
+# and never touches a post the shop owner already has. So new articles added to
+# database/seeders/data/cam_nang_posts.json show up in the admin as drafts right
+# after a deploy, without anyone having to SSH in.
+#
+# Caveat: a draft the owner DELETES in the admin comes back on the next deploy,
+# because its slug no longer exists. To drop an article for good, remove it from
+# the JSON file.
+#
+# Non-fatal: content drafts must never block a release.
+
+if [[ "${SEED_POSTS:-false}" == "true" ]]; then
+    log "Seeding Cam nang drafts..."
+
+    if "$PHP_BIN" artisan db:seed --class=PostSeeder --force; then
+        success "Cam nang drafts seeded."
+    else
+        warning "PostSeeder failed — continuing. Run it by hand: php artisan db:seed --class=PostSeeder --force"
+    fi
+else
+    log "Cam nang seeding disabled (SEED_POSTS != true), skipping."
+fi
+
+#######################################
 # Switch Current Release
 #######################################
 
