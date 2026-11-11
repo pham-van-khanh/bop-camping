@@ -37,6 +37,7 @@ type ComboData = {
     id: number;
     name: string;
     slug: string;
+    subtitle?: string | null;
     description: string | null;
     combo_price: number;
     deposit: number;
@@ -522,6 +523,11 @@ export default function ComboDetail({
                         >
                             {combo.name}
                         </h1>
+                        {combo.subtitle && (
+                            <p className="-mt-1 mb-3 text-[15px] font-medium leading-snug text-pine">
+                                {combo.subtitle}
+                            </p>
+                        )}
                         <div className="mb-[18px] flex flex-wrap items-center gap-2.5">
                             {combo.suitable_for && (
                                 <span

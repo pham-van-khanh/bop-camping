@@ -18,6 +18,7 @@ export type ComboCardData = {
     sum_individual: number;
     savings_amount: number;
     savings_percent: number;
+    subtitle?: string | null;
     suitable_for: number | null;
     image?: string | null;
     /** srcset đi kèm ảnh cover — biến thể WebP 400/800/1600px (bopcamping-hjde). */
@@ -119,6 +120,11 @@ export default function ComboCard({
                     <div className="min-h-[39px] text-[15.5px] font-bold leading-[2.25] text-ink">
                         {c.name}
                     </div>
+                    {c.subtitle && (
+                        <p className="-mt-1 mb-0.5 text-[12.5px] leading-snug text-pine">
+                            {c.subtitle}
+                        </p>
+                    )}
                     {c.suitable_for && (
                         <span
                             className="mt-1.5 self-start rounded-pill px-2.5 py-1 text-[11.5px] font-semibold"

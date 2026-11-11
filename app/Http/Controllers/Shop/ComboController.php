@@ -132,7 +132,13 @@ class ComboController extends Controller
 
         // Qua SeoService::plainText — xem ghi chú ở ProductController (bopcamping-1xja).
         $seoDesc = $this->seo->plainText($combo->description, 155)
-            ?: 'Thuê trọn bộ '.$combo->name.' — tiết kiệm '.$combo->savingsPercent().'% so với thuê lẻ tại BỐP CAMPING.';
+            ?: 'Thuê trọn bộ '.($combo->subtitle ?: $combo->name).' — tiết kiệm '.$combo->savingsPercent().'% so với thuê lẻ tại BỐP CAMPING.';
+
+        // Tên combo là tên thương hiệu ("Relax"), không khớp truy vấn nào. Có phụ đề thì
+        // đưa phụ đề (chứa từ khoá) lên ĐẦU title; chưa có thì giữ cách ghép cũ.
+        $seoTitle = $combo->subtitle
+            ? $combo->subtitle.' — '.$combo->name.' | BỐP CAMPING'
+            : $combo->name.' — Thuê trọn bộ tại BỐP CAMPING';
 
         // Combo chưa có ảnh thì rơi về bìa thương hiệu 1200x630 (bopcamping-marf).
         $seoImage = $shaped['images'][0]['url'] ?? url('/images/og-cover.jpg');
@@ -143,7 +149,7 @@ class ComboController extends Controller
             'reviews' => $this->reviews($approvedReviews),
             'review_summary' => ['count' => $reviewCount, 'avg' => $reviewAvg],
             'seo' => $this->seo->page(
-                $combo->name.' — Thuê trọn bộ tại BỐP CAMPING',
+                $seoTitle,
                 $seoDesc,
                 $seoImage,
                 // Trước đây chi tiết combo chỉ có title/desc, thiếu hẳn Product + Breadcrumb
@@ -420,6 +426,7 @@ class ComboController extends Controller
             'id' => $combo->id,
             'name' => $combo->name,
             'slug' => $combo->slug,
+            'subtitle' => $combo->subtitle,
             'description' => $combo->description,
             'combo_price' => (int) $combo->combo_price,
             'deposit' => (int) ($combo->deposit ?? 0),
