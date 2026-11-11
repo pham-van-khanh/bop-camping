@@ -108,6 +108,13 @@
         </thead>
         <tbody>
           <tr>
+            <td class="feature">Inertia SSR cho trang khách (SEO)</td>
+            <td class="desc">Server render sẵn HTML (h1, nội dung, link nội bộ) cho 12 loại trang công khai trong sitemap; admin/shipper/giỏ/tài khoản không SSR. <b>Mặc định TẮT</b> — chỉ chạy khi trên VPS đã có supervisor <code>bopcamping-ssr</code> và <code>.env</code> đặt <code>INERTIA_SSR_ENABLED=true</code> (runbook mục 5.1). SSR chết/treo thì trang tự rơi về render client sau ≤3s. Tắt khẩn: <code>INERTIA_SSR_ENABLED=false</code> + <code>config:cache</code>, không cần deploy. Kèm sửa <code>MagazineContent</code> (bỏ DOMParser). Không có migration. Đi thẳng production, không qua staging.</td>
+            <td class="branch"><code>feature/inertia-ssr</code></td>
+            <td class="date">11/11/2026</td>
+            <td class="sha"><code>6240f0d</code></td>
+          </tr>
+          <tr>
             <td class="feature">Admin tự tạo đơn</td>
             <td class="desc">Nút <b>+ Tạo đơn</b> ở trang Đơn thuê → <code>/admin/orders/create</code>: admin tạo đơn hộ khách (Zalo/điện thoại/tại shop). Tra SĐT điền sẵn khách cũ, cho phép ngày quá khứ, hết hàng chặn cứng, giá hệ thống tính + giảm tay có lý do. Đơn vào thẳng <i>Đã xác nhận</i>, mail khách nếu có email, không báo đơn mới. Checkout khách dùng chung <code>OrderPlacementService</code>. 1 migration (cột <code>orders.created_by</code>); revert code không gỡ migration. Đi thẳng production, không qua staging.</td>
             <td class="branch"><code>feature/admin-tao-don</code></td>
