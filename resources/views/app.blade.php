@@ -159,7 +159,18 @@
         @routes
         @viteReactRefresh
         @vite(['resources/js/app.tsx', "resources/js/Pages/{$page['component']}.tsx"])
-        @inertiaHead
+        {{-- SSR (bopcamping-zvrx) — thay cho @inertiaHead. Gọi SSR một lần ở đây rồi đặt
+             đúng hai biến mà @inertia bên dưới kiểm, để nó dùng lại kết quả thay vì gọi
+             lần nữa. Head do <Head> của React sinh ra BỎ thẻ <title>: title đã in ở đầu
+             trang từ SeoService (nguồn duy nhất) — để cả hai là có 2 thẻ <title>.
+             Không có SSR (tắt/lỗi/trang admin) → $__inertiaSsrResponse = null, như cũ. --}}
+        @php
+            $__inertiaSsrDispatched = true;
+            $__inertiaSsrResponse = app(\Inertia\Ssr\Gateway::class)->dispatch($page);
+        @endphp
+        @if ($__inertiaSsrResponse)
+            {!! preg_replace('#<title\b[^>]*>.*?</title>#is', '', $__inertiaSsrResponse->head) !!}
+        @endif
     </head>
     <body class="font-sans antialiased">
         @if ($trackingOn && config('services.gtm.id'))

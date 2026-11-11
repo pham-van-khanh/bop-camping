@@ -3,7 +3,7 @@
     "private": true,
     "type": "module",
     "scripts": {
-        "build": "tsc && vite build",
+        "build": "tsc && vite build && vite build --ssr",
         "dev": "vite",
         "lint": "eslint resources/js tests/js --ext .js,.jsx,.ts,.tsx --ignore-path .gitignore",
         "lint:fix": "npm run lint -- --fix",

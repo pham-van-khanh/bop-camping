@@ -364,6 +364,70 @@ sudo supervisorctl status         # phải thấy RUNNING
 
 ---
 
+## Giai đoạn 5.1 — Inertia SSR (cho SEO, từ 11/2026 — bopcamping-zvrx)
+
+Mục đích: HTML gửi về trang khách có sẵn `h1`, nội dung, link nội bộ, nên Google, Bing
+và Cốc Cốc không phải chạy JS mới thấy. Chỉ áp dụng cho các trang trong
+`App\Ssr\PublicPagesGateway::PAGES`; admin, shipper, giỏ và tài khoản không SSR.
+
+**Không bắt buộc.** SSR tắt, chết hay treo thì trang tự rơi về render phía client như
+trước (timeout 1s kết nối, 3s render). Bật theo thứ tự dưới đây: **process chạy trước,
+`.env` bật sau**.
+
+1. Supervisor giữ process SSR sống. Đường dẫn qua symlink `current`, nên lần
+   restart nào cũng nạp release mới:
+
+```bash
+sudo nano /etc/supervisor/conf.d/bopcamping-ssr.conf
+```
+```ini
+[program:bopcamping-ssr]
+command=php /var/www/production/current/artisan inertia:start-ssr
+directory=/var/www/production/current
+; NODE_ENV=production: React render bằng bản production (nhanh hơn bản development)
+environment=INERTIA_SSR_PORT="13714",NODE_ENV="production"
+autostart=true
+autorestart=true
+user=deploy
+numprocs=1
+redirect_stderr=true
+stdout_logfile=/var/www/production/shared/storage/logs/ssr.log
+stopwaitsecs=10
+```
+
+2. Thêm vào `/var/www/production/shared/.env` (dòng đầu là công tắc):
+
+```env
+INERTIA_SSR_ENABLED=true
+INERTIA_SSR_URL=http://127.0.0.1:13714
+INERTIA_SSR_PORT=13714
+```
+
+`inertia:start-ssr` sẽ từ chối chạy nếu `INERTIA_SSR_ENABLED` chưa bật. Vì vậy thứ tự
+thực tế là: sửa `.env` → `php artisan config:cache` trong `current` → khởi động supervisor:
+
+```bash
+cd /var/www/production/current && php artisan config:cache
+sudo supervisorctl reread && sudo supervisorctl update
+sudo supervisorctl status bopcamping-ssr     # phải thấy RUNNING
+php artisan inertia:check-ssr                # "Inertia SSR server is running."
+curl -s https://bopcamping.com/thiet-bi | grep -c '<h1'   # phải ra 1 (trước đây 0)
+```
+
+3. Deploy về sau: `deploy.sh` tự gọi `inertia:stop-ssr` (cờ `SSR_RESTART=true` trong
+   `scripts/environments/production.conf`), rồi supervisor tự bật lại trên release mới.
+
+**Tắt khẩn cấp:** đặt `INERTIA_SSR_ENABLED=false` → `php artisan config:cache` → reload
+PHP-FPM. Trang về render client ngay, không cần deploy.
+
+**Staging dùng chung máy:** phải có program supervisor riêng (`bopcamping-ssr-staging`,
+đường dẫn `/var/www/staging/...`) và **cổng riêng**, ví dụ 13715, đặt cho cả
+`INERTIA_SSR_URL` lẫn `INERTIA_SSR_PORT` trong `.env` staging. Nếu dùng chung cổng,
+deploy staging sẽ tắt nhầm SSR của production. Chỉ bật `SSR_RESTART=true` trong
+`staging.conf` sau khi đã tách cổng.
+
+---
+
 ## Giai đoạn 5.5 — Cron scheduler (BẮT BUỘC cho email nhắc nhận đồ)
 
 > Từ 15/07/2026 (bopcamping-sdy8) app có tác vụ định kỳ: **email nhắc nhận đồ trước 1

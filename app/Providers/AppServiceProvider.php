@@ -2,11 +2,13 @@
 
 namespace App\Providers;
 
+use App\Ssr\PublicPagesGateway;
 use Illuminate\Auth\Events\Login;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Vite;
 use Illuminate\Support\ServiceProvider;
+use Inertia\Ssr\Gateway;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -15,7 +17,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        // SSR chỉ cho trang khách + timeout ngắn (bopcamping-zvrx).
+        $this->app->bind(Gateway::class, PublicPagesGateway::class);
     }
 
     /**

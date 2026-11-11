@@ -21,9 +21,94 @@ type Row =
     | { kind: 'gallery'; imgs: ImgItem[] }
     | { kind: 'text'; html: string };
 
+const VOID_TAGS = new Set([
+    'area',
+    'base',
+    'br',
+    'col',
+    'embed',
+    'hr',
+    'img',
+    'input',
+    'link',
+    'meta',
+    'source',
+    'track',
+    'wbr',
+]);
+
+/** Thẻ mở/đóng; giá trị thuộc tính trong ngoặc kép được phép chứa '>'. */
+const TAG_RE =
+    /<!--[\s\S]*?-->|<(\/?)([a-zA-Z][\w-]*)(?:[^>"']|"[^"]*"|'[^']*')*?(\/?)>/g;
+
+const ENTITIES: Record<string, string> = {
+    amp: '&',
+    lt: '<',
+    gt: '>',
+    quot: '"',
+    apos: "'",
+    nbsp: '\u00a0',
+};
+
+function decodeEntities(s: string): string {
+    return s.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (m, e: string) => {
+        if (e[0] === '#') {
+            const code =
+                e[1] === 'x' || e[1] === 'X'
+                    ? parseInt(e.slice(2), 16)
+                    : parseInt(e.slice(1), 10);
+            return Number.isNaN(code) ? m : String.fromCodePoint(code);
+        }
+        return ENTITIES[e.toLowerCase()] ?? m;
+    });
+}
+
+function attr(tag: string, name: string): string {
+    const m = tag.match(
+        new RegExp(
+            `\\s${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s>]+))`,
+            'i',
+        ),
+    );
+    return m ? decodeEntities(m[1] ?? m[2] ?? m[3] ?? '') : '';
+}
+
+/**
+ * Các phần tử cấp cao nhất (≈ `body.children`), trả nguyên chuỗi HTML của từng cái.
+ *
+ * Tự tách bằng chuỗi thay vì `DOMParser` vì component còn chạy ở SSR (Node, không
+ * có DOM — bopcamping-zvrx). Dùng CHUNG một hàm ở cả server lẫn trình duyệt nên hai
+ * bên ra cùng bố cục, hydrate không lệch. Đầu vào luôn là HTML đã qua HTMLPurifier
+ * (EditorHtml::clean) — thẻ đóng mở đủ, không có script/style.
+ */
+function topLevelElements(html: string): string[] {
+    const out: string[] = [];
+    let depth = 0;
+    let start = 0;
+    for (const m of html.matchAll(TAG_RE)) {
+        const [whole, closing, rawName, selfClosing] = m;
+        if (rawName === undefined) continue; // comment
+        const name = rawName.toLowerCase();
+        const at = m.index ?? 0;
+        if (closing) {
+            if (depth === 0) continue; // thẻ đóng lạc
+            depth -= 1;
+            if (depth === 0) out.push(html.slice(start, at + whole.length));
+            continue;
+        }
+        if (depth === 0) start = at;
+        if (VOID_TAGS.has(name) || selfClosing) {
+            if (depth === 0) out.push(whole);
+            continue;
+        }
+        depth += 1;
+    }
+    if (depth > 0) out.push(html.slice(start)); // thiếu thẻ đóng: giữ phần còn lại
+    return out;
+}
+
 /** Tách HTML editor thành block text / ảnh theo thứ tự soạn. */
-function parseBlocks(html: string): Block[] {
-    const doc = new DOMParser().parseFromString(html, 'text/html');
+export function parseBlocks(html: string): Block[] {
     const blocks: Block[] = [];
     let texts: string[] = [];
     let imgs: ImgItem[] = [];
@@ -40,24 +125,20 @@ function parseBlocks(html: string): Block[] {
         }
     };
 
-    Array.from(doc.body.children).forEach((node) => {
+    topLevelElements(html).forEach((node) => {
         const nodeImgs =
-            node.tagName === 'IMG'
-                ? [node as HTMLImageElement]
-                : Array.from(node.querySelectorAll('img'));
+            node.match(/<img\b(?:[^>"']|"[^"]*"|'[^']*')*>/gi) ?? [];
+        const text = decodeEntities(node.replace(TAG_RE, '')).trim();
         // Node chỉ chứa ảnh (TipTap bọc ảnh trong <p> hoặc để rời) → block ảnh;
         // có chữ → block text (giữ nguyên HTML).
-        if (nodeImgs.length > 0 && (node.textContent ?? '').trim() === '') {
+        if (nodeImgs.length > 0 && text === '') {
             flushTexts();
             nodeImgs.forEach((i) =>
-                imgs.push({
-                    src: i.getAttribute('src') ?? '',
-                    alt: i.getAttribute('alt') ?? '',
-                }),
+                imgs.push({ src: attr(i, 'src'), alt: attr(i, 'alt') }),
             );
         } else {
             flushImgs();
-            texts.push(node.outerHTML);
+            texts.push(node);
         }
     });
     flushTexts();
