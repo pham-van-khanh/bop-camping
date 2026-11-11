@@ -27,7 +27,8 @@ use RuntimeException;
  * Nội dung đi qua EditorHtml::clean ở mutator của Post như mọi đường ghi khác; test
  * PostSeederTest kiểm rằng bộ lọc không làm mất chữ, tiêu đề mục hay link nào.
  *
- * DatabaseSeeder vẫn chỉ gọi seeder này ở local/testing — trên production phải gọi tay
+ * DatabaseSeeder vẫn chỉ gọi seeder này ở local/testing — trên production do deploy.sh gọi
+ * (cờ SEED_POSTS trong scripts/environments/production.conf), hoặc gọi tay
  * bằng lệnh ở trên, có chủ đích.
  */
 class PostSeeder extends Seeder
