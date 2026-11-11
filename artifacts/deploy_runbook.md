@@ -371,54 +371,65 @@ và Cốc Cốc không phải chạy JS mới thấy. Chỉ áp dụng cho các 
 `App\Ssr\PublicPagesGateway::PAGES`; admin, shipper, giỏ và tài khoản không SSR.
 
 **Không bắt buộc.** SSR tắt, chết hay treo thì trang tự rơi về render phía client như
-trước (timeout 1s kết nối, 3s render). Bật theo thứ tự dưới đây: **process chạy trước,
-`.env` bật sau**.
+trước (timeout 1s kết nối, 3s render).
 
-1. Supervisor giữ process SSR sống. Đường dẫn qua symlink `current`, nên lần
-   restart nào cũng nạp release mới:
+> ⚠️ **Chạy bằng user sở hữu code**, tức user deploy mà GitHub Actions SSH vào, không
+> phải user cá nhân. Chạy `php artisan` sai user sẽ báo `Permission denied` ở
+> `bootstrap/cache/config.php`, và config KHÔNG được cache lại (đã gặp thật ngày
+> 11/11/2026). Trong file supervisor, `user=` cũng phải là user đó. Node phải nằm ở
+> đường dẫn hệ thống (`which node` → `/usr/bin/node`), không phải bản nvm trong home.
+
+Chạy nguyên khối dưới đây trên server. Khối này tự lấy đúng user sở hữu code:
 
 ```bash
-sudo nano /etc/supervisor/conf.d/bopcamping-ssr.conf
-```
-```ini
+cd /var/www/production/current
+OWNER=$(stat -c '%U' artisan); echo "User sở hữu code: $OWNER"
+which node && node -v            # phải ra /usr/bin/node, v20.x
+
+# 1) .env: thêm 3 dòng (dòng đầu là công tắc) nếu chưa có
+grep INERTIA_SSR /var/www/production/shared/.env
+#   INERTIA_SSR_ENABLED=true
+#   INERTIA_SSR_URL=http://127.0.0.1:13714
+#   INERTIA_SSR_PORT=13714
+
+# 2) Chương trình supervisor. PHẢI tạo file này, nếu không sẽ báo
+#    "bopcamping-ssr: ERROR (no such process)".
+#    Đường dẫn đi qua symlink `current`, nên lần restart nào cũng nạp release mới.
+#    NODE_ENV=production để React render bằng bản production (nhanh hơn).
+sudo tee /etc/supervisor/conf.d/bopcamping-ssr.conf >/dev/null <<CONF
 [program:bopcamping-ssr]
 command=php /var/www/production/current/artisan inertia:start-ssr
 directory=/var/www/production/current
-; NODE_ENV=production: React render bằng bản production (nhanh hơn bản development)
 environment=INERTIA_SSR_PORT="13714",NODE_ENV="production"
 autostart=true
 autorestart=true
-user=deploy
+user=$OWNER
 numprocs=1
 redirect_stderr=true
 stdout_logfile=/var/www/production/shared/storage/logs/ssr.log
 stopwaitsecs=10
-```
+CONF
 
-2. Thêm vào `/var/www/production/shared/.env` (dòng đầu là công tắc):
+# 3) Cache config BẰNG USER SỞ HỮU CODE rồi reload PHP-FPM để nạp config mới.
+#    Phải làm TRƯỚC khi bật supervisor: inertia:start-ssr từ chối chạy khi SSR chưa bật.
+sudo -u "$OWNER" php artisan config:cache
+sudo systemctl reload php8.3-fpm
 
-```env
-INERTIA_SSR_ENABLED=true
-INERTIA_SSR_URL=http://127.0.0.1:13714
-INERTIA_SSR_PORT=13714
-```
-
-`inertia:start-ssr` sẽ từ chối chạy nếu `INERTIA_SSR_ENABLED` chưa bật. Vì vậy thứ tự
-thực tế là: sửa `.env` → `php artisan config:cache` trong `current` → khởi động supervisor:
-
-```bash
-cd /var/www/production/current && php artisan config:cache
+# 4) Bật process SSR và kiểm tra
 sudo supervisorctl reread && sudo supervisorctl update
-sudo supervisorctl status bopcamping-ssr     # phải thấy RUNNING
-php artisan inertia:check-ssr                # "Inertia SSR server is running."
+sleep 3
+sudo supervisorctl status bopcamping-ssr        # phải thấy RUNNING
+sudo -u "$OWNER" php artisan inertia:check-ssr  # "Inertia SSR server is running."
 curl -s https://bopcamping.com/thiet-bi | grep -c '<h1'   # phải ra 1 (trước đây 0)
 ```
 
-3. Deploy về sau: `deploy.sh` tự gọi `inertia:stop-ssr` (cờ `SSR_RESTART=true` trong
-   `scripts/environments/production.conf`), rồi supervisor tự bật lại trên release mới.
+Nếu `status` không phải RUNNING, xem: `tail -30 /var/www/production/shared/storage/logs/ssr.log`.
 
-**Tắt khẩn cấp:** đặt `INERTIA_SSR_ENABLED=false` → `php artisan config:cache` → reload
-PHP-FPM. Trang về render client ngay, không cần deploy.
+**Deploy về sau:** `deploy.sh` tự gọi `inertia:stop-ssr` (cờ `SSR_RESTART=true` trong
+`scripts/environments/production.conf`), rồi supervisor tự bật lại trên release mới.
+
+**Tắt khẩn cấp:** đặt `INERTIA_SSR_ENABLED=false` → `sudo -u "$OWNER" php artisan config:cache`
+→ `sudo systemctl reload php8.3-fpm`. Trang về render client ngay, không cần deploy.
 
 **Staging dùng chung máy:** phải có program supervisor riêng (`bopcamping-ssr-staging`,
 đường dẫn `/var/www/staging/...`) và **cổng riêng**, ví dụ 13715, đặt cho cả

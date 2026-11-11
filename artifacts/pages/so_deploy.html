@@ -108,8 +108,22 @@
         </thead>
         <tbody>
           <tr>
+            <td class="feature">12 bài Cẩm nang đợt 2</td>
+            <td class="desc">Thêm 12 bài vào <code>cam_nang_posts.json</code> (tăng bạt ×2, ngủ ngon, picnic, nhóm đông, chi phí, mùa lạnh, mùa hè, không để lại rác, cặp đôi, dựng lều, quy trình thuê). <b>Chưa hiện với khách</b>: phải chạy <code>php artisan db:seed --class=PostSeeder --force</code> trên server (chỉ tạo bài chưa có, dạng nháp), rồi chủ shop đọc lại, thêm ảnh bìa, bấm đăng trong admin. Không có migration. Revert code không xoá bài đã seed. Đi thẳng production.</td>
+            <td class="branch"><code>feature/cam-nang-dot-2</code></td>
+            <td class="date">11/11/2026</td>
+            <td class="sha"><code>a30c555</code></td>
+          </tr>
+          <tr>
+            <td class="feature">SEO on-page: danh mục, combo, chính sách</td>
+            <td class="desc">Trang <code>/thiet-bi?cat=…</code> có h1 “Thuê {danh mục}” + đoạn giới thiệu (ô Mô tả của Danh mục; trống thì tự sinh từ số mẫu và giá thấp nhất). Combo thêm ô <b>Phụ đề (cho Google)</b>: hiện dưới tên combo, đứng đầu thẻ title; chưa nhập thì giữ như cũ. h1 trang chính sách bỏ đuôi “— BỐP CAMPING”. 1 migration (cột <code>combos.subtitle</code>); revert code không gỡ migration. Đi thẳng production.</td>
+            <td class="branch"><code>feature/seo-onpage</code></td>
+            <td class="date">11/11/2026</td>
+            <td class="sha"><code>6562f31</code></td>
+          </tr>
+          <tr>
             <td class="feature">Inertia SSR cho trang khách (SEO)</td>
-            <td class="desc">Server render sẵn HTML (h1, nội dung, link nội bộ) cho 12 loại trang công khai trong sitemap; admin/shipper/giỏ/tài khoản không SSR. <b>Mặc định TẮT</b> — chỉ chạy khi trên VPS đã có supervisor <code>bopcamping-ssr</code> và <code>.env</code> đặt <code>INERTIA_SSR_ENABLED=true</code> (runbook mục 5.1). SSR chết/treo thì trang tự rơi về render client sau ≤3s. Tắt khẩn: <code>INERTIA_SSR_ENABLED=false</code> + <code>config:cache</code>, không cần deploy. Kèm sửa <code>MagazineContent</code> (bỏ DOMParser). Không có migration. Đi thẳng production, không qua staging.</td>
+            <td class="desc">Server render sẵn HTML (h1, nội dung, link nội bộ) cho 12 loại trang công khai trong sitemap; admin/shipper/giỏ/tài khoản không SSR. <b>Đã bật trên production 11/11/2026</b> (supervisor <code>bopcamping-ssr</code> + <code>INERTIA_SSR_ENABLED=true</code> trong <code>.env</code>, runbook mục 5.1); staging chưa bật. SSR chết/treo thì trang tự rơi về render client sau ≤3s. Tắt khẩn: <code>INERTIA_SSR_ENABLED=false</code> + <code>config:cache</code>, không cần deploy. Kèm sửa <code>MagazineContent</code> (bỏ DOMParser). Không có migration. Đi thẳng production, không qua staging.</td>
             <td class="branch"><code>feature/inertia-ssr</code></td>
             <td class="date">11/11/2026</td>
             <td class="sha"><code>6240f0d</code></td>
