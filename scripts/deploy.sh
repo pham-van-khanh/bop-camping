@@ -417,6 +417,33 @@ else
 fi
 
 #######################################
+# Restart Inertia SSR (bopcamping-zvrx)
+#######################################
+# The SSR process (`artisan inertia:start-ssr`, kept alive by supervisor from
+# $APP_DIR/current) still holds the OLD release's bundle in memory. Asking it
+# to shut down makes supervisor respawn it from the new `current`. Done only
+# after the health check passed, so a rolled-back deploy leaves SSR untouched.
+#
+# Non-fatal: if SSR is not set up yet (no supervisor program) there is simply
+# nothing listening — pages fall back to client-side rendering on their own.
+# Staging shares this host, so each environment MUST have its own
+# INERTIA_SSR_URL in .env; otherwise this would stop the other one's process.
+
+if [[ "${SSR_RESTART:-false}" == "true" ]]; then
+    log "Restarting Inertia SSR server..."
+
+    cd "$APP_DIR/current"
+
+    if "$PHP_BIN" artisan inertia:stop-ssr; then
+        success "SSR stop signal sent (supervisor respawns it on the new release)."
+    else
+        warning "No SSR server answered — skipping (pages render client-side)."
+    fi
+else
+    log "SSR restart disabled (SSR_RESTART != true), skipping."
+fi
+
+#######################################
 # Cleanup Releases
 #######################################
 

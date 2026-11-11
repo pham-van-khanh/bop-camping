@@ -10,6 +10,11 @@ rỗng. Google có render JS nhưng ở *lượt sau*, còn thẻ `<head>` thì 
 
 > **Hệ quả**: mọi thứ SEO quan trọng phải nằm trong `<head>` do server sinh
 > (`resources/views/app.blade.php`), KHÔNG được để React tự đặt sau khi mount.
+>
+> **Từ 11/2026 có Inertia SSR** (bopcamping-zvrx) cho các trang trong
+> `App\Ssr\PublicPagesGateway::PAGES`: body (h1, nội dung, link) được render sẵn ở
+> server khi `INERTIA_SSR_ENABLED=true`. SSR có thể tắt/chết bất cứ lúc nào (tự rơi về
+> client), nên `<head>` vẫn phải do Blade sinh như trên — SSR chỉ là phần thưởng thêm.
 
 ## Kiến trúc — ai chịu trách nhiệm gì
 
@@ -41,6 +46,11 @@ $this->seo->page(
 - [ ] `image` là URL **tuyệt đối**
 - [ ] `BreadcrumbList` nếu trang nằm trong phân cấp
 - [ ] Thêm URL vào `SitemapController` nếu là trang public muốn index
+- [ ] Thêm tên component vào `App\Ssr\PublicPagesGateway::PAGES` để được SSR
+- [ ] Code render (thân component, `useState`/`useMemo` khởi tạo) KHÔNG đụng `window`,
+      `document`, `localStorage`, `DOMParser`… — Node không có. Đọc trình duyệt thì để
+      trong `useEffect`. Kiểm bằng cách build `vite build --ssr` rồi render thử (xem
+      `tests/js/MagazineContent.test.tsx` cho mẫu chạy `renderToString` không có DOM)
 - [ ] Nếu trang riêng tư → thêm vào `robots.txt`, **đừng** bỏ vào sitemap
 - [ ] Viết test (xem mục Test bên dưới)
 
@@ -100,10 +110,13 @@ Site là SPA nên phải phân biệt hai thứ crawler thấy:
 
 | | Cách đo | Thấy gì |
 |---|---|---|
-| Lượt đầu (HTML thô) | `curl` | `<head>`: meta, OG, JSON-LD, canonical |
+| Lượt đầu (HTML thô) | `curl` | `<head>`: meta, OG, JSON-LD, canonical — và body nếu SSR đang chạy |
 | Lượt render JS | Chrome DevTools, đọc DOM | `h1`, heading, `alt` ảnh, nội dung |
 
-Kiểm `h1` bằng `curl` sẽ luôn ra **0** và tưởng nhầm là lỗi — thực tế React render sau.
+Khi SSR tắt, kiểm `h1` bằng `curl` sẽ ra **0** — không phải lỗi trang, React render sau.
+Khi SSR bật (production sau bopcamping-zvrx), `curl` trang khách phải thấy đúng 1 `h1`;
+ra 0 nghĩa là process SSR chết hoặc component ném lỗi trong Node (xem
+`storage/logs/ssr.log`).
 
 ## Test — SEO hỏng thì nhìn trang vẫn thấy bình thường
 
