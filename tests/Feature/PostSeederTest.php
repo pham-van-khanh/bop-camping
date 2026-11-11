@@ -35,6 +35,9 @@ class PostSeederTest extends TestCase
         '#^/cam-nang/[a-z0-9-]+$#',
         '#^/thue-do-cam-trai/[a-z0-9-]+$#',
         '#^/diem-cam-trai(/[a-z0-9-]+)?$#',
+        // Đợt 2: bài về quy trình thuê, chi phí dẫn sang trang chính sách và tra cứu đơn.
+        '#^/chinh-sach-(thanh-toan|giao-nhan|doi-tra)$#',
+        '#^/tra-cuu$#',
     ];
 
     /** @return array<int, array<string, mixed>> */
@@ -44,11 +47,12 @@ class PostSeederTest extends TestCase
     }
 
     /** @test */
-    public function data_file_has_eight_complete_articles_with_unique_slugs(): void
+    public function data_file_has_complete_articles_with_unique_slugs(): void
     {
         $articles = $this->articles();
 
-        $this->assertCount(8, $articles);
+        // 8 bài đợt 1 (10/2026) + 12 bài đợt 2 (11/2026).
+        $this->assertCount(20, $articles);
         $this->assertSame(count($articles), count(array_unique(array_column($articles, 'slug'))));
 
         foreach ($articles as $a) {
