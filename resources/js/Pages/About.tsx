@@ -1,5 +1,6 @@
 import MagazineContent from '@/Components/site/MagazineContent';
 import SiteLayout from '@/Layouts/SiteLayout';
+import { stripBrandSuffix } from '@/lib/seo';
 import { Link } from '@inertiajs/react';
 import { ReactNode } from 'react';
 
@@ -19,7 +20,7 @@ export default function About({
                 <div className="relative h-[280px] overflow-hidden sm:h-[360px]">
                     <img
                         src={page.cover_url}
-                        alt={page.title}
+                        alt={stripBrandSuffix(page.title)}
                         className="absolute inset-0 h-full w-full object-cover"
                     />
                     <div
@@ -37,7 +38,7 @@ export default function About({
                             className="max-w-[720px] font-extrabold leading-[1.15] tracking-tight text-white"
                             style={{ fontSize: 'clamp(26px,4vw,38px)' }}
                         >
-                            {page.title}
+                            {stripBrandSuffix(page.title)}
                         </h1>
                     </div>
                 </div>
@@ -50,7 +51,7 @@ export default function About({
                         className="max-w-[720px] font-extrabold leading-[1.15] tracking-tight text-ink"
                         style={{ fontSize: 'clamp(26px,4vw,38px)' }}
                     >
-                        {page.title}
+                        {stripBrandSuffix(page.title)}
                     </h1>
                 </div>
             )}

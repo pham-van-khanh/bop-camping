@@ -32,8 +32,23 @@ export function productTitle(name: string): string {
     return `${name.trim()} — Thuê tại ${SEO_BRAND}`;
 }
 
-export function comboTitle(name: string): string {
-    return `${name.trim()} — Thuê trọn bộ tại ${SEO_BRAND}`;
+/** Có phụ đề thì phụ đề (chứa từ khoá) đứng đầu — khớp ComboController::show. */
+export function comboTitle(name: string, subtitle = ''): string {
+    const sub = subtitle.trim();
+    return sub
+        ? `${sub} — ${name.trim()} | ${SEO_BRAND}`
+        : `${name.trim()} — Thuê trọn bộ tại ${SEO_BRAND}`;
+}
+
+/**
+ * Bỏ hậu tố brand ở cuối tiêu đề ("Chính sách bảo mật — BỐP CAMPING" → "Chính sách bảo
+ * mật") để dùng làm h1: brand đã có ở logo và <title>, lặp trong h1 chỉ loãng từ khoá.
+ * Brand nằm GIỮA câu ("Về BỐP CAMPING — …") là nội dung thật, giữ nguyên.
+ */
+export function stripBrandSuffix(title: string): string {
+    const m = title.match(/^(.*\S)\s*[—–\-|]\s*(\S.*)$/su);
+    if (!m || normalize(m[2]) !== normalize(SEO_BRAND)) return title;
+    return m[1];
 }
 
 /** Tiêu đề đã chứa brand chưa (không phân biệt hoa thường/dấu — "Bop Camping" cũng tính). */

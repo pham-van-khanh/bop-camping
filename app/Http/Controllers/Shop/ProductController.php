@@ -296,12 +296,18 @@ class ProductController extends Controller
         if ($activeCategory) {
             $crumbs[] = [$activeCategory->name, url('/thiet-bi').'?cat='.$activeCategory->slug];
         }
+        $categoryIntro = $activeCategory ? $this->categoryIntro($activeCategory) : null;
         $seoProp = $this->seo->page(
             $activeCategory
                 ? 'Thuê '.$activeCategory->name.' tại BỐP CAMPING'
                 : 'Thuê thiết bị cắm trại — Danh sách đồ cho thuê | BỐP CAMPING',
             $activeCategory
-                ? 'Cho thuê '.$activeCategory->name.' theo ngày tại BỐP CAMPING — cọc linh hoạt, trả tiền khi nhận (COD).'
+                // Cùng đoạn giới thiệu đang hiện dưới h1 — một nguồn cho cả trang lẫn meta.
+                // Mô tả admin nhập quá ngắn (vd "Lều 2-8 người, chống nước") thì nối thêm
+                // câu chung cho đủ ~120 ký tự, kẻo Google tự bịa đoạn trích khác.
+                ? (mb_strlen($categoryIntro) >= 110
+                    ? $categoryIntro
+                    : rtrim($categoryIntro, " .\t\n").'. Thuê '.$activeCategory->name.' theo ngày tại BỐP CAMPING, cọc linh hoạt, trả tiền khi nhận (COD).')
                 // Gạch ngang chứ không phải dấu chấm: categoryPhrase() có thể kết thúc
                 // bằng "..." khi còn danh mục chưa liệt kê, nối thêm '.' thành "....".
                 : 'Danh sách thiết bị cắm trại cho thuê: '.$this->seo->categoryPhrase().' — thuê theo ngày, cọc linh hoạt, trả tiền khi nhận (COD).',
@@ -313,6 +319,14 @@ class ProductController extends Controller
             'seo' => $seoProp,
             'products' => $products,
             'categories' => $categories,
+            // Trang danh mục (?cat=) có h1 + đoạn giới thiệu RIÊNG (bopcamping-e91m): trước
+            // đây mọi danh mục dùng chung h1 "Chọn đồ cho chuyến đi", nên với Google các
+            // trang "thuê lều", "thuê tăng bạt"… không nói gì về chính chủ đề của chúng.
+            'category' => $activeCategory ? [
+                'name' => $activeCategory->name,
+                'heading' => 'Thuê '.$activeCategory->name,
+                'intro' => $categoryIntro,
+            ] : null,
             // Vị trí đang mở để render thanh lọc "Thuê tại" (chỉ hiện khi có >1 vị trí).
             'service_locations' => $openLocations->map(fn (ServiceLocation $l) => [
                 'name' => $l->name,
@@ -331,6 +345,29 @@ class ProductController extends Controller
                 'unavailable_count' => $products->where('in_range', false)->count(),
             ] : null,
         ]);
+    }
+
+    /**
+     * Đoạn giới thiệu danh mục: mô tả admin nhập (Danh mục → Mô tả), chưa nhập thì
+     * sinh từ dữ liệu thật — số mẫu đang cho thuê và giá thấp nhất — để không trang
+     * danh mục nào trống phần chữ.
+     */
+    private function categoryIntro(Category $category): string
+    {
+        if (filled($category->description)) {
+            return trim($category->description);
+        }
+
+        $stats = Product::active()->where('category_id', $category->id)
+            ->selectRaw('COUNT(*) as n, MIN(price_per_day) as min_price')
+            ->first();
+
+        $intro = 'Cho thuê '.$category->name.' theo ngày tại BỐP CAMPING';
+        if ($stats && $stats->n > 0) {
+            $intro .= ': '.$stats->n.' mẫu, giá từ '.number_format((int) $stats->min_price, 0, ',', '.').'đ/ngày';
+        }
+
+        return $intro.'. Cọc linh hoạt, trả tiền khi nhận (COD).';
     }
 
     /** GET /thiet-bi/{product} — chi tiết sản phẩm */

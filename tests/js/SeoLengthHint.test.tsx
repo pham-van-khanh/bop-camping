@@ -5,6 +5,7 @@ import {
     plainText,
     productTitle,
     staticPageTitle,
+    stripBrandSuffix,
 } from '@/lib/seo';
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
@@ -25,6 +26,36 @@ describe('ghép title giống server', () => {
     it('combo: "<tên> — Thuê trọn bộ tại BỐP CAMPING"', () => {
         expect(comboTitle('Combo Gia Đình')).toBe(
             'Combo Gia Đình — Thuê trọn bộ tại BỐP CAMPING',
+        );
+    });
+
+    it('combo có phụ đề: phụ đề đứng đầu, tên combo theo sau', () => {
+        expect(comboTitle('Relax', ' Combo cắm trại gia đình 4 người ')).toBe(
+            'Combo cắm trại gia đình 4 người — Relax | BỐP CAMPING',
+        );
+        expect(comboTitle('Relax', '  ')).toBe(
+            'Relax — Thuê trọn bộ tại BỐP CAMPING',
+        );
+    });
+
+    it('h1: bỏ brand ở CUỐI tiêu đề, giữ brand nằm giữa câu', () => {
+        expect(stripBrandSuffix('Chính sách bảo mật — BỐP CAMPING')).toBe(
+            'Chính sách bảo mật',
+        );
+        expect(stripBrandSuffix('Điều khoản sử dụng | Bop Camping')).toBe(
+            'Điều khoản sử dụng',
+        );
+        expect(
+            stripBrandSuffix('Chính sách hủy / đổi / trả — BỐP CAMPING'),
+        ).toBe('Chính sách hủy / đổi / trả');
+        expect(
+            stripBrandSuffix(
+                'Về BỐP CAMPING — thuê đồ dã ngoại sạch, đủ, chuẩn',
+            ),
+        ).toBe('Về BỐP CAMPING — thuê đồ dã ngoại sạch, đủ, chuẩn');
+        expect(stripBrandSuffix('BỐP CAMPING')).toBe('BỐP CAMPING');
+        expect(stripBrandSuffix('Chính sách giao nhận')).toBe(
+            'Chính sách giao nhận',
         );
     });
 

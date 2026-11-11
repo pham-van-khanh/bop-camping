@@ -144,6 +144,7 @@ class CatalogCardPresenter
             'id' => $c->id,
             'name' => $c->name,
             'slug' => $c->slug,
+            'subtitle' => $c->subtitle,
             'combo_price' => (int) $c->combo_price,
             'sum_individual' => $c->sumIndividualPrice(),
             'savings_amount' => $c->savingsAmount(),

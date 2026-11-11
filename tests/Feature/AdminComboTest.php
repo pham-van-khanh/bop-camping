@@ -92,6 +92,27 @@ class AdminComboTest extends TestCase
     }
 
     /** @test */
+    public function admin_can_set_and_clear_combo_subtitle(): void
+    {
+        // bopcamping-e91m — phụ đề chứa từ khoá cho Google.
+        $this->actingAs($this->admin())
+            ->post(route('admin.combos.store'), $this->validPayload(['subtitle' => '  Combo cắm trại gia đình 4 người ']))
+            ->assertSessionHasNoErrors();
+
+        $combo = Combo::firstOrFail();
+        $this->assertSame('Combo cắm trại gia đình 4 người', $combo->subtitle);
+
+        $this->actingAs($this->admin())
+            ->put(route('admin.combos.update', $combo), $this->validPayload(['subtitle' => '']))
+            ->assertSessionHasNoErrors();
+        $this->assertNull($combo->fresh()->subtitle);
+
+        $this->actingAs($this->admin())
+            ->put(route('admin.combos.update', $combo), $this->validPayload(['subtitle' => str_repeat('a', 121)]))
+            ->assertSessionHasErrors('subtitle');
+    }
+
+    /** @test */
     public function admin_can_create_combo_with_items(): void
     {
         $this->actingAs($this->admin())

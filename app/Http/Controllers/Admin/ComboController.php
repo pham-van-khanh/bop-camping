@@ -36,6 +36,7 @@ class ComboController extends Controller
                     'id' => $combo->id,
                     'name' => $combo->name,
                     'slug' => $combo->slug,
+                    'subtitle' => $combo->subtitle,
                     'description' => $combo->description,
                     'combo_price' => $combo->combo_price,
                     'deposit' => $combo->deposit,
@@ -260,6 +261,7 @@ class ComboController extends Controller
     {
         $data = $request->validate([
             'name' => 'required|string|min:2|max:150',
+            'subtitle' => 'nullable|string|max:120',
             'description' => 'nullable|string',
             'combo_price' => 'required|numeric|min:0',
             'deposit' => 'nullable|numeric|min:0',
@@ -318,6 +320,7 @@ class ComboController extends Controller
         return [
             'attributes' => [
                 'name' => $data['name'],
+                'subtitle' => filled($data['subtitle'] ?? null) ? trim($data['subtitle']) : null,
                 'description' => $data['description'] ?? null,
                 'combo_price' => $comboPrice,
                 'deposit' => isset($data['deposit']) ? (int) $data['deposit'] : null,

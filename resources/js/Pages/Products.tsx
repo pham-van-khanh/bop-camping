@@ -10,6 +10,8 @@ type Sort = 'pop' | 'low' | 'high';
 interface Props {
     products: ProductResource[];
     categories: { id: number; name: string; slug: string }[];
+    /** Chỉ có khi đang lọc theo danh mục (?cat=) — h1 + giới thiệu riêng cho SEO. */
+    category?: { name: string; heading: string; intro: string } | null;
     service_locations: { name: string; slug: string }[];
     filters: {
         cat: string;
@@ -41,6 +43,7 @@ const chipHref = (slug: string) =>
 export default function Products({
     products,
     categories,
+    category,
     service_locations,
     filters,
     range_summary,
@@ -112,8 +115,13 @@ export default function Products({
                         className="font-extrabold tracking-tight text-ink"
                         style={{ fontSize: 'clamp(26px,3.4vw,36px)' }}
                     >
-                        Chọn đồ cho chuyến đi
+                        {category?.heading ?? 'Chọn đồ cho chuyến đi'}
                     </h1>
+                    {category?.intro && (
+                        <p className="mt-2 max-w-[760px] whitespace-pre-line text-[14.5px] leading-relaxed text-pine">
+                            {category.intro}
+                        </p>
+                    )}
                 </div>
 
                 {/* Thanh khoảng ngày — nguồn chân lý là URL (?start=&end=), không giữ state riêng. */}

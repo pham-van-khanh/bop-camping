@@ -1,5 +1,6 @@
 import MagazineContent from '@/Components/site/MagazineContent';
 import SiteLayout from '@/Layouts/SiteLayout';
+import { stripBrandSuffix } from '@/lib/seo';
 import { ReactNode } from 'react';
 
 /**
@@ -22,7 +23,7 @@ export default function Policy({
                     className="font-extrabold leading-[1.15] tracking-tight text-ink"
                     style={{ fontSize: 'clamp(24px,3.5vw,34px)' }}
                 >
-                    {page.title}
+                    {stripBrandSuffix(page.title)}
                 </h1>
             </div>
 

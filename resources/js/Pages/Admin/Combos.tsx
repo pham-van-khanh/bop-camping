@@ -36,6 +36,7 @@ type Combo = {
     id: number;
     name: string;
     slug: string;
+    subtitle?: string | null;
     description: string | null;
     combo_price: number;
     deposit: number | null;
@@ -53,6 +54,7 @@ type Combo = {
 
 type ComboFormData = {
     name: string;
+    subtitle: string;
     description: string;
     combo_price: number | '';
     deposit: number | null;
@@ -95,6 +97,7 @@ export default function AdminCombos({
 
     const form = useForm<ComboFormData>({
         name: '',
+        subtitle: '',
         description: '',
         combo_price: '',
         deposit: null,
@@ -162,6 +165,7 @@ export default function AdminCombos({
     const openCreate = () => {
         form.setData({
             name: '',
+            subtitle: '',
             description: '',
             combo_price: '',
             deposit: null,
@@ -182,6 +186,7 @@ export default function AdminCombos({
     const openEdit = (c: Combo) => {
         form.setData({
             name: c.name,
+            subtitle: c.subtitle ?? '',
             description: c.description ?? '',
             combo_price: c.combo_price,
             deposit: c.deposit ?? null,
@@ -511,13 +516,45 @@ export default function AdminCombos({
                                     placeholder="VD: Combo Gia Đình 4 người"
                                     autoFocus
                                 />
-                                <SeoLengthHint
-                                    kind="title"
-                                    value={comboTitle(form.data.name)}
-                                />
                                 {form.errors.name && (
                                     <p className="mt-1 text-[12px] text-[#b3493a]">
                                         {form.errors.name}
+                                    </p>
+                                )}
+                            </div>
+
+                            <div>
+                                <label
+                                    htmlFor="combo-subtitle"
+                                    className="mb-1.5 block text-[13px] font-semibold text-pine"
+                                >
+                                    Phụ đề (cho Google)
+                                </label>
+                                <input
+                                    id="combo-subtitle"
+                                    type="text"
+                                    maxLength={120}
+                                    value={form.data.subtitle}
+                                    onChange={(e) =>
+                                        form.setData('subtitle', e.target.value)
+                                    }
+                                    className="w-full rounded-[10px] border border-cardBorder px-3.5 py-2.5 text-[13.5px] outline-none transition focus:border-grass"
+                                    placeholder="VD: Combo cắm trại gia đình 4 người"
+                                />
+                                <p className="mt-1 text-[12px] leading-[1.5] text-moss">
+                                    Câu mô tả đúng thứ khách hay tìm. Hiện dưới
+                                    tên combo và đứng đầu tiêu đề trên Google.
+                                </p>
+                                <SeoLengthHint
+                                    kind="title"
+                                    value={comboTitle(
+                                        form.data.name,
+                                        form.data.subtitle,
+                                    )}
+                                />
+                                {form.errors.subtitle && (
+                                    <p className="mt-1 text-[12px] text-[#b3493a]">
+                                        {form.errors.subtitle}
                                     </p>
                                 )}
                             </div>
