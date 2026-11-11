@@ -108,8 +108,15 @@
         </thead>
         <tbody>
           <tr>
+            <td class="feature">Deploy tự tạo bài Cẩm nang nháp</td>
+            <td class="desc"><code>deploy.sh</code> chạy <code>PostSeeder</code> sau bước migrate (cờ <code>SEED_POSTS=true</code> trong <code>production.conf</code>): bài mới trong <code>cam_nang_posts.json</code> tự vào admin dạng <b>nháp</b>, không hiện với khách. Chỉ tạo bài chưa có slug; lỗi seeder không chặn deploy. Lưu ý: bản nháp bị xoá trong admin sẽ được tạo lại ở lần deploy sau — muốn bỏ hẳn thì xoá khỏi file JSON. Staging chưa bật.</td>
+            <td class="branch"><code>chore/deploy-seed-cam-nang</code></td>
+            <td class="date">11/11/2026</td>
+            <td class="sha"><code>29dbd7b</code></td>
+          </tr>
+          <tr>
             <td class="feature">12 bài Cẩm nang đợt 2</td>
-            <td class="desc">Thêm 12 bài vào <code>cam_nang_posts.json</code> (tăng bạt ×2, ngủ ngon, picnic, nhóm đông, chi phí, mùa lạnh, mùa hè, không để lại rác, cặp đôi, dựng lều, quy trình thuê). <b>Chưa hiện với khách</b>: phải chạy <code>php artisan db:seed --class=PostSeeder --force</code> trên server (chỉ tạo bài chưa có, dạng nháp), rồi chủ shop đọc lại, thêm ảnh bìa, bấm đăng trong admin. Không có migration. Revert code không xoá bài đã seed. Đi thẳng production.</td>
+            <td class="desc">Thêm 12 bài vào <code>cam_nang_posts.json</code> (tăng bạt ×2, ngủ ngon, picnic, nhóm đông, chi phí, mùa lạnh, mùa hè, không để lại rác, cặp đôi, dựng lều, quy trình thuê). <b>Chưa hiện với khách</b>: bài vào admin dạng nháp (từ <code>29dbd7b</code> deploy tự chạy <code>PostSeeder</code>), chủ shop đọc lại, thêm ảnh bìa, bấm đăng. Không có migration. Revert code không xoá bài đã seed. Đi thẳng production.</td>
             <td class="branch"><code>feature/cam-nang-dot-2</code></td>
             <td class="date">11/11/2026</td>
             <td class="sha"><code>a30c555</code></td>
