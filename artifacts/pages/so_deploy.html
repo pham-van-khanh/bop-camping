@@ -108,6 +108,20 @@
         </thead>
         <tbody>
           <tr>
+            <td class="feature">FAQ riêng cho sản phẩm và combo</td>
+            <td class="desc">Form sản phẩm và form combo trong admin có mục <b>Câu hỏi thường gặp</b> (tối đa 12 cặp hỏi–đáp). Trang chi tiết hiện mục FAQ phía trên phần đánh giá và xuất <code>FAQPage</code> JSON-LD từ đúng các câu đang hiện; chưa nhập câu nào thì không hiện, không xuất schema. 1 migration (cột <code>faqs</code> trên <code>products</code> và <code>combos</code>); revert code không gỡ migration. Đi thẳng production.</td>
+            <td class="branch"><code>feature/faq-san-pham-combo</code></td>
+            <td class="date">12/11/2026</td>
+            <td class="sha"><code>01919ab</code></td>
+          </tr>
+          <tr>
+            <td class="feature">Link mời đánh giá trong đơn admin</td>
+            <td class="desc">Chi tiết đơn <i>đã trả đồ</i> có khối <b>Mời đánh giá</b>: link đánh giá của đơn + nút sao chép lời nhắn / sao chép link để dán vào Zalo. Dành cho đơn không có email (mail mời không tới). Dùng chung token với mail mời. Không có migration. Đi thẳng production.</td>
+            <td class="branch"><code>feature/moi-danh-gia-link</code></td>
+            <td class="date">12/11/2026</td>
+            <td class="sha"><code>dee5ba6</code></td>
+          </tr>
+          <tr>
             <td class="feature">Deploy tự tạo bài Cẩm nang nháp</td>
             <td class="desc"><code>deploy.sh</code> chạy <code>PostSeeder</code> sau bước migrate (cờ <code>SEED_POSTS=true</code> trong <code>production.conf</code>): bài mới trong <code>cam_nang_posts.json</code> tự vào admin dạng <b>nháp</b>, không hiện với khách. Chỉ tạo bài chưa có slug; lỗi seeder không chặn deploy. Lưu ý: bản nháp bị xoá trong admin sẽ được tạo lại ở lần deploy sau — muốn bỏ hẳn thì xoá khỏi file JSON. Staging chưa bật.</td>
             <td class="branch"><code>chore/deploy-seed-cam-nang</code></td>
