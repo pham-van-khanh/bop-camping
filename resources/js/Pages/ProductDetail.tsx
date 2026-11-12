@@ -1,5 +1,6 @@
 import { COMBO_GRAD } from '@/Components/site/ComboCard';
 import DateRangeCalendar from '@/Components/site/DateRangeCalendar';
+import ItemFaq from '@/Components/site/ItemFaq';
 import MagazineContent from '@/Components/site/MagazineContent';
 import PickupReturnNote from '@/Components/site/PickupReturnNote';
 import ProductCard from '@/Components/site/ProductCard';
@@ -1570,6 +1571,9 @@ export default function ProductDetail({
                         <MagazineContent html={product.setup_content} />
                     </section>
                 )}
+
+                {/* FAQ riêng của sản phẩm (bopcamping-0345) — cùng dữ liệu với FAQPage JSON-LD */}
+                <ItemFaq faqs={product.faqs} className="mt-12" />
 
                 {/* 1.5: đánh giá chuyển xuống cuối trang (carousel + form + modal) */}
                 <section className="mt-12">

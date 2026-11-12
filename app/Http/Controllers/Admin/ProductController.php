@@ -10,6 +10,7 @@ use App\Models\Product;
 use App\Models\ProductImage;
 use App\Models\ServiceLocation;
 use App\Services\MediaVariantService;
+use App\Support\FaqRows;
 use App\Support\MediaRef;
 use App\Support\MediaType;
 use App\Support\Slug;
@@ -113,6 +114,7 @@ class ProductController extends Controller
             'slug' => $p->slug,
             'description' => $p->description,
             'specs' => $p->specs ?? [],
+            'faqs' => $p->faqs ?? [],
             'has_setup_content' => $p->setup_content !== null,
             'price_per_day' => $p->price_per_day,
             'quantity' => $p->quantity,
@@ -160,6 +162,7 @@ class ProductController extends Controller
             'buffers.*' => 'integer|min:0|max:30',
             'accessory_ids' => 'sometimes|nullable|array|max:20',
             'accessory_ids.*' => 'integer|distinct|exists:products,id',
+            ...FaqRows::RULES,
             'specs' => 'sometimes|nullable|array|max:30',
             'specs.*.key' => 'required|string|max:100',
             'specs.*.value' => 'required|string|max:500',
@@ -175,6 +178,7 @@ class ProductController extends Controller
             'service_location_ids.required' => 'Vui lòng chọn ít nhất 1 vị trí phục vụ.',
             'service_location_ids.min' => 'Vui lòng chọn ít nhất 1 vị trí phục vụ.',
             'accessory_ids.*.exists' => 'Sản phẩm gợi ý không hợp lệ.',
+            ...FaqRows::MESSAGES,
             'specs.*.key.required' => 'Tên thông số không được bỏ trống.',
             'specs.*.value.required' => 'Giá trị thông số không được bỏ trống.',
             'related_ids.*.exists' => 'Sản phẩm gợi ý không hợp lệ.',
@@ -194,6 +198,7 @@ class ProductController extends Controller
             'slug' => $slug,
             'description' => $data['description'] ?? null,
             'specs' => $this->cleanSpecs($data),
+            'faqs' => FaqRows::clean($data['faqs'] ?? null),
             'price_per_day' => (int) $data['price_per_day'],
             'quantity' => 0, // syncStocks cập nhật = tổng tồn theo store
             'deposit' => isset($data['deposit']) ? (int) $data['deposit'] : null,
@@ -232,6 +237,7 @@ class ProductController extends Controller
             'buffers.*' => 'integer|min:0|max:30',
             'accessory_ids' => 'sometimes|nullable|array|max:20',
             'accessory_ids.*' => 'integer|distinct|exists:products,id',
+            ...FaqRows::RULES,
             'specs' => 'sometimes|nullable|array|max:30',
             'specs.*.key' => 'required|string|max:100',
             'specs.*.value' => 'required|string|max:500',
@@ -247,6 +253,7 @@ class ProductController extends Controller
             'service_location_ids.required' => 'Vui lòng chọn ít nhất 1 vị trí phục vụ.',
             'service_location_ids.min' => 'Vui lòng chọn ít nhất 1 vị trí phục vụ.',
             'accessory_ids.*.exists' => 'Sản phẩm gợi ý không hợp lệ.',
+            ...FaqRows::MESSAGES,
             'specs.*.key.required' => 'Tên thông số không được bỏ trống.',
             'specs.*.value.required' => 'Giá trị thông số không được bỏ trống.',
             'related_ids.*.exists' => 'Sản phẩm gợi ý không hợp lệ.',
@@ -272,6 +279,8 @@ class ProductController extends Controller
             'slug' => $slug,
             'description' => $data['description'] ?? null,
             'specs' => array_key_exists('specs', $data) ? $this->cleanSpecs($data) : $product->specs,
+            // Như specs: form không gửi khoá `faqs` (vd sửa nhanh) thì giữ nguyên.
+            'faqs' => array_key_exists('faqs', $data) ? FaqRows::clean($data['faqs']) : $product->faqs,
             'price_per_day' => (int) $data['price_per_day'],
             'deposit' => isset($data['deposit']) ? (int) $data['deposit'] : null,
             'early_return_discount_pct' => (int) ($data['early_return_discount_pct'] ?? 0),

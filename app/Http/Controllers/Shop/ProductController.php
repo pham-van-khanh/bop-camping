@@ -420,6 +420,8 @@ class ProductController extends Controller
             'product' => array_merge($this->cards->product($p), [
                 'specs' => $p->specs ?? [],
                 'setup_content' => $p->setup_content,
+                // FAQ riêng của sản phẩm — cùng mảng này sinh FAQPage ở 'seo.jsonld' bên dưới.
+                'faqs' => $p->faqs ?? [],
             ]),
             // "You may also like" (Epic 1, 1.6) — admin tự chọn, chỉ sản phẩm đang bán
             'related_products' => $p->related()->where('status', 'active')
@@ -465,14 +467,17 @@ class ProductController extends Controller
                 'image' => $seoImage,
                 'url' => url()->current(),
                 // Mảng nhiều node JSON-LD trong 1 thẻ script (Google chấp nhận): Product + Breadcrumb.
-                'jsonld' => [
+                // array_filter: faqPage() trả null khi sản phẩm chưa có câu hỏi nào → không
+                // xuất FAQPage cho trang không có FAQ (skill seo, cạm bẫy #1).
+                'jsonld' => array_values(array_filter([
                     $this->productJsonLd($p, $seoImage, $seoDesc, $reviewCount, $reviewAvg, $approvedReviews),
                     $this->seo->breadcrumb([
                         ['Trang chủ', url('/')],
                         ['Thuê đồ', url('/thiet-bi')],
                         [$p->name, url()->current()],
                     ]),
-                ],
+                    $this->seo->faqPage($p->faqs ?? []),
+                ])),
             ],
         ]);
     }

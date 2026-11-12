@@ -1,5 +1,7 @@
+import FaqRowsEditor from '@/Components/admin/FaqRowsEditor';
 import MediaGallery from '@/Components/admin/MediaGallery';
 import SeoLengthHint from '@/Components/admin/SeoLengthHint';
+import type { ItemFaqRow } from '@/Components/site/ItemFaq';
 import AdminLayout from '@/Layouts/AdminLayout';
 import ComboLocationPicker, {
     type PickerLocation,
@@ -37,6 +39,7 @@ type Combo = {
     name: string;
     slug: string;
     subtitle?: string | null;
+    faqs?: ItemFaqRow[];
     description: string | null;
     combo_price: number;
     deposit: number | null;
@@ -55,6 +58,7 @@ type Combo = {
 type ComboFormData = {
     name: string;
     subtitle: string;
+    faqs: ItemFaqRow[];
     description: string;
     combo_price: number | '';
     deposit: number | null;
@@ -98,6 +102,7 @@ export default function AdminCombos({
     const form = useForm<ComboFormData>({
         name: '',
         subtitle: '',
+        faqs: [],
         description: '',
         combo_price: '',
         deposit: null,
@@ -166,6 +171,7 @@ export default function AdminCombos({
         form.setData({
             name: '',
             subtitle: '',
+            faqs: [],
             description: '',
             combo_price: '',
             deposit: null,
@@ -187,6 +193,7 @@ export default function AdminCombos({
         form.setData({
             name: c.name,
             subtitle: c.subtitle ?? '',
+            faqs: c.faqs ?? [],
             description: c.description ?? '',
             combo_price: c.combo_price,
             deposit: c.deposit ?? null,
@@ -961,6 +968,19 @@ export default function AdminCombos({
                                 <SeoLengthHint
                                     kind="description"
                                     value={form.data.description}
+                                />
+                            </div>
+
+                            <div>
+                                <div className="mb-1.5 text-[13px] font-semibold text-pine">
+                                    Câu hỏi thường gặp
+                                </div>
+                                <FaqRowsEditor
+                                    rows={form.data.faqs}
+                                    onChange={(rows) =>
+                                        form.setData('faqs', rows)
+                                    }
+                                    errors={form.errors}
                                 />
                             </div>
 

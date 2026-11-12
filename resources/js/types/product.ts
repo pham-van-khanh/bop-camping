@@ -35,6 +35,8 @@ export interface ProductResource {
     unavailable_dates?: string[];
     // Trang chi tiết (Epic 1): thông số key–value + nội dung setup (HTML đã sanitize)
     specs?: { key: string; value: string }[];
+    /** FAQ riêng của sản phẩm — chỉ có ở trang chi tiết. */
+    faqs?: { question: string; answer: string }[];
     setup_content?: string | null;
     // Per-store stock: tồn theo từng cửa hàng phục vụ (trang chi tiết)
     stock_by_location?: {

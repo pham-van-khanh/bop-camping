@@ -124,6 +124,8 @@ class ComboController extends Controller
         $combo = $this->sellable()->where('slug', $slug)->firstOrFail();
 
         $shaped = $this->shape($combo, ServiceLocation::open()->count());
+        // FAQ riêng của combo: chỉ trang chi tiết cần, không chở theo ở danh sách.
+        $shaped['faqs'] = $combo->faqs ?? [];
 
         $reviewCount = $combo->reviews()->where('status', 'approved')->count();
         $reviewAvg = $combo->averageRating();
@@ -154,14 +156,16 @@ class ComboController extends Controller
                 $seoImage,
                 // Trước đây chi tiết combo chỉ có title/desc, thiếu hẳn Product + Breadcrumb
                 // mà chi tiết sản phẩm đã có (bopcamping-u3u3).
-                jsonld: [
+                jsonld: array_values(array_filter([
                     $this->comboJsonLd($combo, $shaped, $seoImage, $seoDesc, $reviewCount, $reviewAvg, $approvedReviews),
                     $this->seo->breadcrumb([
                         ['Trang chủ', url('/')],
                         ['Combo', url('/combos')],
                         [$combo->name, url()->current()],
                     ]),
-                ],
+                    // Chỉ khi combo có FAQ riêng — sinh từ đúng mảng đang hiện trên trang.
+                    $this->seo->faqPage($combo->faqs ?? []),
+                ])),
             ),
         ]);
     }

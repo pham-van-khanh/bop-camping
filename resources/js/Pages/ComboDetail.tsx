@@ -1,5 +1,6 @@
 import { COMBO_GRAD } from '@/Components/site/ComboCard';
 import DateRangeCalendar from '@/Components/site/DateRangeCalendar';
+import ItemFaq, { type ItemFaqRow } from '@/Components/site/ItemFaq';
 import PickupReturnNote from '@/Components/site/PickupReturnNote';
 import ProductReviews, {
     type ReviewItem,
@@ -38,6 +39,7 @@ type ComboData = {
     name: string;
     slug: string;
     subtitle?: string | null;
+    faqs?: ItemFaqRow[];
     description: string | null;
     combo_price: number;
     deposit: number;
@@ -1117,6 +1119,9 @@ export default function ComboDetail({
 
                 {/* Đánh giá combo (bopcamping-saeb) — cuối trang như trang sản phẩm,
                     cùng luật: ai cũng gửi được, admin duyệt rồi mới hiện. */}
+                {/* FAQ riêng của combo (bopcamping-0345) — cùng dữ liệu với FAQPage JSON-LD */}
+                <ItemFaq faqs={combo.faqs} className="mt-12" />
+
                 <section className="mt-12">
                     <div className="mb-1 font-mono text-[12px] font-bold tracking-[0.14em] text-campfire">
                         ĐÁNH GIÁ COMBO
