@@ -18,6 +18,7 @@ class Combo extends Model
     protected $fillable = [
         'name',
         'subtitle',
+        'faqs',
         'slug',
         'description',
         'combo_price',
@@ -29,6 +30,7 @@ class Combo extends Model
     ];
 
     protected $casts = [
+        'faqs' => 'array',
         'combo_price' => 'integer',
         'deposit' => 'integer',
         'early_return_discount_pct' => 'integer',

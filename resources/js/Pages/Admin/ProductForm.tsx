@@ -1,5 +1,7 @@
+import FaqRowsEditor from '@/Components/admin/FaqRowsEditor';
 import MediaGallery from '@/Components/admin/MediaGallery';
 import SeoLengthHint from '@/Components/admin/SeoLengthHint';
+import type { ItemFaqRow } from '@/Components/site/ItemFaq';
 import AdminLayout from '@/Layouts/AdminLayout';
 import { productTitle } from '@/lib/seo';
 import type { PageProps } from '@/types';
@@ -31,6 +33,7 @@ type Product = {
     slug: string;
     description: string | null;
     specs: SpecRow[];
+    faqs?: ItemFaqRow[];
     has_setup_content: boolean;
     price_per_day: number;
     quantity: number;
@@ -53,6 +56,7 @@ type ProductFormData = {
     category_id: number | '';
     description: string;
     specs: SpecRow[];
+    faqs: ItemFaqRow[];
     price_per_day: number | '';
     deposit: number | null;
     // Ưu đãi trả sớm trong ngày % (adr_pricing_models) — 0 = không giảm.
@@ -106,6 +110,7 @@ export default function AdminProductForm({
                   category_id: product.category?.id ?? '',
                   description: product.description ?? '',
                   specs: product.specs ?? [],
+                  faqs: product.faqs ?? [],
                   price_per_day: product.price_per_day,
                   deposit: product.deposit ?? null,
                   early_return_discount_pct:
@@ -123,6 +128,7 @@ export default function AdminProductForm({
                   category_id: categories[0]?.id ?? '',
                   description: '',
                   specs: [],
+                  faqs: [],
                   price_per_day: '',
                   deposit: null,
                   early_return_discount_pct: 0,
@@ -207,6 +213,7 @@ export default function AdminProductForm({
             accessory_ids: data.accessory_ids.length ? data.accessory_ids : '',
             related_ids: data.related_ids.length ? data.related_ids : '',
             specs: data.specs.length ? data.specs : '',
+            faqs: data.faqs.length ? data.faqs : '',
             // Tồn kho: chỉ gửi số của store đã tick.
             stocks: Object.fromEntries(
                 data.service_location_ids.map((id) => [
@@ -759,6 +766,21 @@ export default function AdminProductForm({
                                 errorPrefix="related_ids"
                             />
                         </div>
+                    </div>
+
+                    {/* FAQ riêng của sản phẩm */}
+                    <div className={cardCls}>
+                        <h2 className={sectionTitle}>
+                            Câu hỏi thường gặp{' '}
+                            <span className="ml-1 text-[12px] font-normal text-moss">
+                                (hiện cuối trang sản phẩm)
+                            </span>
+                        </h2>
+                        <FaqRowsEditor
+                            rows={form.data.faqs}
+                            onChange={(rows) => form.setData('faqs', rows)}
+                            errors={form.errors}
+                        />
                     </div>
 
                     {/* Thông số kỹ thuật */}

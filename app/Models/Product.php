@@ -23,6 +23,7 @@ class Product extends Model
         'slug',
         'description',
         'specs',
+        'faqs',
         'setup_content',
         'price_per_day',
         'quantity',
@@ -34,6 +35,7 @@ class Product extends Model
 
     protected $casts = [
         'specs' => 'array',
+        'faqs' => 'array',
         'price_per_day' => 'integer',
         'quantity' => 'integer',
         'deposit' => 'integer',

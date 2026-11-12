@@ -9,6 +9,7 @@ use App\Models\ComboImage;
 use App\Models\ComboItem;
 use App\Models\Product;
 use App\Models\ServiceLocation;
+use App\Support\FaqRows;
 use App\Support\MediaRef;
 use App\Support\MediaType;
 use App\Support\Slug;
@@ -37,6 +38,7 @@ class ComboController extends Controller
                     'name' => $combo->name,
                     'slug' => $combo->slug,
                     'subtitle' => $combo->subtitle,
+                    'faqs' => $combo->faqs ?? [],
                     'description' => $combo->description,
                     'combo_price' => $combo->combo_price,
                     'deposit' => $combo->deposit,
@@ -262,6 +264,7 @@ class ComboController extends Controller
         $data = $request->validate([
             'name' => 'required|string|min:2|max:150',
             'subtitle' => 'nullable|string|max:120',
+            ...FaqRows::RULES,
             'description' => 'nullable|string',
             'combo_price' => 'required|numeric|min:0',
             'deposit' => 'nullable|numeric|min:0',
@@ -321,6 +324,7 @@ class ComboController extends Controller
             'attributes' => [
                 'name' => $data['name'],
                 'subtitle' => filled($data['subtitle'] ?? null) ? trim($data['subtitle']) : null,
+                'faqs' => array_key_exists('faqs', $data) ? FaqRows::clean($data['faqs']) : $ignore?->faqs,
                 'description' => $data['description'] ?? null,
                 'combo_price' => $comboPrice,
                 'deposit' => isset($data['deposit']) ? (int) $data['deposit'] : null,

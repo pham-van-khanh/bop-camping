@@ -113,6 +113,29 @@ class AdminComboTest extends TestCase
     }
 
     /** @test */
+    public function admin_can_set_and_clear_combo_faqs(): void
+    {
+        // bopcamping-0345 — FAQ riêng của combo.
+        $faqs = [['question' => 'Combo cho mấy người?', 'answer' => '4 người.']];
+
+        $this->actingAs($this->admin())
+            ->post(route('admin.combos.store'), $this->validPayload(['faqs' => $faqs]))
+            ->assertSessionHasNoErrors();
+        $combo = Combo::firstOrFail();
+        // assertEquals: MySQL JSON sắp lại thứ tự khoá.
+        $this->assertEquals($faqs, $combo->faqs);
+
+        $this->actingAs($this->admin())
+            ->put(route('admin.combos.update', $combo), $this->validPayload(['faqs' => []]))
+            ->assertSessionHasNoErrors();
+        $this->assertNull($combo->fresh()->faqs);
+
+        $this->actingAs($this->admin())
+            ->put(route('admin.combos.update', $combo), $this->validPayload(['faqs' => [['question' => '', 'answer' => 'x']]]))
+            ->assertSessionHasErrors('faqs.0.question');
+    }
+
+    /** @test */
     public function admin_can_create_combo_with_items(): void
     {
         $this->actingAs($this->admin())
