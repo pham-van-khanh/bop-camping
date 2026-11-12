@@ -137,6 +137,12 @@ export type Order = {
     // Nguồn đơn first-touch (bopcamping-wi6h): label = utm_source → nền tảng theo click id
     // → referrer → "Trực tiếp / không rõ" (AttributionService::label).
     attribution?: OrderAttribution;
+    // Link mời đánh giá — chỉ có ở màn chi tiết của đơn đã trả đồ.
+    review_invite?: {
+        url: string;
+        submitted: boolean;
+        emailed_at: string | null;
+    } | null;
     // Đơn cha/con (bopcamping-wtuv): cha gom N đợt giao; con nằm trong children của cha.
     is_parent: boolean;
     children?: Order[];
@@ -1176,6 +1182,13 @@ export function OrderDetailPanel({
                     <AttributionInfo attribution={order.attribution} />
                 )}
 
+                {order.review_invite && (
+                    <ReviewInviteBox
+                        invite={order.review_invite}
+                        customerName={order.customer_name}
+                    />
+                )}
+
                 {/* Đổi lịch — chỉ đơn chưa giao (bopcamping-5hjm) */}
                 {['pending', 'confirmed'].includes(order.status) && (
                     <>
@@ -1623,6 +1636,84 @@ const CLICK_ID_LABEL: Record<string, string> = {
     fbclid: 'Facebook/Instagram',
     ttclid: 'TikTok',
 };
+
+/**
+ * "Mời đánh giá" — link để dán vào Zalo cho khách. Mail mời chỉ gửi được khi đơn có
+ * email; phần lớn đơn đặt qua Zalo/điện thoại thì không, nên đây là đường duy nhất để
+ * những khách đó để lại đánh giá.
+ */
+export function ReviewInviteBox({
+    invite,
+    customerName,
+}: {
+    invite: NonNullable<Order['review_invite']>;
+    customerName: string;
+}) {
+    const [copied, setCopied] = useState<'link' | 'message' | null>(null);
+    const message = `Chào ${customerName}, cảm ơn bạn đã thuê đồ tại BỐP CAMPING! Bạn dành 1 phút đánh giá chuyến đi giúp shop nhé: ${invite.url}`;
+
+    const copy = async (kind: 'link' | 'message') => {
+        try {
+            await navigator.clipboard.writeText(
+                kind === 'link' ? invite.url : message,
+            );
+            setCopied(kind);
+        } catch {
+            // Trình duyệt chặn clipboard (http, quyền): ô link bên dưới vẫn bôi đen chép tay được.
+            setCopied(null);
+        }
+    };
+
+    return (
+        <>
+            <div className="mb-2 mt-3 text-[12px] font-bold uppercase tracking-[0.04em] text-grass">
+                Mời đánh giá
+            </div>
+            <div className="rounded-[11px] border border-cardBorder bg-white px-3 py-2.5 text-[13px]">
+                {invite.submitted ? (
+                    <p className="font-bold text-grass">
+                        Khách đã gửi đánh giá cho đơn này.
+                    </p>
+                ) : (
+                    <>
+                        <p className="text-[12px] text-moss">
+                            {invite.emailed_at
+                                ? `Đã gửi mail mời ngày ${invite.emailed_at}. Khách chưa đánh giá — nhắn thêm qua Zalo:`
+                                : 'Đơn không có email nên chưa được mời. Gửi link này cho khách qua Zalo:'}
+                        </p>
+                        <input
+                            readOnly
+                            aria-label="Link mời đánh giá"
+                            value={invite.url}
+                            onFocus={(e) => e.currentTarget.select()}
+                            className="mt-1.5 w-full rounded-[8px] border border-cardBorder bg-[#f7f8f3] px-2.5 py-1.5 font-mono text-[12px] text-ink outline-none"
+                        />
+                        <div className="mt-2 flex flex-wrap gap-2">
+                            <button
+                                type="button"
+                                onClick={() => copy('message')}
+                                className="rounded-[9px] bg-grass px-3 py-1.5 text-[12.5px] font-semibold text-white transition hover:opacity-90"
+                            >
+                                {copied === 'message'
+                                    ? 'Đã chép lời nhắn ✓'
+                                    : 'Sao chép lời nhắn'}
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => copy('link')}
+                                className="rounded-[9px] border border-cardBorder px-3 py-1.5 text-[12.5px] font-semibold text-pine transition hover:bg-[#f1f4ea]"
+                            >
+                                {copied === 'link'
+                                    ? 'Đã chép link ✓'
+                                    : 'Chỉ sao chép link'}
+                            </button>
+                        </div>
+                    </>
+                )}
+            </div>
+        </>
+    );
+}
 
 /** "Nguồn" — khách đến từ đâu lần đầu (30 ngày first-touch, bopcamping-wi6h). */
 function AttributionInfo({
