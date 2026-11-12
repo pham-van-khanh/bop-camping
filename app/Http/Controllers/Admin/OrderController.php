@@ -145,6 +145,16 @@ class OrderController extends Controller
             // không hề vẽ QR, nên dựng sẵn hai URL dài cho mỗi đơn (và mỗi đơn con) chỉ là
             // payload chết.
             'payment_qr' => $withQr ? $this->paymentQr->payloadFor($o, forAdmin: true) : null,
+            // Link mời đánh giá để admin dán vào Zalo (bopcamping-tme3). Mail mời chỉ đi
+            // khi đơn có email thật, nên đơn đặt qua Zalo/điện thoại chưa từng được mời.
+            // Chỉ ở màn chi tiết (như QR) và chỉ đơn đã trả đồ, không phải đơn cha: đơn cha
+            // chỉ là vỏ gom các đợt giao, món nằm ở đơn con.
+            'review_invite' => $withQr && $o->status === 'returned' && ! $o->is_parent ? [
+                'url' => route('review.invite', $o->ensureReviewToken()),
+                'submitted' => $o->review_submitted_at !== null,
+                // Đã gửi mail mời chưa — để admin biết có cần nhắn thêm qua Zalo không.
+                'emailed_at' => $o->review_invited_at?->format('d/m/Y'),
+            ] : null,
             'customer_name' => $o->customer_name,
             'customer_phone' => $o->customer_phone,
             'customer_email' => $o->customer_email,
