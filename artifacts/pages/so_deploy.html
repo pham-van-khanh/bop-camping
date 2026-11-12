@@ -108,6 +108,13 @@
         </thead>
         <tbody>
           <tr>
+            <td class="feature">Nhập FAQ soạn sẵn (124 câu)</td>
+            <td class="desc">Migration chạy một lần, điền FAQ cho 11 sản phẩm và 9 combo <b>chưa có câu nào</b> từ <code>item_faqs.json</code> (bản đọc: <code>artifacts/faq_san_pham_combo_2026-11.md</code>). Khách thấy ngay, kèm <code>FAQPage</code>. Không ghi đè nội dung admin đã nhập; sửa/xoá về sau trong admin không bị điền lại. Revert code không gỡ FAQ đã nhập — gỡ bằng <code>migrate:rollback --step=1</code> (chỉ gỡ món còn nguyên bản) hoặc xoá trong admin.</td>
+            <td class="branch"><code>feature/faq-noi-dung</code></td>
+            <td class="date">12/11/2026</td>
+            <td class="sha"><code>439a0a0</code></td>
+          </tr>
+          <tr>
             <td class="feature">FAQ riêng cho sản phẩm và combo</td>
             <td class="desc">Form sản phẩm và form combo trong admin có mục <b>Câu hỏi thường gặp</b> (tối đa 12 cặp hỏi–đáp). Trang chi tiết hiện mục FAQ phía trên phần đánh giá và xuất <code>FAQPage</code> JSON-LD từ đúng các câu đang hiện; chưa nhập câu nào thì không hiện, không xuất schema. 1 migration (cột <code>faqs</code> trên <code>products</code> và <code>combos</code>); revert code không gỡ migration. Đi thẳng production.</td>
             <td class="branch"><code>feature/faq-san-pham-combo</code></td>
