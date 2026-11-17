@@ -29,6 +29,9 @@ export type Sky = {
     /** Nên tránh (nút, link, ô nhập nhỏ) — chỉ lái né. */
     soft?: Rect[];
     perches: Perch[];
+    /** Khung banner đầu trang chủ (`[data-hero-slideshow]`) trong khung nhìn — đom đóm
+     *  chỉ sống trong đây (lib/skyCreatures). Không có = trang không có banner. */
+    banner?: Rect;
 };
 
 type Wing = { main: string; hind: string; edge: string };
@@ -60,7 +63,8 @@ export type Swarm = {
 
 const TAU = Math.PI * 2;
 const SMALL_SCREEN = 640;
-export const COUNT = { desktop: 3, mobile: 2 } as const;
+/** Chủ shop 17/11/2026 (bopcamping-k5og): 6 con; điện thoại 4 cho đỡ chật màn hình. */
+export const COUNT = { desktop: 6, mobile: 4 } as const;
 
 const WINGS: Wing[] = [
     { main: '#f2c230', hind: '#e0a412', edge: '#22281a' },

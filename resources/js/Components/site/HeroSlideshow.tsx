@@ -110,6 +110,7 @@ export default function HeroSlideshow({
 
     return (
         <section
+            data-hero-slideshow
             aria-roledescription="carousel"
             aria-label="Ảnh cắm trại nổi bật"
             onMouseEnter={() => setPaused(true)}
