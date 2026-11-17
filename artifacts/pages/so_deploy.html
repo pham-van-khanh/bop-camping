@@ -108,6 +108,13 @@
         </thead>
         <tbody>
           <tr>
+            <td class="feature">Chim, bướm, đom đóm bay khắp site</td>
+            <td class="desc">Một lớp canvas trong layout trang khách: chim bay theo đàn ở dải trời trên (mờ khi đi ngang khối chữ), bướm né chữ/nút và đậu lên thẻ sản phẩm/combo, đom đóm trôi khắp màn hình. Mọi trang khách, mọi lúc (không còn phân ngày/đêm). Tắt khi người dùng bật "giảm chuyển động", dừng khi tab ẩn. Logic bay lấy từ nhánh cũ <code>feature/hero-creatures</code> (chưa từng merge). Không có migration. Đi thẳng production.</td>
+            <td class="branch"><code>feature/sinh-vat-bay-khap-site</code></td>
+            <td class="date">17/11/2026</td>
+            <td class="sha"><code>b81a2af</code></td>
+          </tr>
+          <tr>
             <td class="feature">Nhập FAQ soạn sẵn (124 câu)</td>
             <td class="desc">Migration chạy một lần, điền FAQ cho 11 sản phẩm và 9 combo <b>chưa có câu nào</b> từ <code>item_faqs.json</code> (bản đọc: <code>artifacts/faq_san_pham_combo_2026-11.md</code>). Khách thấy ngay, kèm <code>FAQPage</code>. Không ghi đè nội dung admin đã nhập; sửa/xoá về sau trong admin không bị điền lại. Revert code không gỡ FAQ đã nhập — gỡ bằng <code>migrate:rollback --step=1</code> (chỉ gỡ món còn nguyên bản) hoặc xoá trong admin.</td>
             <td class="branch"><code>feature/faq-noi-dung</code></td>
