@@ -2,6 +2,7 @@ import FeedbackWidget from '@/Components/site/FeedbackWidget';
 import Footer from '@/Components/site/Footer';
 import Header from '@/Components/site/Header';
 import LoginModal from '@/Components/site/LoginModal';
+import SiteCreatures from '@/Components/site/SiteCreatures';
 import Toast from '@/Components/site/Toast';
 import ZaloFloatButton from '@/Components/site/ZaloFloatButton';
 import { EVENTS, on } from '@/lib/bus';
@@ -43,7 +44,8 @@ export function SeoTitle() {
 }
 
 /**
- * Khung chung mọi trang khách: Header + nội dung + Footer + Toast + Modal đăng nhập.
+ * Khung chung mọi trang khách: Header + nội dung + Footer + Toast + Modal đăng nhập
+ * + chim, bướm, đom đóm bay khắp trang (SiteCreatures).
  * Dùng làm persistent layout của Inertia để giỏ/toast/đăng nhập sống xuyên suốt điều hướng.
  */
 export default function SiteLayout({ children }: { children: ReactNode }) {
@@ -67,6 +69,7 @@ export default function SiteLayout({ children }: { children: ReactNode }) {
             <Header cartCount={count} userName={auth.user?.name} />
             {children}
             <Footer />
+            <SiteCreatures />
             <Toast />
             <LoginModal />
             <ZaloFloatButton />

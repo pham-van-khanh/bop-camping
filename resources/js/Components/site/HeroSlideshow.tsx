@@ -182,9 +182,16 @@ export default function HeroSlideshow({
                 }}
             >
                 <div className="flex w-full flex-col gap-9 lg:flex-row lg:items-center lg:justify-between">
-                    <div className="max-w-[640px]">{children}</div>
+                    {/* data-butterfly-avoid: chim/bướm/đom đóm không bay đè lên chữ đầu trang (bopcamping-ff1y). */}
+                    <div data-butterfly-avoid className="max-w-[640px]">
+                        {children}
+                    </div>
                     {aside && (
-                        <div className="w-full lg:w-[372px] lg:flex-none">
+                        <div
+                            data-butterfly-avoid
+                            data-butterfly-perch
+                            className="w-full lg:w-[372px] lg:flex-none"
+                        >
                             {aside}
                         </div>
                     )}
@@ -203,7 +210,10 @@ export default function HeroSlideshow({
                     mobile nút "Góp ý" ẩn chữ nên rộng 50px → 80px; từ sm chữ hiện, rộng 98px → 128px.
                     Chừa ở mọi bề rộng màn hình để mũi tên không bị nhảy vị trí theo viewport.
                 */}
-                <div className="mx-auto flex max-w-[1400px] items-end justify-between gap-4 px-5 pr-[80px] sm:pr-[128px]">
+                <div
+                    data-butterfly-avoid
+                    className="mx-auto flex max-w-[1400px] items-end justify-between gap-4 px-5 pr-[80px] sm:pr-[128px]"
+                >
                     <div className="flex gap-2 overflow-x-auto pb-0.5">
                         {SLIDES.map((s, i) => {
                             const active = i === index;
