@@ -119,57 +119,87 @@ describe('skyCreatures — chim', () => {
     });
 });
 
-describe('skyCreatures — đom đóm', () => {
-    it('không bao giờ ở trong vùng cấm (khối chữ, ô đang gõ), dù nhiều seed', () => {
+describe('skyCreatures — đom đóm chỉ trên banner trang chủ', () => {
+    // Banner trang chủ chiếm 720px dưới header; khối chữ và panel nằm trong banner.
+    const HOME: Sky = {
+        ...DESKTOP,
+        banner: { x: 0, y: 72, w: 1280, h: 720 },
+    };
+    const local = (sky: Sky) =>
+        sky.avoid.map((r) => ({
+            ...r,
+            x: r.x - sky.banner!.x,
+            y: r.y - sky.banner!.y,
+        }));
+
+    it('trang không có banner: không có con đom đóm nào', () => {
+        const world = createWorld(DESKTOP, seeded(1));
+        run(10, () => {}, world, DESKTOP);
+        expect(world.fireflies).toHaveLength(0);
+    });
+
+    it('có banner: đủ số con, luôn ở trong banner và không bao giờ trong vùng cấm', () => {
         for (const seed of [1, 7, 13, 21]) {
-            const world = createWorld(DESKTOP, seeded(seed));
+            const world = createWorld(HOME, seeded(seed));
+            const avoid = local(HOME);
+            const { w, h } = HOME.banner!;
+            let outside = 0;
+            let inAvoid = 0;
             run(
-                40,
+                30,
                 () => {
                     for (const f of world.fireflies) {
-                        expect(
-                            DESKTOP.avoid.some((r) => insideRect(f, r)),
-                        ).toBe(false);
+                        if (f.x < -5 || f.x > w + 5 || f.y < -5 || f.y > h + 5)
+                            outside++;
+                        if (avoid.some((r) => insideRect(f, r))) inAvoid++;
                     }
                 },
                 world,
-                DESKTOP,
+                HOME,
             );
+            expect(world.fireflies).toHaveLength(COUNTS.fireflies.desktop);
+            expect(outside).toBe(0);
+            expect(inAvoid).toBe(0);
         }
     });
 
-    it('vùng cấm mới mọc ngay chỗ đom đóm (khách bấm vào ô nhập) thì nó ra ngay', () => {
-        const world = createWorld(DESKTOP, seeded(5));
-        const f = world.fireflies[0];
-        const box = { x: f.x - 50, y: f.y - 50, w: 100, h: 100 };
-        const sky = { ...DESKTOP, avoid: [...DESKTOP.avoid, box] };
-        step(world, sky, FRAME, null);
-        expect(insideRect(f, box)).toBe(false);
+    it('cuộn trang: đom đóm trôi theo banner (toạ độ trong banner không nhảy)', () => {
+        const world = createWorld(HOME, seeded(4));
+        step(world, HOME, FRAME, null);
+        const before = world.fireflies.map((f) => ({ x: f.x, y: f.y }));
+        const scrolled: Sky = {
+            ...HOME,
+            banner: { ...HOME.banner!, y: HOME.banner!.y - 400 },
+            avoid: HOME.avoid.map((r) => ({ ...r, y: r.y - 400 })),
+        };
+        step(world, scrolled, FRAME, null);
+        world.fireflies.forEach((f, i) => {
+            expect(Math.abs(f.x - before[i].x)).toBeLessThan(2);
+            expect(Math.abs(f.y - before[i].y)).toBeLessThan(2);
+        });
     });
 
-    it('ở trong màn hình và dưới header', () => {
-        const world = createWorld(DESKTOP, seeded(11));
-        run(
-            60,
-            () => {
-                for (const f of world.fireflies) {
-                    expect(f.x).toBeGreaterThan(-10);
-                    expect(f.x).toBeLessThan(DESKTOP.width + 10);
-                    expect(f.y).toBeGreaterThan(DESKTOP.top - 10);
-                    expect(f.y).toBeLessThan(DESKTOP.height + 10);
-                }
-            },
-            world,
-            DESKTOP,
-        );
+    it('rời trang chủ rồi quay lại: đom đóm vẫn còn, không rải lại từ đầu', () => {
+        const world = createWorld(HOME, seeded(6));
+        run(2, () => {}, world, HOME);
+        const kept = world.fireflies;
+        run(2, () => {}, world, DESKTOP);
+        run(1, () => {}, world, HOME);
+        expect(world.fireflies).toBe(kept);
     });
 
-    it('thu nhỏ cửa sổ: con nằm ngoài khung mới được đưa vào trong', () => {
-        const world = createWorld(DESKTOP, seeded(3));
-        fitWorld(world, MOBILE);
+    it('banner đổi cỡ (xoay máy, thu cửa sổ): vị trí co giãn theo', () => {
+        const world = createWorld(HOME, seeded(3));
+        step(world, HOME, FRAME, null);
+        const small: Sky = {
+            ...MOBILE,
+            banner: { x: 0, y: 60, w: 390, h: 600 },
+        };
+        fitWorld(world, small);
+        step(world, small, FRAME, null);
         for (const f of world.fireflies) {
-            expect(f.x).toBeLessThanOrEqual(MOBILE.width);
-            expect(f.y).toBeLessThanOrEqual(MOBILE.height);
+            expect(f.x).toBeLessThanOrEqual(390 + 5);
+            expect(f.y).toBeLessThanOrEqual(600 + 5);
         }
         expect(world.small).toBe(true);
     });
@@ -182,12 +212,14 @@ describe('skyCreatures — đom đóm', () => {
     });
 
     it('điện thoại ít đom đóm hơn', () => {
-        expect(createWorld(MOBILE, seeded(1)).fireflies).toHaveLength(
-            COUNTS.fireflies.mobile,
+        const phone = createWorld(MOBILE, seeded(1));
+        step(
+            phone,
+            { ...MOBILE, banner: { x: 0, y: 60, w: 390, h: 600 } },
+            FRAME,
+            null,
         );
-        expect(createWorld(DESKTOP, seeded(1)).fireflies).toHaveLength(
-            COUNTS.fireflies.desktop,
-        );
+        expect(phone.fireflies).toHaveLength(COUNTS.fireflies.mobile);
         expect(COUNTS.fireflies.mobile).toBeLessThan(COUNTS.fireflies.desktop);
     });
 });

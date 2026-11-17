@@ -7,23 +7,22 @@ import {
 } from '@/lib/butterflies';
 
 /**
- * Chim và đom đóm bay khắp các trang khách, mọi lúc (bopcamping-ff1y). Bướm ở
- * lib/butterflies; cả ba vẽ chung một canvas — xem SiteCreatures.
+ * Chim bay khắp các trang khách, mọi lúc (bopcamping-ff1y); đom đóm chỉ trên banner
+ * đầu trang chủ (bopcamping-k5og). Bướm ở lib/butterflies; cả ba vẽ chung một canvas
+ * — xem SiteCreatures.
  *
- * Phỏng theo bản trên hero (bopcamping-hus0, chưa từng lên production) nhưng bỏ hẳn
- * chuyện ngày/đêm: chủ shop muốn cả ba loại bay ở mọi trang, mọi lúc.
- *
- * Chỉ có mô phỏng + vẽ, không đụng React — test được bằng rng cố định. Toạ độ là px
- * CSS trong khung nhìn (canvas cố định phủ màn hình), dùng chung `Sky` với bướm.
+ * Chỉ có mô phỏng + vẽ, không đụng React — test được bằng rng cố định. Chim dùng toạ
+ * độ khung nhìn (canvas cố định phủ màn hình). Đom đóm dùng toạ độ TRONG banner (gốc =
+ * góc trên-trái banner), nên cuộn trang thì đom đóm trôi theo banner, khuất theo banner.
  *
  * Luật UX — đừng nới khi sửa:
  * - Chim chỉ bay ngang dải trời phía trên (dưới header), từng đàn nhỏ, tối đa 2 đàn.
  *   Đi ngang khối chữ / panel (`avoid`) thì gần như trong suốt — như bay phía sau,
  *   không đè lên chữ khách đang đọc.
- * - Đom đóm không bao giờ vào vùng `avoid` (khối chữ đầu trang, ô khách đang gõ);
- *   né con trỏ. Ít con (COUNTS), điện thoại ít hơn.
- * - Đom đóm phải nhìn thấy được trên nền be sáng của site, không chỉ trên ảnh tối:
- *   vẽ màu vàng chanh đậm, không dùng chế độ hoà sáng ('lighter') vốn biến mất trên nền sáng.
+ * - Đom đóm chỉ trong banner, không bao giờ vẽ trong vùng `avoid` (khối chữ, panel,
+ *   dải điều khiển của banner); né con trỏ. Trang không có banner thì không có đom đóm.
+ * - Vẽ màu vàng chanh có viền, không dùng chế độ hoà sáng ('lighter') — để vẫn thấy
+ *   được ở mép banner sáng.
  */
 
 export type { Point, Rect, Sky };
@@ -63,14 +62,21 @@ export type World = {
     small: boolean;
     flocks: Flock[];
     nextFlock: number;
+    /** Toạ độ trong banner. Rỗng cho tới khi gặp banner lần đầu. */
     fireflies: Firefly[];
+    /** Cỡ banner lúc rải đom đóm — banner đổi cỡ thì co giãn vị trí theo. */
+    field: { w: number; h: number } | null;
 };
+
+/** Khung bay của đom đóm: banner, toạ độ tính từ góc trên-trái của nó. */
+type Field = { w: number; h: number; avoid: Rect[] };
 
 const TAU = Math.PI * 2;
 const SMALL_SCREEN = 640;
 
 export const COUNTS = {
-    fireflies: { desktop: 10, mobile: 6 },
+    /** Trong banner trang chủ (như bản thiết kế gốc bopcamping-hus0). */
+    fireflies: { desktop: 16, mobile: 9 },
     /** Số đàn chim cùng lúc trên màn hình. */
     flocks: 2,
 } as const;
@@ -84,21 +90,21 @@ export function birdBand(sky: Sky): [number, number] {
     return [sky.top + h * 0.06, sky.top + h * 0.32];
 }
 
-function freeSpot(world: World, sky: Sky): Point {
-    let p: Point = { x: sky.width / 2, y: sky.height / 2 };
+/** Chỗ trống trong banner, tránh vùng cấm. Hết chỗ (banner bị chữ phủ kín) → null. */
+function freeSpot(world: World, field: Field): Point | null {
     for (let i = 0; i < 40; i++) {
-        p = {
-            x: between(world.rng, 20, sky.width - 20),
-            y: between(world.rng, sky.top + 30, sky.height - 20),
+        const p = {
+            x: between(world.rng, 10, field.w - 10),
+            y: between(world.rng, field.h * 0.12, field.h - 10),
         };
-        if (!sky.avoid.some((r) => insideRect(p, r, 14))) break;
+        if (!field.avoid.some((r) => insideRect(p, r, 14))) return p;
     }
-    return p;
+    return null;
 }
 
-function makeFirefly(world: World, sky: Sky): Firefly {
+function makeFirefly(world: World, field: Field): Firefly {
     return {
-        ...freeSpot(world, sky),
+        ...(freeSpot(world, field) ?? { x: field.w / 2, y: field.h * 0.8 }),
         vx: between(world.rng, -8, 8),
         vy: between(world.rng, -8, 8),
         t: between(world.rng, 0, 4),
@@ -108,19 +114,45 @@ function makeFirefly(world: World, sky: Sky): Firefly {
     };
 }
 
+/** Banner đang trên trang → khung bay của đom đóm (vùng cấm đổi sang toạ độ banner). */
+export function bannerField(sky: Sky): Field | null {
+    const b = sky.banner;
+    if (!b || b.w <= 0 || b.h <= 0) return null;
+    return {
+        w: b.w,
+        h: b.h,
+        avoid: sky.avoid.map((r) => ({ ...r, x: r.x - b.x, y: r.y - b.y })),
+    };
+}
+
 export function createWorld(sky: Sky, rng: () => number = Math.random): World {
-    const small = sky.width < SMALL_SCREEN;
-    const world: World = {
+    return {
         rng,
-        small,
+        small: sky.width < SMALL_SCREEN,
         flocks: [],
         // Đàn đầu tiên xuất hiện sớm để khách mở trang là thấy.
         nextFlock: between(rng, 0.6, 1.6),
         fireflies: [],
+        field: null,
     };
-    const n = COUNTS.fireflies[small ? 'mobile' : 'desktop'];
-    world.fireflies = Array.from({ length: n }, () => makeFirefly(world, sky));
-    return world;
+}
+
+/** Gặp banner lần đầu thì rải đom đóm; banner đổi cỡ thì co giãn vị trí theo. */
+function ensureFireflies(world: World, field: Field) {
+    if (!world.field) {
+        const n = COUNTS.fireflies[world.small ? 'mobile' : 'desktop'];
+        world.fireflies = Array.from({ length: n }, () =>
+            makeFirefly(world, field),
+        );
+    } else if (world.field.w !== field.w || world.field.h !== field.h) {
+        const kx = field.w / world.field.w;
+        const ky = field.h / world.field.h;
+        for (const f of world.fireflies) {
+            f.x *= kx;
+            f.y *= ky;
+        }
+    }
+    world.field = { w: field.w, h: field.h };
 }
 
 /* ── Chim: từng đàn nhỏ bay ngang dải trời phía trên ── */
@@ -197,20 +229,20 @@ export function fireflyBrightness(f: Pick<Firefly, 't' | 'on' | 'off'>) {
 
 function stepFireflies(
     world: World,
-    sky: Sky,
+    field: Field,
     dt: number,
     pointer: Point | null,
 ) {
-    const { width: W, height: H, top } = sky;
+    const { w: W, h: H, avoid } = field;
     for (const f of world.fireflies) {
         f.t += dt;
         f.vx += (world.rng() - 0.5) * 40 * dt;
         f.vy += (world.rng() - 0.5) * 40 * dt;
-        if (f.y < top + 20) f.vy += 30 * dt;
+        if (f.y < H * 0.12) f.vy += 30 * dt;
         if (f.y > H - 10) f.vy -= 30 * dt;
         if (f.x < 10) f.vx += 30 * dt;
         if (f.x > W - 10) f.vx -= 30 * dt;
-        for (const r of sky.avoid) {
+        for (const r of avoid) {
             if (!insideRect(f, r, 14)) continue;
             const dx = f.x - (r.x + r.w / 2);
             const dy = f.y - (r.y + r.h / 2);
@@ -234,12 +266,10 @@ function stepFireflies(
             f.vx *= 22 / sp;
             f.vy *= 22 / sp;
         }
-        const nx = f.x + f.vx * dt;
-        const ny = f.y + f.vy * dt;
         // Ràng buộc cứng như bướm: bước nào lọt vào vùng cấm thì bỏ phần đi vào.
-        let x = nx;
-        let y = ny;
-        for (const r of sky.avoid) {
+        let x = f.x + f.vx * dt;
+        let y = f.y + f.vy * dt;
+        for (const r of avoid) {
             if (!insideRect({ x, y }, r) || insideRect(f, r)) continue;
             if (!insideRect({ x, y: f.y }, r)) y = f.y;
             else if (!insideRect({ x: f.x, y }, r)) x = f.x;
@@ -253,13 +283,12 @@ function stepFireflies(
     }
 }
 
-/** Vùng cấm mới xuất hiện ngay chỗ đom đóm đang ở (khách vừa bấm vào ô nhập,
- *  trang vừa đổi) thì cho con đó sang chỗ trống — không để nó kẹt trong vùng cấm. */
-function evictFromAvoid(world: World, sky: Sky) {
+/** Vùng cấm mới đè lên chỗ đom đóm (banner đổi bố cục) thì cho con đó sang chỗ trống. */
+function evictFromAvoid(world: World, field: Field) {
     for (const f of world.fireflies) {
-        if (sky.avoid.some((r) => insideRect(f, r))) {
-            Object.assign(f, freeSpot(world, sky));
-        }
+        if (!field.avoid.some((r) => insideRect(f, r))) continue;
+        const p = freeSpot(world, field);
+        if (p) Object.assign(f, p);
     }
 }
 
@@ -271,18 +300,21 @@ export function step(
 ) {
     const t = Math.min(0.05, Math.max(0, dt));
     stepBirds(world, sky, t);
-    evictFromAvoid(world, sky);
-    stepFireflies(world, sky, t, pointer);
+    const field = bannerField(sky);
+    // Trang không có banner: đom đóm đứng yên chờ (không vẽ), về lại trang chủ bay tiếp.
+    if (!field || !sky.banner) return;
+    ensureFireflies(world, field);
+    evictFromAvoid(world, field);
+    const local = pointer && {
+        x: pointer.x - sky.banner.x,
+        y: pointer.y - sky.banner.y,
+    };
+    stepFireflies(world, field, t, local);
 }
 
-/** Cửa sổ đổi cỡ: đom đóm nằm ngoài khung mới thì đưa về chỗ trống. */
+/** Cửa sổ đổi cỡ: cập nhật điện thoại/máy tính (cỡ banner tự co giãn ở step). */
 export function fitWorld(world: World, sky: Sky) {
     world.small = sky.width < SMALL_SCREEN;
-    for (const f of world.fireflies) {
-        if (f.x < 0 || f.x > sky.width || f.y < sky.top || f.y > sky.height) {
-            Object.assign(f, freeSpot(world, sky));
-        }
-    }
 }
 
 /* ── Vẽ (không xoá canvas — SiteCreatures xoá một lần cho cả ba loại) ── */
@@ -351,5 +383,26 @@ export function draw(ctx: CanvasRenderingContext2D, world: World, sky: Sky) {
             drawBird(ctx, p.x, p.y, b, birdAlpha(p, sky, f.alpha));
         }
     }
-    for (const f of world.fireflies) drawFirefly(ctx, f);
+    drawFireflies(ctx, world, sky);
+}
+
+/** Vẽ đom đóm trong phần banner đang hiện (dưới header), cắt gọn theo mép banner. */
+function drawFireflies(ctx: CanvasRenderingContext2D, world: World, sky: Sky) {
+    const field = bannerField(sky);
+    const b = sky.banner;
+    if (!field || !b || world.fireflies.length === 0) return;
+    const top = Math.max(b.y, sky.top);
+    const bottom = Math.min(b.y + b.h, sky.height);
+    if (bottom <= top) return;
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(b.x, top, b.w, bottom - top);
+    ctx.clip();
+    ctx.translate(b.x, b.y);
+    for (const f of world.fireflies) {
+        // Phòng hờ: banner bị chữ phủ kín, đom đóm không có chỗ trống → không vẽ đè chữ.
+        if (field.avoid.some((r) => insideRect(f, r))) continue;
+        drawFirefly(ctx, f);
+    }
+    ctx.restore();
 }

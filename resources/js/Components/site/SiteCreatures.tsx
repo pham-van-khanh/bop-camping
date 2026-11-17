@@ -18,7 +18,8 @@ import {
 import { useEffect, useRef, useState } from 'react';
 
 /**
- * Chim, bướm và đom đóm bay khắp các trang khách, mọi lúc (bopcamping-ff1y).
+ * Chim và bướm bay khắp các trang khách, mọi lúc (bopcamping-ff1y); đom đóm chỉ trên
+ * banner trang chủ (bopcamping-k5og).
  * Logic bay: lib/butterflies (bướm) và lib/skyCreatures (chim, đom đóm).
  *
  * Một canvas cố định phủ màn hình, nằm TRÊN nội dung nhưng DƯỚI header (z-50), menu
@@ -28,7 +29,8 @@ import { useEffect, useRef, useState } from 'react';
  * - Né hẳn: khối có `data-butterfly-avoid` đang trên màn hình + ô khách đang gõ.
  * - Bướm lượn tránh nút, link, ô nhập nhỏ; đậu lên mép trên khối `data-butterfly-perch`
  *   (thẻ sản phẩm, combo, panel đầu trang).
- * - Chim bay ngang dải trời phía trên; đom đóm trôi khắp màn hình, né con trỏ.
+ * - Chim bay ngang dải trời phía trên. Đom đóm chỉ trong banner đầu trang chủ
+ *   (`data-hero-slideshow`), trôi theo banner khi cuộn.
  * - Ngoại lệ duy nhất cho "mọi lúc": khách bật "giảm chuyển động" trong hệ điều hành
  *   thì không vẽ gì (người dễ chóng mặt / động kinh). Tab ẩn thì tạm dừng cho đỡ pin.
  * - Bật SAU khi mount: trên server (SSR) không có window, nếu bật ngay từ đầu thì HTML
@@ -116,7 +118,15 @@ function measureSky(): Sky {
             if (x1 - x0 < 40) return;
             perches.push({ id: perchId(el), y: r.top, x0, x1 });
         });
-    return { width: W, height: H, top, avoid, perches };
+    // Banner đầu trang chủ — đom đóm chỉ sống trong đây (bopcamping-k5og).
+    const hero = document
+        .querySelector('[data-hero-slideshow]')
+        ?.getBoundingClientRect();
+    const banner =
+        hero && hero.width > 0 && hero.height > 0
+            ? { x: hero.left, y: hero.top, w: hero.width, h: hero.height }
+            : undefined;
+    return { width: W, height: H, top, avoid, perches, banner };
 }
 
 /** Nút / link / ô nhập nhỏ đang trên màn hình. Đọc cả trang nên chỉ đo mỗi nửa giây;
